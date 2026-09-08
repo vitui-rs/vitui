@@ -1,4 +1,4 @@
-//! **Every memo in this crate, as a value** — ADR 0030's rule with a population it can be false on.
+//! **Every memo in this crate, as a value** — the rule with a population it can be false on.
 //!
 //! > A memo carries the theme in its key **iff its value is made of paints or glyphs**, and the key
 //! > is the theme's own `Revision` and never an enumeration of the axes.
@@ -11,7 +11,7 @@
 //!
 //! Components ticket 41 states the criterion as *a gate enumerates them from `INVENTORY` rather
 //! than from a grep*, and the two halves are not the same instrument. A grep answers **where the
-//! word `Memo` appears**; the join answers **which of the twenty-nine rows of spec §17's freeze
+//! word `Memo` appears**; the join answers **which of the twenty-nine rows of the freeze
 //! keeps a value between frames**, which is the question the rule is about. [`MEMOS`] is that
 //! reading and [`held_by`] is the join.
 //!
@@ -24,7 +24,7 @@
 //! **Not one shipped memo in this crate holds paints or glyphs.** The three are a sub-cell bit
 //! grid, an axis domain and a wrap index — offsets, bits and floats — and every cluster and every
 //! paint on every panel is derived from the theme the frame carries, on the frame that draws it.
-//! ADR 0030's rule is therefore satisfied by there being nothing subject to it, which is
+//! The rule is therefore satisfied by there being nothing subject to it, which is
 //! `Verdict::of`'s vacuity failure in the shape this map keeps meeting: *an equality between two
 //! things that do not exist holds*.
 //!

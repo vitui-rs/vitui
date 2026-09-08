@@ -29,7 +29,7 @@
 //!
 //! # The offset belongs to neither side, and there are five spellings
 //!
-//! [`Offset`] is §15's table as an enum, on a 4 000-row file, an 800-row file and a 74-row
+//! [`Offset`] is the table as an enum, on a 4 000-row file, an 800-row file and a 74-row
 //! viewport. Four of the five are defects and each is a **different** one — that is the whole
 //! reason the row is a table and not a sentence — and the fifth, the per-file map, is right in both
 //! directions and refused on release: [`map_bytes`] against [`SLOT_BYTES`].
@@ -39,16 +39,16 @@
 //! [`Task::take`] is **destructive**: a landing is taken once. A view that asks for it wherever it
 //! happens to need it therefore hands the *first* caller the answer and the second `None`, on the
 //! same frame, with no thread having done anything at all. [`Taken`] is that axis and
-//! [`torn`] is the count — R18 §7's unenforced ordering as **20 torn frames of 20** against **0**,
+//! [`torn`] is the count — R18 the unenforced ordering as **20 torn frames of 20** against **0**,
 //! with a status row on each side of the pane and the tear read back off the drawn surface.
 //!
-//! # The screen partitions and §15's headline number does not
+//! # The screen partitions and the headline number does not
 //!
 //! §15 prices the unclamped offset at *1 650 writes against 4 166*, and a screen that writes every
-//! cell of its rectangle — §2's rule, which every component in this crate obeys — writes
+//! cell of its rectangle — the rule, which every component in this crate obeys — writes
 //! [`CELLS`] either way. So this screen reports **two** numbers: [`Shape::writes`], which is 24 000
 //! on every arm because the partition holds, and [`Drawn::content_writes`], which is the body's own
-//! document cells and is **0** when the body draws nothing at all. §15's pair is printed
+//! document cells and is **0** when the body draws nothing at all. The pair is printed
 //! beside them rather than engineered into them, and one thing is read *out* of it: 4 166 − 1 650 is
 //! **2 516 = 74 × 34**, so the prototype's document was 34 columns wide, which is where
 //! [`LINE_COLUMNS`] comes from.
@@ -74,7 +74,7 @@ use crate::runner::{Canvas, Pen};
 
 // ── the screen ───────────────────────────────────────────────────────────────────────────────────
 
-/// The screen's width. §20's full-screen class, and the width §15's 61.0% is a percentage of.
+/// The screen's width. The full-screen class, and the width the 61.0% is a percentage of.
 pub const W: u16 = 300;
 
 /// The screen's height.
@@ -83,14 +83,14 @@ pub const H: u16 = 80;
 /// How many cells that is.
 pub const CELLS: u32 = W as u32 * H as u32;
 
-/// **The preview body's width.** §15's own: `198 x 74 = 14 652 cells, 61.0% of the screen`.
+/// **The preview body's width.** The original's: `198 x 74 = 14 652 cells, 61.0% of the screen`.
 ///
 /// It is the pane's **viewport** and not the pane's rectangle — see [`PANE_W`], which is the
 /// finding underneath: a preview pane is a positive case for bars-reserved, so it costs one gutter
-/// on each axis, and §15's 198 x 74 is what is left after them.
+/// on each axis, and the 198 x 74 is what is left after them.
 pub const BODY_W: u16 = 198;
 
-/// The preview body's height, which is also the viewport §15's offset table is written against.
+/// The preview body's height, which is also the viewport the offset table is written against.
 pub const BODY_H: u16 = 74;
 
 /// How many cells the body is. **14 652**, and [`body_percent`] is what §15 states beside it.
@@ -115,10 +115,10 @@ pub const LIST_W: u16 = W - PANE_W - 1;
 pub const CHROME_ROWS: u16 = 3;
 
 /// How many sit below it: a rule and the bottom status. A status row on **each** side of the pane
-/// is §15's own arrangement for the torn-frame case, and it is what [`torn`] reads back.
+/// is the arrangement for the torn-frame case, and it is what [`torn`] reads back.
 pub const FOOT_ROWS: u16 = 2;
 
-/// **The document's line width, read out of §15's own pair.**
+/// **The document's line width, read out of the pair.**
 ///
 /// §15 prices the unclamped offset at *1 650 writes against 4 166*. The difference is the body's own
 /// content — **2 516** — and 2 516 is **74 × 34** exactly, over a 74-row viewport. So the
@@ -126,11 +126,11 @@ pub const FOOT_ROWS: u16 = 2;
 /// rather than chosen, which is the difference between reproducing a figure and engineering one.
 pub const LINE_COLUMNS: u16 = 34;
 
-/// What §15's *the body draws nothing at all* is, as this screen's own counter: 74 rows of
+/// What *the body draws nothing at all* is, as this screen's own counter: 74 rows of
 /// [`LINE_COLUMNS`].
 pub const CONTENT_WRITES: u64 = BODY_H as u64 * LINE_COLUMNS as u64;
 
-/// §15's own pair for the same fact, on a screen that did not partition its rectangle.
+/// The pair for the same fact, on a screen that did not partition its rectangle.
 pub const SECTION_15_WRITES: [u64; 2] = [1_650, 4_166];
 
 /// The whole screen.
@@ -161,7 +161,7 @@ pub fn pane_area() -> Rect {
 }
 
 /// **The preview body's rectangle**, which is the viewport the pane hands its line drawer: 198 x 74,
-/// §15's own. [`pane_area`] less one reserved gutter on each axis.
+/// the original's. [`pane_area`] less one reserved gutter on each axis.
 pub fn body_area() -> Rect {
     Rect::new(
         i32::from(LIST_W) + 1,
@@ -190,7 +190,7 @@ pub fn body_percent() -> f64 {
 
 /// **What the pane names its question with.**
 ///
-/// The whole of §10's memo-key rule, arriving through the one door where the natural spelling is the
+/// The whole of the memo-key rule, arriving through the one door where the natural spelling is the
 /// wrong one: a pane's question is a *file* and a cursor is a *position*.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Key {
@@ -200,7 +200,7 @@ pub enum Key {
     Identity,
 }
 
-/// **Where the offset goes when the selection changes.** §15's five-row table.
+/// **Where the offset goes when the selection changes.** The five-row table.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Offset {
     /// Left where it was, and not clamped. **The body draws nothing at all**, because a landing
@@ -229,7 +229,7 @@ impl Offset {
         Offset::PerFileMap,
     ];
 
-    /// The name §15's table gives it.
+    /// The name the table gives it.
     pub const fn name(self) -> &'static str {
         match self {
             Offset::Unclamped => "unclamped",
@@ -241,12 +241,12 @@ impl Offset {
     }
 }
 
-/// **Where the landing is taken.** R18 §7's unenforced ordering, as an axis.
+/// **Where the landing is taken.** R18 the unenforced ordering, as an axis.
 ///
 /// It is [`crate::files::Taken`] and not a second enum of the same name: this crate's own rule is
 /// that two types with one name make every mismatch read *expected `Taken`, found `Taken`*, and the
 /// scene's axis and the component's field are the same fact. `crate::preview::Offset` **is** the
-/// scene's own, because §15's five spellings are not the component's four — one of them is on the
+/// scene's own, because the five spellings are not the component's four — one of them is on the
 /// extent axis and one is a structure.
 pub use crate::files::{Bump, Taken};
 
@@ -343,7 +343,7 @@ pub enum Kind {
     #[default]
     Text,
     /// A photograph, as wide as the body and one [`Theme::custom`](vitui_runtime::Theme::custom) a
-    /// cell. §15's *one `Theme::custom` per cell of the pane*.
+    /// cell. *one `Theme::custom` per cell of the pane*.
     Photograph,
 }
 
@@ -365,7 +365,7 @@ pub struct File {
     pub kind: Kind,
 }
 
-/// How many files the two 200-file scenes list. §21's own count for both.
+/// How many files the two 200-file scenes list. The count for both.
 pub const FILES: usize = 200;
 
 /// **Where the cursor sits.** Not one of [`FIXED`], because a re-sort that left the cursor's own
@@ -432,7 +432,7 @@ pub fn listing(order: Order) -> Vec<File> {
     files
 }
 
-/// **How many positions hold a different file in `b` than in `a`.** §21's *197 of 200*.
+/// **How many positions hold a different file in `b` than in `a`.** *197 of 200*.
 ///
 /// # Panics
 ///
@@ -464,7 +464,7 @@ pub struct Doc {
 ///
 /// The identity is the eight bytes §15 puts on the payload, and the equality against it is the
 /// pane's — [`PaneState::land`] drops an answer that fails it without a cell written. The extent is
-/// §9's precondition as a field of the answer, which is what makes a preview pane a positive case
+/// the precondition as a field of the answer, which is what makes a preview pane a positive case
 /// for bars-reserved.
 impl Preview for Doc {
     fn shows(&self) -> u64 {
@@ -499,7 +499,7 @@ impl Doc {
     }
 }
 
-/// The 4 000-row file §15's offset table is written against.
+/// The 4 000-row file the offset table is written against.
 pub fn long_file() -> File {
     File {
         id: 0xA1,
@@ -524,7 +524,7 @@ pub fn short_file() -> File {
 /// The long file's last page. **3 926**, and what a user who pressed `End` is looking at.
 pub const LONG_LAST_PAGE: u32 = 4_000 - BODY_H as u32;
 
-/// The short file's last page. **726**, which is §15's own number for *clamped and kept*.
+/// The short file's last page. **726**, which is the number for *clamped and kept*.
 pub const SHORT_LAST_PAGE: u32 = 800 - BODY_H as u32;
 
 // ── one frame ────────────────────────────────────────────────────────────────────────────────────
@@ -536,7 +536,7 @@ pub struct Drawn {
     /// body draws nothing at all.
     pub content_writes: u64,
     /// **[`Theme::custom`](vitui_runtime::Theme::custom) calls.** Zero for a text document and one a
-    /// cell for a photograph — §15's *one per cell of the pane*.
+    /// cell for a photograph — *one per cell of the pane*.
     pub customs: u64,
     /// How many document rows the body drew.
     pub body_rows: u32,
@@ -567,7 +567,7 @@ fn status(showing: Option<&str>) -> String {
 
 // ── the pane ─────────────────────────────────────────────────────────────────────────────────────
 
-/// **Which pane the screen is holding**, because one of §15's five offset spellings is a
+/// **Which pane the screen is holding**, because one of the five offset spellings is a
 /// *structure* and not a field.
 ///
 /// Four of the five are [`crate::files::PaneShape`] with one field changed; the per-file map is
@@ -615,7 +615,7 @@ impl Pane {
 
 /// **The four axes of a [`Build`], as the shape the component is spelled with.**
 ///
-/// The mapping is where §15's table stops being five rows on one axis. Four of the spellings move
+/// The mapping is where the table stops being five rows on one axis. Four of the spellings move
 /// [`Reset`]; *unclamped* moves [`Extent`] instead, and the reason is measured rather than argued —
 /// [`crate::scroll::scroll_area`] clamps against the extent it is handed on **every** frame, so an
 /// offset cannot be left unclamped at all. The only way to *the body draws nothing* is a **stale
@@ -644,7 +644,7 @@ fn shape_of(build: Build) -> PaneShape {
 /// thread contributes to it is that order.* Every count on this screen is a count over a schedule
 /// the caller wrote down.
 ///
-/// **The worker, the task and the pane's storage are all the screen's**, which is §15's second
+/// **The worker, the task and the pane's storage are all the screen's**, which is the second
 /// refusal as an arrangement: a job's lifetime is the question's, a memo's is the data's, and
 /// neither is the widget's. [`sweeps`] is what that costs when it is got wrong.
 pub struct Screen {
@@ -654,7 +654,7 @@ pub struct Screen {
     worker: Worker,
     task: Task<Doc>,
     pane: Pane,
-    /// A memo over the document, standing in for §15's highlighter: it re-folds the whole file, and
+    /// A memo over the document, standing in for the highlighter: it re-folds the whole file, and
     /// what it keys on is [`PaneState::revision`].
     ///
     /// [`crate::order::Keyed`] and not [`vitui_runtime::data::Memo`], which is this crate's own
@@ -739,12 +739,12 @@ impl Screen {
         self.pane.state().landings()
     }
 
-    /// **How many times the highlighter re-folded the whole file.** §15's *119 against 20*.
+    /// **How many times the highlighter re-folded the whole file.** *119 against 20*.
     pub fn recomputes(&self) -> u32 {
         self.highlighter.recomputes
     }
 
-    /// **Decode units that ran while the app thread was inside its frame.** §15's requirement 9, as
+    /// **Decode units that ran while the app thread was inside its frame.** The requirement 9, as
     /// a count — and the name is the measurement rather than a paraphrase of it.
     ///
     /// # It is not *on the app thread*, and the difference is the instrument's
@@ -1098,7 +1098,7 @@ thread_local! {
     /// **How many units of decode have run on *this* thread.**
     ///
     /// Thread-local and not global, and that is the measurement rather than an implementation
-    /// detail: §15's requirement 9 is *0 decode units **on the app thread***, so the counter has to
+    /// detail: the requirement 9 is *0 decode units **on the app thread***, so the counter has to
     /// be one the app thread can read about itself. A job holds no reference to the task that
     /// started it — which is `!Sync`, and the whole of what
     /// [`crate::files::WhyTheAutoTraitIsSync`] is about — so under a hired worker its units accrue
@@ -1124,7 +1124,7 @@ pub struct Shape {
     /// Cells written, from the engine's own column reports. **[`CELLS`]**: the screen partitions its
     /// rectangle.
     pub writes: u64,
-    /// Distinct cells touched. Equal to [`Shape::writes`], which is §2's *no cell twice*.
+    /// Distinct cells touched. Equal to [`Shape::writes`], which is *no cell twice*.
     pub distinct: u64,
     /// Drawing verbs.
     pub verbs: u64,
@@ -1164,7 +1164,7 @@ pub fn shape(build: Build) -> Shape {
 /// **What the screen costs on the frame after a landing that shrank the document**, which is the
 /// only frame the unclamped spelling is visible on.
 ///
-/// [`shape`] plays one file and one landing, so every spelling is identical there — §15's defect is
+/// [`shape`] plays one file and one landing, so every spelling is identical there — the defect is
 /// a **shrink**, from another thread for the first time. This plays the long file, scrolls it to its
 /// last page, selects the short one, and measures the frame the short one arrives on.
 pub fn shape_after_the_shrink(spelling: Offset) -> Shape {
@@ -1189,9 +1189,9 @@ pub fn shape_after_the_shrink(spelling: Offset) -> Shape {
     }
 }
 
-/// **§20's nine counters over one steady frame, with the one this crate cannot read saying so.**
+/// **The nine counters over one steady frame, with the one this crate cannot read saying so.**
 ///
-/// `marked` is the engine's alone — `crate::counters`'s own barrier — so §15's *0 marked on a steady
+/// `marked` is the engine's alone — `crate::counters`'s own barrier — so *0 marked on a steady
 /// frame* is **recorded as unreachable and not printed as a zero**: a figure defaulted to zero is a
 /// counter that prints `0` when it means nobody counted. `allocations` is handed in, because the
 /// counting allocator lives in the test binaries; see [`Alone`] and `tests/budget.rs`.
@@ -1219,7 +1219,7 @@ pub fn render(build: Build) -> Canvas {
 
 // ── scene 25: a re-sort under a preview pane ─────────────────────────────────────────────────────
 
-/// How many frames the re-sort scene counts after the sort. §21's *wrong on 100 of 100 frames*.
+/// How many frames the re-sort scene counts after the sort. *wrong on 100 of 100 frames*.
 pub const WINDOW: u32 = 100;
 
 /// How many frames it plays in all. Three before the window: the question, the answer, and the frame
@@ -1287,7 +1287,7 @@ pub fn resort(build: Build) -> Resort {
 /// start, which is what makes *wrong after 7 of 7* seven and not six.
 pub const SEED: usize = 32;
 
-/// How many batches follow it. §21's seven.
+/// How many batches follow it. The seven.
 pub const BATCHES: usize = 7;
 
 /// How many files each batch brings. `SEED + BATCHES * BATCH == FILES`.
@@ -1308,7 +1308,7 @@ pub struct Batches {
     pub wrong_after: usize,
     /// Frames on which the body showed a file that is not the cursor's.
     pub wrong_frames: u32,
-    /// **The longest run of them.** §15's *wrong for exactly 1 frame, the decode's latency* is a
+    /// **The longest run of them.** *wrong for exactly 1 frame, the decode's latency* is a
     /// statement about a run and not about a total: seven batches each cost their own latency
     /// frame, so a total of one would need six of the seven not to move the cursor's file.
     pub longest_wrong_run: u32,
@@ -1383,16 +1383,16 @@ pub fn batches(build: Build) -> Batches {
 
 // ── scene 23: twenty selections through a directory of photographs ───────────────────────────────
 
-/// How many selections the photograph scene plays. §21's twenty.
+/// How many selections the photograph scene plays. The twenty.
 pub const SELECTIONS: usize = 20;
 
-/// **What a picture costs on the wire**, in bytes: [`BODY_CELLS`] at §14's stated **37.5 B/cell**.
+/// **What a picture costs on the wire**, in bytes: [`BODY_CELLS`] at the stated **37.5 B/cell**.
 ///
 /// It is arithmetic and not a measurement, and it stays arithmetic. What row 161 measures since
 /// runtime architecture issue 34 is one screen's bytes through one engine; this figure is a *price
 /// list* over a count — how many pictures were drawn, times a B/cell — and multiplying by a
 /// measurement taken on the picture screen would make this scene's number a fact about that one.
-/// **§14's own figure is 4.1% under what that screen measures** (39.05 against 37.5), which is the
+/// **The figure is 4.1% under what that screen measures** (39.05 against 37.5), which is the
 /// size of the error being carried and is why the count is what this scene gates.
 pub const PICTURE_BYTES: u64 = BODY_CELLS as u64 * 75 / 2;
 
@@ -1423,7 +1423,7 @@ impl Wire {
         PICTURE_BYTES as f64 / 1024.0
     }
 
-    /// The total in decimal MB, which is the unit §15's rate is in.
+    /// The total in decimal MB, which is the unit the rate is in.
     pub fn total_mb(self) -> f64 {
         self.bytes as f64 / 1_000_000.0
     }
@@ -1492,7 +1492,7 @@ pub fn photographs(repeat: Repeat) -> Wire {
 
 // ── the offset, and its five spellings ───────────────────────────────────────────────────────────
 
-/// **What one offset spelling does**, on §15's own three numbers: a 4 000-row file, an 800-row file
+/// **What one offset spelling does**, on the three numbers: a 4 000-row file, an 800-row file
 /// and a 74-row viewport.
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub struct OffsetCase {
@@ -1564,7 +1564,7 @@ pub const MAP_CONTROL_BYTES: u64 = 1;
 
 /// **What a per-file map costs at `entries`**, at a hash table's 7/8 load factor.
 ///
-/// `entries * (8 + 4 + 1) * 8 / 7`, which at a million is **14 857 142** — §15's own number,
+/// `entries * (8 + 4 + 1) * 8 / 7`, which at a million is **14 857 142** — the number,
 /// reproduced exactly from the arithmetic that produces it. See [`measured_map_bytes`] for what the
 /// shipped map really takes, which is worse and makes the refusal stronger rather than weaker.
 pub fn map_bytes(entries: u64) -> u64 {
@@ -1574,12 +1574,12 @@ pub fn map_bytes(entries: u64) -> u64 {
 /// **What the shipped `HashMap<u64, u32>` really takes at `entries`.**
 ///
 /// The buckets are rounded to a power of two and the pair is padded to 16 bytes rather than packed
-/// to 12, so the real figure is not §15's estimate — **35 651 584 at a million entries here**. It is
+/// to 12, so the real figure is not the estimate — **35 651 584 at a million entries here**. It is
 /// read off the map's own `capacity` rather than assumed.
 ///
 /// **What is gated is the relation and not that number.** A count of the standard library's own
-/// allocation is a gate on somebody else's implementation, and §21's rule is that a gate is a
-/// property of the mechanism; the property here is that the shipped map is *larger* than §15's
+/// allocation is a gate on somebody else's implementation, and the rule is that a gate is a
+/// property of the mechanism; the property here is that the shipped map is *larger* than
 /// estimate, so the refusal does not get easier when it is checked. The figure itself is printed.
 pub fn measured_map_bytes(entries: usize) -> u64 {
     let map: HashMap<u64, u32> = HashMap::with_capacity(entries);
@@ -1665,7 +1665,7 @@ pub enum DecodeAt {
 
 /// **Decode units that ran while the app thread was inside `Driver::frame`.**
 ///
-/// §15's requirement 9 as a count rather than as a microsecond: **0 against
+/// The requirement 9 as a count rather than as a microsecond: **0 against
 /// [`DECODE_UNITS_IN_THE_VIEW`]** for the same decode, over the same twenty selections, with the
 /// answer still arriving.
 ///
@@ -1699,7 +1699,7 @@ pub struct Sweep {
     pub folds: u32,
 }
 
-/// How many times the pane is tabbed away from and back to. §15's ten.
+/// How many times the pane is tabbed away from and back to. The ten.
 pub const TAB_SWITCHES: usize = 10;
 
 /// **R02's sweep, refused twice, over two different things and for two different reasons.**
@@ -1815,7 +1815,7 @@ pub fn many(entries: usize) -> Vec<File> {
         .collect()
 }
 
-/// The three volumes §15's frame section is measured at.
+/// The three volumes the frame section is measured at.
 pub const VOLUMES: [usize; 3] = [1_000, 100_000, 1_000_000];
 
 /// **The component alone, on a frame with nothing else in it**, for a caller that wants to open an
@@ -1830,7 +1830,7 @@ pub const VOLUMES: [usize; 3] = [1_000, 100_000, 1_000_000];
 ///
 /// [`Screen`] formats a `String` for every list row and every document line, which is what an
 /// instrument does and what [`crate::ink`] says out loud about `Tally` and `Pen`: *an instrument
-/// allocating is not a defect.* A window over the screen measures the screen. §20's budget is the
+/// allocating is not a defect.* A window over the screen measures the screen. The budget is the
 /// **component's**, so the window goes over `file_preview_pane_into` with a line drawer that stages
 /// rather than formats — which is the path a component actually takes.
 pub struct Alone {
@@ -1982,7 +1982,7 @@ pub struct Shut {
     pub h: u16,
 }
 
-/// **The shut face at every width from 1 to 40**, which is §2's rule on the one drawing this
+/// **The shut face at every width from 1 to 40**, which is the rule on the one drawing this
 /// component inherited from somewhere else.
 ///
 /// `file_picker`'s shut face is [`crate::input::select`]'s, transcribed: a chevron, a space, an
@@ -1998,7 +1998,7 @@ pub struct Shut {
 /// seventh row being red in prose. Handed thirteen rows this component wrote **one**, 576 cells of a
 /// 48x13 tile left to whatever was already in them, and `crate::input::select` did the same: the two
 /// overlay owners were the only two rows of the freeze that did not write every cell of a rectangle
-/// taller than their content. A `Response` has no field a remainder could be named in (§2's third
+/// taller than their content. A `Response` has no field a remainder could be named in (the third
 /// clause), so the face is the rectangle. Swept over both axes here.
 pub fn shut_faces() -> Vec<Shut> {
     use crate::files::{Entry, PickerBody, PickerOpts, PickerState, file_picker_into};
@@ -2166,7 +2166,7 @@ pub const PICKER_MAY_NOT: [(&str, &str); 4] = [
 /// **What `file_picker` must contain**: its three parts, by name.
 ///
 /// **`collection_shaped` and not `collection_into` since production 08**, which is where the row
-/// loop went when the picker's listing gained the refused spellings §17's `shrunk` and `wheeled`
+/// loop went when the picker's listing gained the refused spellings `shrunk` and `wheeled`
 /// axes need: the picker *is* `collection` inside a layer, so the mistakes `collection` has arms for
 /// are mistakes a picker's listing can make too, and until scenes 41 and 42 asked there was no way
 /// to write either down on this side. It is `crate::collect`'s own note about `table` one component
@@ -2359,7 +2359,7 @@ pub fn assert_stands_up(scene: &str) {
 
 // ── the report ───────────────────────────────────────────────────────────────────────────────────
 
-/// **The offset table, one row a spelling**, in §15's own column order.
+/// **The offset table, one row a spelling**, in the column order.
 pub fn offset_table() -> String {
     let mut out = String::new();
     let _ = writeln!(
@@ -2436,7 +2436,7 @@ pub const LATENCY_FRAMES: u32 = 1;
 /// **Pictures drawn, by regime: 1 against 20.**
 pub const PICTURES: [u32; 2] = [1, SELECTIONS as u32];
 
-/// **The rate the twenty-picture arm runs at, in bytes a second. 18 315 000 — §15's 18.3 MB/s.**
+/// **The rate the twenty-picture arm runs at, in bytes a second. 18 315 000 — the 18.3 MB/s.**
 pub const WIRE_RATE: u64 = 18_315_000;
 
 /// **What §15 states the total is**, in decimal MB. It is the rounded 536 KiB read as 536 kB and
@@ -2453,7 +2453,7 @@ pub const TORN: [u32; 2] = [SELECTIONS as u32, 0];
 /// the scroll area's single entry, and one for each of its two reserved bars.
 ///
 /// It was **0** while the screens waited for their subject, because nothing on them declared
-/// anything. §15's frame section has no region column at all, so the number is this ticket's and
+/// anything. The frame section has no region column at all, so the number is this ticket's and
 /// what is gated beside it is that it does not move with the volume.
 pub const REGIONS: usize = 3;
 
@@ -2467,9 +2467,9 @@ pub const VERBS: u64 = 381;
 /// them.
 ///
 /// **What is measured and what is definitional are different halves of that sentence**, and the
-/// difference is worth being exact about. [`LINE_COLUMNS`] was *derived* by components 31 from §15's
+/// difference is worth being exact about. [`LINE_COLUMNS`] was *derived* by components 31 from
 /// own pair — `4 166 − 1 650 = 2 516 = 74 × 34` — so `CONTENT_WRITES == 2 516` is a **definition**
-/// and its agreeing with §15's gap is arithmetic rather than evidence. What components 32 measures
+/// and its agreeing with the gap is arithmetic rather than evidence. What components 32 measures
 /// is the other half: that the cells the unclamped arm leaves unwritten are **exactly the
 /// document's own** and not some other number, which nothing before this ticket could have known.
 pub const UNCLAMPED_WRITES: u64 = 21_484;
@@ -2481,7 +2481,7 @@ pub const UNCLAMPED_WRITES: u64 = 21_484;
 /// and not about the size of the decode.
 pub const DECODE_UNITS_IN_THE_VIEW: u64 = SELECTIONS as u64 * BODY_H as u64;
 
-/// §15's own figure for the same arm.
+/// The figure for the same arm.
 pub const SECTION_15_DECODE_UNITS: u64 = 5_076;
 
 /// **Spawns and decodes over ten tab switches, by where the job lives: 1 against 10.**
@@ -2496,14 +2496,14 @@ pub const SWEPT_FOLDS: [u32; 2] = [1, TAB_SWITCHES as u32];
 /// document to fold.
 pub const REVISION_FOLDS: [u32; 2] = [SELECTIONS as u32, REVISION_FRAMES - 1];
 
-/// **Customs a photograph in the pane spends: one a cell of the viewport, 14 652.** §15's own.
+/// **Customs a photograph in the pane spends: one a cell of the viewport, 14 652.** The original's.
 pub const PHOTOGRAPH_CUSTOMS: u64 = BODY_CELLS as u64;
 
-/// §15's steady frame: **3 557 writes and 197 verbs**, which is a prototype's screen. This one
+/// The steady frame: **3 557 writes and 197 verbs**, which is a prototype's screen. This one
 /// writes [`CELLS`] and [`VERBS`], and what reproduces is that neither moves with the volume.
 pub const SECTION_15_STEADY: [u64; 2] = [3_557, 197];
 
-/// §15's photograph frame: **17 782 writes, 14 833 verbs, 14 652 customs**. The third reproduces
+/// The photograph frame: **17 782 writes, 14 833 verbs, 14 652 customs**. The third reproduces
 /// exactly and the first two are the same prototype's screen.
 pub const SECTION_15_PHOTOGRAPH: [u64; 3] = [17_782, 14_833, 14_652];
 
@@ -2570,7 +2570,7 @@ mod tests {
     /// **Scene 24.** The same hole with no user in it.
     ///
     /// Seven batches, no input at all. The settled pane is wrong after **7 of 7** under a position
-    /// key and after none under an identity key, and §15's *wrong for exactly 1 frame* is the
+    /// key and after none under an identity key, and *wrong for exactly 1 frame* is the
     /// **longest run** rather than the total — seven batches each cost their own latency frame.
     #[test]
     fn seven_batches_move_the_cursors_file_under_it_with_nobody_pressing_anything() {
@@ -2620,11 +2620,11 @@ mod tests {
         );
     }
 
-    /// **§15's three wire figures cannot all be readings of one product, and two of them are.**
+    /// **The three wire figures cannot all be readings of one product, and two of them are.**
     ///
     /// 14 652 cells at 37.5 B/cell is 549 450 bytes — **536.57 KiB**, which §15 prints as *536 KB*
     /// by truncating it — and twenty of them is 10 989 000 bytes, which is **10.99 MB** and is
-    /// exactly what *18.3 MB/s over 600 ms* requires. §15's **10.7 MB** is that truncated 536 read
+    /// exactly what *18.3 MB/s over 600 ms* requires. **10.7 MB** is that truncated 536 read
     /// as decimal kB and multiplied by twenty, so the total and the rate printed in one sentence are
     /// computed from two different readings of one product. The two that agree with each other are
     /// gated; the third is recorded.
@@ -2659,7 +2659,7 @@ mod tests {
         );
     }
 
-    /// **The four defects are four different defects**, which is why §15's row is a table.
+    /// **The four defects are four different defects**, which is why the row is a table.
     ///
     /// Unclamped draws nothing at all; clamped and kept opens the new file at row 726, its last
     /// page; reset on the request scrolls the previous file — still on screen — to its top for the
@@ -2729,7 +2729,7 @@ mod tests {
         }
     }
 
-    /// **The per-file map is refused on release and the arithmetic is §15's own.**
+    /// **The per-file map is refused on release and the arithmetic is the original's.**
     ///
     /// `1 000 000 * 13 * 8 / 7` is **14 857 142**, and the shipped map is worse than that: buckets
     /// round to a power of two and `(u64, u32)` pads to sixteen bytes rather than packing to twelve.
@@ -2752,7 +2752,7 @@ mod tests {
         );
     }
 
-    /// **R18 §7's unenforced ordering, and no thread is involved in it.**
+    /// **R18 the unenforced ordering, and no thread is involved in it.**
     ///
     /// `Task::take` is destructive. A view that asks for the answer where it wants it takes it in
     /// the first consumer and leaves the second looking at what was there before — 20 torn frames
@@ -2769,7 +2769,7 @@ mod tests {
     ///
     /// Every arm writes [`CELLS`] once, so `writes == distinct` and the sentinel would be green —
     /// and the offset defect is invisible at both counters. `content_writes` is the one that is not
-    /// blind. §15's own pair, 1 650 against 4 166, is a screen that did not partition; the
+    /// blind. The pair, 1 650 against 4 166, is a screen that did not partition; the
     /// difference between them is 74 x 34, which is where [`LINE_COLUMNS`] comes from.
     #[test]
     fn every_cell_is_written_once_and_the_counter_that_sees_the_defect_is_the_content() {
@@ -2791,15 +2791,15 @@ mod tests {
         assert_eq!(u64::from(BODY_H) * u64::from(LINE_COLUMNS), CONTENT_WRITES);
     }
 
-    /// **§15's headline pair is a partition failure, and its *difference* reproduces exactly.**
+    /// **The headline pair is a partition failure, and its *difference* reproduces exactly.**
     ///
-    /// [`shape`] plays one file and one landing, where every spelling is identical: §15's defect is
+    /// [`shape`] plays one file and one landing, where every spelling is identical: the defect is
     /// a **shrink**, from another thread for the first time, so it is only visible on the frame the
     /// document gets smaller. There the unclamped arm writes [`UNCLAMPED_WRITES`] of [`CELLS`] —
     /// and the 2 516 it leaves behind is [`CONTENT_WRITES`], because the body cannot write rows the
     /// document has not got and an unbounded extent leaves the area no tail to cover them with.
     ///
-    /// §15's own magnitudes are another screen's — 4 166 against 1 650 — and **the gap is 2 516 in
+    /// The magnitudes are another screen's — 4 166 against 1 650 — and **the gap is 2 516 in
     /// both**, which is what makes [`LINE_COLUMNS`] derived rather than chosen.
     #[test]
     fn the_unclamped_spelling_leaves_the_documents_own_cells_unwritten_on_the_frame_it_shrinks() {
@@ -2923,7 +2923,7 @@ mod tests {
     /// the frame and a landing in its history.
     ///
     /// That is `CONTEXT.md`'s invariant — *frame cost is proportional to visible cells, never to
-    /// data volume* — through a component that holds an asynchronous answer. §15's own magnitudes,
+    /// data volume* — through a component that holds an asynchronous answer. The magnitudes,
     /// 3 557 writes and 197 verbs, are a prototype's screen; this one partitions 300 x 80.
     #[test]
     fn the_steady_frame_is_the_same_at_a_thousand_a_hundred_thousand_and_a_million() {
@@ -2943,10 +2943,10 @@ mod tests {
     }
 
     /// **A million entries with a photograph selected: 14 652 customs**, one a cell of the pane's
-    /// viewport, which is §15's own number and the join with §14.
+    /// viewport, which is the number and the join with §14.
     ///
     /// A preview pane is *not a cheap version of a full-screen picture; it is most of one*. What
-    /// this screen adds to §14's is that the customs are a **partition** of the pane's viewport
+    /// what this screen adds is that the customs are a **partition** of the pane's viewport
     /// rather than of the terminal, so the number is [`BODY_CELLS`] and derivable rather than
     /// measured.
     #[test]
@@ -2969,7 +2969,7 @@ mod tests {
 
     /// **A shut picker's face is a partition of its row at every width from 1 to 40.**
     ///
-    /// §2's rule on the one drawing this component inherited from somewhere else, and the reason it
+    /// The rule on the one drawing this component inherited from somewhere else, and the reason it
     /// is gated rather than read: the shape has been wrong before. `glyphs::elide` reserves the
     /// marker's cell, so padding to the *whole* width and then writing the marker writes one cell
     /// **twice** — on every truncated widget, invisible on the screen and invisible to every counter
@@ -3060,7 +3060,7 @@ mod tests {
         );
     }
 
-    /// **The body is 198 x 74 and 61.0% of the screen**, which is §15's own arithmetic.
+    /// **The body is 198 x 74 and 61.0% of the screen**, which is the arithmetic.
     #[test]
     fn the_body_is_fourteen_thousand_six_hundred_and_fifty_two_cells() {
         assert_eq!(BODY_CELLS, 14_652);

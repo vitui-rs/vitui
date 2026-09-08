@@ -38,7 +38,7 @@ use crate::view::View;
 /// the frames that matter.
 ///
 /// The same idea one layer down, at pack time against the mirror, is worth between 1.4x and 37.7x on
-/// spec §14's twelve — see `crate::serial`. That is not the same optimisation implemented better;
+/// the twelve — see `crate::serial`. That is not the same optimisation implemented better;
 /// it is a different one, because by then the two writes have already collapsed into the one cell the
 /// frame ends up holding.
 ///
@@ -46,7 +46,7 @@ use crate::view::View;
 ///
 /// The consequence runs the other way too: **a component that repaints whole rows is not committing a
 /// wart to be optimised away.** §8 priced it as *9x worse unfiltered and 24x better filtered*, and
-/// measured over spec §14's own two arms of one scrolling list — one that rewrites a twenty-column
+/// measured over the two arms of one scrolling list — one that rewrites a twenty-column
 /// label, one that blanks the whole row first — the trade is this instead:
 ///
 /// | the same list, scrolled one row | damaged cells | span bytes | filtered | + scroll region |
@@ -70,7 +70,7 @@ use crate::view::View;
 ///   available. `crate::roundtrip::two_text_verbs_with_a_one_column_gap_do_not_take_the_scroll_path`
 ///   is that frame.
 /// - **What it costs is app-thread time**, which is the thread under budget pressure — 34 µs of
-///   packing against 1.9 µs in §8's measurement — while the render thread has 16.6 ms and nothing
+///   packing against 1.9 µs in the measurement — while the render thread has 16.6 ms and nothing
 ///   else to do with it.
 ///
 /// The numbers above are produced rather than quoted: `crate::gates::the_scroll_region_over_spec_8s_two_arms`

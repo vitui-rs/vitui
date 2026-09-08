@@ -24,11 +24,11 @@
 //! It also means the fuzz workspace needs nothing from this crate that a caller could not have:
 //! `fuzz` is a non-default feature, the module is `#[doc(hidden)]`, and
 //! `crate::audit`'s `the_fuzz_door_is_behind_a_feature_and_hidden` is what keeps that from becoming
-//! an accidental widening of spec §12's surface.
+//! an accidental widening of the surface.
 //!
 //! # What each target's oracle is, and what it is not
 //!
-//! **Draw sequences** (§14's first target) are checked against `crate::reference`, the naive
+//! **Draw sequences** (the first target) are checked against `crate::reference`, the naive
 //! compositor — one cell at a time, no damage, no runs. Two halves, and they are gate #1's own two:
 //! every cell the frame's verbs changed lies inside a run the damage structure reported, and the
 //! damage-tracked frame equals the reference **everywhere**, including outside every damaged run.
@@ -83,7 +83,7 @@ const MAX_OPS: u32 = 96;
 ///
 /// Chosen for the repair rules rather than for coverage of Unicode: an ASCII head, a wide CJK pair,
 /// a cluster whose combining mark makes it two codepoints and one column, an emoji that is wide and
-/// multi-scalar, a regional-indicator pair, and a zero-width space. Every one of §3's five repair
+/// multi-scalar, a regional-indicator pair, and a zero-width space. Every one of the five repair
 /// rules is reachable from this list.
 const CLUSTERS: [&str; 8] = ["a", "#", " ", "漢", "e\u{301}", "👍", "🇺🇦", "\u{200b}"];
 
@@ -486,7 +486,7 @@ const PASTE_LIMITS: [usize; 5] = [0, 1, 6, 64, 1 << 20];
 /// 1. **One read.** The stream whole, ended once.
 /// 2. **Chunked, with no boundary meaning.** The same bytes in chunks, `end_of_read` only after the
 ///    last. The events must be **identical** to the first arm's, and that equality is this file's
-///    reading of §14's *every byte consumed* — see the module documentation for why the literal
+///    reading of *every byte consumed* — see the module documentation for why the literal
 ///    reading is a statement about a `for` loop.
 /// 3. **Chunked, every boundary ended.** `end_of_read` after every chunk, which legitimately turns
 ///    a trailing `ESC` into an Escape key and so is outside the equality. It is run for the other
@@ -620,7 +620,7 @@ mod tests {
 
     /// **The gate: every committed input replays, and the oracle holds on all of them.**
     ///
-    /// This is what §14's inversion buys. It is an ordinary test on the stable toolchain, it runs in
+    /// This is what the inversion buys. It is an ordinary test on the stable toolchain, it runs in
     /// every job that runs the suite, it takes milliseconds, and it can only fail for a reason
     /// somebody can reproduce from a file in the repository.
     #[test]
@@ -731,7 +731,7 @@ mod tests {
         ]);
     }
 
-    /// **Architecture ticket 20's case, and now the gate on its answer.**
+    /// **Architecture the case, and now the gate on its answer.**
     ///
     /// This input is why the ticket could be answered at all. It found the case from a direction the
     /// ticket said nothing would come from — *no scene produces the case, and every gate is green* —

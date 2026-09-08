@@ -18,7 +18,7 @@
 //!
 //! # Where §14 says this lives, and where it actually lives
 //!
-//! §14's own pointer is "the list lives in `crates/vitui-engine/examples/budget.rs`". It lives one
+//! The pointer is "the list lives in `crates/vitui-engine/examples/budget.rs`". It lives one
 //! file across from there, and the example `#[path]`-includes it, for a reason the spec could not
 //! have known: **an example cannot assert the reference compositor's equality**, because ADR 0023
 //! keeps cells off the public surface and an example has nothing but the public surface. The
@@ -32,7 +32,7 @@
 //! two can never drift.
 //!
 //! It therefore uses **only the public API** — `use vitui_engine::…` resolves inside the library
-//! through `extern crate self as vitui_engine`. That is not a trick for its own sake: spec §14's
+//! through `extern crate self as vitui_engine`. That is not a trick for its own sake:
 //! rule for the comparative suite is that **a scene is defined by what the user sees, never by what
 //! a framework does**, and a scene that could reach past the public surface would be defined by
 //! what this framework does.
@@ -64,12 +64,12 @@ use vitui_engine::{Color, ColorDepth, LayerId, Mix, Overrides, Rect, Restyle, Sc
 
 use crate::register::State;
 
-/// The screen every scene is measured at: spec §13's full screen.
+/// The screen every scene is measured at: the full screen.
 pub const W: u16 = 300;
-/// The screen every scene is measured at: spec §13's full screen.
+/// The screen every scene is measured at: the full screen.
 pub const H: u16 = 80;
 
-/// One scene of spec §14's normative list.
+/// One scene of the normative list.
 pub trait Scene {
     /// The scene's name, which is also its case name in the bench report.
     fn name(&self) -> &'static str;
@@ -114,7 +114,7 @@ pub trait Scene {
     /// colourless screen** — and worse than smaller: `twenty-popups-with-shadows` immediately grew a
     /// gap the filter's threshold sweep could argue about, because two cells that differ only in a
     /// colour the depth cannot say are one cell, and `every-cell-a-distinct-style` would have become
-    /// *every cell the same style*. That is §14's own trap — a gate that pins nothing measures the
+    /// *every cell the same style*. That is the trap — a gate that pins nothing measures the
     /// thing it did not pin — and the fix is the one architecture ticket 22 used on the link axis:
     /// name the terminal.
     ///
@@ -135,7 +135,7 @@ pub trait Scene {
     }
 }
 
-/// The twelve scenes, in spec §14's own order.
+/// The twelve scenes, in the order.
 pub fn scenes() -> Vec<Box<dyn Scene>> {
     vec![
         Box::new(CaretBlink::new()),
@@ -170,7 +170,7 @@ fn base(screen: &mut Screen) -> LayerId {
 /// operator.
 ///
 /// **The L-shaped shadow is the only place on the twelve where the `EMPTY` skip is load-bearing**,
-/// and §14's own rule is that a scene is removed only by a ticket that names the property it can no
+/// and the rule is that a scene is removed only by a ticket that names the property it can no
 /// longer distinguish. An operator has no cells, so converting the shadow would delete those eighty
 /// transparent corner cells and with them the arm that measured 6.14 against 25.25 us.
 ///
@@ -181,8 +181,8 @@ fn base(screen: &mut Screen) -> LayerId {
 /// change to what the scene *is*.
 ///
 /// So the operator's own cost is measured where it can be measured against a content layer at the
-/// same coverage, in `layer.rs`'s `the_operator_layer_costs_what_spec_5_recorded`, and §5's 107.3 us
-/// decomposes there instead. The row on §14's table that is *about* an operator is the twelfth, and
+/// same coverage, in `layer.rs`'s `the_operator_layer_costs_what_spec_5_recorded`, and the 107.3 us
+/// decomposes there instead. The row on the table that is *about* an operator is the twelfth, and
 /// impl 08 owns it.
 ///
 /// # Why the shadow has rounded corners
@@ -194,7 +194,7 @@ fn base(screen: &mut Screen) -> LayerId {
 /// left every gate on this list green.
 ///
 /// So the shadow is the **L** a real drop shadow actually is, with its two far corners left
-/// transparent — which is spec §5's own example of what `opaque: false` is for, and which puts four
+/// transparent — which is the example of what `opaque: false` is for, and which puts four
 /// cells per popup where what is underneath must show through. Those eighty cells are what make the
 /// non-opaque path load-bearing in the scene list rather than merely present in it.
 fn popup_stack(screen: &mut Screen) -> Vec<LayerId> {
@@ -691,7 +691,7 @@ pub fn table_two_ways(rows: usize) -> Box<dyn Scene> {
 
 /// The same data rendered twice, into two layers, in one frame.
 ///
-/// The normative list carries the 1M arm, because §14's row is a pair of numbers "at 1k **and
+/// The normative list carries the 1M arm, because the row is a pair of numbers "at 1k **and
 /// 1M**" and the larger one is the half that could go wrong. Both arms are measured together in
 /// gate #20, beside the virtualised tree's three: a scan that only appears once the same rows are
 /// walked twice would be invisible on a scene that walks them once.
@@ -894,7 +894,7 @@ impl Scene for EveryCellADistinctStyle {
 /// **It is the only measured shape that grows a handle table without bound**, and it decides table
 /// lifetime the way the sparse chart decided damage: table growth, the sweep, `repaint` and the memo,
 /// all at once. Impl 08 is what gave it a number; before that it was the one row on
-/// §14's normative list with nothing behind it.
+/// the normative list with nothing behind it.
 ///
 /// Three things make it measure something rather than nothing, and each of them was a way to get a
 /// beautiful zero:
@@ -925,7 +925,7 @@ impl Scene for EveryCellADistinctStyle {
 /// **`Scene::overrides` needs two pins now, not one.** Truecolor, because §5 skips an operator layer
 /// outright at [`ColorDepth::None`]; and `hyperlinks`, because OSC 8 is emitted only where the
 /// terminal has it and a headless screen is asked nothing — so on a screen that declared only the
-/// depth this scene's links would be dropped from the wire, and under impl 17's intern-key collapse
+/// depth this scene's links would be dropped from the wire, and under the intern-key collapse
 /// they would be dropped from the *key* as well and the row would report 8 entries where it exists to
 /// report 96 (architecture ticket 22).
 pub struct HyperlinkedPageUnderAnOperator {
@@ -947,7 +947,7 @@ impl HyperlinkedPageUnderAnOperator {
     /// How many distinct hyperlinks the page carries, and therefore how many distinct extended
     /// styles it holds and how many entries one frame of a fade mints.
     ///
-    /// Spec §3's measurement is 96 distinct extended styles on 300×80, so 96 it is. It is a count of
+    /// The measurement is 96 distinct extended styles on 300×80, so 96 it is. It is a count of
     /// **links** rather than of underline colours because `Mix` blends an underline colour along with
     /// the other two and a hyperlink is the one channel it never names — ninety-six underline colours
     /// a few units apart collapse into fewer than ninety-six after blending, and the growth reported
@@ -966,7 +966,7 @@ impl HyperlinkedPageUnderAnOperator {
     /// The same page under an operator that **does not move**, which is the arm every fading number
     /// is a ratio against.
     ///
-    /// Spec §3's two rows are the same scene twice — 0.8 entries a frame settled against 95.7
+    /// The two rows are the same scene twice — 0.8 entries a frame settled against 95.7
     /// fading — so the settled arm is not a control that could be left out. It is half the
     /// measurement, and it is here rather than in a second scene so that the two arms cannot drift
     /// apart in anything but the `amount`.
@@ -1051,7 +1051,7 @@ impl HyperlinkedPageUnderAnOperator {
     }
 }
 
-/// §14's twelfth scene, for the two consumers that drive it directly rather than off the list.
+/// The twelfth scene, for the two consumers that drive it directly rather than off the list.
 ///
 /// It is on `scenes()` since impl 13, so this door is no longer about the round trip: it is the same
 /// door [`virtualised_tree`] and [`table_two_ways`] already use, for the two consumers that need the

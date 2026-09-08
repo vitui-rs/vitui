@@ -1,13 +1,13 @@
 //! The public surface, as a value — and the audit spec §12 asked for.
 //!
-//! Ticket 24's first half is *assembled and audited*, and the audit is here rather than in a
+//! The first half is *assembled and audited*, and the audit is here rather than in a
 //! document for the same reason register #19's negative cases are `compile_fail` doctests rather
 //! than sentences: **a public surface described in prose is not checked by anything.** §12 states a
 //! count and a listing, four implementation tickets moved both, and every one of those tickets said
 //! so in its own answer — which is four places to look and no place that fails.
 //!
 //! So the surface is a value. [`SURFACE`] names every public item, the receiver every verb takes,
-//! and — for the items §12's block does not list — the implementation ticket that added it and why.
+//! and — for the items the block does not list — the implementation ticket that added it and why.
 //! The gates below are queries over it, in both directions: an item in the source and not in the
 //! inventory is a failure, and an item in the inventory and not in the source is the same failure.
 //! **A rename turns both red**, which is the property the negative corpus is built around and which
@@ -18,9 +18,9 @@
 //! §12 opens with *twenty-one public types and about sixty-three functions*, and **its own block
 //! does not agree with that sentence.** The block declares **thirty-nine** types with a `pub struct`
 //! or `pub enum` keyword and names two more only inside a signature — `AttachError` in `attach`'s
-//! `Result` and `Permit` in `permit_slow`'s return — so §12's listing is **forty-one types**. The
-//! prose count is ticket 12's and was never true of the block beside it; the block is what ticket 24
-//! means by *§12's listing*, and the block is what the inventory is checked against.
+//! `Result` and `Permit` in `permit_slow`'s return — so the listing is **forty-one types**. The
+//! prose count is the original's and was never true of the block beside it; the block is what ticket 24
+//! means by *the listing*, and the block is what the inventory is checked against.
 //!
 //! The surface as built is the **built** row of this table, and nowhere else in this file: the
 //! two sentences that used to restate it in words — here and on [`SURFACE`] — said *one hundred and
@@ -30,26 +30,26 @@
 //!
 //! | | types | functions |
 //! |---|---|---|
-//! | §12's block | 41 | 41 named, plus the 28 inside the four types it blesses wholesale |
+//! | the block | 41 | 41 named, plus the 28 inside the four types it blesses wholesale |
 //! | absent, and recorded rather than resurrected | −1 (`Resolver`) | — |
 //! | added by implementation tickets, each naming one | +9 | +38 |
 //! | **built** | **49** | **107** |
 //!
-//! **Architecture ticket 21 moved both columns and left the type count where it was.** §12's block
+//! **Architecture ticket 21 moved both columns and left the type count where it was.** The block
 //! lost `LinkId` and gained `Link<'a>`, so forty-one is still forty-one; it lost `Screen::link`,
 //! which is why the named functions are forty-one rather than forty-two. Both absent names are in
 //! [`REFUSED_NAMES`], which is what makes the subtraction checkable rather than remembered.
 //!
 //! Not one of the nine types and not one of the thirty-eight functions breaches a refusal: none is a
 //! layout, a widget, a signal, a trait, an alpha, a blocking primitive, an executor, a clock, a
-//! display query or a cell. Seven of the nine are input payload types §12's own delta list asked for
+//! display query or a cell. Seven of the nine are input payload types the delta list asked for
 //! without naming (*the six `Event` variants and their payload types*), one is the type of a field
-//! §12 does name (`Cursor { x, y, shape }`), and one is where the bytes go, which §12's `Config` has
+//! §12 does name (`Cursor { x, y, shape }`), and one is where the bytes go, which `Config` has
 //! no field for at all.
 //!
 //! # `Resolver` does not exist, and that is the finding
 //!
-//! §12's compositing line reads `pub struct LayerId; pub struct Mix { toward, amount }; pub struct
+//! The compositing line reads `pub struct LayerId; pub struct Mix { toward, amount }; pub struct
 //! Resolver;`, and **`Resolver` appears nowhere else in the whole architecture** — not in a
 //! signature, not in a sentence, not in the ticket the block came from beyond that one line. It has
 //! no fields and no verbs, and the job the name suggests is done: impl 12 resolves an operator
@@ -75,7 +75,7 @@
 //!   are `Copy`, and so are `Mods` and `Buttons` — five of them, and `Color` is not among them
 //!   because its only two verbs are constructors that take no receiver at all. On a `Copy` type
 //!   `self` *is* the read, and `&self` would be a reference to something the size of a register.
-//!   §12's precedence list says `&self`; the rule it states is *wherever a call only reads*, and
+//!   The precedence list says `&self`; the rule it states is *wherever a call only reads*, and
 //!   forty verbs satisfy the rule while reading by value. Recorded, because the next reader will
 //!   check.
 //! - **Three moves, all of them ownership transfer**: [`Engine::attach`], `Slot::put` and
@@ -96,7 +96,7 @@ pub enum Kind {
     Function,
 }
 
-/// The receiver a verb takes: spec §12's precedence rule 4, made checkable.
+/// The receiver a verb takes: the precedence rule 4, made checkable.
 ///
 /// **Syntax and not intent**, which is why there is no `Move` arm. `self` by value is a read on a
 /// `Copy` type and an ownership transfer on everything else, and the two are the same three
@@ -117,13 +117,13 @@ pub enum Recv {
 /// Where an item came from.
 ///
 /// Two arms and no third, for the reason `crate::register`'s [`State`](crate::register::State) has
-/// two: an item that is neither in §12's block nor attributable to a ticket is drift, and drift that
+/// two: an item that is neither in the block nor attributable to a ticket is drift, and drift that
 /// has a name for itself stops being visible.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Origin {
-    /// Named in spec §12's block, or inside the four types its precedence list blesses wholesale.
+    /// Named in the block, or inside the four types its precedence list blesses wholesale.
     Spec12,
-    /// Not in §12's block. The implementation ticket that added it, and why.
+    /// Not in the block. The implementation ticket that added it, and why.
     Added {
         /// The implementation ticket, as `impl NN`.
         by: &'static str,
@@ -159,7 +159,7 @@ pub struct Item {
 
 /// Names that may **not** be public, and the reason each one is not.
 ///
-/// The first is §12's own, and the rest are the refusals. Each is checked against the crate root's
+/// The first is the original's, and the rest are the refusals. Each is checked against the crate root's
 /// re-exports by [`the_refused_names_are_not_re_exported`], whose positive twin names a type that
 /// *is* there — a list of absences passes for any reason at all, including the file having moved.
 ///
@@ -259,7 +259,7 @@ pub const PRELUDE: &[&str] = &[
 /// **The list is checked against the `#[cfg(test)]` attributes themselves**, in both directions, by
 /// [`the_test_only_list_is_what_the_crate_root_declares_under_cfg_test`]. A name here that stops
 /// being test-only would otherwise stay silently exempt from every scan below — and `lib.rs`
-/// predicted exactly that happening: *ticket 25's fuzz targets are what will need `reference`
+/// predicted exactly that happening: *the fuzz targets are what will need `reference`
 /// outside `cfg(test)`*. It happened, at ticket 25, and `reference.rs` moved to
 /// [`SOAK_ONLY_MODULES`] rather than quietly staying here. Left unchecked, dropping `#[cfg(test)]`
 /// from `mod scenes;` would ship `pub trait Scene` with the zero-trait gate still green, because
@@ -285,7 +285,7 @@ pub const TEST_ONLY_MODULES: &[&str] = &[
 /// ordinary build.
 ///
 /// [`TEST_ONLY_MODULES`]'s sibling, and it exists because ticket 25 needed a third state that the
-/// two-arm question *shipped or test-only?* cannot express. The reference compositor is §14's oracle
+/// two-arm question *shipped or test-only?* cannot express. The reference compositor is the oracle
 /// for gate #1 **and** for the first fuzz target, and a fuzz target is in another crate — `fuzz/` is
 /// its own workspace, because `cargo-fuzz` needs nightly and `libfuzzer-sys`. So it is compiled by
 /// `cargo test` and by `cargo build --features fuzz`, and by nothing a dependent of this crate
@@ -298,7 +298,7 @@ pub const TEST_ONLY_MODULES: &[&str] = &[
 /// itself is checked against the crate root's attributes by
 /// [`the_soak_only_list_is_what_the_crate_root_declares_under_the_fuzz_feature`].
 pub const SOAK_ONLY_MODULES: &[&str] = &["fuzz.rs", "reference.rs"];
-/// Every public item, with the receiver of every verb and the provenance of everything §12's block
+/// Every public item, with the receiver of every verb and the provenance of everything the block
 /// does not list.
 ///
 /// Sorted by name, because the gates compare it against a parse of the source and a sorted list is
@@ -1295,7 +1295,7 @@ pub const SURFACE: &[Item] = &[
 
 /// The three moves on the whole surface, and what ownership transfer buys in each.
 ///
-/// §12's precedence list names exactly these three. `Slot::put` and `LayerStack::add_content_with`
+/// The precedence list names exactly these three. `Slot::put` and `LayerStack::add_content_with`
 /// move their **argument** and take `&self` and `&mut self` respectively, which is why they are here
 /// and their receivers are not [`Recv::Value`].
 pub const MOVES: &[(&str, &str, &str)] = &[
@@ -1369,15 +1369,15 @@ pub enum Evidence {
 /// One thing the engine refuses, and where the refusal is held.
 #[derive(Clone, Copy, Debug)]
 pub struct Refusal {
-    /// §12's number, or `0` for one of the six priced-rather-than-overlooked absences.
+    /// The number, or `0` for one of the six priced-rather-than-overlooked absences.
     pub number: u8,
-    /// What is refused, in §12's own words.
+    /// What is refused, in the words.
     pub what: &'static str,
     /// How it is held.
     pub evidence: &'static [Evidence],
 }
 
-/// §12's twelve refusals and its six priced absences, each with the place it is held.
+/// The twelve refusals and its six priced absences, each with the place it is held.
 ///
 /// **There is no type to look for — that is the test**, which is exactly why a list of them has to
 /// exist somewhere that fails. Nine are gated on the type that would have carried the refused item,
@@ -1864,7 +1864,7 @@ mod tests {
     /// `pub fn probe<F: Fn(Style) -> Style>(&mut self, r: Rect, f: F)` as the parameter list
     /// `Style` — so refusal 4's gate passes and the receiver is recorded as `Recv::None` instead of
     /// `RefMut`, wrongly on both counts. Measured, and it is the one shape that matters
-    /// historically: `restyle` took `impl Fn(Style) -> Style` in ticket 12's skeleton. A
+    /// historically: `restyle` took `impl Fn(Style) -> Style` in the skeleton. A
     /// `where F: Fn(…)` clause escapes the same way, one line further down, which is why the
     /// capture runs to the opening brace of the body.
     fn verbs_of(body: &[String]) -> Vec<(String, Recv, String)> {
@@ -2034,7 +2034,7 @@ mod tests {
     /// **The inventory and the source name the same verbs, with the same receivers, in both
     /// directions.**
     ///
-    /// The receiver is half of what is checked, which is what makes spec §12's precedence rule 4 a
+    /// The receiver is half of what is checked, which is what makes the precedence rule 4 a
     /// gate rather than a paragraph: a `&self` quietly widened to `&mut self` fails here.
     #[test]
     fn the_inventory_names_exactly_the_verbs_the_source_has() {
@@ -2086,7 +2086,7 @@ mod tests {
         assert_eq!(free, ["graphemes", "width_of"]);
     }
 
-    /// **Every item §12's block does not list names the ticket that added it.**
+    /// **Every item the block does not list names the ticket that added it.**
     ///
     /// Nine types and thirty-eight functions, and the point of the count is that it is a count: a
     /// tenth type arriving without a ticket beside it fails, and a tenth type arriving *with* one is
@@ -2157,7 +2157,7 @@ mod tests {
 
     /// **The counts, as the audit recorded them.**
     ///
-    /// Forty-nine types and one hundred and seven functions, against §12's *twenty-one public types
+    /// Forty-nine types and one hundred and seven functions, against *twenty-one public types
     /// and about sixty-three functions* — a sentence its own block never agreed with. The
     /// arithmetic is stated so that a reader can check it rather than trust it: 41 − 1 + 9 = 49.
     ///
@@ -2221,7 +2221,7 @@ mod tests {
     /// path, and it is not — but the gate could not have told anyone either way, which is
     /// this crate's *counters on the wrong side of the question* one axis over.
     ///
-    /// **The distinction that decides it.** §12's refusal 5 is *the engine has nothing to call
+    /// **The distinction that decides it.** The refusal 5 is *the engine has nothing to call
     /// upward, so the dependency arrow is enforced by there being no arrow*, and the negative
     /// result it names is a painter — an **extension point the engine defines and a caller
     /// implements**. `std::io::Write` is neither: it is where the bytes go, it is `std`'s, and a
@@ -2404,7 +2404,7 @@ mod tests {
     /// **The fuzz door is behind a feature, hidden from rustdoc, and off by default.**
     ///
     /// `crate::fuzz` is the only public module here but the prelude, and it exists because the gate
-    /// and the soak have to be the same code: §14's inversion makes the committed corpus the gate,
+    /// and the soak have to be the same code: the inversion makes the committed corpus the gate,
     /// so the replay test and the fuzz target call one function. The target is in another crate —
     /// `cargo-fuzz` needs nightly and `libfuzzer-sys`, so `fuzz/` is its own workspace — and a
     /// caller in another crate can only reach what is `pub`.
@@ -2591,8 +2591,8 @@ mod tests {
     /// **Refusal 4, over the signatures: nothing on the surface takes a closure or an iterator.**
     ///
     /// *Coordinates and `&str` go in; nothing of yours is held.* The verb this was decided at is
-    /// `restyle`, which took `impl Fn(Style) -> Style` in ticket 12's skeleton and takes `&Restyle`
-    /// since impl 16 — and `fill_with` is on §12's priced-rather-than-overlooked list for the same
+    /// `restyle`, which took `impl Fn(Style) -> Style` in the skeleton and takes `&Restyle`
+    /// since impl 16 — and `fill_with` is on the priced-rather-than-overlooked list for the same
     /// reason. `graphemes` **returns** an iterator over a borrowed `&str`, which is the other
     /// direction and is ADR 0005.
     #[test]
@@ -2934,7 +2934,7 @@ mod tests {
         assert_eq!(config.kind, Kind::Struct);
     }
 
-    /// **The three moves are §12's three, and the value receivers are all `Copy`.**
+    /// **The three moves are the three, and the value receivers are all `Copy`.**
     ///
     /// [`Recv`] records syntax, and `self` by value is a read on a `Copy` type and an ownership
     /// transfer on everything else. This is the gate that keeps the two apart: the types with a

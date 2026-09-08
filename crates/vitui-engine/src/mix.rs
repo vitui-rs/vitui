@@ -6,7 +6,7 @@
 //! does, and **alpha-over is rejected** because a terminal cell has no alpha. Blending two layers'
 //! *glyphs* is not a thing — one of them has to win — and "a semi-transparent popup" would hand
 //! that choice to the compositor, which has no basis for making it. A gradient is not an operator
-//! either: it is a `fill` with a varying style, already fully expressed by §4's verbs, and the
+//! either: it is a `fill` with a varying style, already fully expressed by the verbs, and the
 //! compositor never sees one.
 //!
 //! # Colour resolves here, and it depends on what the terminal told us
@@ -15,7 +15,7 @@
 //! real colour, `indexed` → the palette, `rgb` → itself
 //! ([ADR 0025](../../../docs/adr/0025-compositing-depends-on-a-terminal-capability.md)). This is
 //! the only place in the engine where a rendering decision depends on an answer from the other end,
-//! and §10's rule for what to do when there is no answer is one rule rather than two:
+//! and the rule for what to do when there is no answer is one rule rather than two:
 //!
 //! > **Refuse when a guess would be wrong in direction; default when it would be wrong only in
 //! > degree.**
@@ -27,7 +27,7 @@
 //!
 //! # The memo is the implementation, and it is a correctness requirement
 //!
-//! One entry on the *previous* style word, which is exactly ticket 07's trick in
+//! One entry on the *previous* style word, which is exactly the trick in
 //! [`View::restyle`](crate::View::restyle). Cells in a run are contiguous and share a `u64`, so the
 //! table round trip lands once per **distinct style** rather than once per cell: §5 measured
 //! 20.38 / 28.46 / 200.22 µs against 79.47 / 86.28 / 646.87 µs unmemoised, and **3.2× faster than
@@ -66,7 +66,7 @@ use crate::tables::Tables;
 /// # Operators compound, and are therefore not idempotent
 ///
 /// Two overlapping shadows at 0.5 leave the overlap at 0.25. That is visually right, and it means
-/// **the order of operators among themselves matters**, not only their order relative to content.
+/// **The order of operators among themselves matters**, not only their order relative to content.
 ///
 /// # There is no second operator, and no alpha anywhere
 ///
@@ -190,7 +190,7 @@ enum Side {
 /// a wrong colour nothing fails on.
 ///
 /// 0..16 come from OSC 4 where the terminal answered and from xterm's table where it did not, which
-/// is spec §10's silence asymmetry: OSC 4 silence *defaults* where OSC 11 silence *refuses*, because
+/// is the silence asymmetry: OSC 4 silence *defaults* where OSC 11 silence *refuses*, because
 /// a themed palette is wrong in degree and a guessed background is wrong in direction.
 fn indexed(caps: &Capabilities, i: u8) -> Rgb {
     crate::quant::index_channels(caps, i)
@@ -198,7 +198,7 @@ fn indexed(caps: &Capabilities, i: u8) -> Rgb {
 
 /// A colour as channels, or `None` when this terminal has given us no way to know.
 ///
-/// The `None` is spec §5's silent path, and the caller's response to it is to leave the cell
+/// The `None` is the silent path, and the caller's response to it is to leave the cell
 /// **entirely** alone rather than to mix the channel it does know. See [`Mixer::mixed`].
 fn resolve(caps: &Capabilities, c: Color, side: Side) -> Option<Rgb> {
     match c.tag() {
@@ -773,7 +773,7 @@ mod tests {
 
     // ---- the cost of having one operator instead of three ------------------------------------
 
-    /// Spec §5's third operator number: **`Mix` costs 14% over a plain `Darken`**, and it is taken.
+    /// The third operator number: **`Mix` costs 14% over a plain `Darken`**, and it is taken.
     ///
     /// A report, not a gate. The arm it is measured against is a plain darkening — every channel
     /// scaled, with nothing to interpolate toward — written here and **nowhere else in the crate**,

@@ -1,7 +1,7 @@
 //! The data contract: [`Revision`], [`Versioned`], [`Edit`] and [`Memo`].
 //!
-//! Spec §14, and [ADR 0019](../../../docs/adr/). Four plain types over a caller's `T`, `std` only —
-//! **the engine is not reachable from this module and does not need to be**, which is why this is the
+//! Four plain types over a caller's `T`, `std` only —
+//! **The engine is not reachable from this module and does not need to be**, which is why this is the
 //! first ticket on the runtime backlog and the only one that needs neither the engine nor the frame.
 //!
 //! # There is no trait, and the case that was supposed to justify one is the case that removes it
@@ -39,7 +39,7 @@
 //! source is over the whole frame budget on its own — a rope, a paged cursor or a `Vec<Vec<T>>` is
 //! an ordinary thing for an application to have, and no type in this module says what it costs.
 //!
-//! **The finding survived being re-measured and the figure did not.** Spec §14 priced the three
+//! **The finding survived being re-measured and the figure did not.** An earlier pass priced the three
 //! shapes at 19.77 µs, 320.85 µs and 78.40 ms; R 20 re-ran the report against the shipped module and
 //! reads **≈4 µs, ≈230 µs and ≈41 ms**. The chunked arm is **226.92–237.21 µs over six runs on one
 //! machine in one afternoon** — a 4% spread with nothing else running — so **321% of the frame
@@ -147,7 +147,7 @@ impl Revision {
     /// hands this over, and every [`Memo`] keyed on it recomputes on every frame for ever.
     ///
     /// **The cost is a counter and an assertion rather than a sentence in a doc comment**, because
-    /// §14's "the cost is stated in the docs" is how it stops being noticed: on the canonical screen
+    /// Stating the cost here is how it stops being noticed: on the canonical screen
     /// it is the chart's fold, **84.91 µs, 85% of a 100 µs frame**, and a `Vec`-valued memo under
     /// `UNKNOWN` allocates once a frame for ever.
     /// [`Memo::recomputes`] is the counter, and
@@ -363,7 +363,7 @@ impl<T> Drop for Edit<'_, T> {
 /// > the sentence it replaces, is what a reactivity layer inherits.
 ///
 /// The view function still runs, the rows are still formatted, the verbs are still issued and the
-/// clip arithmetic is still done. The memo hit is 1.28 ns of that 23.58 µs. **§15's promise is
+/// clip arithmetic is still done. The memo hit is 1.28 ns of that 23.58 µs. **The promise is
 /// narrowed to two thirds**, and a reactivity layer built on top inherits the residue rather than
 /// the promise.
 ///
@@ -406,7 +406,7 @@ pub struct Memo<T> {
     /// How many times the closure has run.
     ///
     /// **Public, and a count rather than a timing**, which is what makes every assertion about this
-    /// type a gate: §14's rule is that a gate is a count, a ratio, an equality or a compile outcome,
+    /// type a gate: a gate is a count, a ratio, an equality or a compile outcome,
     /// and *the fold did not run* is a count. It is also how [`Revision::UNKNOWN`]'s price stops
     /// being a sentence.
     pub recomputes: u32,
@@ -505,7 +505,7 @@ mod tests {
     /// A paged source: chunks reached by **walking** from the first one, because a rope does not know
     /// where its chunks are without following them.
     ///
-    /// This is the shape scene 19 is about, and the reason it is worth a gate is that it looks
+    /// This is the shape the chunked-source scene is about, and the reason it is worth a gate is that it looks
     /// harmless. It is `Vec<Vec<T>>`. It has an index-shaped accessor. Nothing about the call site
     /// distinguishes it from a slice.
     struct Chunked {
@@ -619,7 +619,7 @@ mod tests {
         );
     }
 
-    /// **Scene 19, as a relation rather than as a microsecond figure.**
+    /// **The chunked source, as a relation rather than as a microsecond figure.**
     ///
     /// The scene is *a chunked data source*, and what it decided is that a source which looks like a
     /// slice at the call site can cost multiples of a whole frame to put one screenful on screen —
@@ -630,9 +630,10 @@ mod tests {
     ///
     /// # Why this is a step count and cannot be a timing
     ///
-    /// Spec §20: *a gate is a count, a ratio, an equality or a compile outcome; a timing is a
-    /// report.* The chunked source's own headline number is a timing, and it is a moving one — §14
-    /// recorded 320.85 µs and the shipped module reads 226.92–237.21 µs on the same scene — so a
+    /// *A gate is a count, a ratio, an equality or a compile outcome; a timing is a
+    /// report.* The chunked source's own headline number is a timing, and it is a moving one — an
+    /// earlier pass recorded 320.85 µs and the shipped module reads 226.92–237.21 µs on the same
+    /// scene — so a
     /// gate written as *the chunked arm is over the budget* would be a gate that gets edited rather
     /// than fixed every time the machine changes. **The relation underneath it does not move**: the
     /// accessors

@@ -430,7 +430,7 @@ mod tests {
 
     /// The five costs spec §6 tabulates, printed beside the numbers it recorded.
     ///
-    /// A report, not a gate: §14's register says a timing is a gate only at cliff granularity, and
+    /// A report, not a gate: the register says a timing is a gate only at cliff granularity, and
     /// none of these is near a cliff. The gates that *are* gates live above — the idle clear's row
     /// count, and the exactness of the union.
     ///
@@ -441,7 +441,7 @@ mod tests {
     /// cargo test --release -p vitui-engine damage_costs -- --nocapture
     /// ```
     ///
-    /// The structure of each case is spec §6's own: mark is once per verb over twenty popups,
+    /// The structure of each case is the original's: mark is once per verb over twenty popups,
     /// scan is the sparse chart's 400 scattered cells, union is twenty layers folded into one
     /// target, and clear follows a full-screen frame.
     #[test]

@@ -7,7 +7,7 @@
 //! is **what was asked for**: set before `attach`, every field an `Option`, and `None` means *let
 //! detection decide*.
 //!
-//! The asymmetry underneath them is spec §10's, and it is about detectability. Colour is measured —
+//! The asymmetry underneath them is about detectability. Colour is measured —
 //! XTGETTCAP `RGB`, DA, OSC 10, OSC 11, OSC 4. **Glyph repertoire cannot be detected at all**: no
 //! query asks whether `U+28FF` is in the font, the terminal accepts braille and draws tofu, and none
 //! of the detection machinery sees it. So `--ascii` is not a discovery, it is an operator's promise.
@@ -15,7 +15,6 @@
 //! > **A detected axis must be flat booleans; a declared axis may be an ordered ladder.** The world
 //! > does not sort; a promise is downward-closed by whoever makes it.
 //!
-//! See [ADR 0010](../../../docs/adr/0010-detected-axes-are-flat-declared-axes-are-ordered.md).
 //! [`ColorDepth`] is ordered *and* detected, because the wire formats genuinely nest.
 //!
 //! # The word *tier* does not survive on the read side
@@ -41,8 +40,8 @@
 //! [`crate::quant::Quantiser::attrs`].** `Quirks::apply` filled `attrs_dropped`,
 //! [`Capabilities::report`] printed it, and `serial.rs` never read it — so the sentence above was
 //! true of the specification and false of the code, which is this backlog's own opening shape one
-//! layer down. Production ticket 05 populated the field and found it unread; production ticket 10
-//! wired it, at the placement that also makes the mirror hold what was sent.
+//! layer down: the field was populated before anything read it, and wiring it up is what put the
+//! value at the placement that also makes the mirror hold what was sent.
 
 use std::fmt::Write as _;
 
@@ -53,7 +52,7 @@ use crate::style::Color;
 ///
 /// Distinct from [`Color`], which is a *request*: this is an answer to OSC 10, OSC 11 or OSC 4, and
 /// the only thing it can be is three channels. It converts into a `Color` for the one place that
-/// needs it — spec §5's colour resolution, where `default` has to become channels before `Mix` can
+/// needs it — colour resolution, where `default` has to become channels before `Mix` can
 /// touch it.
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Hash)]
 pub struct Rgb {
@@ -112,8 +111,8 @@ impl ColorDepth {
 /// What a component may assume is in the font.
 ///
 /// **Declared, never detected**, and therefore allowed to be a ladder — a promise is downward-closed
-/// by whoever makes it. The engine reads this exactly nowhere: it emits no glyphs of its own, §4
-/// leaves it three verbs and no box-drawing primitive, and boxes are `fill`s. A component branches
+/// by whoever makes it. The engine reads this exactly nowhere: it emits no glyphs of its own —
+/// three drawing verbs, no box-drawing primitive, and boxes are `fill`s. A component branches
 /// on it, and that is the only place the promise can be kept.
 ///
 /// The three levels were read off a real chart rather than chosen because three felt right:
@@ -196,7 +195,7 @@ impl WidthSource {
 /// will, because an engine that read `std::env::args` would be deciding what an application's flags
 /// are called.
 ///
-/// *Pins*, not *lowers or pins*, and the correction is architecture ticket 22's: a `Some` may raise
+/// *Pins*, not *lowers or pins*: a `Some` may raise
 /// as well as lower, which `colors` has always done — pinning truecolor with detection switched off
 /// is what makes headless a declared tier rather than the lowest one — and `hyperlinks: Some(true)`
 /// on a sink is the same shape one axis along.
@@ -215,9 +214,9 @@ impl WidthSource {
 ///
 /// The eight input axes are refused by (b) twice over: nothing on the composite→pack→serialise path
 /// reads one, and **a declaration cannot make an event arrive** — a declarable `key_release` would
-/// leave a component drawing a key it believes still held, which is exactly the defect
-/// [ADR 0007](../../../docs/adr/0007-the-input-model-is-honest-about-the-terminal.md) refused the
-/// uniform keyboard model for. `sync_output` and `underlines` are refused by (b)'s second half:
+/// leave a component drawing a key it believes still held, which is exactly the defect the
+/// uniform keyboard model was refused for. `sync_output` and `underlines` are refused by (b)'s
+/// second half:
 /// nobody at the terminal can name mode 2026 or ConPTY's underline-colour form, so their arms are
 /// reached from **inside** the crate through `assemble` instead.
 ///
@@ -226,7 +225,7 @@ impl WidthSource {
 ///
 /// # `Some` is never overridden
 ///
-/// The only contested pair in spec §10's precedence was the API against the environment, and this
+/// The only contested pair in the precedence order was the API against the environment, and this
 /// shape is what removes the conflict rather than adjudicating it: **the environment fills only the
 /// `None`s.** A stale `VITUI_GLYPHS` cannot silently override a flag the user just typed, and a
 /// variable still works wherever the application offered no flag.
@@ -243,8 +242,8 @@ impl WidthSource {
 /// # The stopping line is a compile outcome, not a paragraph
 ///
 /// *A declaration cannot make an event arrive* is the rule above, and a rule stated only in prose is
-/// checked by nobody. So the eight input axes have a **pair** on register #19's corpus, in the same
-/// shape impl 16 used for the eleven attribute bits that are not [`Capabilities`] fields: a field
+/// checked by nobody. So the eight input axes have a **compile-fail pair**, in the same
+/// shape used for the eleven attribute bits that are not [`Capabilities`] fields: a field
 /// nobody may declare, and a positive twin naming a field that **is** here by path — because a
 /// `compile_fail` alone passes for any reason at all, including
 /// [`hyperlinks`](Overrides::hyperlinks) having been renamed, at which point the negative case fails
@@ -288,7 +287,7 @@ pub struct Overrides {
     pub default_fg: Option<Rgb>,
     /// Pin the terminal's default background, as OSC 11 would have answered it.
     ///
-    /// The same asymmetry as [`default_fg`](Overrides::default_fg), and this is the half spec §5
+    /// The same asymmetry as [`default_fg`](Overrides::default_fg), and this is the half compositing
     /// reads: a cell with a default background is left **unmixed** while this is silent,
     /// so declaring it is what reaches the *answered* branch of the compositor from a headless
     /// screen. These two are the only fields here whose reader is the compositor rather than the
@@ -297,10 +296,10 @@ pub struct Overrides {
     /// Declare whether the terminal implements OSC 8 hyperlinks.
     ///
     /// **The one axis that is neither detected nor declared but *inferred*** — OSC 8 has no query,
-    /// §10's probe set has none that could, and `implements_osc8` is the engine guessing on the
+    /// the probe set has none that could, and `implements_osc8` is the engine guessing on the
     /// world's behalf from what XTVERSION reported. An inference is the one kind of fact a
     /// declaration must be able to correct, because there is no second query to ask more carefully
-    /// and a quirk-table entry is a new release. Architecture ticket 22 is where that became a rule.
+    /// and a quirk-table entry is a new release.
     ///
     /// The shipped inference's residual failure is what this field is for: VTE — gnome-terminal,
     /// Tilix — implements OSC 8, answers no XTVERSION, and gets a wrong `false`.
@@ -318,8 +317,8 @@ impl Overrides {
     /// The **only** named combination that survives, and the reason it survives is that it is a
     /// constructor rather than a type: nothing reads "is this the plain tier", so nothing can
     /// branch on a name instead of on a fact.
-    /// **Unchanged by architecture ticket 22's three new fields, and that is the result rather than
-    /// an oversight.** `plain` names the two flags `--ascii --no-color` stand for. A third field
+    /// **Unchanged by the three fields added since, and that is the result rather than an
+    /// oversight.** `plain` names the two flags `--ascii --no-color` stand for. A third field
     /// inside it would invent a third flag nobody typed, and the constructor survives only because
     /// it is a constructor rather than a type — nothing reads *is this the plain tier*, so nothing
     /// can branch on a name instead of on a fact.
@@ -416,7 +415,7 @@ pub(crate) struct Env {
     /// **It is JetBrains' own variable and nothing else sets it.** The IDE terminal answers DA2
     /// `0;10;0`, answers no XTVERSION, and sets `TERM=xterm-256color` — so there is nothing in a
     /// query to recognise it by, which is the same position VSCode's entry is in and the reason
-    /// §10's refusal of terminfo does not reach here: this is not inferring a capability from a
+    /// the refusal of terminfo does not reach here: this is not inferring a capability from a
     /// name, it is overriding one that was measured.
     pub(crate) terminal_emulator: Option<String>,
     /// `ALACRITTY_WINDOW_ID`, which is how the quirk table recognises Alacritty.
@@ -622,13 +621,13 @@ impl Detected {
 pub(crate) struct Private {
     pub(crate) ground: Ground,
     pub(crate) identity: Option<String>,
-    /// Mode 2026. §8 is where its force-flush limits bind.
+    /// Mode 2026. Its force-flush limits bind in the serializer.
     pub(crate) sync_output: bool,
     /// Mode 69, `DECSLRM`. Nothing in the serializer depends on it; it is queried because the
     /// query is free inside the batch and because "we never asked" is a worse answer than "no".
     pub(crate) decslrm: bool,
     /// Whether SGR 38/48 take the pre-ITU-T **semicolon** form. See [`Capabilities::legacy_sgr`],
-    /// which is where this axis is defined; `false` — the colon form — is the default (§10, arch 23).
+    /// which is where this axis is defined; `false` — the colon form — is the default.
     pub(crate) legacy_sgr: bool,
     /// Which escape spells an underline colour.
     pub(crate) underlines: Underlines,
@@ -646,9 +645,9 @@ pub(crate) struct Private {
     /// The kitty enhancement flags that survived detection's push, and **zero when the terminal
     /// answered the query with nothing at all**.
     ///
-    /// It is here rather than public for ADR 0010's reason — raw kitty flags on the public surface
-    /// would be crossterm leaking through a different door, and the four booleans above are what
-    /// somebody can act on. It exists at all because ticket 21's negotiation has one thing to decide
+    /// It is here rather than public because raw kitty flags on the public surface would be
+    /// crossterm leaking through a different door, and the four booleans above are what somebody can
+    /// act on. It exists at all because the startup negotiation has one thing to decide
     /// that the booleans cannot answer: *is there a protocol here to push to?* A terminal that
     /// implements the encoding and none of the stack answers `CSI ? u` with a flag word of zero, and
     /// the four booleans are then all false for two different reasons.
@@ -664,8 +663,8 @@ pub(crate) struct Private {
 ///
 /// The price of sampling once is explicit rather than discovered: **a terminal that changed
 /// underneath the process — a reconnected ssh session, a SIGTSTP/SIGCONT cycle — cannot be
-/// re-detected without a fresh `attach`.** That is spec §15's terminal lifecycle, not a degradation
-/// question.
+/// re-detected without a fresh `attach`.** That is the terminal's lifecycle rather than a question
+/// about degradation.
 ///
 /// ```
 /// let config = vitui_engine::Config {
@@ -743,11 +742,10 @@ pub struct Capabilities {
     pub default_fg: Option<Rgb>,
     /// The terminal's real default background, from OSC 11.
     ///
-    /// **`None` is spec §5's silent path and it is load-bearing**: cells with a default background
+    /// **`None` is the silent path and it is load-bearing**: cells with a default background
     /// are left unmixed rather than mixed against a guess, because the guess is a dark theme and on
     /// a light-theme terminal it draws a shadow backwards. A shadow clipped to the explicitly
-    /// coloured area is a visible imperfection; an inverted shadow is a bug. See
-    /// [ADR 0025](../../../docs/adr/0025-compositing-depends-on-a-terminal-capability.md).
+    /// coloured area is a visible imperfection; an inverted shadow is a bug.
     pub default_bg: Option<Rgb>,
     /// OSC 8 hyperlinks.
     pub hyperlinks: bool,
@@ -829,7 +827,7 @@ impl Capabilities {
         out
     }
 
-    /// Mode 2026, which §8 wraps a frame in when it is there.
+    /// Mode 2026, which the serializer wraps a frame in when it is there.
     pub(crate) fn sync_output(&self) -> bool {
         self.private.sync_output
     }
@@ -842,8 +840,8 @@ impl Capabilities {
     /// things that can are `Overrides::legacy_sgr`, `VITUI_FORCE_LEGACY_SGR` and the four quirk
     /// entries.
     ///
-    /// The argument is the type rather than the prose, which is why the spec could disagree with
-    /// itself about it for as long as it did (arch 23): [`crate::quirks::Quirks::legacy_sgr`] is a
+    /// The argument is the type rather than the prose, which is why documents could disagree with
+    /// each other about it for as long as they did: [`crate::quirks::Quirks::legacy_sgr`] is a
     /// `bool` and `apply` can only ever set it to `true`, so a one-way override is coherent in
     /// exactly one direction. A default of `true` would need the four quirk entries to force a value
     /// their terminals already have.
@@ -884,12 +882,11 @@ impl Capabilities {
     /// [`Detected`], which is the shape a real tty's replies arrive in, so a test built this way
     /// exercises the same precedence resolution `attach` does.
     ///
-    /// **It exists for the callers that sit *below* `Screen`, and after architecture ticket 22 that
-    /// is the only reason left.** `Overrides` can declare a default foreground and background now,
-    /// so spec §5's *answered OSC 11* path is reachable from a headless `Harness` — but
-    /// [`crate::layer`] calls `composite_run` with a `&Capabilities` directly and
-    /// [`crate::view`] and [`crate::reference`] do the same, and none of them builds a `Screen` for
-    /// an `Overrides` to be spoken through. That is arch 22's *the two doors*: this one was never
+    /// **It exists for the callers that sit *below* `Screen`, and that is the only reason left.**
+    /// `Overrides` can declare a default foreground and background, so the *answered OSC 11* path is
+    /// reachable from a headless `Harness` — but [`crate::layer`] calls `composite_run` with a
+    /// `&Capabilities` directly and [`crate::view`] and [`crate::reference`] do the same, and none
+    /// of them builds a `Screen` for an `Overrides` to be spoken through. This door was never
     /// competing with a field, because it reaches no gate that builds a `Screen`.
     #[cfg(test)]
     pub(crate) fn answering(
@@ -940,18 +937,18 @@ impl Capabilities {
     /// The capabilities of a terminal whose **wire** facts are these, for a test that needs an arm
     /// of the serializer no `Overrides` can reach.
     ///
-    /// `sync_output` and `underlines` are the two axes impl 13 has to reach and may not declare: the
+    /// `sync_output` and `underlines` are the two axes the serializer must reach and may not declare: the
     /// rule refuses them a field because nobody at the terminal can name mode 2026 or ConPTY's
     /// underline-colour form, so their arms come from **inside** the crate through a synthetic
     /// [`Detected`] put through [`assemble`] — the same door [`answering`](Capabilities::answering)
-    /// already uses for §5's answered-colour arms.
+    /// already uses for the answered-colour arms.
     ///
     /// Mode 2026 arrives as a DECRQM answer because that is the shape a real terminal's reply has;
     /// the ConPTY underline form arrives as a [`Quirks`] entry because that is where it lives on a
     /// real Windows console, and constructing the entry by hand is what makes the arm reachable
     /// without pretending the test is running on Windows.
     ///
-    /// This is what makes §8's *20 bytes of fixed framing* on a 29-byte caret frame producible for
+    /// This is what makes *20 bytes of fixed framing* on a 29-byte caret frame producible for
     /// the first time: before this it was a claim about a configuration no test could construct.
     #[cfg(test)]
     pub(crate) fn on_the_wire(
@@ -987,7 +984,7 @@ impl Capabilities {
 
     /// The capabilities of a terminal the quirk table recognises by what XTVERSION answered.
     ///
-    /// **The third use of arch 22's door, and the first where the axis is not merely undeclarable but
+    /// **The third use of this door, and the first where the axis is not merely undeclarable but
     /// unnameable.** `sync_output` and `underlines` have no `Overrides` field because nobody at the
     /// terminal can name mode 2026 or ConPTY's underline-colour form;
     /// [`attrs_dropped`](Capabilities::attrs_dropped) has none because there is no query for *do you
@@ -996,7 +993,7 @@ impl Capabilities {
     ///
     /// So this takes the **version string** and not the mask, and the quirk table decides. A gate
     /// written against a mask would pass with the table empty; a gate written against `"tmux 3.7c"`
-    /// fails the day the entry is deleted, which is the property worth having — production ticket 10.
+    /// fails the day the entry is deleted, which is the property worth having.
     #[cfg(test)]
     pub(crate) fn identified_as(version: &str) -> Capabilities {
         let env = Env::default();
@@ -1023,16 +1020,16 @@ impl Capabilities {
     /// The eight input axes are refused an `Overrides` field, and the refusal is a decision with
     /// teeth rather than an omission: *a declaration cannot make an event arrive*, and a declared
     /// `key_release` on a terminal that sends no releases puts a component in front of a key it
-    /// believes is still held — which is exactly the defect ADR 0007 refused the uniform keyboard
-    /// model for. See architecture ticket 22.
+    /// believes is still held — which is exactly the defect the uniform keyboard model was refused
+    /// for.
     ///
-    /// Impl 21 is where that ran into its own consequence: the actuator and the startup negotiation
+    /// That rule ran into its own consequence: the actuator and the startup negotiation
     /// **do** read input facts, and every one of their arms is unreachable from a caller-supplied
     /// sink, where nothing is detected and all eight are false. So the arms come from **inside** the
     /// crate, through a synthetic [`Detected`] put through [`assemble`] — the same door
     /// [`on_the_wire`](Capabilities::on_the_wire) already uses for the two wire axes nobody at the
-    /// terminal can name. Arch 22 named that door for exactly this case; what it did not foresee is
-    /// which axes would need it.
+    /// terminal can name. The door was named for exactly this case; what was not foreseen is which
+    /// axes would need it.
     #[cfg(test)]
     pub(crate) fn with_input(
         mouse: bool,
@@ -1121,7 +1118,7 @@ fn show(c: Option<Rgb>) -> String {
     }
 }
 
-/// Resolve the seven levels of spec §10's precedence into one immutable answer.
+/// Resolve the seven levels of precedence into one immutable answer.
 ///
 /// Highest wins, and the whole order is in the order of the statements below:
 ///
@@ -1540,8 +1537,8 @@ mod tests {
     }
 
     /// **Gate.** Headless is a fully *declared* tier, not the lowest one: truecolor is reachable
-    /// with detection switched off. A floor tier could never have provided this, and it is what
-    /// ticket 05's goldens and the round trip's option sets need.
+    /// with detection switched off. A floor tier could never have provided this, and it is what the
+    /// golden screens and the round trip's option sets need.
     #[test]
     fn headless_reaches_truecolor_with_detection_off() {
         let caps = assemble(
@@ -2161,7 +2158,7 @@ mod tests {
         assert_eq!(plain.default_bg, None);
     }
 
-    /// **Gate, both directions, for the three fields architecture ticket 22 added.**
+    /// **Gate, both directions, for the three most recently added fields.**
     ///
     /// Every `Overrides` field has a `VITUI_*` twin and that is the rule: level 2 exists to be the
     /// same lever without a release. So each of the three is asserted twice — a `Some` is never

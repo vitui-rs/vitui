@@ -35,7 +35,7 @@ use crate::ucd;
 #[derive(Debug, Default)]
 pub(crate) struct Interner {
     /// Indexed by cluster id. A handle is stable until [`compact`](Interner::compact) renumbers
-    /// it, which is spec §3's mark-and-compact sweep and happens where allocation is already
+    /// it, which is the mark-and-compact sweep and happens where allocation is already
     /// permitted, never inside a frame.
     clusters: Vec<Box<str>>,
     index: HashMap<Box<str>, u32>,
@@ -68,7 +68,7 @@ impl Interner {
     /// The handle for one extended grapheme cluster, minting one if this is the first sight of it.
     ///
     /// `None` for a cluster that occupies no column — a lone combining mark, a format character, a
-    /// control. Spec §3's width table says *nothing advances*, so there is no cell to put it in and
+    /// control. The width table says *nothing advances*, so there is no cell to put it in and
     /// the verb steps over it.
     pub(crate) fn handle(&mut self, cluster: &str) -> Option<GraphemeId> {
         // The path nearly every cell takes: one byte of printable ASCII, one column, its own handle.

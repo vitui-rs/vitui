@@ -34,7 +34,7 @@
 //!
 //! **No timer thread.** An animation is a `wait_timeout` on a condvar the app thread already owns.
 //!
-//! Terminal setup — raw mode, the alt screen and §10's capability queries, which are the only place
+//! Terminal setup — raw mode, the alt screen and the capability queries, which are the only place
 //! the engine both writes *and* reads — happens entirely inside [`Engine::attach`] and **before the
 //! render thread exists**, where no concurrency does.
 //!
@@ -46,7 +46,7 @@
 //!
 //! # What `attach` now does before it hands anything back
 //!
-//! It asks. [`Engine::attach`] fires spec §10's whole query batch at the terminal behind one DA1
+//! It asks. [`Engine::attach`] fires the whole capability batch at the terminal behind one DA1
 //! sentinel, resolves the seven levels of precedence over the answers, and the result is immutable
 //! for the life of the [`Screen`] — [`Screen::capabilities`]. **Which of the three grounds it is
 //! on is decided by [`Output`]**: a caller-supplied sink is a fully declared tier and asks nothing,
@@ -96,8 +96,8 @@ use crate::surface::Surface;
 /// the promise this variant was already carrying — *time only moves when the caller moves it* — and it
 /// makes `Manual` reproducible in its timing as well as in its interleaving. A registered deadline
 /// still holds on that path: an `Instant` the caller chose is the caller's own clock, not this one's.
-/// [`Screen::set_max_frame_rate`] is **ignored** on this clock. Not rejected — there is nothing in
-/// §12's signature to reject with, and a `debug_assert` would fire on a caller doing something
+/// [`Screen::set_max_frame_rate`] is **ignored** on this clock. Not rejected — the signature has
+/// nothing to reject with, and a `debug_assert` would fire on a caller doing something
 /// perfectly reasonable: setting the ceiling once at startup and choosing the clock elsewhere. So it
 /// returns having done nothing, and this sentence is where that is written down.
 ///
@@ -120,9 +120,9 @@ pub enum Clock {
 /// with detection switched off and every axis pinned, any tier is testable, truecolor
 /// included.
 ///
-/// This is the one trait object in the engine and it is `std::io::Write`, not one of ours. Spec
-/// §12's refusal is that the engine defines no trait to call *upward* — it has nothing to ask of
-/// its caller. A sink is downward I/O, and inventing a `vitui::Sink` for it would make every caller
+/// This is the one trait object in the engine and it is `std::io::Write`, not one of ours. The
+/// engine defines no trait to call *upward*: it has nothing to ask of its caller. A sink is
+/// downward I/O, and inventing a `vitui::Sink` for it would make every caller
 /// write an adapter for a trait std already has.
 #[derive(Default)]
 pub enum Output {
@@ -139,8 +139,8 @@ pub enum Output {
     ///
     /// **Headless, and a fully *declared* tier rather than the lowest one**: detection is switched
     /// off and every axis is pinned through [`Config::overrides`], so *any* tier is testable,
-    /// truecolor included. A floor tier could never have provided that, and spec §14's nine option
-    /// sets are what need it.
+    /// truecolor included. A floor tier could never have provided that, and the nine option sets
+    /// the test scenes are played under are what need it.
     Sink(Box<dyn Write + Send>),
 }
 
@@ -168,31 +168,21 @@ impl std::fmt::Debug for Output {
 /// assert_eq!(config.size, (80, 24));
 /// ```
 ///
-/// # Eight fields, and two of §12's six are not among them
+/// # Eight fields, and the two knobs that are deliberately absent
 ///
-/// §12 writes `Config { packets, max_frame_rate, resolver, overrides, input, clock }`, and the two
-/// that are missing here are missing for reasons the implementation settled rather than for want of
-/// typing. **`packets` would be a knob with one legal value**: spec §7 fixes the pool at two
-/// *provably* — with one producer the slot is always empty at submit, so a packet can never be
-/// superseded — and a configurable pool would invite a three that buys nothing and a one that
-/// deadlocks. **`resolver` names a type that never existed**: `Resolver` appears once in the whole
-/// architecture, in §12's own compositing line, with no field, no verb and no sentence, and impl 12
-/// resolves an operator layer's colour at composite time against what the terminal answered.
+/// **A packet-pool size would be a knob with one legal value.** The pool is fixed at two, provably:
+/// with one producer the slot is always empty at submit, so a packet can never be superseded. A
+/// configurable pool would invite a three that buys nothing and a one that deadlocks.
 ///
-/// Four arrived instead, each with the ticket that brought it: [`output`](Config::output) and
-/// [`size`](Config::size) at impl 03, because a tracer bullet needs a caller-supplied sink and there
-/// is no terminal to ask for a size, and
-/// [`overrun_threshold`](Config::overrun_threshold) with
-/// [`overrun_report`](Config::overrun_report) at impl 23 — two fields rather than one `Overruns`
-/// struct, because a twenty-second public type for two knobs is what *every knob visible in one
-/// place* was chosen over a builder to avoid.
+/// **A colour resolver is not a thing a caller supplies.** An operator layer's colour is resolved
+/// at composite time against what the terminal actually answered, so there is nothing to hand in.
 ///
 /// A field arriving on a public struct is a **breaking change to every literal that does not use
-/// `..Default::default()`**, which is why impl 16 declared [`WidthSource`](crate::WidthSource) before anything read it
-/// and why this paragraph exists: the next field is a diff and not a surprise.
+/// `..Default::default()`**, which is why [`WidthSource`](crate::WidthSource) was declared before
+/// anything read it, and why this paragraph exists: the next field is a diff and not a surprise.
 ///
-/// Both absences are on register #19's corpus as pairs, because a sentence in this paragraph is
-/// checked by nobody. The pool is not a knob:
+/// Both absences are held by a compile-fail pair, because a sentence in a doc comment is checked by
+/// nobody. The pool is not a knob:
 ///
 /// ```compile_fail,E0560
 /// let _ = vitui_engine::Config {
@@ -235,8 +225,8 @@ pub struct Config {
     /// The ceiling on frames per second, in hertz.
     ///
     /// **Set by the application, never discovered.** A tty cannot report a refresh rate, so nothing
-    /// in this crate asks a display anything — §12's refusal 10, and
-    /// `crate::gates::nothing_anywhere_queries_a_display` is what keeps it true. The application
+    /// in this crate asks a display anything, and
+    /// `crate::gates::nothing_anywhere_queries_a_display` is what keeps that true. The application
     /// learns the number from the platform and says so here;
     /// [`Screen::set_max_frame_rate`] covers a monitor changing under a running program.
     ///
@@ -263,7 +253,7 @@ pub struct Config {
     pub overrides: Overrides,
     /// What an iteration may cost before the app thread is told it lost a frame, or `None` for
     /// **one frame interval** — the same number as [`Config::max_frame_rate`], and the only
-    /// threshold spec §11 would accept.
+    /// threshold this crate will pick on an application's behalf.
     ///
     /// **The map's < 100 µs is a CI gate on one stage of the engine's own work, not a runtime
     /// threshold for the application's whole iteration**, and pinning it here at 100 µs would be a
@@ -310,7 +300,7 @@ impl Config {
     /// The size a terminal that has never been asked is assumed to be.
     const DEFAULT_SIZE: (u16, u16) = (80, 24);
 
-    /// The ceiling an application that has not said anything gets: spec §7's `MIN_GAP` of 16.6 ms.
+    /// The ceiling an application that has not said anything gets: a minimum gap of 16.6 ms.
     ///
     /// A default rather than a discovery, and the two are not close: the engine cannot ask, so the
     /// alternative to a default is refusing to start.
@@ -418,12 +408,12 @@ impl Engine {
 
     /// Attach with the capabilities handed in rather than detected.
     ///
-    /// **The door arch 22 named for the axes it refused a field**, one ticket further along than it
-    /// expected: impl 21's actuator and negotiation read the eight *input* facts, and every arm of
-    /// both is unreachable from a caller-supplied sink, where nothing is detected and all eight are
-    /// false. `Overrides` may not carry them — *a declaration cannot make an event arrive*, ADR 0007
-    /// — so the arms come from inside the crate, exactly as `sync_output` and the ConPTY underline
-    /// form already do. See [`Capabilities::with_input`](crate::Capabilities).
+    /// **The door for the axes [`Overrides`](crate::Overrides) deliberately has no field for.** The
+    /// actuator and the negotiation read the eight *input* facts, and every arm of both is
+    /// unreachable from a caller-supplied sink, where nothing is detected and all eight are false.
+    /// `Overrides` may not carry them — *a declaration cannot make an event arrive* — so the arms
+    /// come from inside the crate, exactly as `sync_output` and the ConPTY underline form already
+    /// do. See [`Capabilities::with_input`](crate::Capabilities).
     #[cfg(test)]
     pub(crate) fn attach_declaring(
         self,
@@ -438,7 +428,7 @@ impl Engine {
     /// handle to. The panic path cannot: it may be the render thread's own unwind, so it writes
     /// through [`crate::shutdown::Site`]'s sink — `std::io::stdout()` for a real terminal, and
     /// nowhere at all for a caller-supplied one, because a file is not a terminal and has no modes
-    /// to give back. This door swaps that one field, so that register entry #15 can be **captured**
+    /// to give back. This door swaps that one field, so that a restoration can be **captured**
     /// rather than inspected.
     #[cfg(test)]
     pub(crate) fn attach_restoring_into(
@@ -645,8 +635,9 @@ impl Engine {
 
 /// What `present` did.
 ///
-/// `submitted`, never `painted`. The distinction is spec §12's refusal 7: the engine offers no
-/// completion anywhere, so it can say a frame was handed on and it cannot say a frame was shown.
+/// `submitted`, never `painted`, and the difference is the whole of what this type can promise:
+/// the engine offers no completion anywhere, so it can say a frame was handed on and it cannot say
+/// a frame was shown.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub struct Presented {
     /// Whether a frame was handed on. False when nothing was damaged.
@@ -713,8 +704,8 @@ impl WakeHandle {
 
     /// The input thread parsed something.
     ///
-    /// `pub(crate)` and it stays that way: §12 gives this handle two verbs, and the third is the
-    /// input thread's — spawned by `attach`, never held by an application. The production caller is
+    /// `pub(crate)` and it stays that way: the public handle has two verbs, and this third one is
+    /// the input thread's — spawned by `attach`, never held by an application. The production caller is
     /// `crate::reader::run`, which reaches the same source without going through this handle.
     #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn input(&self) {
@@ -759,7 +750,7 @@ impl WakeHandle {
 ///
 /// # The two holes this closes, and both of their tests used to pass
 ///
-/// Spec §11's real yield was not the marker; it was that *"with one producer the slot is always
+/// The real yield was not the marker; it was that *"with one producer the slot is always
 /// empty at submit, so a packet can never be superseded"* — asserted over 10 000 cycles — is a claim
 /// **with one producer**, and nothing made one producer true. Two tests were written and both
 /// passed, which is what made both of them holes: a worker thread could lease and submit a packet,
@@ -825,7 +816,7 @@ impl WakeHandle {
 /// ```
 ///
 /// The wake source was in fact **self-contradictory as one type**, which is the structural reason
-/// ADR 0003's split is not merely tidier: the posting verb has to be `Sync` to be callable from a
+/// the split is not merely tidier: the posting verb has to be `Sync` to be callable from a
 /// worker, and `wait` must not be. [`WakeHandle`] is the `Sync` half and it has two verbs.
 ///
 /// # Refusals 3 and 10, which would have arrived here or nowhere
@@ -901,7 +892,7 @@ pub struct Screen {
     ///
     /// Behind an `Rc` because [`Permit`] holds one and may not borrow this `Screen`: a permitted
     /// region draws, and drawing takes `&mut self`. See [`crate::perf::Permit`], which is where the
-    /// borrow that spec §11's *`Cell` and `&self` throughout* does not fix is written down.
+    /// borrow that interior mutability alone does not fix is written down.
     perf: Rc<Perf>,
     /// The one thing that can wake this thread: an input event, a post, a deadline, or the renderer
     /// going free with a frame owed. Shared with every [`WakeHandle`] and with the render thread.
@@ -990,7 +981,7 @@ impl Screen {
     /// this takes `&self` and why no component ever has to handle a capability changing between
     /// frames. The price is explicit: a terminal that changed underneath the process — a
     /// reconnected ssh session, a SIGTSTP/SIGCONT cycle — cannot be re-detected without a fresh
-    /// `attach`. That is spec §15's terminal lifecycle, not a degradation question.
+    /// `attach`. That is the terminal's lifecycle rather than a question about degradation.
     pub fn capabilities(&self) -> &Capabilities {
         &self.caps
     }
@@ -1000,7 +991,7 @@ impl Screen {
     ///
     /// # This is also where the handle tables are swept, and it is the only such place
     ///
-    /// Spec §3 puts eviction *where allocation is already permitted — a scene topology change, or a
+    /// Eviction belongs *where allocation is already permitted — a scene topology change, or a
     /// high-water mark on the table — and **never inside a frame***. This door is that place, and
     /// the reason it is the right one is that it is the only door those two things arrive through:
     /// every topology change is a method on [`LayerStack`], every drawing verb is reached through
@@ -1021,14 +1012,13 @@ impl Screen {
     /// and `crate::gates::the_sweep_never_runs_inside_present` says so as a count.
     ///
     /// It is worth being exact about what that buys, because this door is not only the topology
-    /// door — it is the **drawing** door, `layers().view(id)`, and spec §12 has the runtime bring a
-    /// draw for every layer every frame. So the sweep does land inside the application's frame loop.
-    /// What it never lands inside is `present`, which is the composite-pack-serialise path §13's
-    /// 100 µs and 1 ms budgets are taken around — and the serialise half of that is the **render
-    /// thread's** since ticket 18.
+    /// door — it is the **drawing** door, `layers().view(id)`, and a caller brings a draw for every
+    /// layer every frame. So the sweep does land inside the application's frame loop. What it never
+    /// lands inside is `present`, which is the composite-pack-serialise path the 100 µs and 1 ms
+    /// budgets are taken around — and the serialise half of that belongs to the **render thread**.
     ///
-    /// That is the whole of what §3 asks for, and §3 says so itself one line further on: *the app
-    /// thread may sweep while the render thread is inside a 200 ms `write`.* A sweep on the app
+    /// That is the whole of what is asked for: *the app thread may sweep while the render thread is
+    /// inside a 200 ms `write`.* A sweep on the app
     /// thread, concurrent with the render thread's frame, is the shipped design rather than a
     /// concession — and while there is one thread there is no moment that is outside a frame in any
     /// stronger sense than this one.
@@ -1053,14 +1043,14 @@ impl Screen {
     /// is a 29-byte frame — and it deletes both of cellbuf's bug-driven workarounds outright, because
     /// with no wrap there is no pending-wrap state and no bottom-right corner that scrolls. **Neither
     /// workaround is ported.** The cost of refusing auto-wrap is that a run ending at the right
-    /// margin can no longer flow into the next row's, and §8 measured that at *zero*: 73 290 bytes
+    /// margin can no longer flow into the next row's, and that was measured at *zero*: 73 290 bytes
     /// either way, because damage already splits at row boundaries.
     ///
     /// # The alt screen, and why auto-wrap is switched off *inside* it
     ///
-    /// §8 says *for the lifetime of the alt screen*, and every mode below is set on the page this
-    /// session owns. **Which of two writes opened that page is [`Page`]'s question and not this
-    /// one's** (production ticket 12): `?1049h` is the first thing on the wire either way, and on a
+    /// Auto-wrap is off *for the lifetime of the alt screen*, and every mode below is set on the
+    /// page this session owns. **Which of two writes opened that page is [`Page`]'s question and not
+    /// this one's**: `?1049h` is the first thing on the wire either way, and on a
     /// real terminal the thing it is the first of is `crate::detect::batch` rather than the bytes
     /// here. The restoration is the same list backwards, ending with `?1049l` — see
     /// [`crate::actuate::restoration`] and [`crate::shutdown`], which is what makes it happen under
@@ -1200,7 +1190,7 @@ impl Screen {
     ///
     /// # The clock gates here, not `present`
     ///
-    /// See `docs/adr/0004-the-frame-clock-gates-the-wait.md`. Refusing the frame at `present` is half
+    /// Refusing the frame at `present` is half
     /// a solution: by
     /// then the runtime has already run its layout, its reactivity and every drawing verb for a frame
     /// nobody will see. Measured against an event storm at 1000 Hz with a 167 µs frame standing in
@@ -1218,7 +1208,7 @@ impl Screen {
     ///
     /// The first damage after a quiet period returns immediately; everything arriving inside the gap
     /// coalesces into one return at the end of it. With nothing pending and no deadline registered
-    /// **the wait is indefinite** — there is no timer anywhere in this crate — so an idle application
+    /// **The wait is indefinite** — there is no timer anywhere in this crate — so an idle application
     /// costs no wakeups and no CPU at all. A fixed-rate ticker would cost 3 600 wakeups over thirty
     /// idle seconds at 120 Hz, and add up to half a frame of latency to the first keystroke.
     ///
@@ -1334,7 +1324,7 @@ impl Screen {
     /// That is a sink and not a loss, because **the caller re-registers every frame**: the runtime
     /// keeps its own set and flushes the earliest of it once per settle, so the 500 ms deadline is
     /// re-supplied on the frame the 8 ms one bought. An engine that held the set would be a
-    /// scheduler, and §12's refusal 9 is that there isn't one. A caller that registers once and never
+    /// scheduler, and there isn't one. A caller that registers once and never
     /// again gets exactly one wake, which is what it asked for.
     ///
     /// It is `&self` because it only writes to the wake source, which is shared: an animating
@@ -1355,7 +1345,7 @@ impl Screen {
     ///
     /// **Ignored on [`Clock::Manual`]**, which is not paced at all: a deterministic mode that
     /// contained a real sleep would be reproducible in its interleaving and not in its timing. Ignored
-    /// and not rejected — §12's signature has nothing to reject with, and setting a ceiling at startup
+    /// and not rejected — the signature has nothing to reject with, and setting a ceiling at startup
     /// while choosing the clock elsewhere is a reasonable thing for an application to do.
     pub fn set_max_frame_rate(&mut self, hz: f32) {
         self.frame_clock.set_rate(hz);
@@ -1367,8 +1357,8 @@ impl Screen {
 
     /// How much mouse reporting the terminal is switched on for.
     ///
-    /// **The engine's entire mouse actuator**, and it carries an obligation the spec states rather
-    /// than implies: *it is idempotent, and free when the value has not changed.* That is not
+    /// **The engine's entire mouse actuator**, and it carries a guarantee worth stating outright:
+    /// *it is idempotent, and free when the value has not changed.* That is not
     /// politeness, it is load-bearing — the runtime calls this after every frame, and a naive
     /// implementation writes an escape sequence per frame for ever. Free here means free in the
     /// strong sense: an unchanged level does not merely emit nothing, it does not cause a frame.
@@ -1419,8 +1409,8 @@ impl Screen {
     /// Blinking is the terminal's, at the rate its user configured. **There is no software caret
     /// anywhere in this crate**, and that is a measurement rather than a preference: one `restyle` of
     /// one cell, toggled, costs two wakeups a second for as long as anything has focus — 7 200 an
-    /// hour on a screen where nothing is happening — so ticket 19's measured idle would not survive a
-    /// text field, and a form is not an exotic component. The terminal's own caret is also the only
+    /// hour on a screen where nothing is happening — so this crate's measured zero-wakeup idle would
+    /// not survive a text field, and a form is not an exotic component. The terminal's own caret is also the only
     /// one a screen reader or an IME can follow.
     ///
     /// A caret off the edge of the screen is clamped, not refused.
@@ -1468,8 +1458,8 @@ impl Screen {
     ///
     /// # The rung that catches it before it runs is yours, not this crate's
     ///
-    /// Spec §11's third rung is a `clippy.toml` fragment naming `fs`, `net`, `sleep`, `join`, `recv`
-    /// and `lock`, and it ships in **`examples/app-template/`** with the sentence that matters on it:
+    /// A `clippy.toml` fragment naming `fs`, `net`, `sleep`, `join`, `recv`
+    /// and `lock` ships in **`examples/app-template/`** with the sentence that matters on it:
     /// **it protects vitui, not vitui's users.** That is a measured fact rather than a policy —
     /// clippy reads `clippy.toml` from the crate being linted, and no stable mechanism lets a
     /// dependency inject lints downstream. Verified with a control: the file in the *dependency*
@@ -1574,16 +1564,15 @@ impl Screen {
     ///
     /// # Why the read is not made cancellable
     ///
-    /// Four mechanisms could do it and all four are refused, which is production ticket 13's answer
-    /// and is written out in ADR 0052: a self-pipe and `poll` needs `libc` and an `unsafe` block,
-    /// which `#![forbid(unsafe_code)]` and ADR 0034 both refuse; crossterm's own cancellable event
+    /// Four mechanisms could do it and all four are refused: a self-pipe and `poll` needs `libc` and
+    /// an `unsafe` block, which `#![forbid(unsafe_code)]` refuses; crossterm's own cancellable event
     /// source cannot carry the capability negotiation, because its `Event` has no variant for an
     /// escape sequence nobody recognised and the whole batch is such sequences; a non-blocking
     /// descriptor sets `O_NONBLOCK` on an open file description shared with the shell and with every
     /// child; and `rustix` would need no `unsafe` here at all and is refused on **dependency
     /// policy**, which is a judgement rather than an impossibility and is stated as one.
-    /// `scripts/suspend-reader-gate.sh` is register entry 31 and watches the refusal on a real pty,
-    /// so a build that makes the reader stoppable turns this paragraph red rather than stale.
+    /// `scripts/suspend-reader-gate.sh` watches the refusal on a real pty, so a build that makes the
+    /// reader stoppable turns this paragraph red rather than stale.
     ///
     /// **It is not a recovery from a terminal that left on its own.** A `SIGTSTP` from outside the
     /// process stops it where it stands with no chance to write anything, and a connection that
@@ -1676,7 +1665,7 @@ impl Screen {
     /// there is nothing to write the negotiation through and nothing to hand a packet to. That is
     /// the same answer `suspend` gives to the same question from the other side, and it is not a new
     /// failure mode — a dead renderer is already indistinguishable from a permanently busy one
-    /// through this surface (§12's refusal 7), the terminal has already been given back by the panic
+    /// through this surface, the terminal has already been given back by the panic
     /// hook, and a `Wake::Quit` is on its way to the application.
     pub fn resume(&mut self) {
         if !self.suspended {
@@ -1957,7 +1946,7 @@ impl Screen {
 
     /// Block until the render thread has taken the last packet.
     ///
-    /// **Not the parking point, and ticket 19 is where that was decided.** [`Screen::wait`] is the
+    /// **Not the parking point.** [`Screen::wait`] is the
     /// app thread's blocking call and it multiplexes the renderer going free along with everything
     /// else — through [`crate::clock::WakeSource`], because a thread cannot park on two condvars. What
     /// this is for is the gates: *do not go on until the renderer has taken that frame* is an
@@ -2008,27 +1997,25 @@ impl Screen {
     /// # The mirror starts unknown, which is what the debt here used to be
     ///
     /// A terminal that has just changed size is showing something nobody recorded — it reflows on
-    /// `SIGWINCH`, it does not clear — so the honest value for the mirror is ADR 0006's **unknown**
-    /// state. Until ticket 08 there was no such thing and a fresh `Mirror` said *blank* instead, which
-    /// was a claim about the terminal that is not true; it was harmless only because every cell of the
-    /// new screen is damaged and therefore written unconditionally, and impl 14's equality filter is
-    /// what ended that.
+    /// `SIGWINCH`, it does not clear — so the honest value for the mirror is **unknown**, per cell.
+    /// A fresh `Mirror` used to say *blank* instead, which is a claim about the terminal that is not
+    /// true; it was harmless only while every cell of the new screen was damaged and therefore
+    /// written unconditionally, and the equality filter is what ended that.
     ///
     /// A fresh `Mirror` knows nothing, and this function makes a fresh one. So there is no separate
     /// resize mode and nothing here to remember. What that is worth is pinned by
     /// [`a_resize_does_not_let_the_filter_trust_a_fresh_mirror`](tests::a_resize_does_not_let_the_filter_trust_a_fresh_mirror),
     /// whose terminal model keeps its cells the way a real terminal keeps them.
     ///
-    /// There is nothing to invalidate beyond that, and the reason is §5's: the flattened prefix
-    /// cache that would have had to be invalidated was refused, on a budget the damage rectangles
-    /// deliver instead.
+    /// There is nothing else to invalidate: the flattened prefix cache that would have had to be
+    /// invalidated was refused, on a budget the damage rectangles deliver instead.
     ///
     /// The layers keep their rectangles and their cells. The runtime brings a rectangle and a draw
     /// for every layer every frame, so a layer whose shape must change is
     /// [`set_rect`](crate::LayerStack::set_rect)'s business and not this one's.
     ///
-    /// **Nothing outside this crate calls it, and nothing will.** §12's public surface has no
-    /// `resize` on `Screen`: the authoritative size is one packed atomic written by the input
+    /// **Nothing outside this crate calls it, and nothing will.** There is no public `resize` on
+    /// `Screen`: the authoritative size is one packed atomic written by the input
     /// thread, and a resize reaches the application as an [`Event::Resize`] — which
     /// [`Screen::next_event`] applies here on its way past.
     pub(crate) fn resize(&mut self, w: u16, h: u16) {
@@ -2085,9 +2072,9 @@ impl Screen {
 
     /// The handle space this screen's layers speak, for the terminal model to mint back into.
     ///
-    /// **All three tables, not the interner alone.** Ticket 06 needed one, because a cluster was the
-    /// only handle a cell carried that the model had to agree about; impl 13 puts an underline colour
-    /// and a URI on the wire, so the model has to reach the extended-style and link tables too — a
+    /// **All three tables, not the interner alone.** A cluster was once the only handle a cell
+    /// carried that the model had to agree about; an underline colour and a URI go on the wire too,
+    /// so the model has to reach the extended-style and link tables as well — a
     /// cell is compared whole, handle included, and two tables cannot produce equal handles for one
     /// entry.
     #[cfg(test)]
@@ -2117,7 +2104,7 @@ impl Screen {
         &self.runs
     }
 
-    /// The packet the last frame packed, for register entry #10's equality.
+    /// The packet the last frame packed, for the round-trip oracle to replay.
     ///
     /// A closure, because the packet lives in the pool behind the mailbox's lock. `None` when no
     /// frame has packed one yet. Deterministic path only: on the threaded path the renderer may still
@@ -2127,8 +2114,8 @@ impl Screen {
         self.mailbox.with_last_packed(f)
     }
 
-    /// How many times the render thread's wait has returned. Register entry #17's other half:
-    /// **zero over an idle window**, where a fixed-rate ticker would put one per tick.
+    /// How many times the render thread's wait has returned: **zero over an idle window**, where a
+    /// fixed-rate ticker would put one per tick.
     #[cfg(test)]
     pub(crate) fn render_wakeups(&self) -> u64 {
         self.mailbox.wakeups()
@@ -2136,9 +2123,9 @@ impl Screen {
 
     /// App submit to the render thread holding the packet, one entry per frame it took.
     ///
-    /// Register entry #26, and the distribution is a **report**: it is OS scheduler latency on the
-    /// way to the wire rather than app-thread CPU work, so it does not spend §13's 100 µs budget and
-    /// it is not the sort of number a shared runner can gate.
+    /// The distribution is a **report** rather than a gate: it is OS scheduler latency on the way to
+    /// the wire rather than app-thread CPU work, so it does not spend the 100 µs frame budget and it
+    /// is not the sort of number a shared runner can hold to a threshold.
     #[cfg(test)]
     pub(crate) fn wake_latencies(&self) -> Vec<std::time::Duration> {
         self.mailbox.latencies()
@@ -2217,7 +2204,7 @@ impl Screen {
     ///
     /// `cfg(test)` and it stays that way. A headless screen has no terminal, so it has no input
     /// thread and nothing ever fills the queue — and a public door here would let an application
-    /// fabricate a keystroke, which is the whole of what ADR 0007 refuses.
+    /// fabricate a keystroke, which is exactly what this crate refuses to make possible.
     #[cfg(test)]
     pub(crate) fn inject(&self, event: Event) {
         self.input.push(event);
@@ -2229,8 +2216,8 @@ impl Screen {
         self.terminal_size.get()
     }
 
-    /// What §10's `CHA`-after-non-ASCII rule has cost this screen in bytes, for the report that pays
-    /// spec §15's second owed measurement. See `crate::serial::Serializer::cha_rule_bytes`.
+    /// What the `CHA`-after-non-ASCII rule has cost this screen in bytes, for the report that
+    /// prices it. See `crate::serial::Serializer::cha_rule_bytes`.
     #[cfg(test)]
     pub(crate) fn cha_rule_bytes(&self) -> usize {
         self.inline_renderer().serializer.cha_rule_bytes()
@@ -2288,8 +2275,8 @@ impl Screen {
 
     /// How many extended-style entries this screen has ever created, sweeps included.
     ///
-    /// Not the same question as [`Screen::table_lengths`], and spec §3's growth table is made of this
-    /// one: a table that gains 96 entries a frame and is swept back to size every third frame has a
+    /// Not the same question as [`Screen::table_lengths`], and the growth measurements are made of
+    /// this one: a table that gains 96 entries a frame and is swept back to size every third frame has a
     /// length delta of about nothing while creating 96 a frame.
     #[cfg(test)]
     pub(crate) fn extended_styles_minted(&self) -> u64 {
@@ -2307,7 +2294,7 @@ impl Screen {
 
     /// Every cell of the frame and of every layer surface, with every handle resolved.
     ///
-    /// Register entry #11's oracle. It takes `&self` deliberately: reaching the layers through
+    /// The oracle the golden screens are compared against. It takes `&self` deliberately: reaching the layers through
     /// [`Screen::layers`] would run a sweep on the way past, and a snapshot that swept before
     /// snapshotting is not a *before*.
     #[cfg(test)]
@@ -2325,7 +2312,7 @@ impl Screen {
 
     /// Serialise this screen's frames under one of the filter configurations that lost.
     ///
-    /// The instrument spec §8's *there is no threshold* is reproduced with, and it is on `Screen`
+    /// The instrument *there is no threshold* is reproduced with, and it is on `Screen`
     /// because the scenes are driven through `present`: a sweep over thresholds has to be a sweep
     /// over the same twelve scenes the byte budget is measured on, or it is a sweep over a fixture
     /// somebody chose. See [`crate::serial::Filter`].
@@ -2334,16 +2321,16 @@ impl Screen {
         self.inline_renderer_mut().serializer.set_filter(filter);
     }
 
-    /// Serialise this screen's frames with the scroll pre-pass off: §8's *filtered* column, which is
-    /// the arm its *+ scroll region* column is a ratio against. See
+    /// Serialise this screen's frames with the scroll pre-pass off: the *filtered* arm, which the
+    /// *+ scroll region* figure is a ratio against. See
     /// [`Serializer::set_scroll_region`](crate::serial::Serializer::set_scroll_region).
     #[cfg(test)]
     pub(crate) fn set_scroll_region(&mut self, on: bool) {
         self.inline_renderer_mut().serializer.set_scroll_region(on);
     }
 
-    /// Serialise the way §8 rejected: verify every candidate the probe matches rather than the first.
-    /// The instrument its 27x is reproduced with. See
+    /// Serialise the way that was rejected: verify every candidate the probe matches rather than the
+    /// first. The instrument the 27x regression is reproduced with. See
     /// [`Serializer::set_verify_every_match`](crate::serial::Serializer::set_verify_every_match).
     #[cfg(test)]
     pub(crate) fn set_verify_every_match(&mut self, on: bool) {
@@ -2353,7 +2340,7 @@ impl Screen {
     }
 
     /// How many of this screen's frames put a scroll on the wire, and how many candidates were
-    /// verified to get there. The second is the count §8's 27x regression is gated by.
+    /// verified to get there. The second is the count the 27x regression is gated by.
     #[cfg(test)]
     pub(crate) fn scrolls(&self) -> (usize, usize) {
         let serializer = &self.inline_renderer().serializer;
@@ -2389,7 +2376,7 @@ impl Screen {
 ///
 /// Two runs on a row arrive with at least one undamaged column between them, and each can widen by
 /// one column — so the gap can close, and a gap that closed is one run rather than two. Leaving them
-/// apart would cost a cursor move between adjacent cells and break §14's gate #2, which reads
+/// apart would cost a cursor move between adjacent cells and break the run gate, which reads
 /// exactly that: *two runs that touch are one run*.
 ///
 /// They cannot **overlap**, and the reason is worth keeping: a run widens to its right only by
@@ -2415,7 +2402,7 @@ fn merge_touching(runs: &mut Vec<Run>) {
 }
 
 impl Drop for Screen {
-    /// **The guard spec §7 asks for**, and it is the type itself rather than a separate one: a
+    /// **The restoration guard, and it is the type itself rather than a separate one**: a
     /// normal return and a `?` out of `main` both drop the `Screen`, so both take this path and
     /// neither needs the application to remember anything.
     ///
@@ -2480,7 +2467,7 @@ impl Renderer {
 fn render_loop(mailbox: &Mailbox, wakes: &WakeSource, renderer: &mut Renderer) {
     /// Tell the app thread the renderer has left, however it left.
     ///
-    /// **Both sides, and the wake source is the one that matters since ticket 19**: the mailbox's
+    /// **Both sides, and the wake source is the one that matters**: the mailbox's
     /// flag releases a `wait_until_free`, and the app thread does not park there any more — it parks
     /// in [`Screen::wait`], which is released from here.
     struct Guard<'a>(&'a Mailbox, &'a WakeSource);
@@ -2511,10 +2498,10 @@ fn render_loop(mailbox: &Mailbox, wakes: &WakeSource, renderer: &mut Renderer) {
 ///
 /// A write error is still dropped on the floor here, and shutdown turned out not to be where that
 /// gets an answer: the render thread has nowhere upward to report one — `Presented` has no field
-/// for it and the engine offers no completion anywhere (§12's refusal 7) — and a terminal whose
-/// descriptor has stopped taking bytes is a terminal the epilogue cannot reach either. **No ticket
-/// on this backlog owns it**, and that is a statement rather than an omission: it is a public
-/// surface decision, and ticket 24 is where the public surface is settled.
+/// for it and the engine offers no completion anywhere — and a terminal whose descriptor has
+/// stopped taking bytes is a terminal the epilogue cannot reach either. Reporting it would be a
+/// public-surface decision, and it is recorded here as one rather than left looking like an
+/// oversight.
 pub(crate) fn write_frame(sink: &mut (dyn Write + Send), bytes: &[u8]) {
     let mut at = 0;
     while at < bytes.len() {
@@ -2906,8 +2893,8 @@ mod tests {
 
     /// **A post and a quit are separate reasons, and the quit is reported first.**
     ///
-    /// It used to assert on the raised bits, which was a test of the flag layout. Since ticket 19
-    /// there is a `wait` to ask instead, and asking it is strictly stronger: it covers the priority
+    /// It used to assert on the raised bits, which was a test of the flag layout. There is a `wait`
+    /// to ask instead, and asking it is strictly stronger: it covers the priority
     /// as well as the recording, and the priority is the part that had a defect in it.
     #[test]
     fn a_wake_handle_records_a_post_and_a_quit_separately() {
@@ -2987,7 +2974,7 @@ mod tests {
     ///
     /// A terminal reflows on `SIGWINCH`; it does not clear. So after a resize the screen is showing
     /// content nobody recorded, a fresh `Mirror` knows nothing, and **every cell of the new frame has
-    /// to go out even where the frame's own value is a blank.** Before impl 14 that happened for a
+    /// to go out even where the frame's own value is a blank.** That used to happen for a
     /// reason that was about to stop being true — every cell of a resized screen was written
     /// unconditionally because nothing compared anything — and the mirror said *blank* where it should
     /// have said *unknown*.
@@ -3083,7 +3070,7 @@ mod tests {
     /// > forbidden.**
     ///
     /// The engine's behaviour on `--ascii` is **zero, and that is the point**: it emits no glyphs of
-    /// its own — spec §4 leaves it three verbs and no box-drawing primitive, and boxes are `fill`s —
+    /// its own — there are three drawing verbs and no box-drawing primitive, and boxes are `fill`s —
     /// so there is nothing for it to substitute even if it wanted to. The prohibition costs no
     /// discipline; it is a property of the surface that already exists, and this is what keeps it
     /// one.
@@ -3131,7 +3118,7 @@ mod tests {
     /// **Gate, both directions: the alt screen is entered and left, and auto-wrap is switched off
     /// once inside it and given back before it is.**
     ///
-    /// §8 makes auto-wrap a decision rather than an implementation detail, and both halves have a
+    /// Auto-wrap is a decision rather than an implementation detail, and both halves have a
     /// way of going missing separately — `Tty`'s own `Drop` exists because mode 2027 was being set
     /// and never reset. So the sequence is asserted as a *pair*, and asserted through the terminal
     /// model rather than as two byte strings, because what matters is the state the terminal is left

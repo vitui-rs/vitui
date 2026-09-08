@@ -2,7 +2,7 @@
 //! two wheels that need the layer placed before they can be routed at all.**
 //!
 //! Production ticket 08. Spec §12, §15, §17 (O5), §21. This is the screen the overlay family's four
-//! remaining hostile axes are scenes *of* — [`crate::popup`] carries §21's own scene 14, the
+//! remaining hostile axes are scenes *of* — [`crate::popup`] carries the scene 14, the
 //! family's five configurations, and the two files divide the way the questions do: that one is
 //! **what a layer costs the frame** and this one is **what a windowed list inside one gets wrong**.
 //!
@@ -15,14 +15,14 @@
 //!
 //! # All four are one question asked twice on each of two components
 //!
-//! Both overlay owners request a layer and draw **§5's collection** inside its body — §12 says so
+//! Both overlay owners request a layer and draw **the collection** inside its body — §12 says so
 //! of the `select`'s popup and §15 of the picker's listing, and both say *reached by calling it*.
 //! So the four axes here are `collection`'s four reached through a layer, and what the layer changes
 //! is not the arithmetic but **who can see it**:
 //!
 //! 1. **An overlay body cannot be handed an [`Ink`](crate::ink::Ink).** A body is
 //!    `FnMut(&mut Ctx<'f, '_>) + 'f` and a `&mut I` borrowed for the owner's call cannot travel into
-//!    one (spec §1's fifth component). So no [`Pen`] had ever seen a popup's interior, and the only
+//!    one (the fifth component). So no [`Pen`] had ever seen a popup's interior, and the only
 //!    picture of one this crate held was `crate::popup::popup_cells_into` — *the same two orders
 //!    written where a `Pen` can see them*, which is to say a copy, and `crate::ink`'s own trap says
 //!    a gate written against a copy tests the copy.
@@ -133,7 +133,7 @@ pub const SHRUNK_TO: usize = 9;
 /// **How wide the picker's listing is**, which is [`PickerOpts::default`]'s and not a second number.
 pub const LIST_W: u16 = 24;
 
-/// **How many wheel clicks both wheel scenes play. Twenty**, which is §21's own gesture and
+/// **How many wheel clicks both wheel scenes play. Twenty**, which is the gesture and
 /// [`crate::wheel::CLICKS`].
 pub const CLICKS: u32 = crate::wheel::CLICKS;
 
@@ -168,16 +168,16 @@ pub const MAX_OFFSET: i32 = OPTIONS as i32 - H as i32;
 
 // ── the ledger ───────────────────────────────────────────────────────────────────────────────────
 
-/// **How many rows of scene 39's popup the inverted window is wrong about: twenty-three of
+/// **How many rows of the popup the inverted window is wrong about: twenty-three of
 /// [`H`].**
 ///
 /// The primary number, because a row count carries the shape of the failure where a cell count does
-/// not — §21's own form. The one row it is right about is the **first**, and it is right by
+/// not — the form. The one row it is right about is the **first**, and it is right by
 /// coincidence: at visible row 0 the two arithmetics meet, `offset + 0 == offset - 0`, which is
 /// `crate::listing`'s *rows the inverted arm gets right by coincidence* on this component.
 pub const INVERTED_ROWS: usize = H as usize - 1;
 
-/// **How many cells of scene 39's popup the inverted window is wrong about: forty.**
+/// **How many cells of the popup the inverted window is wrong about: forty.**
 ///
 /// **A floor on how wrong the screen is and not a measure of it**, which is
 /// [`crate::grid::STALE_CELLS`]'s finding one family over: an option row is `option 0nn` padded out
@@ -189,14 +189,14 @@ pub const INVERTED_CELLS: usize = 40;
 /// **What a reserved bar costs a tail-cut oracle: nine cells over nine rows, all of them in one
 /// column.**
 ///
-/// [`at_rest_whole`]'s reading, and it is why scene 39's equality is over [`window_interior`] —
+/// [`at_rest_whole`]'s reading, and it is why the equality is over [`window_interior`] —
 /// where the reason it cannot be shared is stated, and it is the **extent** and not the offset. The
 /// nine is a difference of thumb *lengths*: `24 * 24 / 64` is 9 rows and `24 * 24 / 32` is 18. The
 /// *correct* arm's disagreement being **entirely** column `W - 1` is what says the exclusion is the
 /// bar and not a convenient blind spot.
 pub const BAR_CELLS: usize = 9;
 
-/// **How many rows of scene 41's listing the stale tail leaves standing: fifteen.**
+/// **How many rows of the listing the stale tail leaves standing: fifteen.**
 ///
 /// `H - SHRUNK_TO`: the listing is [`H`] rows tall, [`SHRUNK_TO`] of them have content after the
 /// shrink, and the refusal leaves the other fifteen carrying what the [`FILES`]-file frame put
@@ -241,7 +241,7 @@ pub const PULLS: u32 = 21;
 /// [`CLICKS`] with a notch on each, and one for the last notch's reveal to land in.
 pub const WHEEL_FRAMES: u32 = 2 + CLICKS + 1;
 
-/// **What §7's `Copy`-only body does to twenty notches: `(20, 0)`.**
+/// **What `Copy`-only body does to twenty notches: `(20, 0)`.**
 ///
 /// `(the rule, the refusal)`, measured through [`crate::overlay::wheeled`] rather than re-driven —
 /// see [`wheeled_by_a_copy`]. Twenty and not [`MOVED`] because that gate starts at offset 0 and
@@ -294,7 +294,7 @@ const OWNER: Id = Id::named("dropped.select");
 /// The owner both picker arms spell.
 const PICKER: Id = Id::named("dropped.picker");
 
-/// **The rectangle scene 39's equality is made over: the popup's interior, less the bar's column.**
+/// **The rectangle the equality is made over: the popup's interior, less the bar's column.**
 ///
 /// **A reserved bar's thumb is a function of the *extent*, and the offset it is handed is a literal
 /// zero.** `overlay`'s shell builds `Span { viewport: area.h, extent: rows, offset: 0 }`
@@ -316,7 +316,7 @@ pub fn window_interior() -> Rect {
     Rect::new(0, 0, W - 1, H)
 }
 
-/// **The rectangle scene 41's equality is made over: the picker's listing and nothing else.**
+/// **The rectangle the equality is made over: the picker's listing and nothing else.**
 ///
 /// [`LIST_W`] columns, which is what `picker_body` hands its collection. The pane's columns are
 /// excluded because a [`Pen`] cannot see them at all — `file_picker`'s public
@@ -515,7 +515,7 @@ fn omitted_tail() -> PickerShape {
 /// **The spelling §21 refuses, kept as a number rather than as a sentence**: the same refusal played
 /// into a rectangle the shrink has already resized.
 ///
-/// §21's own correction to the shrink axis is that *the version written against a terminal resize
+/// The correction to the shrink axis is that *the version written against a terminal resize
 /// passes* — a fresh rectangle has nowhere for the residue to survive. Here the rectangle is the
 /// short listing's height on both frames, so the refusal draws every row the rectangle has and
 /// there is nothing left for a residue to sit in.
@@ -828,7 +828,7 @@ pub fn wheeled_picker(reveal: Reveal) -> Wheeled {
 /// list position in a `Copy` of the offset, writes into a value that dies with the frame, and is
 /// handed the same number again next frame.
 ///
-/// §7's literal `Copy`-only body, and it is reached through
+/// The literal `Copy`-only body, and it is reached through
 /// [`crate::overlay::wheeled`] rather than re-driven here — that gate has existed since components
 /// 26 and a second drive loop beside it would be a second answer to one question. What this module
 /// adds is that it is **named beside the three reveal arms**, because a wheel gate that plays the
@@ -926,7 +926,7 @@ pub fn counters_approve(on: On, allocations: Allocations) -> (Counters, Counters
     }
 }
 
-/// **Which of §20's nine counters tell a refused build from the rule.**
+/// **Which of the nine counters tell a refused build from the rule.**
 ///
 /// [`crate::window::counters_that_separate`]'s shape, one family over. An empty answer means *the
 /// equality against a reference render is the only detector there is*.
@@ -1044,7 +1044,7 @@ pub const PICKER_SCREENS: &[&str] = &["file_picker"];
 /// That module's `Run` opens a run with a pointer position and **one** frame. An overlay's entries
 /// are in the hit index only once its layer has been placed, and a notch is resolved against the
 /// previous frame's index — so a popup needs **two** opening frames, and a drive loop with one
-/// cadence cannot have both. It is production 05's reason with a different mechanism behind it:
+/// cadence cannot have both. It is the reason with a different mechanism behind it:
 /// there, a `field` consumed its notch inside its own draw; here, the notch cannot be routed at all
 /// until the layer exists.
 pub const WHEELED_SUBJECTS: &[&str] = &["select", "file_picker"];
@@ -1210,11 +1210,11 @@ mod tests {
     /// # Every number is asserted **equal to the other component's** rather than to a constant
     /// twice
     ///
-    /// Spec §12 says the popup's list is *§5's collection over the option list* and §15 says the
+    /// Spec §12 says the popup's list is *the collection over the option list* and §15 says the
     /// picker's body is *the shell, then a collection beside a preview pane*. Both say **reached by
     /// calling it**, and nothing had ever asked either one a wheel question. Asked as *`select`
     /// equals `file_picker`, arm for arm*, an owner that grew an offset or a reveal of its own fails
-    /// here rather than reporting three constants written twice — which is production 06's shape on
+    /// here rather than reporting three constants written twice — which is the shape on
     /// the pair `table`/`collection`, arriving on two components that are siblings rather than one
     /// built on the other.
     #[test]
@@ -1301,7 +1301,7 @@ mod tests {
 
     /// **The family's own fourth wheel defect, named beside the three reveal arms.**
     ///
-    /// A wheel gate that plays the reveal has not played this: §7's literal `Copy`-only body moves
+    /// A wheel gate that plays the reveal has not played this: the literal `Copy`-only body moves
     /// the offset **0** in twenty notches, on a screen that is identical while it happens. Reached
     /// through [`crate::overlay::wheeled`] rather than re-driven, because that gate has existed
     /// since components 26 and a second drive loop beside it would be a second answer to one
@@ -1409,7 +1409,7 @@ mod tests {
     }
 
     /// **The fixture is the size the scenes claim**, so a scene stating a content nothing asserts
-    /// cannot drift — §21's own failure mode arriving as a number.
+    /// cannot drift — the failure mode arriving as a number.
     #[test]
     fn the_fixture_is_the_size_the_scenes_claim() {
         assert_eq!(option_labels().len(), OPTIONS);
@@ -1454,7 +1454,7 @@ mod tests {
     /// Four properties, one per decision the issue left open plus the wake:
     ///
     /// - **the cursor moves and the type-ahead seeks**, which is the focus being seated on the
-    ///   *list* — issue 23's first decision, and the pane is not a candidate because its document is
+    ///   *list* — the first decision, and the pane is not a candidate because its document is
     ///   a function of that cursor;
     /// - **`Enter` answers the cursor's file**, which is the same expression a click answers with,
     ///   so one meaning has two triggers;

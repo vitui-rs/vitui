@@ -2,7 +2,7 @@
 //! beside it.**
 //!
 //! Production ticket 09. Spec §9, §17 (O5), §21. This is the screen `scroll_area`'s shrink axis and
-//! `sticky`'s scroll axis are scenes *of* — [`crate::area`] carries this family's other four, §21's
+//! `sticky`'s scroll axis are scenes *of* — [`crate::area`] carries this family's other four,
 //! own scenes 17, 18, 19 and 30, and the two files divide the way the questions do: that one is
 //! **how big the parts are** and this one is **what is in them**.
 //!
@@ -34,7 +34,7 @@
 //! already had an instrument before this ticket and **neither could fail on its own axis**:
 //!
 //! - `scroll::tests::a_shrunk_extent_leaves_no_unwritten_tail` asks *is every cell of the viewport
-//!   written* on **one** frame, over four extents, with no refusal beside it. §17's `shrunk` axis is
+//!   written* on **one** frame, over four extents, with no refusal beside it. The `shrunk` axis is
 //!   *content shrinking inside a rectangle that does not move* — a defect of the second frame given
 //!   the first — so a one-frame gate over a state nothing has moved is the trap
 //!   `.scratch/vitui-production/README.md` records production 04 finding twice.
@@ -56,7 +56,7 @@
 //! its reason: **a defect in that arithmetic cannot hide in both**.
 //!
 //! **What the band oracle cannot share is the body and the two thumbs**, and that is a *partition*
-//! rather than a judgement: §9's parts tile the rectangle exactly, so the five bands are
+//! rather than a judgement: the parts tile the rectangle exactly, so the five bands are
 //! disjoint from both. [`body_and_bars`] is the excluded number, measured rather than assumed —
 //! where [`crate::dropped::window_interior`] had to cut a column out of the middle of its subject
 //! to reach the same position.
@@ -107,7 +107,7 @@ pub const H: u16 = 24;
 /// **The rig, as the pair every screen here is played in.** [`W`] by [`H`].
 ///
 /// A **parameter** of this module's drive loop rather than a constant inside it, which is what lets
-/// [`stale_by_resize`] be *the same function* at the short content's own size: §21's refused
+/// [`stale_by_resize`] be *the same function* at the short content's own size: the refused
 /// spelling is the shrink played into a rectangle that has already been resized, and two drive
 /// loops differing only in a rig are two places for one to be got wrong.
 /// `crate::dropped::picker_screen_in` is that duplication one family over, and a review of this
@@ -250,7 +250,7 @@ pub const GUTTER_CELLS: usize = PINNED as usize * 2;
 ///
 /// The body and the two thumbs, which the reference render cannot share because it is drawn at the
 /// origin. Reported rather than excluded silently, for [`crate::dropped::BAR_CELLS`]' reason — and
-/// it is a **partition** rather than a judgement: §9's parts tile the rectangle exactly,
+/// it is a **partition** rather than a judgement: the parts tile the rectangle exactly,
 /// so not one of these cells is inside a band.
 pub const BODY_AND_BARS: (usize, usize) = (1_137, 22);
 
@@ -270,7 +270,7 @@ pub const BAND_WRITES_NEAR: (u64, u64) = (1_440, 1_396);
 ///
 /// Two numbers because the *rule's* own count moves with the offset and not because the refusal
 /// does: at [`NEAR`] the vertical thumb sits against the top of its track, so `bar` writes no
-/// stripe above it — spec §3's *thumb, then the track above and below*, with one of the two empty.
+/// stripe above it — *thumb, then the track above and below*, with one of the two empty.
 /// A reader could take 294 for a property of the screen; it is a property of where the thumb is.
 pub const BAND_VERBS: (u64, u64) = (294, 293);
 
@@ -313,7 +313,7 @@ fn tail_opts() -> AreaOpts {
     }
 }
 
-/// The options the band scene's area is drawn with. All four of §9's bands stand.
+/// The options the band scene's area is drawn with. All four of the bands stand.
 fn band_opts() -> AreaOpts {
     AreaOpts {
         hide: Hide::Never,
@@ -369,7 +369,7 @@ fn body_into<I: Ink>(ink: &mut I, cx: &mut Ctx<'_, '_>, extent: (u32, u32)) {
 ///
 /// [`Pen`] records a verb at the column it was **asked** for plus the context's origin, and the
 /// engine reports how many columns *landed* — so a run that starts left of its clip is recorded
-/// **shifted by the discarded prefix**, which is `Pen`'s own documented caveat (ADR 0022's
+/// **shifted by the discarded prefix**, which is `Pen`'s own documented caveat (
 /// clamp-and-discard) and `Tally`'s. Every refusal here is a band drawing outside its own band, so
 /// the caveat is not hypothetical: written as one run a row, a transposed header at [`NEAR`]
 /// reported **one cell in the gutter beside it** — a cell the screen does not have, produced by the
@@ -420,7 +420,7 @@ fn band_into<I: Ink>(
 /// [`SHRUNK_FROM`] a reading rather than a parameter.
 ///
 /// **`rig` is a parameter and it is why there is one drive loop here and not two**: [`RIG`] on the
-/// scene's own arms and the short content's own size on [`stale_by_resize`]'s, which is §21's
+/// scene's own arms and the short content's own size on [`stale_by_resize`]'s, which is
 /// refused spelling and the one thing it says may stand *beside* the shrink rather than instead of
 /// it. See [`RIG`].
 fn tail_screen(
@@ -496,7 +496,7 @@ fn against_the_short_content(refused: Refused, short: (u32, u32)) -> Diff {
 /// **The spelling §21 refuses, kept as a number rather than as a sentence**: the same refusal played
 /// into a rectangle the shrink has already resized.
 ///
-/// §21's own correction to this axis is that *the version written against a terminal resize passes*
+/// The correction to this axis is that *the version written against a terminal resize passes*
 /// — a fresh rectangle has nowhere for the residue to survive. Here the rig is the short content's
 /// own size on both frames, so the refusal draws every cell the rectangle has and there is nothing
 /// left for a residue to sit in.
@@ -615,7 +615,7 @@ pub fn aligned(offset: (i32, i32), refused: Refused) -> Misaligned {
 ///
 /// The reference is drawn at the origin, so its body draws content `[0, view)` where the subject's
 /// draws content `[offset, offset + view)`, and its thumbs sit at the start of their tracks. Both
-/// are outside the five band rectangles by construction — §9's parts tile the rectangle exactly
+/// are outside the five band rectangles by construction — the parts tile the rectangle exactly
 /// — which is why the exclusion here is a *partition* and not a judgement, where
 /// [`crate::dropped::window_interior`]'s had to cut a column out of the middle of its own subject.
 ///
@@ -631,19 +631,19 @@ pub fn body_and_bars(offset: (i32, i32)) -> Diff {
 ///
 /// [`crate::grid::TailShape`]'s arrangement and its recorded reason rather than a copy of
 /// `crate::scroll`'s policy value: *the component's is crate-private and this module's is a
-/// screen's vocabulary, spelled the way §21's rows spell it.* The mapping is `Refused::shape` and
+/// screen's vocabulary, spelled the way the rows spell it.* The mapping is `Refused::shape` and
 /// it is the one place the two vocabularies meet.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Refused {
     /// **The rule.** The shipped `scroll_area`.
     Nothing,
-    /// **§17's `shrunk` axis**: the cells past the extent left alone.
+    /// **The `shrunk` axis**: the cells past the extent left alone.
     TheTail,
-    /// **§17's `scrolled` axis**: a band whose shared axis is the other one.
+    /// **The `scrolled` axis**: a band whose shared axis is the other one.
     ATransposedBand,
     /// A band that pins neither axis, so both of its coordinates translate.
     AnUnpinnedBand,
-    /// A band whose translation carries §17's inverted sign.
+    /// A band whose translation carries the inverted sign.
     AnInvertedBand,
     /// A band that moves its origin by arithmetic instead of narrowing a clip. **The picture is
     /// identical**, which is why it is not one of [`BANDS`].
@@ -733,7 +733,7 @@ pub fn counters_approve(on: On, allocations: Allocations) -> (Counters, Counters
     }
 }
 
-/// **Which of §20's nine counters tell a refused build from the rule.**
+/// **Which of the nine counters tell a refused build from the rule.**
 ///
 /// [`crate::window::counters_that_separate`]'s shape, one family over. An empty answer means *the
 /// equality against a reference render is the only detector there is*.
@@ -818,7 +818,7 @@ pub const TAIL_SCREEN: &[&str] = &["scroll_area"];
 
 /// **What scene 44 stands up: both**, because a band exists only inside the area that cuts it.
 ///
-/// The one row of the two that names two components, and it is not a generous join: §9's rule is
+/// The one row of the two that names two components, and it is not a generous join: the rule is
 /// that *`scroll_area` calls `sticky` for all four of its bands and nothing else in this crate opens
 /// a band of its own*, so a `sticky` screen **is** an area screen. The pair it claims for O5 is
 /// `sticky`'s alone — see `crate::scenes`.
@@ -1234,7 +1234,7 @@ mod tests {
     }
 
     /// **The fixture is the shape the scenes claim**, so a scene stating a content nothing asserts
-    /// cannot drift — §21's own failure mode arriving as a number.
+    /// cannot drift — the failure mode arriving as a number.
     #[test]
     fn the_fixture_is_the_shape_the_scenes_claim() {
         let view = tail_view();

@@ -59,7 +59,7 @@
 //! same packet must not collide with it.
 //!
 //! The vectors grow to the handle tables' high-water mark and never shrink, which is what makes
-//! `pack` allocation-free on warm tables at every density. §3's mark-and-compact
+//! `pack` allocation-free on warm tables at every density. The mark-and-compact
 //! sweep is what bounds that mark; a table that could grow without one would grow these with it.
 
 use crate::actuate::Actuation;
@@ -95,7 +95,7 @@ pub(crate) struct Packet {
     /// It rides the packet because **the render thread owns the write direction** and
     /// these are writes. It is already a delta where a delta is what the wire needs — see
     /// [`Actuation`] — so the render thread still holds no state of its own about either setter, and
-    /// ADR 0011's *no application state on the render thread* is undisturbed.
+    /// *no application state on the render thread* is undisturbed.
     actuation: Actuation,
     /// Set when a sweep renumbered a table since the last packet: **invalidate the mirror.**
     ///
@@ -331,7 +331,7 @@ impl Packet {
 /// A side table keyed by the handle, with a generation stamp per slot instead of a clear.
 ///
 /// One slot per handle, stamped with the generation of the pack that filled it, so *is this handle
-/// already in this packet* is an indexed load and one compare — ADR 0011's marker, at O(1) against
+/// already in this packet* is an indexed load and one compare — the marker, at O(1) against
 /// the 166 µs the scan version cost. Nothing is cleared between frames: a slot stamped with an older
 /// generation is invisible, which is the whole trick.
 ///

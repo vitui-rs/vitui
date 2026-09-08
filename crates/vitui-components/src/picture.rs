@@ -15,7 +15,7 @@
 //!
 //! Every other component on this map degrades to a **worse drawing of itself**: a label truncates,
 //! a plot loses sub-rows, a border becomes `+`. A picture degrades to a **description** of itself,
-//! because there is nothing to re-pair the lost distinctions with — §16's whole mechanism is
+//! because there is nothing to re-pair the lost distinctions with — the whole mechanism is
 //! *carry the distinction on the other axis*, and a picture has no other axis. [`DISTINCTIONS`] is
 //! that sentence as a count, and [`Build::tier`] at [`ColorDepth::None`] is its floor: **0 of
 //! 23 920**, exactly, which no other screen in this crate can produce.
@@ -66,7 +66,7 @@
 //! read a byte the engine wrote.** [`vitui_runtime::Config`] was reachable and `Clock`, `Output`,
 //! `Overrides`, `WidthSource` and `InputConfig` were not in `vitui_runtime::line::ENGINE_NAMES` at
 //! all, so the only headless door was `Driver::headless`, whose tier is hard-coded to truecolor and
-//! whose sink is a `Vec` nobody can reach — issue 22's own rule (*a name a consumer can write but
+//! whose sink is a `Vec` nobody can reach — the rule (*a name a consumer can write but
 //! not build is a barrier wearing a re-export's clothes*) arriving on `Config` itself. All five are
 //! re-exported; [`bytes_over`] and [`bytes_by_shift`] are what that bought, and both halves of the
 //! door mattered — the sink for the bytes, the `Overrides` for the tier they are a tier's bytes of.
@@ -105,13 +105,13 @@ use crate::runner::{Canvas, Pen};
 
 // ── the screen ───────────────────────────────────────────────────────────────────────────────────
 
-/// The screen's width. §14's own, and §20's full-screen class.
+/// The screen's width. The original's, and the full-screen class.
 pub const W: u16 = 300;
 
 /// The screen's height.
 pub const H: u16 = 80;
 
-/// How many cells that is. **24 000**, which is §14's custom-call census in the same breath.
+/// How many cells that is. **24 000**, which is the custom-call census in the same breath.
 pub const CELLS: u32 = W as u32 * H as u32;
 
 /// How many horizontal adjacencies a `W x H` screen has. `(W - 1) * H`.
@@ -122,7 +122,7 @@ pub const ADJACENCIES: u64 = HORIZONTAL_PAIRS + W as u64 * (H as u64 - 1);
 
 /// **The three colour depths the scene is played at**, richest first.
 ///
-/// [`ColorDepth::None`] is a fourth and is not one of them: §14's row is *three colour depths* and
+/// [`ColorDepth::None`] is a fourth and is not one of them: the row is *three colour depths* and
 /// the floor is asserted separately, because *every distinction gone* and *half of them gone* are
 /// different claims and running them as one row would let the second hide inside the first.
 pub const DEPTHS: [ColorDepth; 3] = [
@@ -133,7 +133,7 @@ pub const DEPTHS: [ColorDepth; 3] = [
 
 /// **What the picture is a picture of.**
 ///
-/// Two, because §14's B/cell claim is *the source barely moves it* and a claim about two sources
+/// Two, because the B/cell claim is *the source barely moves it* and a claim about two sources
 /// needs two. The photograph is noise with a bounded dynamic range, which is what a photograph is
 /// to a quantiser; the gradient is the smoothest frame anything could produce.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -515,7 +515,7 @@ pub fn readback(canvas: &Canvas, area: Rect, build: Build, modules: &Modules) ->
 
 /// **A terminal cell's aspect, width over height, as a nominal 1:2.**
 ///
-/// The number every argument about sub-cells is written against, and the one §14's `0.50` is.
+/// The number every argument about sub-cells is written against, and the one `0.50` is.
 pub const CELL_ASPECT_NOMINAL: f32 = 0.5;
 
 /// **A terminal cell's aspect as a real font gives it**, 8.0 over 16.5 — Menlo at 14 pt, which is
@@ -1032,8 +1032,8 @@ pub const SUBJECTS: [&str; 2] = ["picture", "qr"];
 ///
 /// # The picture's needle is generic, and a needle that was not could never have matched
 ///
-/// This is components ticket 26's finding a second time, and it arrived the same way: the scan read
-/// `pub fn picture(` and the shipped declaration is **`pub fn picture<P: Pixels>(`**, because §1's
+/// This is the finding a second time, and it arrived the same way: the scan read
+/// `pub fn picture(` and the shipped declaration is **`pub fn picture<P: Pixels>(`**, because
 /// `…` is a *type parameter* here. It has to be — a picture that took a buffer would make the
 /// component's cost the image's size rather than the rectangle's, which is `CONTEXT.md`'s invariant
 /// one layer up. So a scene green on the parenthesis needle would have been green **by deleting the
@@ -1135,7 +1135,7 @@ pub fn distinction_table(source: Source) -> String {
 /// **Repaints per frame over a still picture.** The first frame changes every cell; every frame
 /// after it changes none.
 ///
-/// The reachable half of §14's *a static picture emits 900 134 bytes and then 0, 0, 0*: what a byte
+/// The reachable half of *a static picture emits 900 134 bytes and then 0, 0, 0*: what a byte
 /// count says about the wire, this says about the cells that would have produced it.
 ///
 /// # Panics
@@ -1163,13 +1163,13 @@ pub fn repaints_over(build: Build, frames: u32) -> Vec<u64> {
 
 /// **Cells a frame writes. 24 000 — every cell of the terminal, at every rung.**
 ///
-/// §20's full-screen class, and the one screen in this crate for which it is not a choice: a
+/// The full-screen class, and the one screen in this crate for which it is not a choice: a
 /// picture that left a cell alone would be a picture with a hole in it.
 pub const WRITES: u64 = CELLS as u64;
 
 /// **Drawing verbs a frame costs. 24 000, one a cell.**
 ///
-/// §6's *verbs are a currency for structure* at its ceiling: the dense screen draws the same 24 000
+/// *verbs are a currency for structure* at its ceiling: the dense screen draws the same 24 000
 /// cells in 171 verbs and a twelve-column table in 160, because their rows are runs. A picture has
 /// no runs — see [`ADJACENT_EQUAL`].
 pub const VERBS: u64 = CELLS as u64;
@@ -1238,7 +1238,7 @@ pub const DISTINCTIONS: [u64; 4] = [23_920, 23_899, 15_347, 0];
 /// The finding §14 has no row for: on the *distinction* axis the source decides a great deal.
 /// Adjacent samples of noise are far apart in colour space and survive a quantiser; adjacent
 /// samples of a ramp are one step apart and do not. **35.84% against 99.27% at sixteen colours** —
-/// 2.8x — where §14's B/cell claim is that the source moves the wire by 9%.
+/// 2.8x — where the B/cell claim is that the source moves the wire by 9%.
 pub const DISTINCTIONS_GRADIENT: [u64; 4] = [20_400, 473, 174, 0];
 
 /// **Bytes the engine writes for this screen's first four frames, at truecolor.**
@@ -1274,13 +1274,13 @@ pub const WIRE_PER_CELL: f64 = 39.05;
 
 /// **Bytes a translation by one whole cell row costs. 11 731 of a 937 233-byte screen — 1.25%.**
 ///
-/// **This is §14's trap, and the number inverts it.** [`SHIFTED_CELLS`] says the translation changes
+/// **This is the trap, and the number inverts it.** [`SHIFTED_CELLS`] says the translation changes
 /// **24 000 of 24 000** cells, and a repaint priced by the cell would therefore price it at the whole
 /// screen. The engine's scroll pre-pass emits the region and repaints the one row the shift exposed:
 /// 11 731 bytes against a row's own 11 715, so the sixteen extra bytes are the scroll sequence.
 ///
 /// §14 says **5 885**, which cannot be reconciled with its own 37.5 B/cell — a 300-cell row at 37.5
-/// is 11 250, not 5 885. The measured pair is internally consistent and §14's is not; both are
+/// is 11 250, not 5 885. The measured pair is internally consistent and the remembered one is not; both are
 /// printed by `examples/media_numbers.rs`.
 pub const WIRE_SHIFTED: u64 = 11_731;
 
@@ -1571,7 +1571,7 @@ mod tests {
     ///
     /// 1. **The three zeros.** A still picture is a frame the serializer has nothing to say about.
     /// 2. **The share.** A one-row translation is under 2% of a full repaint — measured 1.2517%,
-    ///    1.6x of headroom — which is §14's trap inverted: [`SHIFTED_CELLS`] is 24 000 of 24 000,
+    ///    1.6x of headroom — which is the trap inverted: [`SHIFTED_CELLS`] is 24 000 of 24 000,
     ///    and the wire is priced by the rows the shift exposed.
     /// 3. **Linearity.** `k` rows cost `k` times one row, to within 1%. A pre-pass that had given up
     ///    and repainted would be flat at the screen.
@@ -1774,7 +1774,7 @@ mod tests {
         assert_eq!(paints.len(), QR_CUSTOMS as usize);
     }
 
-    /// **The 24 000 customs are not what a picture costs**, and that is the finding under §14's
+    /// **The 24 000 customs are not what a picture costs**, and that is the finding under
     /// headline.
     ///
     /// [`Palette::Roles`] draws the same 24 000 cells with **zero** customs — thirteen array reads

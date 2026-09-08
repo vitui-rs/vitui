@@ -1,6 +1,6 @@
 //! **`block` — border, title and padding ring — `face_paint`, and the helper spec §3 deleted.**
 //!
-//! Two of spec §3's helpers and the one it struck out live here, and they are the same argument
+//! Two of the helpers and the one it struck out live here, and they are the same argument
 //! twice. [`block`] returns the rectangle it did not write, so nobody clears what somebody else is
 //! about to draw; [`face_paint`] resolves a row's five bits to one paint **before a cell is
 //! written**, so nobody lays a restyle over a drawn row; and `frame::focus_ring` is deleted because
@@ -8,7 +8,7 @@
 //! are a struct and not C02's four-armed enum, and [`WhyThereIsNoFocusRing`] for the pair that
 //! keeps the deleted item deleted.
 //!
-//! Spec §3's table gives `block` one job and one shape: *border, title, padding ring* · **draws its
+//! The table gives `block` one job and one shape: *border, title, padding ring* · **draws its
 //! frame, returns the rectangle it did not write.** ADR 0026 states the consequence as a number: a
 //! `block` that clears what it hands over costs **22 200 damaged cells a frame** across three
 //! panels, every frame, for a screen that is not moving.
@@ -17,7 +17,7 @@
 //!
 //! The candidate this ticket was written expecting is `block(cx, opts, |cx| …)`: the interior
 //! arrives through [`Ctx::child`], is never named, and the crux of runtime architecture issue 22
-//! evaporates. It matches ADR 0012's shape — *the clip stack **is** the call stack* — so it reads
+//! evaporates. It matches the shape — *the clip stack **is** the call stack* — so it reads
 //! like the better design rather than a workaround. **It is refused, and on evidence rather than on
 //! taste.**
 //!
@@ -35,7 +35,7 @@
 //! - **It renames the caller's widgets, and the rule against that is not negotiable.** `CONTEXT.md`,
 //!   on identity: *"A container that returns a rectangle preserves its children's identity and one
 //!   that takes a closure renames them, with `scope` and `scroll_scope` the deliberate exceptions."*
-//!   A closure-taking `block` either roots its body in its own id — ADR 0027's *a container roots
+//!   A closure-taking `block` either roots its body in its own id — *a container roots
 //!   its children inside its own id* — in which case moving a widget into or out of a panel changes
 //!   its `Id` and it loses its focus, its grab and its scroll association; or it roots nothing, in
 //!   which case the closure buys nothing the caller cannot already write as `cx.child(…)` and
@@ -69,7 +69,7 @@ const PAD: &str = " ";
 
 /// [`block`]'s options.
 ///
-/// Spec §1's rule 3: a `Default` struct, never a required builder.
+/// A `Default` struct, never a required builder.
 ///
 /// # `focus` is a [`Role`] on this struct and there is no `focus_ring`
 ///
@@ -410,7 +410,7 @@ impl Face {
 ///
 /// > **disabled > selected+active > selected > cursor > hovered > base**
 ///
-/// and it is resolved **before a cell is written** — ADR 0026's *a selection or a focus ring is a
+/// and it is resolved **before a cell is written** — *a selection or a focus ring is a
 /// paint chosen before a cell is written, never a restyle laid over a drawn row*. A restyle used to
 /// replace this branch re-damages its range every frame for ever: 26 cells for one focused field,
 /// 31 for a selected row, 56 for a ring drawn into its neighbours' cells, 261 for a selected range,
@@ -439,7 +439,7 @@ pub const fn face_role(face: Face) -> Role {
     }
 }
 
-/// **The [`Paint`](vitui_runtime::Paint) a row drawer is handed**, spec §3's own shape for it.
+/// **The [`Paint`](vitui_runtime::Paint) a row drawer is handed**, the shape for it.
 ///
 /// [`face_role`] with the theme applied, and it is deliberately nothing more: a second precedence
 /// ladder for the paint-shaped caller is a second place the rule can be written down differently,
@@ -476,7 +476,7 @@ pub mod defective {
 
     /// **A top border drawn as one run, with the title written over it.**
     ///
-    /// The 15-cell instance of ADR 0026's table, and the only one of that table's five that is not a
+    /// The 15-cell instance of the table, and the only one of that table's five that is not a
     /// fill. Everything else about this panel is correct — the corners, the sides, the bottom edge
     /// and the padding ring are the same cells the correct arm writes, in the same order — so the
     /// only thing that separates the two builds is `writes - distinct`, and the defective one is
@@ -495,7 +495,7 @@ pub mod defective {
 ///
 /// # Why it is deleted
 ///
-/// ADR 0026's exact rule: *a restyle is free only when the component's own next draw already
+/// The exact rule: *a restyle is free only when the component's own next draw already
 /// produces the value the restyle produced.* A deferred hover award satisfies it, because the widget
 /// also branches on `Response::hovered`. **A restyle used to *replace* the branch never can** — and
 /// that is the entire appeal of a focus-ring helper. Built, it re-damages its range every frame
@@ -672,7 +672,7 @@ mod tests {
     /// reading rather than skipping. The closure form delivers the interior through [`Ctx::child`],
     /// which moves the origin; a single [`Tally`] over the panel then unioned the border's
     /// `(0, 0)` with the interior's first cell — also `(0, 0)` **in the child's coordinates** — and
-    /// reported **124 double writes on a panel that has none**. That was ticket 06's first
+    /// reported **124 double writes on a panel that has none**. That was the first
     /// measurement against the closure form.
     ///
     /// It was never a fact about the closure; it was a fact about the counter. `Tally::distinct`

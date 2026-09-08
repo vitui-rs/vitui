@@ -2,7 +2,7 @@
 //!
 //! The reduction is R1 and R5. R5 is this family's own and it is the sharpest of the
 //! six: twenty-one of the survey's twenty-two data-grid features are caller state or layout, and
-//! the twenty-second — variable row height — is a fourth field on §7's record. **The index is the
+//! the twenty-second — variable row height — is a fourth field on the record. **The index is the
 //! caller's**, which is what makes R5 a reduction rather than a deferral: an entry in that class
 //! needs no library mechanism at all, only a documented shape.
 //!
@@ -10,7 +10,7 @@
 //!
 //! # `collection` — one component, one [`Mode`], thirteen match arms
 //!
-//! Components ticket 12. Spec §5, ADR 0028. `list`, option list, menu, multi-select, tabs, radio
+//! `list`, option list, menu, multi-select, tabs, radio
 //! group and segmented control are **one component and one `Mode`**, and the whole difference
 //! between a radio group and a file manager is the thirteen arms of [`apply`] — counted by opening
 //! this file, because a constant naming its own arm count is a number nothing evaluates
@@ -50,7 +50,7 @@
 //!
 //! ## Identity: the row loop is wrapped, and `#[track_caller]` is not enough
 //!
-//! ADR 0027. `Ctx::scroll_scope` roots no identity, deliberately, so rows drawn through a line
+//! `Ctx::scroll_scope` roots no identity, deliberately, so rows drawn through a line
 //! *inside* this function would derive their ids from `(screen, key, that line)` — identical in
 //! every collection on the screen, first claimant wins, and the rest inert. The fix is one call and
 //! it is [`Ctx::with_id`](vitui_runtime::Ctx::with_id) around the row loop, taking the collection's
@@ -68,7 +68,7 @@
 //! one row can hold an inline editor. Nothing keyed by row index may exist, and the runtime enforces
 //! the other half: a row that did not draw cannot be clicked, focused or hovered, so
 //! state for an undrawn row is state nothing can reach. [`COLL_STATE_BYTES`] is the measured size
-//! and it does **not** reproduce §5's 208 — see that constant, which says why rather than padding
+//! and it does **not** reproduce the 208 — see that constant, which says why rather than padding
 //! the type to fit.
 //!
 //! ## The row signature is `(cx, rect, index, Face)` and no `Sel` enum exists
@@ -80,7 +80,7 @@
 //!
 //! ## The pointer half is not keyboard-only any more
 //!
-//! Spec §5 records ctrl-click and shift-click as **inexpressible**, because `rt::Input` was `Move`,
+//! Ctrl-click and shift-click were once **inexpressible**, because `rt::Input` was `Move`,
 //! `Down`, `Up`, `Wheel` and `Key` and only `Key` carried a modifier byte. That is no longer true:
 //! the engine reports modifiers on every pointer event and `Response::mods` carries them (runtime
 //! 10), so ctrl-click and shift-click route through the **same** [`apply`] as `Space` and
@@ -377,7 +377,7 @@ impl<'a> Scan<'a> {
 
 /// **The policy, and the whole of what separates seven components from one.**
 ///
-/// Four values, and [`MODES`] is the count a gate asserts. Every one of the seven names §5 collapses
+/// Four values, and [`MODES`] is the count a gate asserts. Every one of the seven names collapsed
 /// is one of these plus the caller's own row drawer — see [`ABSORBED`], which no row of
 /// [`crate::INVENTORY`] may duplicate.
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Default, Hash)]
@@ -391,7 +391,7 @@ pub enum Mode {
     #[default]
     Single,
     /// **A radio set, a tab strip, a segmented control.** Exactly one, and it can never become zero.
-    /// The *only* difference from [`Mode::Single`] is that one branch, which is §5's own sentence.
+    /// The *only* difference from [`Mode::Single`] is that one branch, which is the sentence.
     Options,
     /// **Multi-select.** Click, ctrl-click, shift-click, `Space`, `Shift+↑/↓`, `Ctrl+A`, `Escape`.
     Multi,
@@ -415,7 +415,7 @@ impl Mode {
 /// **How many modes there are. Four.** The count a gate asserts, beside [`ARMS`].
 pub const MODES: usize = Mode::ALL.len();
 
-/// **The seven component names §5 collapses into [`collection`] plus a [`Mode`].**
+/// **The seven component names that collapse into [`collection`] plus a [`Mode`].**
 ///
 /// The other half of criterion 1: *no second component in `INVENTORY` duplicates one of them.* Six
 /// inventory entries collapsing into one is most of why the v1 freeze is twenty-nine components
@@ -498,7 +498,7 @@ pub fn apply(mode: Mode, sel: &mut Selection, len: usize, g: Gesture) {
 /// [`Mode::Single`]'s one branch: selecting the row that is already the only selected row clears it.
 ///
 /// Split out so that [`apply`]'s arms stay one line each and the count stays a property of the
-/// source. It is the *difference* from [`Mode::Options`], which is the sentence §5 states.
+/// source. It is the *difference* from [`Mode::Options`], and that is the whole of it.
 fn single(sel: &mut Selection, i: usize) {
     if sel.contains(i) && sel.count() == 1 {
         sel.clear();
@@ -524,7 +524,7 @@ fn single(sel: &mut Selection, i: usize) {
 /// own members would be a list checked against itself.
 pub const MODES_THAT_CLEAR: [Mode; 2] = [Mode::Single, Mode::Multi];
 
-/// **Whether this collection owns `Escape` right now**, which is architecture issue 22's answer as
+/// **Whether this collection owns `Escape` right now**, as
 /// a predicate.
 ///
 /// True when [`apply`] would actually clear something: the mode acts on [`Gesture::Nothing`] **and**
@@ -541,7 +541,7 @@ fn owns_escape(mode: Mode, sel: &Selection) -> bool {
 /// **Whether this collection owns the key that produced `g`**, which is [`owns_escape`]'s rule said
 /// of the whole vocabulary instead of one key.
 ///
-/// Architecture issue 22 answered it for `Escape` — *the component owns the key exactly when
+/// The answer for `Escape` is *the component owns the key exactly when
 /// [`apply`] would do something with it* — and left the other two keys [`apply`] ignores exactly
 /// where they were. [`from_key`] answers a bare `Space` with [`Gesture::Toggle`] and `Ctrl+A` with
 /// [`Gesture::All`] in **every** [`Mode`], and [`apply`]'s thirteen arms act on
@@ -581,7 +581,7 @@ pub const ARMS: usize = 13;
 /// **Count [`apply`]'s match arms by opening this file.**
 ///
 /// The register's rule — *an instrument is a value with a file in it* — applied to the one number
-/// §5 leads with. A constant asserting `13 == 13` is a tautology; this reads the source, so an arm
+/// A constant asserting `13 == 13` is a tautology; this reads the source, so an arm
 /// added or a mode collapsed fails here.
 ///
 /// The scan starts at the `pub fn apply(` line, opens at the `match (mode, g) {` beneath it, and
@@ -614,7 +614,7 @@ pub fn arms_in_apply() -> usize {
 
 /// **A pointer press as a [`Gesture`], read from `Response::mods` and from nowhere else.**
 ///
-/// Spec §5 records this as inexpressible; runtime 10 carries `mods: Mods` on `Response` — one byte
+/// This was once inexpressible; the runtime carries `mods: Mods` on `Response` — one byte
 /// on a sixteen-byte hit entry, free on the tracking level — and the engine had been reporting
 /// modifiers on every pointer event all along. Dropping them was a runtime omission and not a
 /// terminal limit.
@@ -635,7 +635,7 @@ pub fn from_click(mods: Mods, at: usize) -> Gesture {
 /// `moved` is where [`crate::nav::step`] put the cursor, or `None` when the key moved nothing.
 /// Returns `None` for a key this component does not own, which the caller owes a `Ctx::decline`.
 ///
-/// The pairs are the ones §5 measures: `Ctrl+A`, `Space`, `Shift+↑/↓`, `Ctrl+↑/↓`. **`Ctrl+↑/↓` is
+/// The pairs are the measured ones: `Ctrl+A`, `Space`, `Shift+↑/↓`, `Ctrl+↑/↓`. **`Ctrl+↑/↓` is
 /// the one that produces no gesture at all** — it moves the cursor and leaves the selection where it
 /// is, which is what every file manager does and what an enum of selection states cannot say.
 pub fn from_key(k: &Pressed, lead: usize, moved: Option<usize>) -> Option<Gesture> {
@@ -671,7 +671,7 @@ pub fn from_key(k: &Pressed, lead: usize, moved: Option<usize>) -> Option<Gestur
 /// **Everything a collection keeps across frames, and every field of it is a position.**
 ///
 /// Offset, selection, type-ahead buffer and the editing slot — and nothing keyed by a row index,
-/// which is the rule §5 states and this type is the check of. [`COLL_STATE_BYTES`] is what it costs
+/// which is the rule this type is the check of. [`COLL_STATE_BYTES`] is what it costs
 /// and it is the same at every length.
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub struct CollState {
@@ -683,15 +683,15 @@ pub struct CollState {
     /// The type-ahead buffer and the one deadline it owes. [`crate::nav::TypeAhead`], because a
     /// second buffer would be a second place the one-second window is written down.
     pub ahead: TypeAhead,
-    /// **The row that holds an inline editor, because only one row can.** ADR 0028's *per-row state
+    /// **The row that holds an inline editor, because only one row can.** *per-row state
     /// is one slot, never a map*, as a field: there is nowhere here to put a value per row.
     pub editing: Option<usize>,
-    /// **The revision the positions above were last reconciled at** (components 13, ADR 0031).
+    /// **The revision the positions above were last reconciled at.**
     ///
     /// Private, because the only two ways it may move are [`CollState::reconciled`] — a caller
     /// saying *I have carried the positions across* — and [`collection`] itself, which stamps it
     /// after clearing. A public field would make *the revision was left behind* an ordinary
-    /// assignment, and leaving it behind is the whole failure §10 is about.
+    /// assignment, and leaving it behind is the whole failure the data contract is about.
     rev: Revision,
 }
 
@@ -724,7 +724,7 @@ impl CollState {
 
     /// **Say the positions have been carried across to `rows`.**
     ///
-    /// The caller's half of ADR 0031: it has both orders, so it is the only thing that can splice
+    /// The caller's half: it has both orders, so it is the only thing that can splice
     /// the index, reconcile the positions and stamp the revision — and this is the third of the
     /// three. Without it the next frame sees a revision it does not recognise and applies
     /// [`Policy::Clear`](crate::order::Policy::Clear), which is the honest default for an edit
@@ -742,13 +742,13 @@ impl CollState {
 
 /// **What [`CollState`] costs, measured. Independent of the number of rows — the gate.**
 ///
-/// # It is not §5's 208, and the difference is written down rather than padded away
+/// # It is not the 208, and the difference is written down rather than padded away
 ///
-/// Spec §5 and ADR 0028 both record **208 bytes**. What this type measures is
+/// The figure recorded during design was **208 bytes**. What this type measures is
 /// [`COLL_STATE_BYTES`], and the arithmetic is visible: `offset` 4 (padded to 8), `Selection` 48 —
 /// a `Vec<Span>` at 24, `lead` at 8 and `Option<usize>` at 16 — `TypeAhead` 40 (a `String` at 24 and
-/// an `Option<Instant>` at 16), `editing` 16, and `rev` 8. It was 112 until components ticket 13
-/// added the revision, which is §10's *one `u64` compared once a frame* as a field.
+/// an `Option<Instant>` at 16), `editing` 16, and `rev` 8. It was 112 until the revision
+/// added the revision, which is *one `u64` compared once a frame* as a field.
 ///
 /// The 208 belongs to **C03's prototype struct**, which is not this one: it carried the three
 /// refused stores beside the shipped one ([`stores::Alt`] here, and a field there), a `Store`
@@ -756,17 +756,17 @@ impl CollState {
 /// crate's own [`crate::nav::TypeAhead`]. Reaching 208 from here would mean adding a field for the
 /// number, which is a gate edited rather than met.
 ///
-/// **What §5 actually gates is the invariance**, and that reproduces exactly: the type mentions no
+/// **What is actually gated is the invariance**, and that reproduces exactly: the type mentions no
 /// length, so `size_of` cannot depend on one. `tests::the_state_is_the_same_size_at_every_length`
 /// is that as a measurement over four volumes rather than as an argument about the type.
 pub const COLL_STATE_BYTES: usize = size_of::<CollState>();
 
-/// **Spec §5's remembered figure for [`COLL_STATE_BYTES`]. Recorded, not reproduced.**
+/// **The remembered figure for [`COLL_STATE_BYTES`]. Recorded, not reproduced.**
 pub const SPEC_COLL_STATE_BYTES: usize = 208;
 
 // ── the options ──────────────────────────────────────────────────────────────────────────────────
 
-/// [`collection`]'s options. Spec §1's rule 3: a `Default` struct, never a required builder.
+/// [`collection`]'s options. rule 3: a `Default` struct, never a required builder.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub struct CollOpts {
     /// The policy. [`Mode::Single`] by default, which is the list every application starts with.
@@ -797,7 +797,7 @@ impl Default for CollOpts {
 /// rather than as a tuned number. A type-ahead that has not matched within fifty screens is a
 /// search, and a search belongs in a field the user can see.
 ///
-/// **The number this buys is the one §5 states**: one `z` into a focused million-row list, bounded
+/// **The number this buys**: one `z` into a focused million-row list, bounded
 /// against unbounded. [`type_ahead_cost`] measures both arms and `examples/collection_numbers.rs`
 /// prints them.
 pub const SEARCH_BUDGET: usize = 4_096;
@@ -810,9 +810,9 @@ pub const SEARCH_BUDGET: usize = 4_096;
 ///
 /// Scenes 4, 5 and 6, and each of the three was established by a defect that passed every gate then
 /// in force **and looked healthier than the correct build**. The fourth is deliberately absent: a row
-/// truncates through [`crate::text::fit`], which is `text`'s flag and scene 28's.
+/// truncates through [`crate::text::fit`], which is `text`'s own flag.
 ///
-/// Spec §1's shape exactly: `fn(&mut Ctx, Rect, …) -> Response`. The row drawer's shape is §5's
+/// The shape exactly: `fn(&mut Ctx, Rect, …) -> Response`. The row drawer's shape is
 /// exactly: `(cx, rect, index, Face)`, five independent bits and no `Sel` enum.
 ///
 /// `find` is **the caller's search** and it is handed the buffer and the bounded range to look in;
@@ -822,7 +822,7 @@ pub const SEARCH_BUDGET: usize = 4_096;
 /// # The two closures arrive as `&mut dyn`, and that is a signature decision
 ///
 /// [`collection_into`] beneath it is generic, because a gate has to monomorphise over its own
-/// [`Ink`]. **The shipped entry point is not**, for two reasons that point the same way: spec §1's
+/// [`Ink`]. **The shipped entry point is not**, for two reasons that point the same way:
 /// rule 1 states a component as `fn(&mut Ctx, Rect, …) -> Response` and a turbofish is not part of
 /// that shape; and the crate's own scans read the *source* for `pub fn collection(` — a generic
 /// spelling puts `<F, R>` between the name and the parenthesis and every one of them answers
@@ -885,7 +885,7 @@ pub fn collection(
 /// the writer. See [`crate::ink`] for why the seam exists rather than a second implementation of the
 /// component written against a `Tally` — *a gate written against a copy of the code tests the copy*.
 ///
-/// The row drawer gains the writer here and only here, because §5 fixes the shipped row signature at
+/// The row drawer gains the writer here and only here, because the shipped row signature is fixed at
 /// four arguments and a fifth would be a signature invented for the instrument.
 #[track_caller]
 #[expect(
@@ -962,17 +962,17 @@ fn no_refusal(_: &Pressed, _: usize) -> bool {
 /// this rather than the two public entry points, and their own [`Shape`] field is what a reviewer's
 /// diff between the shipped build and the refused one is.
 ///
-/// # It absorbed `collection_chorded` in production 08, and that is a merge rather than a deletion
+/// # It absorbed `collection_chorded`, and that is a merge rather than a deletion
 ///
 /// The `Refusal`-only wrapper had one caller — [`crate::input::select`]'s popup body — and that
 /// caller needed a shape, because a popup's list is a windowed collection and the three axes it can
 /// be wrong on are this vocabulary's. A wrapper whose only caller has moved past it is a name a
 /// reader has to follow twice, and the hook's own paragraph is kept here: it is `pub(crate)`
-/// because the hook is **not** part of spec §1's component shape — it is the seam one component
+/// because the hook is **not** part of the component shape — it is the seam one component
 /// reaches another through, and a public one would invite an application to spell a keyboard for a
 /// collection it did not write.
 ///
-/// **Architecture issue 22 was the test of that sentence and it survived.** The issue is the case
+/// **The sentence has been tested and survived.** The case is
 /// the visibility costs: a plain `collection` inside a modal swallowed `Esc`, and publishing this
 /// hook was one of its three candidate answers. It was refused, and the narrowing in [`owns_escape`]
 /// was taken instead — because publishing the hook makes the behaviour every application expects
@@ -1031,8 +1031,8 @@ pub(crate) enum Shape {
 
 /// **Whether the rows the content no longer reaches are written.**
 ///
-/// §2's *a component owes every cell of the rectangle*, as the one line between the shipped build
-/// and §17's `shrunk` axis. The rows the row drawer covers are the content's; the rest of the
+/// *a component owes every cell of the rectangle*, as the one line between the shipped build
+/// and the `shrunk` axis. The rows the row drawer covers are the content's; the rest of the
 /// partition is the tail below it, and leaving it out is **71 of 80 rows** on `crate::listing`'s
 /// screen and [`crate::grid::STALE_ROWS`] on the table's.
 ///
@@ -1050,19 +1050,19 @@ pub(crate) enum Tail {
 
 /// **Which content row the body is handed for a visible row.**
 ///
-/// §17's `scrolled` axis, as the one line between the shipped collection and the inverted sign:
+/// The `scrolled` axis, as the one line between the shipped collection and the inverted sign:
 /// *`offset - r` where the content is at `offset + r`*, which was found three times independently
 /// and which **every counter in the stack approves of** — it draws less, so it is faster and marks
 /// almost nothing.
 ///
-/// # It is a field here and not a painter beside a gate, and that is production 08's finding
+/// # It is a field here and not a painter beside a gate
 ///
-/// `crate::listing`'s scene 4 measures this axis over [`crate::runner::defective::inverted_scroll`]
+/// `crate::listing`'s fourth scene measures this axis over [`crate::runner::defective::inverted_scroll`]
 /// — a hand-written painter over a [`crate::runner::Fixture`], written before a refusal could be
 /// threaded through the shipped component at all. That is `crate::ink`'s own trap (*a gate written
 /// against a copy of the code tests the copy*) standing on the sharpest axis this crate has, and
-/// this field is what makes it unnecessary. **Scene 4's own figures are not moved here**: they are
-/// §21's normative ones and a scenes ticket has no standing to re-measure them. What the field is
+/// this field is what makes it unnecessary. **That scene's own figures are not moved here**: they are
+/// the normative ones and a scenes ticket has no standing to re-measure them. What the field is
 /// for is the two components built *on* `collection` inside a layer, whose window is
 /// `collection`'s — reached by calling it — and had never been asked.
 ///
@@ -1070,7 +1070,7 @@ pub(crate) enum Tail {
 /// that need this are [`crate::input::SelectShape`]'s `list` and [`crate::files::PickerShape`]'s,
 /// which reach it as a `CollShape` **value** the way [`TableShape`]'s `coll` does — and a `pub fn`
 /// wrapper with no caller is an entry that exists for a reader rather than for a component, which
-/// §17's own glyph-column gate refuses by name. A `defective::stale_tail` here would collide with
+/// the glyph-column gate refuses by name. A `defective::stale_tail` here would collide with
 /// [`crate::runner::defective::stale_tail`] besides, which is the two-meanings-of-one-word
 /// collision `CONTEXT.md` exists to prevent.
 ///
@@ -1089,7 +1089,7 @@ pub(crate) enum Window {
     /// **The rule.** The visible row is the content row: `offset + r`.
     #[default]
     Offset,
-    /// **The defect.** `offset - r`, which is §17's inverted sign.
+    /// **The defect.** `offset - r`, which is the inverted sign.
     Inverted,
 }
 
@@ -1146,7 +1146,7 @@ impl CollShape {
 /// call makes every collection in the application one collection: the first run of
 /// `tests::two_collections_on_one_screen_declare_two_entries_and_merge_nothing` read **9 merges on
 /// the correct arm**, because `collection` and `collection_into` carried the attribute and this
-/// function did not. ADR 0027's *a wrapper that forgets `#[track_caller]` merges the widgets inside
+/// function did not. *a wrapper that forgets `#[track_caller]` merges the widgets inside
 /// its own body*, arriving from the inside.
 #[track_caller]
 #[expect(
@@ -1495,7 +1495,7 @@ where
 
 /// `Ctrl+↑/↓` and `Ctrl+Home/End`: move the cursor, leave the selection alone.
 ///
-/// The gesture §5 measures beside `Ctrl+A`, `Space` and `Shift+↑/↓`, and the one an enum of
+/// The gesture measured beside `Ctrl+A`, `Space` and `Shift+↑/↓`, and the one an enum of
 /// selection states cannot express at all — the keyboard cursor without the selection is what every
 /// file manager draws and what C02's `Sel` had no variant for.
 fn ctrl_step(k: &Pressed, cur: Cursor) -> Option<usize> {
@@ -1515,7 +1515,7 @@ fn ctrl_step(k: &Pressed, cur: Cursor) -> Option<usize> {
 /// **Type-ahead: the component's buffer, the component's deadline, the component's bound, and the
 /// caller's search.**
 ///
-/// The bound is the whole of the number §5 states. One `z` into a focused million-row list is
+/// The bound is the whole of the number. One `z` into a focused million-row list is
 /// bounded against unbounded, and the search alone is 211× — see [`type_ahead_cost`].
 fn seek<F>(
     cx: &mut Ctx<'_, '_>,
@@ -1583,7 +1583,7 @@ pub mod defective {
     ///
     /// `Esc` and `Space` were matched on the code with no modifier guard, so `Ctrl+Esc` and
     /// `Alt+Esc` cleared the selection and `Alt+Space` toggled a row — a focused collection ate
-    /// every accelerator built on either, and §21's *a chord pressed into every focusable types
+    /// every accelerator built on either, and *a chord pressed into every focusable types
     /// nothing* stayed green throughout, because clearing a selection types nothing.
     ///
     /// Kept runnable for [`super::super::frame::defective`]'s reason: the correct arm and this one
@@ -1615,7 +1615,7 @@ pub mod defective {
     /// **The listing that iterates its whole content and lets the clip reject the rest.**
     ///
     /// It writes *exactly* what the windowed one writes — the engine reports a fully clipped verb as
-    /// zero columns — so §21's register row 4, *writes flat 1k → 1M*, is green on it. What is not
+    /// zero columns — so *writes flat 1k → 1M* is green on it. What is not
     /// green is the hit index and the iteration count.
     #[track_caller]
     #[expect(
@@ -1741,7 +1741,7 @@ pub mod defective {
         )
     }
 
-    /// **The row loop that is not wrapped in `cx.with_id`**, which is ADR 0027's defect as a
+    /// **The row loop that is not wrapped in `cx.with_id`**, which is the defect as a
     /// runnable build.
     ///
     /// Every row of every collection on the screen derives its id from `(screen, key, the line
@@ -1851,7 +1851,7 @@ pub mod defective {
 
     // ── `table`'s two hostile axes, production 06 ────────────────────────────────────────────────
 
-    /// **The table whose band draws its columns and not itself.** Architecture issue 24, and it is
+    /// **The table whose band draws its columns and not itself**, and it is
     /// what shipped until that issue was answered.
     ///
     /// `super::Slack::Unwritten`, one field of `TableShape`, and it is the **column** axis's
@@ -1903,16 +1903,16 @@ pub mod defective {
         )
     }
 
-    /// **The table that draws the rows its content reaches and nothing else.** §17's `shrunk` axis.
+    /// **The table that draws the rows its content reaches and nothing else.** The `shrunk` axis.
     ///
     /// `super::Tail::Omitted` on [`super::table`], and the rows below the content keep what the
     /// previous frame put there. It is one field of `TableShape` changed and the field is the row
-    /// axis's, because the tail is `collection`'s — spec §6's *the tail below the content is
+    /// axis's, because the tail is `collection`'s — *the tail below the content is
     /// `collection`'s, reached by calling it*, arriving as a refusal.
     ///
     /// **It is a defect of the second frame given the first**, so it is invisible on any instrument
     /// that starts each frame from a blank surface. `crate::grid::stale` plays it over two frames
-    /// into one [`crate::runner::Pen`]; `crate::grid::stale_by_resize` is the spelling §21 refuses,
+    /// into one [`crate::runner::Pen`]; `crate::grid::stale_by_resize` is the refused spelling,
     /// kept beside it as a number.
     #[track_caller]
     #[expect(
@@ -1957,7 +1957,7 @@ pub mod defective {
         )
     }
 
-    /// **The table whose `scroll_into_view` fires on every frame.** §17's `wheeled` axis.
+    /// **The table whose `scroll_into_view` fires on every frame.** The `wheeled` axis.
     ///
     /// [`every_frame`] on the component built on it. `crate::wheel` owns the gate and plays it over
     /// three subjects now; this is the arm it fires against for the third, and
@@ -2103,7 +2103,7 @@ pub mod defective {
 
     /// **The tree whose indent is the depth, and the depth is data.**
     ///
-    /// Spec §7's negative case, and it is [`super::tree`] with one field of `TreeShape` changed.
+    /// The negative case, and it is [`super::tree`] with one field of `TreeShape` changed.
     /// **An unclamped indent makes a row's cost proportional to its depth** — and every counter this
     /// crate can read is either identical or *better* on it: the engine reports the same columns
     /// written and the same distinct cells, because the clip eats the overrun; it declares the same
@@ -2155,8 +2155,8 @@ pub mod defective {
     ///
     ///`collection`'s own arm is `CollShape::reveal`, and a tree has no second
     /// offset and no second reveal — so this is [`super::tree`] with one field of `TreeShape`
-    /// changed and the defect lands in `collection`'s body, which is exactly spec §7's claim:
-    /// *the wheel, the keyboard and the reveal are all `collection`'s, reached by calling it.*
+    /// changed and the defect lands in `collection`'s body, which is exactly the claim:
+    /// *The wheel, the keyboard and the reveal are all `collection`'s, reached by calling it.*
     ///
     /// Twenty posted notches move the offset **0** under it. See `crate::wheel::Subject::Tree`.
     #[track_caller]
@@ -2200,7 +2200,7 @@ pub mod defective {
     /// **The tree that never asks for a reveal.** [`super::defective::never_reveals`]'s refusal,
     /// one component up.
     ///
-    /// Production 07, and it is the arm a one-directional wheel gate green-lights: deleting the
+    /// It is the arm a one-directional wheel gate green-lights: deleting the
     /// call passes the loud half. See `crate::wheel::Reveal::Never`.
     #[track_caller]
     #[expect(
@@ -2242,7 +2242,7 @@ pub mod defective {
 
     /// **The tree whose chevron is pressed at the column the *context* puts it at.**
     ///
-    /// Production 07's narrow-axis refusal, and see [`Chevron`] for why nothing on this map could
+    /// The narrow-axis refusal, and see [`Chevron`] for why nothing here could
     /// have found it: the two widths are one number whenever the clamp binds on neither, and every
     /// gate here draws a tree at the full width of its screen. The drawing is **identical** on both
     /// arms — this arm changes no cell — so the only instrument that separates them is a press, and
@@ -2287,7 +2287,7 @@ pub mod defective {
 
     // ── `table`'s four, and the one that is refused while being correct ──────────────────────────
 
-    /// **The band written by arithmetic instead of into a view.** §6's refused arm.
+    /// **The band written by arithmetic instead of into a view.** The refused arm.
     ///
     /// One `child` fewer than [`super::table_into`] and nothing else changed, so a reviewer's diff
     /// is one field. The band's edge column reaches past the viewport and overwrites the pinned band
@@ -2379,7 +2379,7 @@ pub mod defective {
         )
     }
 
-    /// **The horizontal offset added where it should be subtracted.** §3.3's trap on the column
+    /// **The horizontal offset added where it should be subtracted.** The trap on the column
     /// axis, and C03's inverted scroll sign one axis over.
     ///
     /// The band shows a partly blank stretch, issues every verb it would have issued, and **measures
@@ -2469,7 +2469,7 @@ pub mod defective {
 
     /// **One row pass with three bands inside it — the shipped loop structure, standing alone.**
     ///
-    /// The correct half of the pair §6's *4% cheaper and refused* is measured over. It is not
+    /// The correct half of the pair *4% cheaper and refused* is measured over. It is not
     /// [`super::table`]: the shipped component also runs the keyboard, the type-ahead, the reveal
     /// and the tail, none of which is the subject, and a timing that included them would be a timing
     /// of `collection`. Both halves of this pair are this one function with `per_band` flipped, so
@@ -2491,14 +2491,14 @@ pub mod defective {
 
     /// **A pass per band: correct, measured cheaper, and refused.**
     ///
-    /// §6: *the band view is opened per row inside one row pass, not once per band. A pass per band
+    /// *The band view is opened per row inside one row pass, not once per band. A pass per band
     /// measures 4% cheaper and is refused, because three loops share nothing but the author writing
-    /// the same bounds three times and cannot share §5's lockstep scan cursor.*
+    /// the same bounds three times and cannot share the lockstep scan cursor.*
     ///
     /// Both halves of the refusal are visible here. It **is** cheaper — one
     /// [`Ctx::child`](vitui_runtime::Ctx::child) for the whole band instead of one a row. And it
     /// **cannot share the cursor**: each of the three passes seeks its own [`Scan`], so the
-    /// `O(log k + h)` §5 buys becomes `3·(log k + h)`, and the three sets of bounds are three chances
+    /// `O(log k + h)` becomes `3·(log k + h)`, and the three sets of bounds are three chances
     /// for an author to write one of them differently.
     ///
     /// It is here to be priced rather than argued about, and it is the one arm in this module that
@@ -2638,7 +2638,7 @@ pub mod defective {
 
 // ── the stores that were measured and refused ────────────────────────────────────────────────────
 
-/// **The three stores that were measured and refused**, kept runnable so §5's table is a
+/// **The three stores that were measured and refused**, kept runnable so the table is a
 /// measurement rather than a memory.
 ///
 /// All four answer the same questions. Three of them answer at least one of them in time or space
@@ -2746,7 +2746,7 @@ pub mod stores {
 
 // ── the measurements ─────────────────────────────────────────────────────────────────────────────
 
-/// The three volumes §5 states, shared with [`crate::listing::VOLUMES`] so the two screens are
+/// The three volumes, shared with [`crate::listing::VOLUMES`] so the two screens are
 /// comparable.
 pub const VOLUMES: [usize; 3] = [1_000, 100_000, 1_000_000];
 
@@ -2754,7 +2754,7 @@ pub const VOLUMES: [usize; 3] = [1_000, 100_000, 1_000_000];
 ///
 /// `(scan, naive)`. The scan seeks once and advances in lockstep, so it is `1` at every window
 /// height; the naive form binary-searches per row, so it is the window height. That is `O(log k + h)`
-/// against `O(h · log k)` as a **count** rather than as a timing, which is §21's rule: a gate is a
+/// against `O(h · log k)` as a **count** rather than as a timing, which is the rule: a gate is a
 /// count, a ratio, an equality or a compile outcome.
 pub fn seek_and_probes(sel: &Selection, window: Range<usize>) -> (usize, usize) {
     let mut scan = Scan::seek(sel, window.start);
@@ -2775,7 +2775,7 @@ pub fn select_all_cost(len: usize) -> (usize, usize) {
     (sel.span_count(), sel.bytes())
 }
 
-/// **The pathological selection §5 prices: `n` ctrl-clicks on alternate rows.**
+/// **The pathological selection: `n` ctrl-clicks on alternate rows.**
 ///
 /// `n` spans and `n · `[`SPAN_BYTES`] bytes, because alternate rows never coalesce — the worst case
 /// the store has, and it is still proportional to the gestures rather than to the rows.
@@ -2818,9 +2818,9 @@ pub fn type_ahead_cost(len: usize, rounds: u32) -> (u128, u128) {
 /// `(first, moved)` — the first frame paints the window, and the frame after moves the selection
 /// from row `from` to row `to` and repaints exactly the rows whose [`Face`] changed.
 ///
-/// # It is not `marked`, and the substitution is the same one components ticket 07 made
+/// # It is not `marked`, and the substitution is the same one `scroll` made
 ///
-/// §20's `marked` is [`crate::counters::Reading::Unreachable`] and stays that way: the engine's
+/// `marked` is [`crate::counters::Reading::Unreachable`] and stays that way: the engine's
 /// damage module is `pub(crate)` from top to bottom and `Presented` carries no count. What is
 /// knowable from here is the **rule** that decides it — the engine filters a write whose value
 /// equals the resident value — and that is computable at the verb boundary over a surface this
@@ -2879,7 +2879,7 @@ pub fn selection_move_repaints(len: usize, from: usize, to: usize) -> (u64, u64)
 
 /// The synthetic label of row `i`: a two-letter prefix that never begins with `z`.
 ///
-/// **It never matches on purpose**, because the number §5 states is the cost of a keystroke that
+/// **It never matches on purpose**, because the number is the cost of a keystroke that
 /// finds nothing — which is the worst case and the only one where the bound is what stops the
 /// search.
 pub fn label(i: usize) -> &'static str {
@@ -2896,7 +2896,7 @@ pub fn label(i: usize) -> &'static str {
 /// **A pinned column may not be elastic, and it is enforced by construction rather than
 /// documented**: `Left` and `Right` carry their own width, and the [`Column::width`] a pinned column
 /// declares is not reachable from [`solve_columns`] at all — every reader of a pin's width goes
-/// through [`Pin::width`], and there is nowhere for a [`Constraint`] to enter. §6's reason is two
+/// through [`Pin::width`], and there is nowhere for a [`Constraint`] to enter. The reason is two
 /// denominators: a pin claims a share of the *table* and a scrolling lane a share of the *content*,
 /// and `max(viewport, Σ minima)` is not the table.
 ///
@@ -2925,7 +2925,7 @@ impl Pin {
 /// **One declared column.**
 ///
 /// The `key` is **stable identity**, independent of position and of visibility: hiding and
-/// reordering columns are two of §6's twenty-two grid features and both move positions, so nothing
+/// reordering columns are two of the twenty-two grid features and both move positions, so nothing
 /// stored may be keyed on one. [`CellSel`] and the column half of [`TableState::editing`] are the
 /// two things a table stores per column, and both take the key.
 #[derive(Clone, Copy, Debug)]
@@ -2968,7 +2968,7 @@ impl Column {
     }
 }
 
-/// Which of §6's three bands a solved column landed in.
+/// Which of the three bands a solved column landed in.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Band {
     /// Pinned to the table's left edge.
@@ -2982,12 +2982,12 @@ pub enum Band {
 /// **The most columns one declaration list may hold.**
 ///
 /// A fixed array, because a `Vec` per table per frame is an allocation per frame and the standing
-/// budget is zero. Two hundred and fifty-six is past §6's own sweep, whose widest arm is 240.
+/// budget is zero. Two hundred and fifty-six is past the sweep, whose widest arm is 240.
 pub const MAX_COLS: usize = 256;
 
 /// **What one frame's column solve produced.** Plain arrays: no allocation, no per-frame scratch.
 ///
-/// Built by [`solve_columns`] **once a frame, over the declared columns, touching no row** — §6's
+/// Built by [`solve_columns`] **once a frame, over the declared columns, touching no row** —
 /// sentence, and the one [`table`] is measured against. The three bands are three ranges into the
 /// same arrays rather than three vectors, for the same reason.
 #[derive(Clone)]
@@ -3009,7 +3009,7 @@ pub struct Solved {
     /// The scrolling band's viewport.
     pub view_w: u16,
     /// **The scrolling band's content width, `max(view_w, Σ minima)`** — the one width in a table
-    /// that is not a viewport, and the denominator §6's two-denominator sentence is about.
+    /// that is not a viewport, and the denominator the two-denominator sentence is about.
     pub content_w: u16,
     /// `[lo, hi)` into the arrays for the left band.
     pub left: (usize, usize),
@@ -3064,7 +3064,7 @@ const fn col_floor(c: Constraint) -> u16 {
 
 /// **The whole of a table's layout. Runs once a frame, touches no row, allocates nothing.**
 ///
-/// The three bands are solved separately and that is §6's decision rather than an implementation
+/// The three bands are solved separately and that is the decision rather than an implementation
 /// detail: a pin is a *band*, so it is a rect split, and the scrolling columns then have exactly one
 /// denominator. The band handed to R03's solver is `content_w` and not `view_w` — when the columns
 /// fit the two are the same and the elastic ones share the viewport; when they do not, the band is
@@ -3198,7 +3198,7 @@ fn col_partition(lo: usize, hi: usize, pred: impl Fn(usize) -> bool) -> usize {
 
 /// **Cell selection: one [`Selection`] per column key, and no second store.**
 ///
-/// §6's decision, and it is decided **entirely by what a gesture costs** — the frame does not
+/// The decision, and it is decided **entirely by what a gesture costs** — the frame does not
 /// distinguish the two candidates at all, because both are amortised `O(1)` a cell through the same
 /// [`Scan`] the row loop already runs.
 ///
@@ -3249,7 +3249,7 @@ impl CellSel {
         self.column(key).is_some_and(|s| s.contains(row))
     }
 
-    /// **Select every row of one column. §6's header click**, and the gesture the store was chosen
+    /// **Select every row of one column. The header click**, and the gesture the store was chosen
     /// for: one run and [`SPAN_BYTES`] bytes at any length.
     pub fn select_column(&mut self, key: u16, len: usize) {
         self.column_mut(key).select_all(len);
@@ -3263,7 +3263,7 @@ impl CellSel {
         }
     }
 
-    /// Runs held, over every column. The counter §6's 1 000 000-against-1 is stated in.
+    /// Runs held, over every column. The counter the 1 000 000-against-1 is stated in.
     pub fn span_count(&self) -> usize {
         self.by_key.iter().map(|(_, s)| s.span_count()).sum()
     }
@@ -3289,7 +3289,7 @@ impl CellSel {
 ///
 /// Returns `(runs, bytes)`. A column of a row-major flattening is a stride, and a stride of length
 /// one is a run of length one — so selecting a column of `rows` rows is `rows` runs, which is what
-/// §6 prices at 1 000 000 and 16 MB against [`CellSel::select_column`]'s one and sixteen.
+/// Priced at 1 000 000 and 16 MB against [`CellSel::select_column`]'s one and sixteen.
 ///
 /// A function rather than a variant of [`CellSel`], for [`stores::Alt`]'s reason: a refused store
 /// kept as an arm of the shipped one is a shipped store somebody will reach for.
@@ -3306,7 +3306,7 @@ pub fn flattened_header_click(rows: usize, ncols: usize, col: usize) -> (usize, 
 ///
 /// # The id is handed over rather than pushed, and it was a measured workaround first
 ///
-/// ADR 0027's rule is *a container roots its children inside its own id*, and §4 says `with_key` is
+/// The rule is *a container roots its children inside its own id*, and `with_key` is
 /// the only verb that mints one. **It was not available here**, for a defect one crate down rather
 /// than a preference: [`Ctx::with_id`](vitui_runtime::Ctx::with_id) — which `Ctx::with_key` is
 /// written on — re-childed the view at `self.area()`, and `area()` is `Rect::new(0, 0, w, h)` in
@@ -3314,14 +3314,14 @@ pub fn flattened_header_click(rows: usize, ncols: usize, col: usize) -> (usize, 
 /// clip it intersected with was content rows `0..h` while the window sat at the offset: past the
 /// first screenful the two did not overlap and a cell keyed that way **drew nothing at all**.
 ///
-/// **Runtime architecture issue 31 inverted it** — an identity verb reborrows now and narrows no
+/// **That was inverted** — an identity verb reborrows now and narrows no
 /// view — and `tests::a_with_key_inside_a_scroll_scope_reaches_the_window` is the measurement,
 /// where it used to be the same measurement with the other number in it.
 ///
 /// The field stays, and the reason it stays is not the defect. `keyed(keyed(table, row), key)` is
 /// exactly the id `with_key(row)` inside `with_key(key)` mints, so the two spellings were never
 /// different identities — but only one of them is a **value**, and a cell's consumer is a
-/// caller-supplied closure that has to declare a target under it. §4's *every workaround on this
+/// caller-supplied closure that has to declare a target under it. *every workaround on this
 /// map that looks like a hack is the id being opaque* is what is left over: the value is a hash, so
 /// handing it down is how a caller gets one at all.
 ///
@@ -3352,12 +3352,12 @@ pub struct Cell {
 ///
 /// # The editing slot is `Option<(row, col)>`, stored as its two halves
 ///
-/// §6: *`Option<(row, col)>` and no wider — 0.29 µs to follow a million-row sort, because it is one
+/// *`Option<(row, col)>` and no wider — 0.29 µs to follow a million-row sort, because it is one
 /// position. The row half is revalidated against the order's revision, which is a field beside the
 /// slot rather than a widening of it. The column half needs nothing, because it is a **key** and not
 /// a position.*
 ///
-/// The row half is [`CollState::editing`] — the one slot ADR 0028 allows, and the one [`collection`]
+/// The row half is [`CollState::editing`] — the one slot allowed, and the one [`collection`]
 /// already clears when the revision it was stamped at stops matching, so the revalidation is
 /// inherited rather than written twice. The column half is here, and it is a `u16` rather than an
 /// `Option<u16>` because it means nothing while the row half is `None`: two `Option`s would admit a
@@ -3369,12 +3369,12 @@ pub struct Cell {
 /// The vertical offset is [`collection`]'s, applied from **this frame's** wheel inside the draw.
 /// [`TableState::hoff`] is not: the column solve runs *before* the row pass, so a horizontal wheel
 /// read where the vertical one is read would be applied a frame after it arrived — which is exactly
-/// the defect runtime ticket 14 found and removed. Until a table can read the wheel before it
+/// the defect that was found and removed. Until a table can read the wheel before it
 /// solves, the honest shape is the one `CONTEXT.md` states for every offset: *the application owns
 /// it*.
 #[derive(Clone, PartialEq, Eq, Debug, Default)]
 pub struct TableState {
-    /// The row axis. §6's `+` is on the other one.
+    /// The row axis. `+` is on the other one.
     pub coll: CollState,
     /// **The first visible content column of the scrolling band**, clamped by [`table`] to what the
     /// solve admits.
@@ -3391,7 +3391,7 @@ impl TableState {
         TableState::default()
     }
 
-    /// **The cell being edited, as §6's `Option<(row, col)>`.**
+    /// **The cell being edited, as `Option<(row, col)>`.**
     ///
     /// The row half comes back through [`CollState::editing`], so a reorder the caller did not
     /// reconcile has already closed the editor by the time this is asked.
@@ -3413,7 +3413,7 @@ impl TableState {
         self.coll.editing = None;
     }
 
-    /// **Carry the editing slot across a reorder — §6's 0.29 µs, as one lookup.**
+    /// **Carry the editing slot across a reorder — the 0.29 µs, as one lookup.**
     ///
     /// `to` answers *where did the row that was at `i` go*, and it is the caller's because only the
     /// caller has both orders. The cost is one call at any length **because the slot is
@@ -3425,7 +3425,7 @@ impl TableState {
     }
 }
 
-/// [`table`]'s options. Spec §1's rule 3: a `Default` struct, never a required builder.
+/// [`table`]'s options. rule 3: a `Default` struct, never a required builder.
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
 pub struct TableOpts {
     /// The row axis's options, unchanged. **No second [`Mode`].**
@@ -3443,10 +3443,10 @@ pub struct TableOpts {
 ///
 /// **Hostile axes:** `scrolled`, `shrunk`, `wheeled`, `narrow`.
 ///
-/// Scene 7 is its own — a twelve-column table under a horizontal offset, both edges pinned — and the
+/// One scene is its own — a twelve-column table under a horizontal offset, both edges pinned — and the
 /// other three arrive with the store, because a table is [`collection`] and a column split.
 ///
-/// Spec §6, ADR 0028. Spec §1's shape exactly: `fn(&mut Ctx, Rect, …) -> Response`.
+/// The shape exactly: `fn(&mut Ctx, Rect, …) -> Response`.
 ///
 /// # It is `collection`, and the sentence is checkable rather than decorative
 ///
@@ -3460,7 +3460,7 @@ pub struct TableOpts {
 /// # The `+` is paid in verbs
 ///
 /// Damage is marked once per verb, and a table cuts each row into one short run per column where a
-/// list writes one long one — then §2's partition rule makes each column **two** verbs, the text and
+/// list writes one long one — then the partition rule makes each column **two** verbs, the text and
 /// then the padding after it, because the alternative is a cell written twice. **Two verbs a cell is
 /// the floor**, and it is a floor rather than an equality: a cell whose own text fills its column
 /// has no padding and costs one.
@@ -3479,15 +3479,15 @@ pub struct TableOpts {
 /// overwrite the pinned band: identical verbs, identical time, and a band of cells re-damaged on
 /// every steady frame for ever.
 ///
-/// §6 also refuses a spelling that is **correct**: one pass per band instead of one pass per row.
+/// A spelling that is **correct** is also refused: one pass per band instead of one pass per row.
 /// [`defective::per_band_pass`] is that build with [`defective::one_row_pass`] beside it, one value
-/// apart, so §6's *4% cheaper and refused* is a measurement rather than a memory — and **the 4%
+/// apart, so *4% cheaper and refused* is a measurement rather than a memory — and **the 4%
 /// does not reproduce.** Over sixty interleaved rounds the difference is inside ±1.5% and its sign
 /// flips between runs; the saving (one band view for the whole window instead of one a row) and its
 /// price (three row loops, three `Scan::seek`s) cancel on a screen whose pins are three columns of
-/// eleven. The refusal stands untouched, because §6 refuses the spelling on an argument and not on
+/// eleven. The refusal stands untouched, because the spelling is refused on an argument and not on
 /// a timing: three loops share nothing but the author writing the same bounds three times, and
-/// cannot share §5's lockstep scan cursor at all.
+/// cannot share the lockstep scan cursor at all.
 ///
 /// # Identity is per cell, and only where a cell declares a target
 ///
@@ -3505,14 +3505,14 @@ pub struct TableOpts {
 /// disagree about where the column is. It is **off by default** because a header moves the body's
 /// view off the table's own row 0 and the body draws inside a scroll scope, so the header's cells and
 /// the body's cells land in two coordinate spaces and neither [`crate::counters::Tally`] nor
-/// [`crate::runner::Pen`] can union them. That is components ticket 14's finding, inherited
+/// [`crate::runner::Pen`] can union them. That finding is inherited
 /// unchanged: a limit of the recorders and not of the component, and `Ctx` publishes no accessor for
 /// the frame's own origin that would lift it.
 ///
 /// # Arguments
 ///
 /// `cell` is handed `(cx, rect, row, key, face)` and **owes every cell of the rectangle**. The
-/// `Face` is the row's, because §5's five independent bits are a row's bits; a cell that wants the
+/// `Face` is the row's, because the five independent bits are a row's bits; a cell that wants the
 /// cell selection reads [`TableState::cells`], which is the caller's to consult and the caller's to
 /// gesture on.
 ///
@@ -3633,11 +3633,11 @@ struct TableShape {
     /// an arm for is a mistake a table can make too — and none of the three could be written down
     /// on this side until a ticket asked.
     ///
-    /// [`crate::volume`] asked for the first ([`Shape`]); production 06 asked for the other two,
-    /// which are §17's `shrunk` and `wheeled` axes on this component: [`Tail`] is the stale tail
+    /// [`crate::volume`] asked for the first ([`Shape`]); the shrink and wheel scenes asked for the other two,
+    /// which are `shrunk` and `wheeled` axes on this component: [`Tail`] is the stale tail
     /// and [`Reveal`] is the pull that fights the wheel. **All three are the row axis's and none of
     /// them is a second implementation** — `table` reaches them by calling `collection`, which is
-    /// the sentence spec §6 opens with.
+    /// the sentence the design opens with.
     coll: CollShape,
     /// How the scrolling band reaches the surface.
     band: BandShape,
@@ -3652,9 +3652,9 @@ struct TableShape {
 }
 
 /// **Whether a band writes the part of itself no column claims**, and the refused arm is what
-/// shipped until architecture issue 24.
+/// shipped for a long time.
 ///
-/// A band draws its **columns**, and until issue 24 nothing drew the band: a column list whose
+/// A band draws its **columns**, and nothing used to draw the band: a column list whose
 /// widths do not reach the viewport left the remainder of every row **untouched** —
 /// `crate::runner::Canvas`'s own distinction, so those cells kept whatever was already there.
 /// `crate::grid::COLUMN_RESIDUE` carried the number as a tripwire, at **21 760 of 24 000**, with a
@@ -3669,7 +3669,7 @@ pub enum Slack {
     /// **The rule**: a component handed a rectangle writes all of it.
     #[default]
     Written,
-    /// **What shipped until issue 24**: the columns are drawn and the rest of the band is nobody's.
+    /// **What shipped for a long time**: the columns are drawn and the rest of the band is nobody's.
     Unwritten,
 }
 
@@ -3704,7 +3704,7 @@ enum CellKeys {
     PerRow,
 }
 
-/// The sign of the horizontal offset — §3.3's trap on the column axis.
+/// The sign of the horizontal offset — the trap on the column axis.
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
 enum HSign {
     /// **The rule.** The content moves the other way from the offset.
@@ -3885,9 +3885,9 @@ where
 
 /// **Where a band's columns stop and how much of the band is left**, as `(x, width)`.
 ///
-/// Architecture issue 24's arithmetic, in one function because the body and the header open the
+/// The band's own arithmetic, in one function because the body and the header open the
 /// same three bands and a slack computed twice is a slack that can disagree with itself — which is
-/// exactly the class of defect §6's *a column's title and its cells cannot disagree about where the
+/// exactly the class of defect *a column's title and its cells cannot disagree about where the
 /// column is* already guards against on the other side.
 ///
 /// Zero whenever the columns reach or overrun the band, which is every column list that exists to
@@ -3904,7 +3904,7 @@ fn band_end(at: i32, w: u16, s: &Solved, range: (usize, usize), shift: i32) -> (
     (end, u16::try_from(left).unwrap_or(u16::MAX))
 }
 
-/// The header's row and the body's rectangle beneath it. §6's one `cut`.
+/// The header's row and the body's rectangle beneath it. The one `cut`.
 fn split_header(area: Rect) -> (Rect, Rect) {
     let h = area.h.min(1);
     (
@@ -3984,7 +3984,7 @@ fn header_row<I: Ink>(
 
 // ── `tree` = `collection` + a flatten index ──────────────────────────────────────────────────────
 
-/// **Whether the indent is clamped, and this is the whole of §7's negative case.**
+/// **Whether the indent is clamped, and this is the whole of the negative case.**
 ///
 /// One type and not two: `crate::forest` used to declare its own while `tree` did not exist, and two
 /// of these in one crate makes every mismatch read *expected `Indent`, found `Indent`* — which is
@@ -4009,7 +4009,7 @@ impl Indent {
     }
 }
 
-/// **Which width the chevron's hit column is derived from. §7's pointer half, as one value.**
+/// **Which width the chevron's hit column is derived from. The pointer half, as one value.**
 ///
 /// [`tree`] draws the chevron at the indent of the row rectangle it hands over, and decides whether
 /// a press landed on it from the indent of the rectangle *it* was handed. Those are two calls to
@@ -4056,7 +4056,7 @@ impl Chevron {
 /// which is what keeps the two from being a model and a copy of a model: the number the screen sums
 /// and the number the run is drawn with come out of this function.
 ///
-/// **A `usize` and not a `u16`**, which is the arithmetic §7's own prototype got wrong: `depth * 2`
+/// **A `usize` and not a `u16`**, which is the arithmetic the prototype got wrong: `depth * 2`
 /// at 59 999 is 119 998, and `as u16` makes that 54 462 — a truncation that reads as a clamp.
 ///
 /// The clamp reserves two columns, which is the chevron and one cell of label. A row whose indent
@@ -4106,13 +4106,13 @@ pub struct Node {
 
 /// **Everything a tree keeps across frames: [`CollState`] and the one-slot request.**
 ///
-/// There is no fold set here, and that is ADR 0031 rather than an omission — *the order is the
+/// There is no fold set here, and that is deliberate rather than an omission — *the order is the
 /// caller's and a component may only ask*. What is folded is [`Entry::FOLDED`](crate::order::Entry::FOLDED) in the caller's own
 /// index, and the way it changes is that the caller drains [`TreeState::ask`] after the draw and
 /// calls [`Order::fold`].
 #[derive(Clone, PartialEq, Eq, Debug, Default)]
 pub struct TreeState {
-    /// The row axis, unchanged. §7's `+` is the indent and the chevron.
+    /// The row axis, unchanged. `+` is the indent and the chevron.
     pub coll: CollState,
     /// **What the last frame asked the caller to do to the index.** Drained after the draw.
     pub ask: Asked,
@@ -4125,7 +4125,7 @@ impl TreeState {
     }
 }
 
-/// [`tree`]'s options. Spec §1's rule 3: a `Default` struct, never a required builder.
+/// [`tree`]'s options. rule 3: a `Default` struct, never a required builder.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub struct TreeOpts {
     /// The row axis's options, unchanged. **No second [`Mode`].**
@@ -4153,13 +4153,13 @@ impl Default for TreeOpts {
 /// fragments.
 ///
 /// Scenes 8 and 9: a million-node forest at depth 59 999 windowed by the flatten index, and a fold
-/// and an unfold, which is content shrinking inside a rectangle that does not move. Scene 46:
+/// and an unfold, which is content shrinking inside a rectangle that does not move. One scene:
 /// the partition at 300, 40, 22 and 21 columns — where the **clamp binding** and not the label
 /// truncating is what makes the unclamped indent visible, and where the chevron's pressed column is
-/// the rectangle's and not the context's ([`Chevron`]). Scene 47: twenty posted notches, whose every
+/// the rectangle's and not the context's ([`Chevron`]). The other: twenty posted notches, whose every
 /// number is [`collection`]'s.
 ///
-/// Spec §7, ADR 0028, ADR 0031. Spec §1's shape exactly: `fn(&mut Ctx, Rect, …) -> Response`.
+/// The shape exactly: `fn(&mut Ctx, Rect, …) -> Response`.
 ///
 /// # It is `collection`, and the sentence is checkable rather than decorative
 ///
@@ -4304,29 +4304,29 @@ struct TreeShape {
     /// flatten index, and it inherits the same one-line mistake.
     ///
     /// **It is [`Shape`] where the table's is the whole [`CollShape`], and that is deliberate
-    /// rather than half a migration.** Production 06 gave `table` the other two refusals because
+    /// rather than half a migration.** `table` got the other two refusals because
     /// two scenes play them; a `tree` arm for a tail nothing draws would be a build no gate
     /// exercises, which is `crate::ink`'s complaint from the other end — a refusal that is never
     /// played is a second implementation with no comparison behind it. `tree_with` reconstitutes a
     /// `CollShape` from this field, [`TreeShape::reveal`] and [`CollShape::RULE`].
     ///
     /// **[`Tail`] is still not here and that is now a measured absence rather than a deferral.**
-    /// `tree`'s shrink axis is scene 9 — a fold, which removes rows from the *index* — so the rows
+    /// `tree`'s shrink axis is a fold, which removes rows from the *index*, so the rows
     /// the content no longer reaches are `collection`'s tail and `crate::listing` is where the
     /// omission is 71 of 80 rows. A second `Tail` arm here would be the same omission with a
     /// second name.
     rows: Shape,
     /// Whether the indent is clamped to the rectangle.
     indent: Indent,
-    /// **When the reveal fires.** Production 07's, and it is the field the note above predicted.
+    /// **When the reveal fires**, and it is the field the note above predicted.
     ///
-    /// Widened for `crate::wheel::Subject::Tree` — spec §7's claim is that the wheel, the keyboard
+    /// Widened for `crate::wheel::Subject::Tree` — the claim is that the wheel, the keyboard
     /// and the reveal are all `collection`'s, *reached by calling it*, and until that arm nothing
     /// had asked a `tree` a wheel question. The two refusals are `collection`'s own two, reached
     /// through [`CollShape::reveal`] rather than restated: a tree has no second offset and no
     /// second reveal, so a second expression here would be a second answer to one question.
     reveal: Reveal,
-    /// **Which width the chevron's *hit* column is derived from.** Production 07's, and the narrow
+    /// **Which width the chevron's *hit* column is derived from**, and the narrow
     /// axis's own.
     ///
     /// See [`Chevron`]. The drawn column comes from the row's rectangle and the pressed column from
@@ -4524,20 +4524,20 @@ where
 
 // ── what the table's two stores and its one slot cost ────────────────────────────────────────────
 
-/// **The row count §6 prices the two cell stores at.** One million.
+/// **The row count the two cell stores are priced at.** One million.
 pub const CELL_ROWS: usize = 1_000_000;
 
-/// **The declared column count the two stores are priced over.** Forty, which is §6's own
+/// **The declared column count the two stores are priced over.** Forty, which is the original's
 /// *select-all, select-one-row: 40 runs against 1* — the loss the per-column store takes, stated as
 /// a column count rather than as a row count, because that is the half that is bounded.
 pub const CELL_COLS: usize = 40;
 
 /// **What one click on a column header costs, both ways.** `(runs, bytes, nanoseconds)` each.
 ///
-/// The per-column store first, the flattened one second. §6 states **1 / 16 B / 0.08 µs** against
+/// The per-column store first, the flattened one second. **1 / 16 B / 0.08 µs** against
 /// **1 000 000 / 16 MB / 62 535 µs**; what reproduces exactly is the *runs*, which are arithmetic
 /// over the store's shape, and the bytes follow from them. The microseconds are a report and the
-/// ratio is the gate — see [`crate::grid`]'s rule, which is §21's.
+/// ratio is the gate — see [`crate::grid`]'s rule.
 pub fn header_click_costs(
     rows: usize,
     ncols: usize,
@@ -4560,8 +4560,8 @@ pub fn header_click_costs(
 
 /// **The gesture the per-column store is worse at**, so the trade is stated from both sides.
 ///
-/// `(per_column_runs, flattened_runs)` for selecting one whole row across `ncols` columns. §6:
-/// *the per-column store's only losses (select-all, select-one-row: 40 runs against 1) are bounded
+/// `(per_column_runs, flattened_runs)` for selecting one whole row across `ncols` columns:
+/// *The per-column store's only losses (select-all, select-one-row: 40 runs against 1) are bounded
 /// by the declared column count.* One run a column here; one run there, because a row is contiguous
 /// under a row-major flattening.
 pub fn row_click_costs(ncols: usize, row: usize) -> (usize, usize) {
@@ -4578,11 +4578,11 @@ pub fn row_click_costs(ncols: usize, row: usize) -> (usize, usize) {
 /// **What it costs to follow a reorder, one slot against a map keyed per cell.** `(slot, map)` in
 /// nanoseconds.
 ///
-/// §6's **0.29 µs**, and its reason: *it is one position*. The slot is one lookup at any length; the
+/// **0.29 µs**, and its reason: *it is one position*. The slot is one lookup at any length; the
 /// map is one lookup a stored cell, and a per-cell map over a sorted million-row table is what the
 /// slot exists instead of. The map arm is priced over `entries` rather than over `len`, because a
 /// map that held one entry a row would not be a *map* argument at all — it would be the length
-/// argument §5 already settled.
+/// argument that is already settled.
 pub fn edit_follow_costs(len: usize, entries: usize) -> (u128, u128) {
     let mut st = TableState::new();
     st.edit(len / 2, 7);
@@ -4605,7 +4605,7 @@ pub fn edit_follow_costs(len: usize, entries: usize) -> (u128, u128) {
 
 /// [`pagination`]'s options.
 ///
-/// Spec §1's rule 3: a `Default` struct, never a required builder.
+/// A `Default` struct, never a required builder.
 ///
 /// **There is no `mode` here.** A pager is [`Mode::Options`] — *exactly one, and it can never become
 /// zero* — and that is not a caller's choice: a paginator with nothing selected is a paginator
@@ -4671,7 +4671,7 @@ fn fits(room: u16, cell: u16) -> u16 {
 /// window onto anything larger and no offset a notch could move. The row loop — which is where the
 /// other three would live — is the axis this component does not reach.
 ///
-/// Spec §18's R3: *a composition of shipped components with no new mechanism.* The store is
+/// R3: *a composition of shipped components with no new mechanism.* The store is
 /// [`CollState`], the policy is [`Mode::Options`], the keyboard is [`collection`]'s own drain loop
 /// and therefore [`crate::nav::cursor`], and what this component adds is a **rectangle split**.
 ///
@@ -5094,7 +5094,7 @@ mod tests {
     /// **A pager writes every cell of its rectangle exactly once**, at every size, page count and
     /// window position.
     ///
-    /// §2's two equalities over the one component in this module whose content does not fill its own
+    /// The two equalities over the one component in this module whose content does not fill its own
     /// rectangle by construction: a strip of `shown` cells of `cell` columns leaves a gap before the
     /// trailing stepper whenever the two do not divide, and that gap is the pager's own.
     #[test]
@@ -5163,7 +5163,7 @@ mod tests {
     /// half of *no second navigation model*: the pager resolves *which column* by arithmetic and
     /// hands the answer to the same `apply` the keyboard reaches.
     ///
-    /// **A press is two frames**, because the grab is awarded at `end` — components ticket 30's
+    /// **A press is two frames**, because the grab is awarded at `end` — the
     /// cadence, and a gate playing one frame a phase would measure the cadence and call it the
     /// mechanism.
     #[test]
@@ -5225,7 +5225,7 @@ mod tests {
         });
     }
 
-    /// **Two pagers on one screen are two widgets and merge nothing** — ADR 0027.
+    /// **Two pagers on one screen are two widgets and merge nothing.**
     ///
     /// A pager keys nothing per page, so what this catches is the one thing that could go wrong at
     /// its own level: a `#[track_caller]` that stopped one frame short of the call would make both
@@ -5255,7 +5255,7 @@ mod tests {
     /// between the indices they land on is what says the sharing is real: a pager that had grown its
     /// own reading of `←`/`→` would still draw correctly and would diverge here.
     ///
-    /// `crate::nav::step` reads `←` and `→` as `↑` and `↓`, which is components ticket 17's collision
+    /// `crate::nav::step` reads `←` and `→` as `↑` and `↓`, which is the collision
     /// for a `tree` and is exactly what a pager wants — so the horizontal keys are in the sweep
     /// beside the vertical ones and both must agree.
     #[test]
@@ -5306,7 +5306,7 @@ mod tests {
     /// and is therefore the same widget. Written with the first frame at one call site and the rest
     /// at another — the obvious spelling — the planted focus names an id no later frame declares,
     /// **no key is ever delivered**, and the sweep above passes with both arms standing still. That
-    /// is components ticket 33's finding arriving in the instrument again, and
+    /// is that finding arriving in the instrument again, and
     /// `tests::a_pager_and_a_collection_land_on_the_same_index` asserts the ids agree so it cannot
     /// come back.
     fn pager_frame(driver: &mut Driver, st: &mut CollState, len: usize) -> Id {
@@ -5521,7 +5521,7 @@ mod tests {
     /// **Criterion 3: `size_of::<CollState>()` is independent of length.**
     ///
     /// The gate is the invariance and it holds by construction — the type mentions no length — so
-    /// what this measures is that no field has been added that does. §5's 208 does not reproduce
+    /// what this measures is that no field has been added that does. The 208 does not reproduce
     /// and [`COLL_STATE_BYTES`] says why rather than padding the struct.
     #[test]
     fn the_state_is_the_same_size_at_every_length() {
@@ -5566,7 +5566,7 @@ mod tests {
     }
 
     /// **The thirteen arms behave, and the difference between `Single` and `Options` is the one
-    /// branch §5 says it is.**
+    /// branch it is meant to be.**
     #[test]
     fn a_radio_group_and_a_file_manager_differ_by_the_arms_and_nothing_else() {
         // A menu never selects anything and its cursor moves.
@@ -5704,7 +5704,7 @@ mod tests {
         }
     }
 
-    /// **The type-ahead bound is the whole of §5's 211×**, as a ratio of *rows looked at* rather
+    /// **The type-ahead bound is the whole of the 211×**, as a ratio of *rows looked at* rather
     /// than as a timing.
     #[test]
     fn one_keystroke_into_a_million_rows_looks_at_the_budget_and_not_at_the_content() {
@@ -5732,7 +5732,7 @@ mod tests {
     ///
     /// # Two lines and no `cx.with_key`, which is the whole fixture
     ///
-    /// This is ADR 0027's screen exactly. `#[track_caller]` gives the two *collections* two ids, so
+    /// This is the screen exactly. `#[track_caller]` gives the two *collections* two ids, so
     /// the outer level is already distinct and nothing here is a lazy call site. What it cannot give
     /// is the **rows**: `cx.id()` mints an id and does not push it, and `Ctx::scroll_scope` roots no
     /// identity — so a row loop written without `cx.with_id` roots at whatever the enclosing stack
@@ -5789,7 +5789,7 @@ mod tests {
 
     /// **Two collections on one screen declare two entries and merge nothing.**
     ///
-    /// Both halves of register row 71, and they are one screen because they fail together.
+    /// Both halves of one register row, and they are one screen because they fail together.
     ///
     /// - **One hit entry per collection**: the component declares exactly one however
     ///   many rows it stands, and the rows' own targets are the row drawer's.
@@ -5865,7 +5865,7 @@ mod tests {
     ///
     /// **A press and a release cannot share a frame**, so the sequences below are the whole space:
     /// `route::edge_of` calls both `MouseKind::Down` and `MouseKind::Up` a *closing* edge and
-    /// `route::batch_len` stops at the first of them. Until runtime architecture 29
+    /// `route::batch_len` stops at the first of them. Until the press edge was published
     /// this crate reconstructed the edge as `resp.pressed && !st.pressing`, which would have been
     /// blind to a press and a release in one batch; the batch split is why that was never a case
     /// rather than a second gate.
@@ -5968,9 +5968,9 @@ mod tests {
     /// unlike `hovered` — so `offset + local.1` is right on the frame the pointer arrives, and the
     /// alternative is 389 regions for a frame-old answer.
     ///
-    /// The pointer is posted as a real `Mouse`, which spec §5 records as impossible: `Mouse` needed
+    /// The pointer is posted as a real `Mouse`, which was once impossible: `Mouse` needed
     /// a `Buttons` and a `MouseKind` and **neither was in `ENGINE_NAMES` at all**. Runtime
-    /// architecture issue 22 re-exported all three, so this is a driven gesture rather than an
+    /// all three are re-exported now, so this is a driven gesture rather than an
     /// assigned field.
     #[test]
     fn a_row_is_hovered_by_arithmetic_on_this_frames_pointer() {
@@ -6076,7 +6076,7 @@ mod tests {
 
     /// **A collection declines a chord and swallows no accelerator.**
     ///
-    /// Register row 5's claim — *a chord pressed into every focusable types nothing* — over a real
+    /// The claim *a chord pressed into every focusable types nothing*, over a real
     /// component for the first time. Type-ahead is the one thing here that eats a printable key, and
     /// `crate::keys::is_chord` is the same one line that stops a field eating `Ctrl+S`.
     ///
@@ -6118,7 +6118,7 @@ mod tests {
     /// [`the_modes_that_clear_are_the_modes_apply_clears_in`] said of the whole vocabulary rather
     /// than of one key.
     ///
-    /// Architecture issue 22 narrowed `Escape` and left the other two keys [`from_key`] answers
+    /// `Escape` was narrowed and the other two keys [`from_key`] answers were left
     /// without a cursor move behind them: a bare `Space` and `Ctrl+A`, produced in **every**
     /// [`Mode`] and ignored by [`apply`] in three of the four for one of them and one of the four
     /// for the other. So a menu ate `Space` and every mode but [`Mode::Multi`] ate `Ctrl+A` — the
@@ -6246,7 +6246,7 @@ mod tests {
     }
 
     /// **`Esc` is the container's key until the collection has a selection to clear** — architecture
-    /// issue 22, found by running `crates/vitui-apps/examples/console.rs` and pressing `Esc` in a
+    /// found by running `crates/vitui-apps/examples/console.rs` and pressing `Esc` in a
     /// modal that could not close.
     ///
     /// Both directions, because the decline is a discrimination and not a component that stopped
@@ -6378,7 +6378,7 @@ mod tests {
     /// **Everything a collection stores is a position, and a revision it does not recognise clears
     /// them.**
     ///
-    /// Components ticket 13, §10 and ADR 0031. A sort changes no data and no length, so nothing
+    /// A sort changes no data and no length, so nothing
     /// inside the component can notice it — the frame after draws a perfectly correct list with the
     /// wrong rows selected and the editor open on the wrong row. **One `u64`, compared once a
     /// frame**, is the only thing that makes it noticeable.
@@ -6611,11 +6611,11 @@ mod tests {
 
     /// **Criterion: the `+` costs two verbs a row — the indent run and the chevron cell.**
     ///
-    /// §7's own sentence, measured against the same rectangle drawn as a plain list. The absolute
+    /// The sentence, measured against the same rectangle drawn as a plain list. The absolute
     /// figures are `crate::forest`'s screen; what is asserted here is the *difference*, which is the
     /// mechanism.
     ///
-    /// And the second half, which is §2: **the row drawer is handed what the component did not
+    /// And the second half: **the row drawer is handed what the component did not
     /// write**, so the row is a partition — `writes == distinct` over the whole frame.
     #[test]
     fn the_plus_is_two_verbs_a_row_and_the_row_is_a_partition() {
@@ -6765,7 +6765,7 @@ mod tests {
 
     /// **A tree handed a rectangle that does not start at column zero draws inside it.**
     ///
-    /// The lesson components ticket 15 paid for one component over: `table`'s `header_row` drew its
+    /// The lesson paid for one component over: `table`'s `header_row` drew its
     /// bands from `x = 0` rather than from the rectangle it was given, a table inside a panel put
     /// its header one column into the border, and **every gate in the crate passed**, because every
     /// one of them plays at `x == 0` where the two agree.
@@ -6962,7 +6962,7 @@ mod tests {
 
     /// **Criterion: a folded node, an expanded one and a leaf wear three different chevrons.**
     ///
-    /// §16's `ArrowDown`/`ArrowRight` pair is `tree`'s, and the third state is a space rather than
+    /// `ArrowDown`/`ArrowRight` pair is `tree`'s, and the third state is a space rather than
     /// nothing at all — so every row of a tree is the same partition of its rectangle whatever it
     /// is. `has_children` is `O(1)`, which is the half that matters: asking `Order::descendants`
     /// would make one chevron cost a subtree walk.
@@ -7005,7 +7005,7 @@ mod tests {
 
     /// **Criterion: two trees on one screen are two trees, and a row's id survives a fold above it.**
     ///
-    /// ADR 0027 on the container axis, and the second half is why [`Node::id`] is keyed on the
+    /// The identity rule on the container axis, and the second half is why [`Node::id`] is keyed on the
     /// caller's **node** rather than on the display position: a fold above a row moves the position
     /// and does not move the row, so a position-keyed id would hand the row's target to whatever
     /// slid into its place.
@@ -7121,7 +7121,7 @@ mod tests {
 
     /// **Criterion: the frame does not move with `Entry::h`.**
     ///
-    /// §7's *the frame does not move at all* — 48.88 against 48.79, identical writes and verbs — and
+    /// *The frame does not move at all* — 48.88 against 48.79, identical writes and verbs — and
     /// here it is a fact about what the component reads rather than a coincidence: `tree` draws one
     /// screen row a content row and never touches `h`, because the prefix sum is the caller's
     /// (`order::Heights`) and so is the stepping that uses it. The gate is the equality; the ~1.00×
@@ -7371,7 +7371,7 @@ mod tests {
 
     /// **Criterion 6: cell selection is a run list per column key.**
     ///
-    /// §6's `1 000 000 / 16 MB` against `1 / 16 B` on one header click, and the loss beside it so
+    /// The `1 000 000 / 16 MB` against `1 / 16 B` on one header click, and the loss beside it so
     /// the trade is stated from both sides. The runs and the bytes are the gate; the microseconds
     /// are `examples/table_numbers.rs`'s and are a report.
     #[test]
@@ -7492,7 +7492,7 @@ mod tests {
     /// **Criterion 8: identity is per cell where a cell declares a target.**
     ///
     /// Two tables on one screen, every visible cell declaring one: `merges == 0` on the shipped
-    /// build and every cell of a row inert but the first on the row-keyed one. §4's *one axis out,
+    /// build and every cell of a row inert but the first on the row-keyed one. *one axis out,
     /// the same defect has a different arithmetic*, as the count the runtime already makes.
     ///
     /// **The screen is identical either way** — drawing does not consume an id — so a cell gate
@@ -7528,7 +7528,7 @@ mod tests {
 
     /// **`Ctx::with_key` inside a scroll scope reaches the window**, at every offset.
     ///
-    /// It did not, until runtime architecture issue 31. `Ctx::with_id` — which `with_key` is
+    /// It did not always. `Ctx::with_id` — which `with_key` is
     /// written on — built its inner context with `view: self.view.child(self.area())`, and
     /// `area()` is `Rect::new(0, 0, w, h)` in the **current** coordinate system. Inside a scroll
     /// scope that system is the content's, so the rectangle named content rows `0..h` while the
@@ -7590,7 +7590,7 @@ mod tests {
     /// And the reason it is off by default is asserted rather than described: with a header the
     /// body's view starts one row down, so the two land in two coordinate spaces and a recorder
     /// that unions in the coordinates of the `Ctx` the verb was called on cannot compare them.
-    /// Components ticket 14's finding, inherited.
+    /// That finding, inherited.
     #[test]
     fn the_header_writes_a_partition_of_its_row_in_the_same_columns() {
         let specs = crate::grid::columns(12);

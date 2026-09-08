@@ -1,4 +1,4 @@
-//! Spec §21's scene list, **as a normative value rather than an appendix**.
+//! The scene list, **as a normative value rather than an appendix**.
 //!
 //! > **A scene is removed only by a ticket naming the property it can no longer distinguish.**
 //!
@@ -10,18 +10,18 @@
 //!
 //! # The count is twenty-seven, and the ticket that asked for it says twenty-six
 //!
-//! `.scratch/vitui-components-impl/issues/04` reads *all twenty-six of §21*. §21's table is
+//! `.scratch/vitui-components-impl/issues/04` reads *all twenty-six of §21*. The table is
 //! **twenty-seven rows**, counted twice off the file. The spec is the authority — `CLAUDE.md` says
 //! so in as many words, and the map is closed — so twenty-seven ship here and the disagreement is
 //! written down rather than resolved by dropping a row: **the freeze does not get rewritten when a
 //! later ticket disagrees with it**, and a scene deleted to make a count come out is
 //! exactly the deletion the rule at the top of this module forbids.
 //!
-//! # There are thirty rows, and the three that are not §21's say so in a field
+//! # There are thirty rows, and the three that are not the say so in a field
 //!
-//! §21's table is closed at twenty-seven and this list is longer, because **the backlog asks for
+//! The table is closed at twenty-seven and this list is longer, because **the backlog asks for
 //! scenes §21 does not carry**: `issues/09`'s narrow axis is one, `issues/11`'s *narrow collection*
-//! beside §21's four collection rows is the second, `issues/14`'s *equality under a horizontal
+//! beside the four collection rows is the second, `issues/14`'s *equality under a horizontal
 //! offset* — which §21 carries as a **register** row rather than as a scene — is the third, and
 //! `issues/23` will ask for the cluster corpus.
 //! The arrangement is [`crate::gates::Row::on_spec_table`]'s, arriving here for its reason —
@@ -61,7 +61,7 @@
 //! after 7 of 7 with nobody pressing anything, the twenty selections draw 1 picture against 20, the
 //! five offset spellings each produce their own defect and a landing taken inside the draw tears 20
 //! frames of 20. What they have not got is `file_preview_pane` and `file_picker`, so all three are
-//! pinned to **components 32** with that as the failing set. It is scene 22's move one ticket
+//! pinned to **components 32** with that as the failing set. It is the move one ticket
 //! earlier, for the same reason and with the same shape.
 //!
 //! [`crate::gates::Standing::Unsubjected`] means *it could run and there is nothing to run it over*.
@@ -75,11 +75,11 @@
 //! `inverted_by` naming **components 16** while it was `Unsubjected`, and 16's own table is scenes 8
 //! and 9; it names components 22 now.
 //! **Components ticket 25 turned the fourteenth**, and it is the second ticket to make that move for
-//! the same reason: scene 14 runs a great deal — the five configurations of §12's table with every
+//! the same reason: scene 14 runs a great deal — the five configurations of the table with every
 //! `regions` and every `stops` figure reproducing exactly, the ring, the trap's named exception at
 //! 2 of 318, the opening cliff counted 30 of 30, the scrim's three spellings, both of the family's
 //! axes and the three answers to *where does the keyboard go when a modal closes* — and what it has
-//! not got is `select` and `overlay`. Pinned to **components 26**. Two of §12's seven columns do not
+//! not got is `select` and `overlay`. Pinned to **components 26**. Two of the seven columns do not
 //! reproduce and both are recorded rather than bent: `allocations`, whose zero was the bump arena
 //! runtime ticket 21 deleted, and `content layers`, whose 2 / 4 / 3 counted a shadow layer
 //! `OverlayOpts` has no field for.
@@ -89,14 +89,14 @@
 //! the inverted sign is refused by an equality at 75 of 80 rows, the stale tail at 71 of 80, the
 //! missing ellipsis at one cell a row, and the three volumes agree on writes, regions and tab stops
 //! to the unit. What they did not have was `collection`, which was [`crate::listing::standing`]'s
-//! verdict and components ticket 12's job — **and ticket 12 did it**: `crate::listing::draw_into`'s
+//! verdict and the job — **and ticket 12 did it**: `crate::listing::draw_into`'s
 //! two arms are now the component and its `defective` twin, one value apart, so scenes 3, 4, 5 and
 //! 29 are `Evaluated` and the screen really is a screen *of* something.
 //!
 //! **Components ticket 14 pinned two more**, scenes 7 and 30, and they are pinned to **components
 //! 15** rather than to 12: `table` is a different component from `collection` and a shared
 //! `inverted_by` would say a ticket inverts a screen it does not touch. Their screen is
-//! [`crate::grid`] and what it found is that §6's *no gate left by C01, C02 or C03 sees it* is half
+//! [`crate::grid`] and what it found is that *no gate left by C01, C02 or C03 sees it* is half
 //! true — the equality against a reference render reports **0 cells over 0 rows** on the arithmetic
 //! band, and the pair `writes` against `distinct` reports 560. Two instruments, two halves, which is
 //! `crate::dense`'s finding one axis over.
@@ -104,7 +104,7 @@
 //! **One of the eight was never waiting for a subject, and that is the point of the split.** Scene
 //! 6, the twenty wheel clicks, was pinned to **components 20** rather than to 12: its failing set was
 //! the unconditional `scroll_into_view` itself, which `CONTEXT.md` forbids and which four *resolved*
-//! tickets wrote anyway. Ticket 12's own criterion said so — *every scene of ticket 11 is green
+//! tickets wrote anyway. The criterion said so — *every scene of ticket 11 is green
 //! except the wheel gate, which stays pinned red for ticket 20* — and the count test asserts the
 //! **pairing** rather than the count alone, because a single `inverted_by` across the five would
 //! have erased the distinction while keeping the number right. Components 20 stood it up nine
@@ -123,10 +123,10 @@
 //! **Scenes 1, 2 and 28 are `Evaluated`, and components ticket 10 is what moved them.** They were
 //! `Red` for one ticket, which is the state worth reading this file for: ticket 09 built the dense
 //! screen out of the three helpers that ship — `fit`, `block` and `press` — so the 338 regions, the
-//! metric row, the equality against the naive twin at both sizes and all five of ADR 0026's
+//! metric row, the equality against the naive twin at both sizes and all five of
 //! re-damage instances were measured rather than owed, and the only thing missing was the
 //! **subject**. A screen made of a component's construction is not a screen made of the component,
-//! so the three rows were pinned in their failing state with that as the exact failing set — §21's
+//! so the three rows were pinned in their failing state with that as the exact failing set —
 //! own rule for a red gate, *it asserts its exact failing set, fires in both directions, and says
 //! what to invert*.
 //!
@@ -150,24 +150,24 @@
 //!
 //! # `decided` is the column that stops a scene from being deleted
 //!
-//! Every row carries what it decided, in §21's own figures. The rule at the top is *a scene is
+//! Every row carries what it decided, in the figures. The rule at the top is *a scene is
 //! removed only by a ticket naming the property it can no longer distinguish*, and a reader who
 //! cannot see what a scene distinguishes will conclude it distinguishes nothing.
 
 use crate::gates::{Instrument, Standing};
 use crate::{Axis, INVENTORY};
 
-/// The screen a scene is played on, in §21's own terms.
+/// The screen a scene is played on, in the terms.
 ///
-/// **[`Size::Unstated`] is an arm rather than a default.** Seventeen of §21's twenty-seven rows state
+/// **[`Size::Unstated`] is an arm rather than a default.** Seventeen of the twenty-seven rows state
 /// no `w x h`, and inventing one would put a number in a normative list that no ticket wrote — which
 /// is the failure mode ADR 0033 records for prose and this file inherits for numbers. The eleven rows
-/// that do state one — ten of §21's and components 09's — are three at one size, five at two, two
+/// that do state one — ten of them — are three at one size, five at two, two
 /// over a domain of pairs and two in cells with no dimensions; `examples/scene_numbers.rs` prints
 /// the split.
 ///
-/// **Scene 14 moved off `Unstated` in components ticket 25 and it is not an invention**: §21's own
-/// row states no size, and §12's *The frame* states one in the same sentence as the counts the row
+/// **Scene 14 moved off `Unstated` in components ticket 25 and it is not an invention**: the original's
+/// row states no size, and *The frame* states one in the same sentence as the counts the row
 /// is about — *300x80, 312 chips, two `select`s, a menu bar; minimum of 60 steady frames*. A number
 /// the spec wrote is not a number this file made up.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -179,7 +179,7 @@ pub enum Size {
         /// Rows.
         h: u16,
     },
-    /// Two, and the scene **is** the difference between them. §13's overlap is green at 300x80 and
+    /// Two, and the scene **is** the difference between them. The overlap is green at 300x80 and
     /// red at 60x20.
     Two {
         /// The size it is green at.
@@ -275,13 +275,13 @@ pub enum Content {
     /// **Text, addressed as clusters rather than as bytes.**
     ///
     /// The arm components ticket 23 adds, and it is an arm rather than a reuse of
-    /// [`Content::Fields`] because a corpus is not a screen: §11's *every number and every gate
+    /// [`Content::Fields`] because a corpus is not a screen: *every number and every gate
     /// runs on clusters that are not one code point* is a statement about an **input**, and filing
     /// it as a field would make `bytes` the quantity when the quantity is *which kinds are in it*.
     Corpus {
         /// How many clusters.
         clusters: u32,
-        /// How many kinds of cluster. Seven of them are §11's own list.
+        /// How many kinds of cluster. Seven of them are the list.
         kinds: u8,
     },
 }
@@ -389,21 +389,21 @@ pub enum Gesture {
     Sort,
 }
 
-/// One scene of spec §21's normative list.
+/// One scene of the normative list.
 #[derive(Clone, Copy, Debug)]
 pub struct Scene {
-    /// Its row in §21's table, which is how everything else refers to it.
+    /// Its row in the table, which is how everything else refers to it.
     pub number: u8,
-    /// Whether it is a row of spec §21's twenty-seven-row table, or one a ticket on this backlog
+    /// Whether it is a row of the twenty-seven-row table, or one a ticket on this backlog
     /// wrote beside it.
     ///
     /// **[`crate::gates::Row::on_spec_table`]'s arrangement, and it arrived here for its reason.**
-    /// §21's table is closed and the count test reads it off the spec file; a scene a ticket adds
+    /// The table is closed and the count test reads it off the spec file; a scene a ticket adds
     /// has to say which side of the line it is on rather than moving that count. The backlog needs
     /// the field: `.scratch/vitui-components-impl/issues/11` asks for **five** collection scenes and
     /// §21 carries four of them, and `issues/09`'s narrow axis is not a row of §21 at all.
     pub on_spec_table: bool,
-    /// The scene, in §21's own words.
+    /// The scene, in the words.
     pub name: &'static str,
     /// The screen it is played on.
     pub size: Size,
@@ -412,11 +412,11 @@ pub struct Scene {
     /// What it plays over that content. Empty for a scene that decides something about a still
     /// screen — five of the twenty-seven, and each is about what the *first* frame draws.
     pub gestures: &'static [Gesture],
-    /// The property it decided, with §21's figures.
+    /// The property it decided, with the figures.
     pub decided: &'static str,
     /// The `(component, axis)` pairs it is evidence for. **O5's population, from the other side.**
     ///
-    /// Claimed only where §21's own row names the component and the axis's mechanism. A scene that
+    /// Claimed only where the row names the component and the axis's mechanism. A scene that
     /// plausibly exercises an axis and does not say so is not evidence for it: O5 exists because
     /// *C11 can write a perfect gate and still not know which twenty-nine components to run it
     /// against*, and a generous join is how that gate stops being enumerable.
@@ -452,21 +452,21 @@ pub struct Scene {
 /// The runner's own file, which is where every rehearsal lives.
 const RUNNER: &str = "crates/vitui-components/src/runner.rs";
 
-/// The dense screen's own file, which is where components ticket 09's three scenes are played.
+/// The dense screen's own file, which is where the three scenes are played.
 const DENSE: &str = "crates/vitui-components/src/dense.rs";
 
-/// The listing's own file, which is where components ticket 11's five scenes are played.
+/// The listing's own file, which is where the five scenes are played.
 const LISTING: &str = "crates/vitui-components/src/listing.rs";
 
-/// The scroll area's own file, which is where components ticket 18's four scenes are played.
+/// The scroll area's own file, which is where the four scenes are played.
 const AREA: &str = "crates/vitui-components/src/area.rs";
 
-/// **The three scrolling components' own file**, which is where components ticket 19's gates live.
+/// **The three scrolling components' own file**, which is where the gates live.
 /// A scene stands on the module its subject is in as well as on the module it is played in — that
 /// is what makes it a scene *of* a component rather than beside one.
 const SCROLL: &str = "crates/vitui-components/src/scroll.rs";
 
-/// **What stands components ticket 18's four scenes up**, and it is the same three instruments on
+/// **What stands the four scenes up**, and it is the same three instruments on
 /// each: the verdict over the three subjects, the sentence that would say *waiting for its subject*
 /// rather than *this is a defect*, and the scan that opens `scroll.rs` and reads what is declared
 /// there. The scene's own measurement is the fourth, and it is different on every row.
@@ -491,24 +491,24 @@ const STANDS_THE_AREA: [Instrument; 3] = [
     },
 ];
 
-/// The three components of F3 scrolling, which all four of ticket 18's scenes wait on.
+/// The three components of F3 scrolling, which all four of the scenes wait on.
 const SCROLLING: &[&str] = &["scroll_area", "scrollbar", "sticky"];
 
-/// The forest's own file, which is where components ticket 16's two scenes are played.
+/// The forest's own file, which is where the two scenes are played.
 const FOREST: &str = "crates/vitui-components/src/forest.rs";
-/// The grid's own file, which is where components ticket 14's two scenes are played.
+/// The grid's own file, which is where the two scenes are played.
 const GRID: &str = "crates/vitui-components/src/grid.rs";
-/// The document's own file, which is where components ticket 23's three scenes are played.
+/// The document's own file, which is where the three scenes are played.
 const DOCUMENT: &str = "crates/vitui-components/src/document.rs";
 
 /// The wheel gate's own file. Scenes 6 and 33 are played there, over two different components.
 const WHEEL: &str = "crates/vitui-components/src/wheel.rs";
 
-/// **The field's window's own file**, which is where production ticket 05's three scenes are
+/// **The field's window's own file**, which is where production the three scenes are
 /// played. `crate::document` is where its fourth is.
 const WINDOW: &str = "crates/vitui-components/src/window.rs";
 
-/// **What stands production ticket 05's three scenes up**, and it is the same two instruments on
+/// **What stands production the three scenes up**, and it is the same two instruments on
 /// each: the scan that opens the file the freeze homes `field` in and reads `pub fn field(` there,
 /// and the freeze's own declaration of the three axes. The scene's own equality is the third and it
 /// is different on every row.
@@ -527,11 +527,11 @@ const STANDS_THE_WINDOW: [Instrument; 2] = [
     },
 ];
 
-/// **The dropped list's own file**, which is where production ticket 08's four scenes are played.
+/// **The dropped list's own file**, which is where production the four scenes are played.
 /// `crate::popup` is where the overlay family's own scene 14 is.
 const DROPPED: &str = "crates/vitui-components/src/dropped.rs";
 
-/// **What stands production ticket 08's four scenes up**, and it is the same two instruments on
+/// **What stands production the four scenes up**, and it is the same two instruments on
 /// each: the freeze declaring the axis each pair claims, and the scan that opens the file the freeze
 /// homes `select` in.
 ///
@@ -550,11 +550,11 @@ const STANDS_THE_DROP: [Instrument; 2] = [
     },
 ];
 
-/// **The scroll area's furniture's own file**, which is where production ticket 09's two screens
+/// **The scroll area's furniture's own file**, which is where production the two screens
 /// are played. [`AREA`] is where this family's other four scenes are.
 const SURROUND: &str = "crates/vitui-components/src/surround.rs";
 
-/// **What stands production ticket 09's two screens up**, and it is the same two instruments on
+/// **What stands production the two screens up**, and it is the same two instruments on
 /// each: the freeze declaring the axis each pair claims, and the scan that opens the file the
 /// freeze homes `scroll_area` and `sticky` in.
 ///
@@ -631,7 +631,7 @@ const PINS_SCENE_44: &[Instrument] = &[
 /// What pins scene 45, the posted notch over a `file_preview_pane`. See [`PINS_SCENE_43`].
 ///
 /// **Two of the three are `crate::wheel`'s**, because this scene is a fourth subject of that gate
-/// rather than a screen of its own — production 06's arrangement for `table`, and its reason: a
+/// rather than a screen of its own — the arrangement for `table`, and its reason: a
 /// notch driven anywhere else would be a fourth copy of one drive loop. So `crate::surround`'s two
 /// standing instruments are not here.
 ///
@@ -691,9 +691,9 @@ const PINS_SCENE_46: &[Instrument] = &[
 /// own shape one family over.
 ///
 /// **Both are `crate::wheel`'s**, because this scene is a fifth subject of that gate rather than a
-/// screen of its own — production 06's arrangement for `table` and 09's for the pane, and its
+/// screen of its own — the arrangement for `table` and 09's for the pane, and its
 /// reason: a notch driven anywhere else would be a fifth copy of one drive loop. So
-/// [`STANDS_ON_TREE`]'s *second* is not here — the waiting message is scene 8's and 9's, and this
+/// [`STANDS_ON_TREE`]'s *second* is not here — the waiting message is the original's and 9's, and this
 /// screen has no owed arm to separate from a wrong one — but its **first** is, reached rather than
 /// copied for [`PINS_SCENE_45`]'s own reason: the scan that opens the file the freeze homes `tree`
 /// in is one fact and four scenes rest on it.
@@ -731,7 +731,7 @@ const PINS_SCENE_39: &[Instrument] = &[
 /// What pins scene 40, the posted notch over a `select`. See [`PINS_SCENE_39`].
 ///
 /// **Three, and the third is the family's own fourth defect.** A wheel gate that plays the reveal
-/// has not played §7's `Copy`-only body, and a scene claiming this component's wheel axis owes both.
+/// has not played `Copy`-only body, and a scene claiming this component's wheel axis owes both.
 const PINS_SCENE_40: &[Instrument] = &[
     Instrument::Unit {
         file: DROPPED,
@@ -783,12 +783,12 @@ const PINS_SCENE_42: &[Instrument] = &[
 /// [`crate::dropped::SELECT_SCREENS`], reached through this alias so the two files cannot drift
 /// about which components are on which screen.
 ///
-/// **Two aliases and not one, which is a review finding on production 08's first draft.** All four
+/// **Two aliases and not one, which is a review finding on the first draft.** All four
 /// scenes were given the module's whole population, and [`Scene::stands`] is *the components that
 /// are on the screen*: [`crate::dropped::popup_screen`] draws a `select` and no picker, and
 /// [`crate::dropped::picker_screen`] a picker and no `select`. A list of both on all four inflates
 /// [`scenes_for`]'s enumeration in **both** directions, which is the *generous join* that field's
-/// own documentation forbids by name — and production 06's analogous pair uses a one-component
+/// own documentation forbids by name — and the analogous pair uses a one-component
 /// `stands` for exactly this reason.
 const SELECT_SCREENS: &[&str] = crate::dropped::SELECT_SCREENS;
 
@@ -822,7 +822,7 @@ const TABLE: &[&str] = &crate::grid::SUBJECTS;
 /// [`crate::document::SUBJECTS`], reached through this alias for [`COLLECTION`]'s reason.
 const FIELD: &[&str] = &crate::document::SUBJECTS;
 
-/// **The pair every one of components ticket 23's three scenes rests on.**
+/// **The pair every one of the three scenes rests on.**
 ///
 /// One fact — `field` is declared where the freeze homes it — stated once, and the two halves are
 /// the two directions criterion 8 asks for: [`crate::document::standing`] is the verdict over the
@@ -843,7 +843,7 @@ const STANDS_ON_FIELD: &[Instrument] = &[
     },
 ];
 
-/// The series screen's own file, which is where components ticket 27's two scenes are played.
+/// The series screen's own file, which is where the two scenes are played.
 const SERIES: &str = "crates/vitui-components/src/series.rs";
 
 /// **What the series screen is a screen of, and both are declared.**
@@ -853,7 +853,7 @@ const SERIES: &str = "crates/vitui-components/src/series.rs";
 /// the file the freeze homes both in.
 const CHART_AND_PLOT: &[&str] = &crate::series::SUBJECTS;
 
-/// **The pair both of components ticket 27's scenes rest on**, written once because it is one fact:
+/// **The pair both of the scenes rest on**, written once because it is one fact:
 /// `chart` and `plot` are declared where the freeze homes them, and the sentence for the day one of
 /// them is not is still watched being produced.
 ///
@@ -996,16 +996,16 @@ const STANDS_SCENE_16: &[Instrument] = &[
     STANDS_ON_CHART_AND_PLOT[1],
 ];
 
-/// **The pair every one of components ticket 11's five scenes is pinned by**, written once because
+/// **The pair every one of the five scenes is pinned by**, written once because
 /// it is one fact: `collection` is not declared, and the listing says which failure that is.
-/// **The pair every one of components ticket 11's five scenes carries**, written once because it is
+/// **The pair every one of the five scenes carries**, written once because it is
 /// one fact: `collection` is declared, and the listing says which failure a missing one would be.
 ///
-/// This is ticket 09's `STANDS_ON_ITS_COMPONENTS` one ticket later. It was live as a *failing set*
+/// This is the `STANDS_ON_ITS_COMPONENTS` one ticket later. It was live as a *failing set*
 /// for exactly one ticket, and both halves are still the two directions criterion 7 asks for —
 /// [`crate::listing::standing`] is the verdict over the one subject, and
 /// [`crate::listing::owed_message`] is the sentence that separates *waiting for its subject* from
-/// *the code is wrong*, still fired over an empty declaration list so it cannot rot.
+/// *The code is wrong*, still fired over an empty declaration list so it cannot rot.
 const STANDS_ON_COLLECTION: &[Instrument] = &[
     Instrument::Unit {
         file: LISTING,
@@ -1087,7 +1087,7 @@ const STANDS_SCENE_6: &[Instrument] = &[
 /// opening the file the freeze homes `tree` in.
 const TREE: &[&str] = &crate::forest::SUBJECTS;
 
-/// **The pair both of components ticket 16's scenes stand on**, written once because it is one
+/// **The pair both of the scenes stand on**, written once because it is one
 /// fact: `tree` is declared and this screen draws through it.
 ///
 /// It read `WAITING_FOR_TREE` until components ticket 17. The second entry is not decoration: the
@@ -1159,7 +1159,7 @@ const STANDS_SCENE_29: &[Instrument] = &[
     STANDS_ON_COLLECTION[1],
 ];
 
-/// **The pair both of components ticket 14's scenes are pinned by**, written once because it is one
+/// **The pair both of the scenes are pinned by**, written once because it is one
 /// fact: `table` is not declared, and the grid says which failure that is.
 ///
 /// [`STANDS_ON_COLLECTION`] one component over, and it was `WAITING_FOR_TABLE` for exactly one
@@ -1178,17 +1178,17 @@ const STANDS_ON_TABLE: &[Instrument] = &[
 
 // ── components ticket 21's two, and they wait for one component between them ─────────────────────
 
-/// The accordion's own file, which is where components ticket 21's two scenes are played.
+/// The accordion's own file, which is where the two scenes are played.
 const ACCORDION: &str = "crates/vitui-components/src/accordion.rs";
 
-/// **What both of components ticket 21's scenes are scenes of, and it is not declared yet.**
+/// **What both of the scenes are scenes of, and it is not declared yet.**
 ///
 /// [`crate::accordion::SUBJECTS`], reached through this alias for [`SUBJECTS`]'s reason: two rows
 /// below claim `collapsible` stands on their screen, and the failing set they are pinned in is
 /// computed by opening the file the freeze homes `collapsible` in.
 const COLLAPSIBLE: &[&str] = &crate::accordion::SUBJECTS;
 
-/// **What stands both of components ticket 21's scenes up**, written once because it is one fact:
+/// **What stands both of the scenes up**, written once because it is one fact:
 /// `collapsible` is declared and the accordion draws *through* it.
 ///
 /// It was `WAITING_FOR_COLLAPSIBLE` — the pair that pinned them — until components ticket 22, and the
@@ -1206,11 +1206,11 @@ const STANDS_ON_COLLAPSIBLE: &[Instrument] = &[
     },
 ];
 
-/// The failing set both of components ticket 14's scenes **were** pinned in, until components 15
+/// The failing set both of the scenes **were** pinned in, until components 15
 /// declared the subject.
 ///
 /// One sentence and not two, because it was one fact: the screen was measured and green and the
-/// component was missing. **Unlike components ticket 11's five, there was no second reason here** —
+/// component was missing. **Unlike the five, there was no second reason here** —
 /// the band defect is not pinned as a defect, because it is a defect of a *spelling* the grid holds
 /// as an arm rather than of code anything ships.
 ///
@@ -1230,7 +1230,7 @@ const OWED_ITS_TABLE: &str = "`table` is not declared in `crates/vitui-component
      re-damaged a frame by the arithmetic band, and the equality clean on the correct arm at two \
      horizontal offsets. What is missing is the subject";
 
-/// **What pins production ticket 06's two, beyond the pair each shares with its file.**
+/// **What pins production the two, beyond the pair each shares with its file.**
 ///
 /// The two scenes are in **two** files and that is the finding rather than an arrangement: `table`'s
 /// shrink is a screen and belongs where the table's screens are, and its wheel is an **offset** and
@@ -1356,7 +1356,7 @@ const PINS_SCENE_11: &[Instrument] = &[
 /// **What stands scenes 1, 2 and 28 up**, written once because it is one fact: the four components
 /// are declared, and the screen is drawn through them.
 ///
-/// It was the *failing set* of three red rows for exactly one ticket, and ticket 09's criterion 7 is
+/// It was the *failing set* of three red rows for exactly one ticket, and criterion 7 is
 /// why the pair below still has two halves. The distinction it draws is the subtle one — *a scene
 /// that fails because it is unimplemented is indistinguishable from one that fails because the code
 /// is wrong, unless the message distinguishes them* — and both directions are still live:
@@ -1469,7 +1469,7 @@ const STANDS_SCENE_28: &[Instrument] = &[
     },
 ];
 
-/// The overlay family's own file, which is where components ticket 25's scene is played.
+/// The overlay family's own file, which is where the scene is played.
 const POPUP: &str = "crates/vitui-components/src/popup.rs";
 
 /// **What the overlay family's screen is a screen of, and both are declared since components 26.**
@@ -1480,9 +1480,9 @@ const POPUP: &str = "crates/vitui-components/src/popup.rs";
 const OVERLAY_FAMILY: &[&str] = &crate::popup::SUBJECTS;
 
 /// What stands scene 14 up, the overlay family. **Green since components 26**, and what changed is
-/// only the subject: every count on this screen already reproduced §12's table.
+/// only the subject: every count on this screen already reproduced the table.
 ///
-/// Three of §12's seven columns do not reproduce and each says why where it belongs: `allocations`,
+/// Three of the seven columns do not reproduce and each says why where it belongs: `allocations`,
 /// because the arena that made it zero was deleted by runtime ticket 21; `content layers`, because
 /// every request in the prototype carried a shadow layer `OverlayOpts` has no field for; and the
 /// **menu delta**, because §5 collapses a menu into a `Mode` of `collection` and a collection
@@ -1522,13 +1522,13 @@ const PINS_SCENE_14: &[Instrument] = &[
     },
 ];
 
-/// The picture screen's own file, which is where components ticket 29's scene is played.
+/// The picture screen's own file, which is where the scene is played.
 const PICTURE: &str = "crates/vitui-components/src/picture.rs";
 
 /// **The components the picture scene stands up.** Both are declared since components 30.
 const MEDIA: &[&str] = &crate::picture::SUBJECTS;
 
-/// **The preview pane's own file**, which is where components ticket 31's three screens are played.
+/// **The preview pane's own file**, which is where the three screens are played.
 /// The pane, its five offset spellings, its two keys and its two orderings are one module, so a
 /// reviewer's diff between the arm that ships and any of the others is a field on `Build`.
 const PREVIEW: &str = "crates/vitui-components/src/preview.rs";
@@ -1674,9 +1674,9 @@ const GALLERY_NUMBERS: &str = "crates/vitui-components/examples/gallery_numbers.
 /// `crate::gallery::swap` carries one surface across the change and the first frame clears, so a cell
 /// nobody writes on a steady frame is inside `written` already and counts as `kept`. At 100x30 a rung
 /// change keeps 2 005 of 3 000 with row 7 red and with it green.
-/// **Scene 27's instruments** — a theme swap over the assembled gallery, played against an oracle.
+/// **The instruments** — a theme swap over the assembled gallery, played against an oracle.
 ///
-/// §21's clause is *R20 §3 has no caller; six panels keep the old palette permanently*, and both
+/// The clause is *R20 §3 has no caller; six panels keep the old palette permanently*, and both
 /// halves are answered rather than reproduced. The rule has no caller because there is no memo here
 /// made of paints or glyphs to be its caller (`crate::memos`); no panel keeps the old palette
 /// because the screen's own clear key names all three axes of the theme. What the scene measures is
@@ -1844,11 +1844,11 @@ const PINS_SCENE_22: &[Instrument] = &[
     },
 ];
 
-/// Spec §21's scene list, row for row, and this backlog's scenes beside it. **Forty-seven, of which
-/// twenty-seven are §21's table and §21's table is the authority.**
+/// The scene list, row for row, and this backlog's scenes beside it. **Forty-seven, of which
+/// twenty-seven are the table and the table is the authority.**
 ///
 /// The count in this sentence is a summary and never the gate:
-/// `tests::the_specs_table_is_twenty_seven_rows_and_this_list_carries_them_all` reads §21's own
+/// `tests::the_specs_table_is_twenty_seven_rows_and_this_list_carries_them_all` reads the original's
 /// rows off the spec file and asserts the split, and it caught this sentence going stale at 33.
 /// **It had gone stale again, at thirty-six, and production 07 corrected it** — the note above is
 /// what the gate is, and it is not a licence for the sentence beside it to be false. Production
@@ -3465,7 +3465,7 @@ pub fn coverage() -> Vec<(&'static str, Axis, Vec<u8>)> {
     out
 }
 
-/// **Every scene on one line, in §21's column order**, so that a later ticket's numbers are
+/// **Every scene on one line, in the column order**, so that a later ticket's numbers are
 /// comparable with the spec's without re-deriving the format.
 ///
 /// > `us / marked / writes / verbs / regions / stops / allocations`
@@ -3473,7 +3473,7 @@ pub fn coverage() -> Vec<(&'static str, Axis, Vec<u8>)> {
 /// # A scene with no subject prints the ticket that will build it, and never a row of zeros
 ///
 /// Twenty-seven scenes and no components: nothing here can be played. A report that filled those
-/// lines with `0.00 us  marked=0  writes=0` would be §21's first refinement arriving as a table — *a
+/// lines with `0.00 us  marked=0  writes=0` would be the first refinement arriving as a table — *a
 /// threshold on the wrong side of the question is not a weak gate, it is a green one* — and it would
 /// read as twenty-seven cheap frames. So an unplayed scene prints its standing.
 ///
@@ -3570,7 +3570,7 @@ mod tests {
         std::fs::read_to_string(&path).unwrap_or_else(|e| panic!("{}: {e}", path.display()))
     }
 
-    /// **Twenty-seven scenes, numbered 1..=27, once each — and §21's table is twenty-seven rows.**
+    /// **Twenty-seven scenes, numbered 1..=27, once each — and the table is twenty-seven rows.**
     ///
     /// The count is the gate, and it is checked against the **spec file** rather than against a
     /// number typed here. A list normative by assertion is a list that drifts: §21 says *a scene is
@@ -3634,7 +3634,7 @@ mod tests {
         );
     }
 
-    /// **Every scene says what it decided, and says it in §21's figures.**
+    /// **Every scene says what it decided, and says it in the figures.**
     ///
     /// A row with an empty `decided` is a row nobody can argue with, which makes it the first one
     /// deleted. A row with no number in it is the same thing one step less obviously.
@@ -3660,7 +3660,7 @@ mod tests {
     /// deliberate edit here rather than a quiet one. It was **twenty-five, none and three** until
     /// components ticket 11, then twenty-one, five and three; components ticket 12 declared
     /// `collection` and rewrote `crate::listing::draw_into` to draw through it, which moved four
-    /// of ticket 11's five red rows to `Evaluated` and left the fifth exactly where it was.
+    /// of the five red rows to `Evaluated` and left the fifth exactly where it was.
     ///
     /// Components ticket 19 declared `scroll_area`, `scrollbar` and `sticky` and rewrote
     /// `crate::area`'s four screens to draw through them, which moved **all four** of ticket 18's
@@ -3828,7 +3828,7 @@ mod tests {
     /// **The three scenes stand on the same four components, and the fact is computed rather than
     /// typed.**
     ///
-    /// Ticket 09's criterion 7, inverted by ticket 10. [`crate::dense::subjects_declared`] opens the
+    /// criterion 7, inverted by ticket 10. [`crate::dense::subjects_declared`] opens the
     /// four files the freeze homes the components in and reads what is declared there, so the day
     /// one of them moves this test fails and the standing is a deliberate edit — in the same
     /// direction it was made in.
@@ -3927,7 +3927,7 @@ mod tests {
     ///
     /// O5 is turned in `crate::obligations` and never here: this test reads `coverage()` and
     /// asserts the population and the bare count, and [`crate::obligations::o5`] is the query.
-    /// Sixteen of the thirty-four were claimed by §21's own list; the other eighteen arrived one
+    /// Sixteen of the thirty-four were claimed by the list; the other eighteen arrived one
     /// scenes ticket at a time — `.scratch/vitui-components-impl/README.md` sliced one before each
     /// component's drawing ticket and *a scenes ticket is red on purpose until its component ticket
     /// lands*, and the last fourteen were production 05 to 09, which is the lineage the `bare`
@@ -3939,7 +3939,7 @@ mod tests {
     /// defect the ticket was opened for, one file over, and it is why the count is asserted twice
     /// below rather than described once.
     ///
-    /// The claim is narrow on purpose. A pair is claimed only where §21's row names the component
+    /// The claim is narrow on purpose. A pair is claimed only where the row names the component
     /// **and** the axis's mechanism, because O5's whole argument is that *C11 can write a perfect
     /// gate and still not know which twenty-nine components to run it against* — and a generous
     /// join is how a gate stops being enumerable.
@@ -4057,7 +4057,7 @@ mod tests {
 
     /// **`scenes_for` enumerates from the component's side**, which is criterion 2's shape.
     ///
-    /// Components ticket 09's criterion 1: *three scenes registered in the scene list, each
+    /// criterion 1: *three scenes registered in the scene list, each
     /// answering `scenes_for` for `text`, `chip`, `button` and `panel`*. Two of those four declare
     /// no hostile axis at all, which is why the answer comes from [`Scene::stands`] as well as from
     /// [`Scene::covers`] — see `scenes_for`.
@@ -4232,7 +4232,7 @@ mod tests {
     ///
     /// A rehearsal says *the instrument catches this defect over a fixture or over a stand-in*; a
     /// standing says *this screen is on a terminal*. Conflating them is how a register comes to
-    /// report a gate that nothing runs, which is §21's three-for-three finding from the other
+    /// report a gate that nothing runs, which is the three-for-three finding from the other
     /// direction.
     ///
     /// **The three rows components 09 built are the case that made this sharper**, and components
@@ -4248,7 +4248,7 @@ mod tests {
     ///
     /// # A red scene is held to the same rule, and it is the rule that makes red mean anything
     ///
-    /// Components ticket 11's five are pinned red on instruments in `crate::listing` — the screen's
+    /// The five are pinned red on instruments in `crate::listing` — the screen's
     /// own file — and on the one barrier that keeps half the wheel gate unwritable. **A red row
     /// pinned on a `crate::runner` fixture would be claiming a screen it does not have**, which is
     /// exactly the promotion this test refuses one arm over.
@@ -4420,7 +4420,7 @@ mod tests {
 
     /// **Every scene reports one line, and an unplayed one prints its ticket rather than zeros.**
     ///
-    /// Criterion 7's shape, and §21's first refinement enforced on a *report*: twenty-seven rows of
+    /// Criterion 7's shape, and the first refinement enforced on a *report*: twenty-seven rows of
     /// `0.00 us  marked=0  writes=0` would read as twenty-seven cheap frames, which is exactly the
     /// self-portrait the defective builds painted — three of the four axes were **faster** and two
     /// **marked less**.

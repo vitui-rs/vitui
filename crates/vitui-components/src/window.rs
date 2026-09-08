@@ -2,9 +2,9 @@
 //! fights the wheel.**
 //!
 //! Production ticket 05. Spec §11, §17 (O5), §21. This is the screen `field`'s other three scenes
-//! are scenes *of* — [`crate::document`] carries the fourth, §21's own row 13, and the two files
+//! are scenes *of* — [`crate::document`] carries the fourth, the row 13, and the two files
 //! divide the way the axes do: that one is **text measurement** at two widths and this one is
-//! **the window over the text**.
+//! **The window over the text**.
 //!
 //! | scene | what it decides |
 //! |---|---|
@@ -16,7 +16,7 @@
 //!
 //! `field` owns its offset (§17: `owns_offset`), so the same integer decides all three: where the
 //! window sits, what happens to the rows the content has stopped reaching, and what a posted notch
-//! is allowed to do to it. §17's four axes are not a taxonomy — each was established by a defect
+//! is allowed to do to it. The four axes are not a taxonomy — each was established by a defect
 //! that **passed every gate then in force and looked healthier than the correct build** — and on
 //! this component three of the four land on that one integer. A module per axis would have put the
 //! same reference render in three files, which is how three sessions come to disagree about it.
@@ -50,7 +50,7 @@
 //! no other offset — so it is a defect that is right on every field anybody writes a gate for, and
 //! wrong the moment a reader scrolls. It costs [`crate::document::SURFACE_BLIND`] cells: the caret
 //! is the terminal's cursor and not a cell, so the reference-render equality is **blind to it** and
-//! so is every one of §20's nine counters. [`misplaced_caret`] reads `Frame::caret`, which is the
+//! so is every one of the nine counters. [`misplaced_caret`] reads `Frame::caret`, which is the
 //! only instrument here that can.
 //!
 //! That is [`crate::document`]'s own split — *invisible on the rendered screen turns out to mean two
@@ -93,7 +93,7 @@ use crate::runner::{Canvas, Diff, Pen, driver_at};
 
 // ── the screen ───────────────────────────────────────────────────────────────────────────────────
 
-/// The rectangle's width. [`crate::document::NARROW`]'s hundred and twenty, which is §21's own
+/// The rectangle's width. [`crate::document::NARROW`]'s hundred and twenty, which is the original's
 /// narrow width for this component and the width its wrap index is a scene about.
 pub const W: u16 = crate::document::NARROW;
 
@@ -108,7 +108,7 @@ pub const ROWS: usize = crate::document::WRAPPED;
 /// run time out of a rota of clusters and no `const` can name its length.
 ///
 /// `crate::scenes`'s row for scene 34 states the content it stands up, and a scene stating a size
-/// nothing asserts is §21's own failure mode arriving as a number — so the figure lives here, with
+/// nothing asserts is the failure mode arriving as a number — so the figure lives here, with
 /// the rest of this module's ledger, and `tests::the_document_is_the_size_the_scene_claims` is what
 /// keeps it honest.
 pub const DOCUMENT_BYTES: u64 = 179_885;
@@ -139,7 +139,7 @@ pub const CARET_ROW: usize = SCROLLED_TO + 5;
 /// Which column the caret is seated at. Three, and every row of the document is longer.
 pub const CARET_COL: u16 = 3;
 
-/// **How many clicks the wheel scene posts.** [`crate::wheel::CLICKS`]'s twenty, which is §21's own
+/// **How many clicks the wheel scene posts.** [`crate::wheel::CLICKS`]'s twenty, which is the original's
 /// number for the axis.
 pub const CLICKS: u32 = crate::wheel::CLICKS;
 
@@ -148,10 +148,10 @@ pub const CLICKS: u32 = crate::wheel::CLICKS;
 ///
 /// The landing row is what has to be a hard line's, not the start: the equality is asked of the
 /// screen the clicks came to rest on. Sharing the oracle is the point — the scrolled scene decides
-/// *the window at rest* and this one decides *the window a notch put there*, against one answer.
+/// *The window at rest* and this one decides *the window a notch put there*, against one answer.
 pub const WHEELED_FROM: usize = SCROLLED_TO - CLICKS as usize;
 
-/// **What the megabyte is edited down to.** §17's own *edited down to one line*.
+/// **What the megabyte is edited down to.** The *edited down to one line*.
 pub const SHRUNK_LINE: &str = "one line, inside a rectangle that did not move";
 
 /// **How many visual rows [`SHRUNK_LINE`] takes at [`W`]. One**, which is the whole point of the
@@ -176,14 +176,14 @@ pub const INVERTED_ROWS: usize = H as usize - 1;
 ///
 /// **Well under `INVERTED_ROWS * W`, and the gap is the fixture rather than the defect.**
 /// `crate::runner::Fixture::lines` makes rows that share no column for exactly this reason — *a
-/// wrong row costs exactly `w` cells* — and this scene is played over §21's own document, which is
+/// wrong row costs exactly `w` cells* — and this scene is played over the document, which is
 /// prose: two rows of English agree wherever their words do. The cell count is therefore a floor on
 /// how wrong the screen is and never a measure of it, which is why [`INVERTED_ROWS`] is the number
 /// this scene is stated in.
 pub const INVERTED_CELLS: usize = 5_891;
 
 /// **Rows left standing when the megabyte becomes one line. Seventy-nine of eighty**, which is
-/// §17's stale tail on this component.
+/// the stale tail on this component.
 pub const STALE_ROWS: usize = H as usize - 1;
 
 /// **Cells the stale tail leaves wrong. 5 519 of 9 600.** See [`INVERTED_CELLS`]: the shortfall is
@@ -257,11 +257,11 @@ pub const SHRUNK_DISTINCT: u64 = CELLS as u64;
 /// **visual rows**: [`crate::document::LONG`] of the six hundred and twenty-five lines wrap to two
 /// rows at [`W`], and a long line's *second* visual row carries no index at all. It is a suffix of
 /// [`crate::clusters::ROTA`]'s eight-word rota, so two second rows an even number of rows apart are
-/// **the same string** — and every offset in this module is an even number of rows.
+/// **The same string** — and every offset in this module is an even number of rows.
 ///
 /// Thirty-five is that, counted.
 ///
-/// **It is scene 36's measurement and explains scene 36's number**, and saying it explained scene
+/// **It is the measurement and explains the number**, and saying it explained scene
 /// 34's was a false sentence a review caught. Scene 34 compares row `400 - r` against row `400 + r`
 /// and reports 79 rows apart, so *these* thirty-five rows are not among its agreements at all — the
 /// same mechanism is at work there and it is a different pair of screens, which is why
@@ -269,7 +269,7 @@ pub const SHRUNK_DISTINCT: u64 = CELLS as u64;
 ///
 /// The scenes are stated in rows because of it, the sentence in [`crate::document::lines`] was
 /// corrected to say which unit it is about, and **the fixture is not bent to make either number
-/// nicer**: §21's own 625/875 is a property of this generator, and a generator changed to sharpen a
+/// nicer**: the original's 625/875 is a property of this generator, and a generator changed to sharpen a
 /// cell count would move a normative figure to win an argument.
 pub const ALIASED_ROWS: usize = 35;
 
@@ -297,7 +297,7 @@ pub const ALIASED_ROWS: usize = 35;
 ///
 /// Panics when `row` is not a row of the document at [`W`]. `Index::row_start` answers 0 out of
 /// range, and an oracle silently cut at byte 0 is an oracle comparing the window against the top of
-/// the document — which is exactly the defect scene 36's pull arm is about, arriving in the
+/// the document — which is exactly the defect the pull arm is about, arriving in the
 /// instrument.
 pub fn row_start_byte(row: usize) -> usize {
     let mut st = Text::of(crate::document::text(), WrapKind::Words);
@@ -410,7 +410,7 @@ impl Play {
     }
 
     /// **One frame.** The field fills the rectangle, and the focus is seated the way an application
-    /// seats it — `if cx.focused().is_none()`, which is runtime architecture 25's refusal of a
+    /// seats it — `if cx.focused().is_none()`, which is the refusal of a
     /// runtime that seats the first stop.
     pub fn frame(&mut self) {
         let area = Rect::new(0, 0, W, self.h);
@@ -555,7 +555,7 @@ pub fn misplaced_caret() -> (Option<u16>, Option<u16>) {
 /// freshly built over that one line.
 ///
 /// Two frames into one surface: the first draws the megabyte, the second draws what is left after
-/// [`Text::select_all`] and an insert. §17's own spelling of the axis, and the rectangle is [`W`]
+/// [`Text::select_all`] and an insert. The spelling of the axis, and the rectangle is [`W`]
 /// by [`H`] on both frames.
 pub fn shrunk(refused: Refused) -> Diff {
     let reference = Play::new(one_line(), Refused::NONE).played(1);
@@ -631,7 +631,7 @@ pub fn wheeled_play(reveal: Reveal) -> Play {
 /// pointer over it and whose oracle does not disagrees on **9 600 of 9 600 cells** — measured — in
 /// the paint and never in the cluster. That is the whole screen reported wrong for a reason that
 /// has nothing to do with the window, which is a defect in the instrument of exactly the kind
-/// scene 34's caret half is about from the other side.
+/// the caret half is about from the other side.
 pub fn wheeled_screen(reveal: Reveal) -> Diff {
     wheeled_play(reveal)
         .canvas()
@@ -691,7 +691,7 @@ fn wheel_state() -> Text {
 
 // ── what the counters say about all three ────────────────────────────────────────────────────────
 
-/// **Which of §20's nine counters tell a refused build from the rule.**
+/// **Which of the nine counters tell a refused build from the rule.**
 ///
 /// [`crate::listing::counters_that_separate_them`]'s shape, one component over and over three
 /// refusals rather than one. An empty answer means *the equality against a reference render is the
@@ -768,7 +768,7 @@ pub enum On {
 /// **The shrink scene's play**, up to and including the frame after the edit.
 ///
 /// One function and not two: [`shrunk`] and [`counters_approve`] both need this exact sequence, and
-/// two copies of it would let scene 35's cell count and its counter argument come to describe two
+/// two copies of it would let the cell count and its counter argument come to describe two
 /// different plays.
 pub fn shrunk_play(refused: Refused) -> Play {
     let mut play = Play::new(pasted(), refused);
@@ -913,7 +913,7 @@ mod tests {
         assert_ne!(subject.row_text(1), reference.row_text(1), "row 1");
     }
 
-    /// **Scene 34's other half: the caret, which no equality here can see.**
+    /// **The other half: the caret, which no equality here can see.**
     ///
     /// [`crate::document::SURFACE_BLIND`] cells apart and the caret five rows out of eighty. The
     /// two readings are asserted together, because *the surface is identical* is what makes the
@@ -980,7 +980,7 @@ mod tests {
         );
     }
 
-    /// **Scene 35's argument: the stale tail is cheaper on the two counters that move and invisible
+    /// **The argument: the stale tail is cheaper on the two counters that move and invisible
     /// to the rest.**
     ///
     /// Not *the counters agree* — this is the axis where the refusal is measurably **better**, and
@@ -1088,7 +1088,7 @@ mod tests {
         wheeled_screen(Reveal::WhenAsked).assert_clean("the pointed oracle");
     }
 
-    /// **Scene 34's argument: no counter separates the inverted window or the misplaced caret from
+    /// **The argument: no counter separates the inverted window or the misplaced caret from
     /// the rule.**
     ///
     /// An empty answer means the equality is the only detector there is. Both refusals, because
@@ -1200,7 +1200,7 @@ mod tests {
         assert_eq!(indexed, PULLED_ROWS);
     }
 
-    /// **The document is the size scene 34 claims**, and scene 35's megabyte is a megabyte.
+    /// **The document is the size scene 34 claims**, and the megabyte is a megabyte.
     #[test]
     fn the_document_is_the_size_the_scene_claims() {
         assert_eq!(crate::document::text().len() as u64, DOCUMENT_BYTES);

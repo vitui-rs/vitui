@@ -1,17 +1,17 @@
 //! **A video player's chrome, taken apart part by part — six of ten ship here.**
 //!
-//! Components ticket 30. Spec §14.
+//! The video player's chrome.
 //!
 //! The survey's verdict on a video player is *transport, seek bar, timeline, volume, subtitles,
-//! playlist, chapters: all ✅ cells; the picture is the problem*, and `architecture.md` §4.11
+//! playlist, chapters: all ✅ cells; the picture is the problem*, and the earlier proposal
 //! repeats it as *the whole chrome of a video player … no engine change for any of them*. Both
 //! sentences are about the engine, and **the engine is not what the chrome was waiting for**.
 //!
 //! [`PARTS`] is that verdict as a value with the column the survey did not have: what each part is
 //! waiting for. Six wait for nothing and ship here. Two — the seek bar and the volume — are
-//! `slider`, which §17 froze in Tier 3 for an **unmeasured mechanism**; the mechanism is measured
-//! here ([`scrub`]) and the component is components ticket 33's. One is the playhead, which owns a
-//! clock and is components ticket 42's. One is the picture, and it is survey §6.1's.
+//! `slider`, frozen in Tier 3 for an **unmeasured mechanism**; the mechanism is measured
+//! here ([`scrub`]) and the component is `input`'s. One is the playhead, which owns a
+//! clock. One is the picture, which nothing here draws.
 //!
 //! # The mechanism is one function and it reads one field
 //!
@@ -27,7 +27,7 @@
 //!
 //! # The allocation this module is not allowed to reintroduce
 //!
-//! §21 records a defect found *here*: `chrome` collected a `Vec<f32>` of chapter positions on the
+//! A defect was found *here*: `chrome` collected a `Vec<f32>` of chapter positions on the
 //! draw path — **40 allocations over 40 frames against a budget of zero**, and *found only when the
 //! figure was computed as a total rather than an integer mean*. The marks are a field now,
 //! [`Player::marks`], derived once at construction. [`defective::chrome_collecting_into`] is the
@@ -52,14 +52,14 @@ pub enum Needs {
     Nothing,
     /// The pointer grab: `Interest::DRAG` and `Response::local`. Measured by [`scrub`]; the
     /// component that wraps it — the thumb, the keyboard, the step, the orientation — is `slider`,
-    /// components ticket 33.
+    /// the `slider` component.
     DragCapture,
     /// A component that owns a clock and re-registers a deadline while it runs.
     ///
-    /// **Nothing is waiting on this any more.** Components ticket 42 prototyped it and ticket 46
+    /// **Nothing is waiting on this any more.** It was prototyped and then
     /// built it, and the permission is narrower than the row's own wording: a component may own an
     /// **anchor** and may not own a **clock**. [`Playhead`] is the anchor and `Ctx::now` is the
-    /// clock, so *playhead advance* is a [`Needs::Nothing`] row since ticket 46 and this variant
+    /// clock, so *playhead advance* is a [`Needs::Nothing`] row now and this variant
     /// records what it was waiting for rather than what still is.
     ///
     /// It is kept rather than struck for [`PARTS`]'s own reason: the column is the survey's verdict
@@ -67,7 +67,7 @@ pub enum Needs {
     /// moved is a table that cannot say what it used to say. `tests::the_parts_table_is_the_surveys
     /// _verdict_with_a_column_added` asserts no row carries it.
     Clock,
-    /// The engine's out-of-band graphics, survey §6.1. Not on this map at all.
+    /// The engine's out-of-band graphics. Not built here at all.
     Passthrough,
 }
 
@@ -126,13 +126,13 @@ pub const PARTS: [Part; 10] = [
     },
 ];
 
-/// **How many of [`PARTS`] ship here. Seven.** §14's headline as a count over the table above rather
+/// **How many of [`PARTS`] ship here. Seven.** The headline as a count over the table above rather
 /// than as a number in a sentence.
 ///
-/// It was **six** until components ticket 46, and the seventh is *playhead advance* — the one row of
+/// It was **six**, and the seventh is *playhead advance* — the one row of
 /// the ten whose [`Needs`] was [`Needs::Clock`] and the only mechanism in this family that is not
 /// drag capture. What is left is the two `slider` rows, which are `crate::input`'s and ship as a
-/// component rather than as chrome, and the picture, which is survey §6.1's and not on this map.
+/// component rather than as chrome, and the picture, which nothing here draws.
 pub const SHIPPED: usize = 7;
 
 // ── the mechanism ────────────────────────────────────────────────────────────────────────────────
@@ -295,7 +295,7 @@ pub fn chrome(cx: &mut Ctx<'_, '_>, area: Rect, p: &mut Player) -> Response {
 
 /// **[`chrome`], drawing through an [`Ink`] and publishing its [`Census`] — which is zero customs.**
 ///
-/// The chrome is theme-coloured throughout: it is the contrast §14 draws a picture against.
+/// The chrome is theme-coloured throughout: it is the contrast a picture is drawn against.
 #[track_caller]
 pub fn chrome_into<I: Ink>(
     ink: &mut I,
@@ -411,7 +411,7 @@ impl Playhead {
     /// **When the last frame of this run is** — the instant the position reaches `1.0`.
     ///
     /// A spinner has no answer to this question, which is why *frames to quiet* is a count here and
-    /// a cadence in spec §8.
+    /// a cadence of its own.
     #[must_use]
     pub fn ends_at(&self, p: &Player) -> Option<Instant> {
         let (t0, p0) = self.anchor?;
@@ -549,7 +549,7 @@ enum Marks {
 ///
 /// # It roots every child inside its own id, and the review caught it not doing so
 ///
-/// ADR 0027: *a container roots its children inside its own id*. The chrome draws a track and five
+/// *A container roots its children inside its own id.* The chrome draws a track and five
 /// keyed buttons and two keyed lists, and without the scope below **every chrome on a screen derives
 /// the same ids** — `Ctx::id` mints from `Location::caller()`, and a line inside a private body is
 /// one line however many call sites reach it, while `Ctx::with_key` roots at whatever the enclosing
@@ -883,7 +883,7 @@ impl Stamp {
 
 /// **The chrome as it was before the marks became a field.**
 ///
-/// §21 records it: `player::chrome` collected a `Vec<f32>` on the draw path, **40 allocations over
+/// It is recorded: `player::chrome` collected a `Vec<f32>` on the draw path, **40 allocations over
 /// 40 frames against a budget of zero**, *found only when the figure was computed as a total rather
 /// than an integer mean*. The ticket's own instruction is *do not fix it again; keep the shape it
 /// replaced as a negative case*, and this is that case.
@@ -917,7 +917,7 @@ mod tests {
     use vitui_runtime::ctx::Driver;
     use vitui_runtime::{Button, Buttons, Id, Mods, Mouse, MouseKind, Rect};
 
-    /// The screen the drag is played on: `300` wide, so the span is **299** and §14's two fractions
+    /// The screen the drag is played on: `300` wide, so the span is **299** and the two fractions
     /// are the fractions it wrote down.
     const W: u16 = 300;
 
@@ -990,7 +990,7 @@ mod tests {
     ///
     /// *Frames to quiet* is **1** for the playhead and 1 for the spinner, for opposite reasons: a
     /// spinner has nothing to land on, and a playhead's landing instant is arithmetic on the anchor.
-    /// Neither is a cadence — spec §8's *14 frames to quiet* is one wearing a count's clothes, 12 at
+    /// Neither is a cadence — *14 frames to quiet* is one wearing a count's clothes, 12 at
     /// sixty hertz and 24 at a hundred and twenty — because neither has a transient to run out.
     #[test]
     fn a_playhead_lands_and_the_landing_frame_asks_for_nothing() {
@@ -1297,7 +1297,7 @@ mod tests {
     /// **Press jumps, move carries, release moves nothing — and every one of the three is
     /// `Response::local` over `Response::rect`.**
     ///
-    /// §14's three phases, played through a **posted** pointer over the shipped [`chrome`] rather
+    /// The three phases, played through a **posted** pointer over the shipped [`chrome`] rather
     /// than over a `Response` written beside the gate. `20/299 = 0.0669`, `60/299 = 0.2007`, and
     /// then the value the release leaves standing, which is the move's.
     ///
@@ -1402,7 +1402,7 @@ mod tests {
 
     /// **Two chromes at two call sites are two players**, and both halves of the fix are needed.
     ///
-    /// ADR 0027's rule — *a container roots its children inside its own id* — on the one
+    /// The rule — *a container roots its children inside its own id* — on the one
     /// construction in this family that interacts, and the review caught it broken. `Ctx::id` mints
     /// from `Location::caller()` and `#[track_caller]` does not propagate into a plain private body,
     /// so the track's id was the fixed line inside `draw_chrome`: one value for every chrome ever
@@ -1443,7 +1443,7 @@ mod tests {
         assert_eq!(twice[0], twice[1], "one call site minted two tracks");
     }
 
-    /// **Zero customs: the chrome is the contrast §14 draws a picture against.**
+    /// **Zero customs: the chrome is the contrast a picture is drawn against.**
     #[test]
     fn the_chrome_spends_no_theme_custom_at_all() {
         let mut driver = Driver::headless(60, 16).expect("a sink attaches");

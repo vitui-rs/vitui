@@ -42,7 +42,7 @@ pub fn graphemes(s: &str) -> impl Iterator<Item = (&str, u16)> {
 /// ```
 ///
 /// A string wider than `u16::MAX` columns saturates rather than overflowing. The return type is
-/// spec §12's and no terminal has 65 536 columns, so the answer is already meaningless there — but
+/// the type is `u16` and no terminal has 65 536 columns, so the answer is already meaningless there — but
 /// the clamp is what ADR 0022 asks for everywhere else, and a plain `sum` would panic in a debug
 /// build on an input a caller is allowed to hand us.
 pub fn width_of(s: &str) -> u16 {

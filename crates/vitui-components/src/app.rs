@@ -16,7 +16,7 @@
 //!
 //! # Both directions are defects, and that is why the equality is what proves this
 //!
-//! Clearing every frame is ADR 0026's largest row — **9 024 cells** on [`crate::dense`]'s screen,
+//! Clearing every frame is the largest row — **9 024 cells** on [`crate::dense`]'s screen,
 //! every frame, for a screen that is not moving. Clearing *never* is the other defect: the gaps
 //! nobody paints keep whatever was there before, and the screen stops being the same screen. Neither
 //! shows up on a counter of its own. What separates the three spellings is the pair of gates §2
@@ -30,7 +30,7 @@
 //! resize door, so **there is no way to resize a driver from here**. What [`Clears`] keys on is the
 //! size it is handed, which is [`Ctx::area`] — so a resize is stood up by carrying one `Clears`
 //! across two drivers of different sizes, and the fact under test is exactly the one that matters:
-//! *the size changed, so the next frame clears.* See
+//! *The size changed, so the next frame clears.* See
 //! `tests::one_clear_a_size_and_never_a_third`.
 
 use vitui_runtime::{Ctx, Role};
@@ -85,7 +85,7 @@ impl Clears {
     /// **Clear if this is the first frame or the size has changed.** Returns whether it did.
     ///
     /// Call it at the top of the frame, before anything is drawn. The paint is [`Role::Body`], which
-    /// is §2's own `cx.clear(theme.body)`.
+    /// is the `cx.clear(theme.body)`.
     pub fn frame(&mut self, cx: &mut Ctx<'_, '_>) -> bool {
         self.frame_into(&mut Direct, cx)
     }
@@ -123,7 +123,7 @@ impl Clears {
     ///
     /// `crate::gallery` pages twenty-eight panels through twelve tiles, and on `Ctrl+N` the screen
     /// showed **the previous page inside the new page's frames** — a `radio` panel with a
-    /// `collection`'s rows in it — because §2's second half is not met on that screen: 525 cells of
+    /// `collection`'s rows in it — because the second half is not met on that screen: 525 cells of
     /// 3 000 at 100x30 are written by nobody, and a cell nobody writes keeps what was already there.
     ///
     /// **Every gate on that screen was green**, and the reason is one every instrument in this crate
@@ -205,13 +205,13 @@ impl Clears {
 /// gate.**
 ///
 /// `pub` for the reason [`crate::frame::defective`] and [`crate::text::defective`] are. Both are
-/// defects and they are defects in opposite directions, which is the whole shape of §2's argument:
+/// defects and they are defects in opposite directions, which is the whole shape of the argument:
 /// one re-damages 9 024 cells a frame for ever, the other leaves the gaps carrying whatever was
 /// there before.
 pub mod defective {
     use super::{Clears, Ctx, Ink, Role, pad_rows};
 
-    /// **`cx.clear(body)` at the top of every frame.** ADR 0026's largest row.
+    /// **`cx.clear(body)` at the top of every frame.** The largest row.
     pub fn every_frame<I: Ink>(ink: &mut I, cx: &mut Ctx<'_, '_>) -> bool {
         let screen = cx.area();
         let body = cx.theme().paint(Role::Body);

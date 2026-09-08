@@ -19,7 +19,7 @@
 //!
 //! # `marked` is unreachable and this measures its input
 //!
-//! Spec §20's `marked` is [`crate::counters::Reading::Unreachable`] and stays that way —
+//! `marked` is [`crate::counters::Reading::Unreachable`] and stays that way —
 //! `crates/vitui-engine/src/damage.rs` is `pub(crate)` from top to bottom and `Presented` carries
 //! no count of cells. What is knowable from here is the **rule** that produces it: the engine drops
 //! a write whose value equals the resident value, so *writes whose value differs from what is
@@ -37,7 +37,7 @@
 //! halves as one sentence — *the owner of a rectangle writes all of it; a component handed a
 //! rectangle writes all of that* — and the two screens are the two halves.
 //!
-//! It is also why the correct arm needs no `cx.clear` at all. §2's *the correct build clears once,
+//! It is also why the correct arm needs no `cx.clear` at all. *the correct build clears once,
 //! on its first frame and on a resize* is a property of an application **loop** and ticket 10 owns
 //! it; what this file can show is the other end of the same fact, that a screen which covers itself
 //! has nothing for a clear to fix and pays 0 where the every-frame spelling pays
@@ -49,7 +49,7 @@
 //! [`crate::text::text`], [`crate::text::chip`], [`crate::input::button`],
 //! [`crate::structure::panel`]. For one ticket this screen stood on their **construction** instead
 //! — [`crate::text::fit`], [`crate::frame::block`] and [`crate::state::press`], which is exactly
-//! what spec §17's freeze says each of them is, `constructions: 1` apiece — and [`crate::scenes`]
+//! what the freeze says each of them is, `constructions: 1` apiece — and [`crate::scenes`]
 //! filed scenes 1, 2 and 28 **red** with that as the failing set rather than green over a stand-in.
 //! They are `Evaluated` now. See [`standing`].
 //!
@@ -87,7 +87,7 @@ use vitui_runtime::layout::rect;
 
 // ── the screen ───────────────────────────────────────────────────────────────────────────────────
 
-/// The screen's width. §2 prices the dense screen at 300×80 and §21's row states it.
+/// The screen's width. §2 prices the dense screen at 300×80 and the row states it.
 pub const W: u16 = 300;
 /// The screen's height.
 pub const H: u16 = 80;
@@ -112,7 +112,7 @@ pub const NARROW_SCREEN: u64 = NARROW.0 as u64 * NARROW.1 as u64;
 /// falls off the bottom and the screen stands its full region count.
 pub const REQUESTED: usize = 74;
 
-/// The dialog's width. Sixty by ten is **600 cells**, and that is the quantity §2's *600 fewer
+/// The dialog's width. Sixty by ten is **600 cells**, and that is the quantity *600 fewer
 /// writes* is about: a scrim filled under the dialog writes the dialog's own cells and one drawn
 /// around it does not. The size is chosen so that structural figure reproduces by construction; the
 /// re-damage figure beside it ([`SCRIM_UNDER`]) is measured and is not.
@@ -131,7 +131,7 @@ const DIALOG_TITLE: &str = " confirm ";
 ///
 /// **Five of the eight are longer than a `Compact` label column at 120 columns and all eight are
 /// shorter than one at 300**, which is a construction choice and not a magnitude: it is what puts
-/// §16's one-cell ellipsis rule on the screen at the narrow size, and what makes
+/// the one-cell ellipsis rule on the screen at the narrow size, and what makes
 /// [`Arm::LabelDoesNotNarrow`] green at the wide size and red at the narrow one.
 const LABELS: [&str; 8] = [
     "throughput, req/s",
@@ -168,7 +168,7 @@ const UNITS: [&str; 4] = ["req/s", "ms", "%", "MB"];
 // prototype screen, which this ticket does not own and cannot recover; what a screen owes is that
 // every *direction* and every *structural* number reproduces, and that no figure was aimed at.
 
-/// **Interactive regions at 300×80, `Compact`. §21's own upper figure, and it is arithmetic.**
+/// **Interactive regions at 300×80, `Compact`. The upper figure, and it is arithmetic.**
 ///
 /// `2 + 3 × (1 + 74 + 37)`: a header, a footer, three panels each declaring itself, one chip a row,
 /// and a button on every second row. Nothing here was tuned to reach it — the panel geometry is
@@ -202,7 +202,7 @@ pub const CLEARED_EVERY_FRAME: u64 = 9_024;
 ///
 /// # It was 1 149 until components ticket 10, and the 54 that went is a finding
 ///
-/// Ticket 09's stand-in chip painted its label [`Role::Dim`] on a face painted `Role::Face`, so
+/// The stand-in chip painted its label [`Role::Dim`] on a face painted `Role::Face`, so
 /// **every** cell of the label differed from the fill and the fourth value contributed all twelve of
 /// its columns. `chip` does not: its label wears its face, because a label in a second paint is
 /// repainted by the hover award every frame the pointer rests on it — [`crate::text::ChipOpts`]
@@ -227,7 +227,7 @@ pub const CHIP_NOT_NARROWED: u64 = 324;
 /// statement and not a looser one. The quantity is *the dialog's cells whose value differs from the
 /// scrim's*: the scrim writes its own paint into all six hundred and the dialog writes its border,
 /// its title, its text and its padding back. Here nothing in the dialog is painted in the scrim's
-/// role, so the difference is total; §2's 229 says that on C01's screen 371 of the dialog's 600
+/// role, so the difference is total; the 229 says that on C01's screen 371 of the dialog's 600
 /// cells already carried what the scrim wrote. **The number this screen can be held to is the
 /// relation** — 600 against [`Arm::ScrimAroundTheDialog`]'s 0 — and the relation is the one §2
 /// states.
@@ -241,13 +241,13 @@ pub const BORDER_OVER_TITLE: u64 = 15;
 /// [`BORDER_OVER_TITLE`] across the screen's three panels.
 pub const BORDER_OVER_TITLE_SCREEN: u64 = BORDER_OVER_TITLE * PANELS as u64;
 /// **Writes the scrim-under arm costs over the scrim-around arm.** The dialog's own cell count, and
-/// §2's *600 fewer writes*. See [`DIALOG`] for why that reproduces by construction.
+/// *600 fewer writes*. See [`DIALOG`] for why that reproduces by construction.
 ///
 /// It is equal to [`SCRIM_UNDER`] on this screen and that is a coincidence of one fact rather than
 /// two: every cell the scrim writes under the dialog it also re-damages, because none of the
 /// dialog's own cells is painted in the scrim's role. The two constants stay separate because they
 /// are two questions — *what did the frame write* and *what did the terminal have to redraw* — and
-/// on §2's screen they answered 600 and 229.
+/// on the screen they answered 600 and 229.
 pub const SCRIM_EXCESS_WRITES: u64 = DIALOG.0 as u64 * DIALOG.1 as u64;
 
 /// **Rect the naive twin re-damages every steady frame, and it is not the sum of its three
@@ -257,7 +257,7 @@ pub const SCRIM_EXCESS_WRITES: u64 = DIALOG.0 as u64 * DIALOG.1 as u64;
 /// every chip label, and it re-damages exactly what [`CLEARED_EVERY_FRAME`] does. Re-damage is a
 /// count of **distinct cells**, so three defects whose cell sets are nested cost the largest of
 /// them and not their total — a screen clear already changes every cell the other two change. A
-/// report that added the five rows of ADR 0026's table together would be double counting, and this
+/// report that added the five rows of the table together would be double counting, and this
 /// constant is where that is written down.
 pub const NAIVE_TWIN: u64 = CLEARED_EVERY_FRAME;
 
@@ -268,7 +268,7 @@ pub const NAIVE_TWIN: u64 = CLEARED_EVERY_FRAME;
 /// One function draws all of them, so that what differs between two arms is the thing under test and
 /// not the layout — [`crate::form`]'s arrangement and [`crate::frame::draw`]'s single boolean before
 /// it. Every defective arm is one branch inside [`draw_into`] and each is named for the row of
-/// ADR 0026's table it is.
+/// the table it is.
 ///
 /// [`crate::frame::draw`]: crate::frame::block_into
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -278,7 +278,7 @@ pub enum Arm {
     /// **The naive twin — the reference the correct build is proved equal to.**
     ///
     /// A screen clear, a fill under every panel interior, and a face filled under every chip label:
-    /// three of ADR 0026's five instances at once. It is **kept and never deleted** (§21's rule,
+    /// three of the five instances at once. It is **kept and never deleted** (the rule,
     /// arriving here for the fourth time) and its existence is gated by path —
     /// `tests::the_naive_twin_is_declared_in_this_file_and_named_by_path`.
     Naive,
@@ -290,9 +290,9 @@ pub enum Arm {
     ChipDoesNotNarrow,
     /// **A label that does not narrow.**
     ///
-    /// Not one of ADR 0026's five — it is the sixth arm, and it is here because it is the only one
+    /// Not one of the five — it is the sixth arm, and it is here because it is the only one
     /// of them that is **green at 300×80 and red at 120×40**, which is the whole reason the equality
-    /// runs at two sizes. §21's scene 15 states the shape for `chart` at 60×20; this is it for
+    /// runs at two sizes. The scene 15 states the shape for `chart` at 60×20; this is it for
     /// `text` on the screen `text` is drawn on.
     LabelDoesNotNarrow,
     /// **A panel's top border drawn as one run with its title written over it.** The 15-cell
@@ -667,7 +667,7 @@ pub fn correct(pen: &mut Pen, cx: &mut Ctx<'_, '_>, fx: &Fixture) {
 ///
 /// A screen clear, a fill under every panel interior and a face filled under every chip label. It is
 /// the reference the correct build is proved **equal to** — deleting it deletes the argument, which
-/// is §21's own rule — and it is what stops the damage count being gamed: a build that merely drew
+/// is the rule — and it is what stops the damage count being gamed: a build that merely drew
 /// less would score 0 re-damaged cells by drawing nothing, and three separate defects on this map
 /// did exactly that.
 ///
@@ -741,7 +741,7 @@ pub const fn painter(arm: Arm) -> Painter {
 ///
 /// The labels are static — a label whose length varied with the step would move the write count for
 /// a reason that is not the construction — so what a step carries is *how many widgets are
-/// standing*, and [`Fixture::shrunk_to`] is then §21's own spelling of the gesture this screen
+/// standing*, and [`Fixture::shrunk_to`] is then the spelling of the gesture this screen
 /// plays: **less content, in the same rectangle**. The rectangle is [`W`]×[`H`] and
 /// [`crate::runner::play`] refuses a step that moves it.
 pub fn widgets(n: usize) -> Fixture {
@@ -776,7 +776,7 @@ pub fn shape(arm: Arm, size: (u16, u16), requested: usize) -> Shape {
 /// **The metric row §21 reports every scene in**, for one arm at 300×80.
 ///
 /// `us / marked / writes / verbs / regions / stops / allocations`, and `marked` prints
-/// `unreachable` — printing `0` there would be §21's first refinement arriving as a column.
+/// `unreachable` — printing `0` there would be the first refinement arriving as a column.
 pub fn row(arm: Arm, scene: &'static str, allocations: crate::counters::Allocations) -> MetricRow {
     play(arm, &screen()).row(scene, allocations)
 }
@@ -821,7 +821,7 @@ pub fn steady(arm: Arm, frames: u32) -> Redamage {
     })
 }
 
-/// **The application loop §2's clearing rule is about, drawn for `frames` frames.**
+/// **The application loop the clearing rule is about, drawn for `frames` frames.**
 ///
 /// Components ticket 10, criterion 5. [`Clears`] at the top of every frame and the correct screen
 /// under it: the first frame clears, and every frame after it re-damages **0** — against
@@ -899,7 +899,7 @@ fn run_frames(frames: u32, mut paint: impl FnMut(u32, &mut Pen, &mut Ctx<'_, '_>
 
 // ── the four subjects, and the scan that says whether they are here ──────────────────────────────
 
-/// **The four components this screen is a screen of.** Spec §17's freeze gives each of them
+/// **The four components this screen is a screen of.** The freeze gives each of them
 /// `constructions: 1`, and **components ticket 10 declared all four**.
 pub const SUBJECTS: [&str; 4] = ["text", "chip", "button", "panel"];
 
@@ -911,7 +911,7 @@ pub const SUBJECTS: [&str; 4] = ["text", "chip", "button", "panel"];
 /// [`vitui_runtime::layout::rect`]'s argument — so the thing to look for is a public function of the component's
 /// own name in its own family's module.
 ///
-/// **`pub`, because ticket 10's own criterion 2 reads it**: *every one of them routes its writing
+/// **`pub`, because criterion 2 reads it**: *every one of them routes its writing
 /// through `fit` and `block`, and none contains a fill-then-draw order* is a statement about these
 /// four bodies, and a second list of them would be a second thing to keep in step.
 pub const DECLARATIONS: [(&str, &str); 4] = [
@@ -944,7 +944,7 @@ pub fn subjects_declared() -> Vec<&'static str> {
 /// for both of its negative halves, which is what makes *fires in both directions* mean something:
 /// a hostile fixture run through a second copy of the logic proves the copy and not the gate.
 ///
-/// **`pub(crate)`, because ticket 10's criterion 2 scans the same four bodies for what must *not* be
+/// **`pub(crate)`, because criterion 2 scans the same four bodies for what must *not* be
 /// in them.** One predicate, one definition of *a line that is not a comment*.
 pub(crate) fn declares(source: &str, needle: &str) -> bool {
     source
@@ -1047,7 +1047,7 @@ mod tests {
     ///
     /// Two counts and not one — what the draw believes it declared and what the runtime's hit index
     /// actually holds. They agree, and a widget that collided with another would move the second
-    /// without moving the first, which is ADR 0027's free detector: 110 of 338 widgets were inert on
+    /// without moving the first, which is the free detector: 110 of 338 widgets were inert on
     /// the first screen written for components ticket 01 and the screen rendered pixel for pixel
     /// correctly.
     #[test]
@@ -1112,7 +1112,7 @@ mod tests {
         assert_eq!(counters.reachable(), 8, "eight of §20's nine");
     }
 
-    /// **Every cell of the screen written exactly once** — §2's two equalities, both directions, on
+    /// **Every cell of the screen written exactly once** — the two equalities, both directions, on
     /// the screen the rule is stated about.
     #[test]
     fn the_correct_screen_is_a_partition_of_twenty_four_thousand_cells() {
@@ -1146,7 +1146,7 @@ mod tests {
 
     /// **Criterion 4: the same screen drawn naive and correct, 0 cells apart, at both sizes.**
     ///
-    /// §2's own sentence — *the two screens are the same screen: 0 of 24 000 cells differ, at 300×80
+    /// The sentence — *the two screens are the same screen: 0 of 24 000 cells differ, at 300×80
     /// and at 120×40* — and the second half of the ticket's own argument: a build that merely drew
     /// less would score 0 re-damaged cells by drawing nothing, so the equality is what makes the
     /// damage count mean something.
@@ -1169,7 +1169,7 @@ mod tests {
 
     /// **Criterion 3: the naive twin is declared in this file, and it is named by path.**
     ///
-    /// §21's rule — *it is the reference the correct build is proved equal to, and deleting it
+    /// The rule — *it is the reference the correct build is proved equal to, and deleting it
     /// deletes the argument* — as a gate rather than as a comment. The doctest on [`naive`] holds
     /// the public path; this holds the declaration, which is how a kept fixture actually goes away:
     /// somebody makes it private "because only the test uses it" and the path stops existing while
@@ -1195,7 +1195,7 @@ mod tests {
 
     /// **Criterion 6, and the point of the whole ticket: all five instances, each measured.**
     ///
-    /// ADR 0026's table, standing on a screen. The correct arm re-damages **0** on every steady
+    /// The table, standing on a screen. The correct arm re-damages **0** on every steady
     /// frame and each defective arm re-damages its own row, so ticket 10 can be proved against a
     /// screen rather than against a review.
     ///
@@ -1294,7 +1294,7 @@ mod tests {
     /// **Criterion 4's reason for two sizes: a defect green at 300×80 and red at 120×40.**
     ///
     /// A label that is not truncated fits its column at 300 and does not at 120, so the wide
-    /// equality is clean and the narrow one is not. §13's overlap is the same shape one component
+    /// equality is clean and the narrow one is not. The overlap is the same shape one component
     /// over, and §21 records it as *green at 300×80 and red at 60×20*.
     ///
     /// # The equality sees one half of this defect and the re-damage count sees the other
@@ -1304,7 +1304,7 @@ mod tests {
     /// the widget the label ran into draws over those cells afterwards and the final surface is
     /// right. That half is [`CHIP_NOT_NARROWED`]'s: a cell written twice a frame with two different
     /// values is re-damage and not a wrong picture. **Neither instrument sees both halves**, which
-    /// is why ADR 0026's table and §21's equality are two gates and not one.
+    /// is why the table and the equality are two gates and not one.
     #[test]
     fn a_label_that_does_not_narrow_is_green_at_three_hundred_and_red_at_a_hundred_and_twenty() {
         let wide = compare_at(
@@ -1441,7 +1441,7 @@ mod tests {
     /// **Criterion 5: the application clears once, and a steady frame re-damages 0 rather than
     /// 9 024.**
     ///
-    /// §2's own rule — *the correct build clears once, on its first frame and on a resize* — on the
+    /// The rule — *the correct build clears once, on its first frame and on a resize* — on the
     /// screen the 9 024 was measured on. The first frame paints all 24 000 cells and every frame
     /// after it changes **nothing**, which is the same number [`Arm::Correct`] posts without
     /// clearing at all; the clear costs nothing on a screen that covers itself, and it is what makes
@@ -1627,7 +1627,7 @@ mod tests {
         }
     }
 
-    /// **The failure names the ticket and does not read as a defect** — ticket 09's criterion 7,
+    /// **The failure names the ticket and does not read as a defect** — criterion 7,
     /// kept alive after the condition that produced it was inverted.
     ///
     /// A `#[should_panic]` over [`assert_stands_up`] cannot reach this any more, because all four
@@ -1657,7 +1657,7 @@ mod tests {
         assert_eq!(owed_message(&subjects_declared(), "scene 1"), None);
     }
 
-    /// **No two widgets on this screen share an id** — ADR 0027's free detector, on a screen with
+    /// **No two widgets on this screen share an id** — the free detector, on a screen with
     /// 338 of them.
     #[test]
     fn the_dense_screen_declares_no_colliding_ids() {
@@ -1675,7 +1675,7 @@ mod tests {
     }
 
     /// **A scrim filled under the dialog writes the dialog's own cells and one drawn around it does
-    /// not** — §2's *600 fewer writes*, which is the dialog's cell count and reproduces by
+    /// not** — *600 fewer writes*, which is the dialog's cell count and reproduces by
     /// construction.
     #[test]
     fn a_scrim_under_the_dialog_costs_the_dialogs_own_six_hundred_writes() {

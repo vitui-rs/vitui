@@ -1,6 +1,6 @@
-//! **The rasteriser and its memo chain — the whole of §13's answer to the data-volume invariant.**
+//! **The rasteriser and its memo chain — the whole of the answer to the data-volume invariant.**
 //!
-//! Components ticket 28, spec §13. A collection satisfies *frame cost is proportional to visible
+//! A collection satisfies *frame cost is proportional to visible
 //! cells, never to data volume* by **never folding**: the window says which rows can be reached and
 //! the rest are never touched. **A plot cannot do that.** Every one of a million points may land
 //! inside the rectangle, and which ones do is not knowable without looking at them. So the invariant
@@ -109,7 +109,7 @@ impl Geom {
 /// rung — so the theme's table cannot carry it and the branch is the component's. `CONTEXT.md` says
 /// exactly that, in the `Glyph` entry, and in the same breath says *a component names no
 /// repertoire*. Both cannot hold here, and the collision is filed rather than decided: see this
-/// module's header and `.scratch/vitui-components-impl/issues/28`.
+/// module's header.
 ///
 /// Nothing else in this crate branches on a repertoire. What a component wants a *spelling* for
 /// still goes through `Theme::glyph`, and this screen's chrome does.
@@ -154,9 +154,9 @@ const BRAILLE_BIT: [u8; 8] = [0, 3, 1, 4, 2, 5, 6, 7];
 
 /// **The cluster a cell's bitmask spells, in the given construction.**
 ///
-/// Two `match`es and a sixteen-entry array, which is §13's own description of the branch. It returns
+/// Two `match`es and a sixteen-entry array, which is the description of the branch. It returns
 /// a `char` rather than a `&'static str` because the braille rung is 256 spellings computed from the
-/// mask, and a table of 256 static strings would be the private fallback table §16 forbids wearing a
+/// mask, and a table of 256 static strings would be the private fallback table that is forbidden, wearing a
 /// different hat.
 pub fn cluster(kind: Kind, g: Geom, bits: u8) -> char {
     match kind {
@@ -392,7 +392,7 @@ impl Raster {
     ///
     /// `touched` is *points the build looked at* and it was **2 000 000 both ways** across the
     /// reduce — the prefix-per-point spelling visited each point exactly once and then did
-    /// `O(subh)` work inside the visit. None of spec §20's nine counters expresses work that
+    /// `O(subh)` work inside the visit. None of the nine counters expresses work that
     /// produces no output, and the picture never differed, so the whole of **952.61 ms against
     /// 2.72** was invisible to every gate in this workspace. This is the counter that sees it, and
     /// [`crate::volume`] is what reads it.

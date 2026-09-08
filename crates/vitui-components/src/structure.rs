@@ -5,21 +5,21 @@
 //! directions. A scrim is a complement and never a fill, and there is no cut-out — a terminal
 //! cell has no alpha channel, so a scrim cannot have a hole in it.
 //!
-//! `status_bar` is homed here rather than under F13 because spec §21's ticket 35 settles what it
+//! `status_bar` is homed here rather than under F13 because of what it
 //! **is**: the same construction as a sticky header or footer, one rectangle split and one hit
 //! entry. What it is used for is F13's; what it is is F2's.
 
 //! # `panel` is the one of the four primitives that does not write all of its rectangle
 //!
-//! Spec §2 states the rule in one sentence with two halves — *each cell it is responsible for is
+//! The rule is one sentence with two halves — *each cell it is responsible for is
 //! written exactly once, and the cells it does not write are **named in its return value***. For
 //! `text`, `chip` and `button` the second half is empty: they were handed a rectangle and they write
 //! every cell of it. A panel is a container, so the second half is the whole point, and it is why
 //! [`panel`] returns a [`Panel`] rather than a bare `Response`.
 //!
-//! **That is the second stated substitution on spec §1's shape and it is not a loophole.** The first
+//! **That is the second stated substitution on the shape and it is not a loophole.** The first
 //! is `Rect` for `Rect` ([`vitui_runtime::layout::rect`]); this one is *rule 4 with the container's rectangle
-//! beside the `Response`*, because §2's own sentence is unstatable in a bare `Response` and the
+//! beside the `Response`*, because the sentence is unstatable in a bare `Response` and the
 //! alternative that would make it statable — handing the interior to a closure — is **refused on two
 //! measurements** in [`crate::frame`]'s header: it collides the border with the interior in the one
 //! counter this whole rule is measured by (124 false double writes), and it renames the caller's
@@ -41,7 +41,7 @@ pub const MEMBERS: &[&str] = &["panel", "rule", "status_bar"];
 
 /// [`panel`]'s options.
 ///
-/// Spec §1's rule 3: a `Default` struct, never a required builder.
+/// A `Default` struct, never a required builder.
 ///
 /// **The title is not here.** It is the panel's data and rule 2 puts data in the argument list — and
 /// [`crate::frame::BlockOpts::title`] carrying it as well would be two homes for one string, which
@@ -83,14 +83,14 @@ impl Default for PanelOpts {
 
 /// **What [`panel`] answers: what happened to it, and what it did not write.**
 ///
-/// Two fields because §1's rule 4 and §2's *named in its return value* are two obligations and a
+/// Two fields because rule 4 and *named in its return value* are two obligations and a
 /// container owes both. See this module's header for why the closure form that would collapse them
 /// into one is refused.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub struct Panel {
     /// What happened to the panel's own region. Rule 4.
     pub response: Response,
-    /// **The interior it handed over and did not write.** §2's second half.
+    /// **The interior it handed over and did not write.** The second half.
     pub interior: Rect,
 }
 
@@ -168,7 +168,7 @@ fn block_opts<'a>(title: &'a str, opts: &PanelOpts) -> BlockOpts<'a> {
 
 /// [`rule`]'s options.
 ///
-/// Spec §1's rule 3: a `Default` struct, never a required builder.
+/// A `Default` struct, never a required builder.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub struct RuleOpts {
     /// Which way it runs. Horizontal by default, because a divider between stacked things is what a
@@ -184,9 +184,9 @@ pub struct RuleOpts {
     ///
     /// **Separate from [`RuleOpts::role`] on purpose, and the direction is the opposite of
     /// [`crate::text::FitOpts`]'s.** A rule is not interactive, declares no region and takes no
-    /// hover award, so ADR 0026's *a label in a second paint is repainted every frame* does not
+    /// hover award, so *a label in a second paint is repainted every frame* does not
     /// reach it — there is nothing to repaint it. What a caption in [`Role::Dim`] over a line in
-    /// [`Role::Border`] buys is the one thing §16 asks for: the caption and the line are told apart
+    /// [`Role::Border`] buys is the one thing asked for: the caption and the line are told apart
     /// on the **paint** axis as well as on the content axis.
     pub caption: Role,
     /// Where the caption sits along the line.
@@ -209,10 +209,10 @@ impl Default for RuleOpts {
 /// **Hostile axes:** none.
 ///
 /// One row or one column of a [`Glyph`], with the caption elided through [`crate::text::fit`] —
-/// `text`'s flag and scene 28's, not a second one here.
+/// `text`'s own flag, not a second one here.
 ///
-/// The line is [`Glyph::HLine`] or [`Glyph::VLine`] — §16's `rule` family, two entries — and every
-/// other cell of the rectangle is padding, because §2's rule is that *a component handed a rectangle
+/// The line is [`Glyph::HLine`] or [`Glyph::VLine`] — the `rule` family, two entries — and every
+/// other cell of the rectangle is padding, because the rule is that *a component handed a rectangle
 /// writes all of that*.
 ///
 /// ```
@@ -249,7 +249,7 @@ pub fn rule_with(cx: &mut Ctx<'_, '_>, area: Rect, caption: &str, opts: &RuleOpt
 /// them is skipped when it is empty: *a label that exactly fills its row is one verb and not three*.
 /// A rule is that shape with the two padding runs spelled in a glyph instead of a space, so it is
 /// written here in the same order and with the same skips, and the caption goes through
-/// [`crate::glyphs::elide`] so that §16's one-cell ellipsis rule holds on a rule as it does on a
+/// [`crate::glyphs::elide`] so that the one-cell ellipsis rule holds on a rule as it does on a
 /// label.
 ///
 /// A vertical rule cannot reach `fit` at all — `fit` writes rows — so the **caption is the horizontal
@@ -391,14 +391,14 @@ pub enum Fill {
 
 /// [`status_bar`]'s options.
 ///
-/// Spec §1's rule 3: a `Default` struct, never a required builder.
+/// A `Default` struct, never a required builder.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub struct StatusOpts {
-    /// **Which offset the band shares.** Spec §9's axis argument, taken verbatim from
+    /// **Which offset the band shares.** The axis argument, taken verbatim from
     /// [`crate::scroll::sticky`] — this component adds no fifth band and no fourth value.
     ///
     /// [`Shares::X`] by default: a status bar is a header or a footer, and those are the two of
-    /// §9's four that share the horizontal offset.
+    /// the four that share the horizontal offset.
     pub shares: Shares,
     /// How wide each segment is. See [`Fill`].
     pub fill: Fill,
@@ -416,13 +416,13 @@ pub struct StatusOpts {
     pub justify: Justify,
     /// **What the bar declares. One entry for the bar, never one per segment.**
     ///
-    /// The rule is spec §9's, one component over: *one hit entry for all four bands, because a band
+    /// The rule is the scroll family's, one component over: *one hit entry for all four bands, because a band
     /// that were a second scroll area would win the wheel from the body it is a header of*. A
     /// status bar is the one member of the family that declares anything at all, and what it
     /// declares is **one** region — a segment is a rectangle a caller can resolve out of
     /// [`Response::local`], not a widget.
     ///
-    /// [`Interest::SCROLL`] is not in it, for components ticket 20's reason: a widget that declares
+    /// [`Interest::SCROLL`] is not in it, and the reason is: a widget that declares
     /// the wheel and consumes nothing is worse than one declaring nothing at all, because it is the
     /// topmost region over its rectangle and the area beneath never sees the notch.
     pub interest: Interest,
@@ -450,7 +450,7 @@ impl Default for StatusOpts {
 /// either axis: `Shares::Y` and `Shares::Neither` draw the same bar at four different offsets, **0
 /// cells of 30x2 apart**.
 ///
-/// Spec §21's ticket 35 settles what it *is*: **the same construction as a sticky header or a
+/// What it *is*: **the same construction as a sticky header or a
 /// footer**, a rectangle split that shares one of the two offsets and pins the other to zero. So
 /// this draws through [`crate::scroll::sticky`] and mints nothing — no fifth band, no second clip,
 /// no offset of its own.
@@ -503,7 +503,7 @@ pub fn status_bar_with(
 ///
 /// # The axis argument is the band's and not the bar's
 ///
-/// §9's four bands differ in *which offset they share*, and a bar's content is one row derived from
+/// The four bands differ in *which offset they share*, and a bar's content is one row derived from
 /// its own segments — so the shared **vertical** offset has nothing to move. That is asserted rather
 /// than left to a reader: `tests::the_two_offsets_a_band_can_share_are_not_two_bars` draws the same
 /// bar at all three values of [`Shares`] and reports how many cells differ, and only the horizontal
@@ -513,7 +513,7 @@ pub fn status_bar_with(
 ///
 /// The segments are laid out in the band's **content** coordinates and the trailing padding is
 /// extended to the end of the visible window — so an offset past the end of the text pads rather
-/// than leaving the cells nobody wrote that components ticket 32 found on an unbounded scroll area.
+/// than leaving the cells nobody wrote, which is what an unbounded scroll area left behind.
 #[track_caller]
 pub fn status_bar_into<I: Ink>(
     ink: &mut I,
@@ -617,7 +617,7 @@ fn segments_into<I: Ink>(
     }
 }
 
-/// **The panel written the way ADR 0026's fifth row prices, kept because a gate nobody has watched
+/// **The panel written the way the fifth row prices, kept because a gate nobody has watched
 /// fail is not a gate.**
 ///
 /// `pub` for the reason [`crate::frame::defective`] is, and it reaches that module rather than
@@ -626,7 +626,7 @@ fn segments_into<I: Ink>(
 pub mod defective {
     use super::{Ctx, Ink, Panel, PanelOpts, Rect, block_opts};
 
-    /// **A panel whose top border is one run with its title written over it.** ADR 0026's 15-cell
+    /// **A panel whose top border is one run with its title written over it.** The 15-cell
     /// instance — the number *is* the title's width — and the only one of the five that is **one
     /// verb cheaper** than the correct build.
     #[track_caller]
@@ -667,7 +667,7 @@ mod tests {
     /// **Criterion 2 and criterion 4: a panel writes its frame exactly once, writes every cell of it
     /// **and** the interior it returns, and its title is part of the top run's partition.**
     ///
-    /// §2's two equalities, restricted the way a container makes them: `writes == distinct` over the
+    /// The two equalities, restricted the way a container makes them: `writes == distinct` over the
     /// whole rectangle, and `distinct == w × h − interior` — *the cells it does not write are named
     /// in its return value*, so the second equality is over the complement of what came back.
     #[test]
@@ -713,7 +713,7 @@ mod tests {
     /// > a `panel` drawing its top border as one run and writing its title over it — **15**
     ///
     /// **The number *is* the title's width**, which is why it reproduces exactly where the other
-    /// four rows of ADR 0026's table are magnitudes of a screen. Ticket 06 measured it on `block`;
+    /// four rows of the table are magnitudes of a screen. It was measured on `block`;
     /// this is the same fifteen cells on the component, and the defective panel is **one verb
     /// cheaper** — which is the whole reason it survived review in the first place.
     #[test]
@@ -1021,7 +1021,7 @@ mod tests {
     ///
     /// The offset is what makes this worth sweeping rather than asserting once. A bar laid out in
     /// **content** coordinates can be scrolled past the end of its own text, and the cells the
-    /// segments then cannot reach are cells nobody writes — which is components ticket 32's finding
+    /// segments then cannot reach are cells nobody writes — which is the finding
     /// on an unbounded scroll area, arriving here as a trailing run rather than as a hole.
     #[test]
     fn a_status_bar_writes_every_visible_cell_of_its_band_exactly_once() {
@@ -1068,7 +1068,7 @@ mod tests {
 
     /// **Criterion 2, the region half: one hit entry for the bar, never one per segment.**
     ///
-    /// Spec §9's rule one component over — *one hit entry for all four bands* — and the number that
+    /// The rule one component over — *one hit entry for all four bands* — and the number that
     /// makes it a gate rather than a sentence is that it does not move with the segment count.
     #[test]
     fn a_status_bar_declares_one_hit_entry_however_many_segments_it_has() {
@@ -1093,7 +1093,7 @@ mod tests {
 
     /// **The axis argument is the band's and not the bar's**, and this is the number that says so.
     ///
-    /// §9's four bands differ in which offset they share. A status bar's content is one row derived
+    /// The four bands differ in which offset they share. A status bar's content is one row derived
     /// from its own segments, so the **vertical** share has nothing to move: `Shares::Y` and
     /// `Shares::Neither` draw the same bar at every offset, and only `Shares::X` moves anything —
     /// and only at [`Fill::Natural`], because a bar laid out over its own visible width has nothing
@@ -1193,7 +1193,7 @@ mod tests {
         }
     }
 
-    /// **Two status bars on one screen are two widgets and merge nothing** — ADR 0027, on a
+    /// **Two status bars on one screen are two widgets and merge nothing**, on a
     /// component that draws a `#[track_caller]` helper inside its own body.
     ///
     /// `crate::scroll::sticky` is itself `#[track_caller]`, so its `Ctx::id` resolves to the line

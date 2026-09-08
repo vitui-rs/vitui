@@ -4,7 +4,7 @@
 //! Spec §17 states its obligations as queries over the freeze; components ticket 44
 //! states this one **after the map closed**, and it is an implementation ticket rather than an
 //! architecture issue because the *instrument* is buildable without reopening anything. ADR 0049 is
-//! the decision and §17's table carries the row.
+//! the decision and the table carries the row.
 //!
 //! # The hole this closes, stated once
 //!
@@ -22,7 +22,7 @@
 //! - the **flat-in-n gates** — `writes`, `verbs`, `regions`, `stops` identical at 1k / 100k / 1M —
 //!   are all *output* counters, and the defect was entirely in work that produces none;
 //! - [`crate::chart::raster::Raster::touched`] was **right**: 2 000 000 both ways. The cost was
-//!   `O(subh)` *inside* each visit, which none of spec §20's nine counters expresses;
+//!   `O(subh)` *inside* each visit, which none of the nine counters expresses;
 //! - the budget example measures the engine, and the fold sits above it.
 //!
 //! It was found by a user pressing `+` on `crates/vitui-apps/examples/latency.rs`.
@@ -43,7 +43,7 @@
 //! and useless, and the defect that actually shipped was *linear*: `O(subh)` a point is `O(n)` with
 //! `subh` in front of it, so its growth relation is the shipped fold's exactly. **A ceiling alone is
 //! met by any constant chosen large enough**, which is a threshold on the wrong side of the
-//! question and §21's first refinement by name. So O6 is both, and
+//! question and the first refinement by name. So O6 is both, and
 //! [`crate::chart::raster::defective`] carries one arm for each half: `naive_bars` fails the ceiling
 //! with a textbook growth relation, and `domain_per_point` fails the relation.
 //!
@@ -69,7 +69,7 @@
 //!
 //! # Every covered row owes a deliberate defect, or the gate is a claim about nothing
 //!
-//! Six of the seven arms are §21's *the instrument separates a correct build from a defective one*,
+//! Six of the seven arms are *the instrument separates a correct build from a defective one*,
 //! and the seventh is the defect that shipped. Four are the row shape — **the single most expensive
 //! mistake available above this runtime** — and building them found that
 //! [`crate::collect::defective::whole_content`] existed for **one caller of three**: `table` and
@@ -79,7 +79,7 @@
 //!
 //! # Where an arm runs is what a debug binary can hold, and the two criteria are scale-free
 //!
-//! [`Covered::volumes`] is `10 000 / 100 000 / 1 000 000` on every shipped arm — ticket 44's own
+//! [`Covered::volumes`] is `10 000 / 100 000 / 1 000 000` on every shipped arm — the original's
 //! figure, and the volume the obligation is stated at. [`Covered::defect_volumes`] is smaller,
 //! per row, and that is the whole of the difference: `naive_bars` at a million points is eighty
 //! million paints in an unoptimised binary and `domain_per_point` at a million is `10^12` reads.
@@ -108,7 +108,7 @@ use crate::inventory::{INVENTORY, Layer};
 use crate::memos::{MEMOS, Spelling};
 use crate::order::{Entry, Order, Rows};
 
-/// **The three volumes O6 is stated at.** Ticket 44's own figure, and a decade apart because
+/// **The three volumes O6 is stated at.** The figure, and a decade apart because
 /// [`GROWTH`] is a ratio between neighbours.
 pub const VOLUMES: [u64; 3] = [10_000, 100_000, 1_000_000];
 
@@ -129,7 +129,7 @@ pub const GROWTH: f64 = 12.0;
 /// else. The gates on this page are two counts, for the reason this module exists.
 pub const BUDGET_NANOS: u64 = 16_667_000;
 
-/// The screen every drawn arm is measured on. §21's own 300x80.
+/// The screen every drawn arm is measured on. The original's 300x80.
 pub const W: u16 = 300;
 /// See [`W`].
 pub const H: u16 = 80;
@@ -338,7 +338,7 @@ pub const COVERED: &[Covered] = &[
 ///
 /// *Rows that take a volume*: [`Layer::L2`], plus every row that holds
 /// a memo whose key is a data revision. See this module's header for why the second half is
-/// [`Spelling::Folded`] and for the row the derivation found that ticket 44's own parenthesis did
+/// [`Spelling::Folded`] and for the row the derivation found that the parenthesis did
 /// not name.
 ///
 /// In [`INVENTORY`]'s order, so [`COVERED`] can be compared against it as an ordered list.
@@ -597,7 +597,7 @@ fn plot_run(arm: Arm, n: u64) -> Reading {
 /// [`WrapKind::Ruler`] index exists so that a boundary is never more than one window behind the
 /// caret. The defective arm starts from the only boundary a build with no index has.
 ///
-/// The buffer and the index are built outside the bracket. §11's own figure is *one `Left` at the
+/// The buffer and the index are built outside the bracket. The figure is *one `Left` at the
 /// end of a pasted megabyte*, so the paste is not the measurement.
 fn field_run(arm: Arm, n: u64) -> Reading {
     let n = usize::try_from(n).unwrap_or(usize::MAX);
@@ -781,7 +781,7 @@ mod tests {
         }
     }
 
-    /// **The derivation reaches a row ticket 44's own parenthesis does not name, and that is the
+    /// **The derivation reaches a row the parenthesis does not name, and that is the
     /// criterion working.**
     ///
     /// The ticket says *`Layer::L2`, plus the rows that fold on the edit (`chart`, `plot`)* — six.
@@ -866,7 +866,7 @@ mod tests {
     /// **The seven shipped arms, with their exact counts.**
     ///
     /// Exact, because every one of them is a count and a count is the same number on every machine
-    /// — the runtime's scene 19's whole reason for counting steps. Each is derivable, which is what
+    /// — the runtime's the whole reason for counting steps. Each is derivable, which is what
     /// makes it a gate rather than a snapshot:
     ///
     /// - `field` is [`FIELD_W`]: a `Ruler` row is exactly one window, so the boundary the caret
@@ -905,7 +905,7 @@ mod tests {
 
     /// **Every covered row is watched failing, and the failure names a criterion.**
     ///
-    /// Six of the seven arms are §21's *the instrument separates a correct build from a defective
+    /// Six of the seven arms are *the instrument separates a correct build from a defective
     /// one*; the seventh — `chart`'s — is the defect that actually shipped.
     #[test]
     fn every_covered_row_is_watched_failing_on_a_deliberate_defect() {
@@ -930,7 +930,7 @@ mod tests {
     /// is the shipped fold's**, ten a decade, so a relation alone reads it as healthy; what
     /// disqualifies it is the per-input ceiling, by twenty-five times.
     ///
-    /// And a ceiling alone is met by any constant chosen large enough, which is §21's first
+    /// And a ceiling alone is met by any constant chosen large enough, which is the first
     /// refinement by name — *a threshold on the wrong side of the question is not a weak gate, it is
     /// a green one*. So the second arm is quadratic: under a ceiling raised until it admits the
     /// arm, the relation still refuses it at a hundred a decade.

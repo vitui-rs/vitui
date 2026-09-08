@@ -1,6 +1,6 @@
 //! The parser, the queue and the two things neither of them may ever do.
 //!
-//! Register entries #13, #14 and #16 are **not** here: they are spec §14's, and §14's rule is that
+//! Register entries #13, #14 and #16 are **not** here: they are spec §14's, and the rule is that
 //! a register entry runs where the register can point at it, which is `crate::gates`. What is here
 //! is everything else — the wire spellings, the boundaries, and the cases that produced a defect
 //! while this file was being written.

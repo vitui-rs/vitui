@@ -26,14 +26,14 @@
 //! otherwise. It is also nearly free — the serializer's own [`shortest`
 //! move](crate::serial::Serializer) prices it against where the last write left the cursor, and in
 //! the case that matters, a character typed into a field with the caret after it, the price is zero
-//! bytes. Spec §8's 29-byte caret frame is that case.
+//! bytes. The 29-byte caret frame is that case.
 //!
 //! The mouse mode has no such property. It is a terminal mode, it stays set, and it is emitted only
 //! when it changes.
 //!
 //! # The caret is the terminal's, and that is a measurement rather than a preference
 //!
-//! ADR 0005: a software caret is one `restyle` of one cell, toggled, at **two wakeups a second for
+//! A software caret is one `restyle` of one cell, toggled, at **two wakeups a second for
 //! as long as anything has focus** — 7 200 an hour on a screen where nothing is happening. Ticket
 //! 19's measured idle (`30.01 s real, 0.00 user, 0.00 sys, 0 voluntary context switches`) does not
 //! survive a text field, and a form is not an exotic component. The terminal's own caret blinks for
@@ -80,7 +80,7 @@ pub struct Cursor {
 /// state: 1/3/5 blinking, 2/4/6 steady. So *choose a shape* and *choose whether it blinks* cannot be
 /// two decisions on the wire, however much they are two decisions in a design.
 ///
-/// ADR 0005 settles which way that falls: **blinking is the terminal's**, at the rate its user
+/// It falls one way: **blinking is the terminal's**, at the rate its user
 /// configured, and the engine's only job is to say where the caret is. So the three named shapes are
 /// the blinking spellings — a caret is a thing that blinks — and [`Terminal`](CursorShape::Terminal)
 /// is `Ps = 0`, which is *whatever this user set up*, and is the default for exactly that reason.
@@ -135,8 +135,8 @@ pub(crate) struct Actuation {
     /// Whether the caret is somewhere it was not.
     ///
     /// Separate from [`show`](Actuation::show) and [`shape`](Actuation::shape) so that a caret that
-    /// only *moved* costs a move and nothing else — which is the whole of why spec §8's 29-byte
-    /// caret frame is 29 bytes rather than 40.
+    /// only *moved* costs a move and nothing else — which is the whole of why a caret frame is 29
+    /// bytes rather than 40.
     pub(crate) moved: bool,
 }
 
@@ -203,7 +203,7 @@ impl Actuators {
     /// Where the caret is, clamped to the screen.
     ///
     /// A caret off the edge is clamped rather than refused, for the same reason a level above the
-    /// ceiling is: there is nothing in §12's signature to refuse with, and a caller that put it
+    /// ceiling is: there is nothing in the signature to refuse with, and a caller that put it
     /// there has a layout bug the terminal cannot help with.
     pub(crate) fn set_cursor(&mut self, cursor: Option<Cursor>, size: (u16, u16)) {
         self.caret = cursor.map(|c| Cursor {
@@ -287,9 +287,9 @@ impl Actuators {
 
 /// The highest tracking level this terminal answered for.
 ///
-/// **Mode 1002 has no query of its own**, and §10's probe set is not widened for one: `Capabilities`
+/// **Mode 1002 has no query of its own**, and the probe set is not widened for one: `Capabilities`
 /// carries eight input booleans and eight is a decision. So a terminal that reported 1000
-/// and not 1003 is still asked for 1002, and ADR 0025's rule is what decides that direction — a
+/// and not 1003 is still asked for 1002, and what decides that direction is which way is safe — a
 /// terminal that ignores the request reports buttons only, which is wrong in *degree*, where
 /// clamping to [`MouseMode::Buttons`] would deny drag to every terminal that has it and be wrong in
 /// *direction*.
@@ -377,7 +377,7 @@ pub(crate) fn write_visibility(out: &mut Vec<u8>, show: bool) {
 
 /// The caret's own mode, and the one mode here that is **never** detected.
 ///
-/// Every terminal that draws a caret can hide it, there is no query for it in §10's probe set, and
+/// Every terminal that draws a caret can hide it, there is no query for it in the probe set, and
 /// an engine that asked would be asking a question whose answer it would ignore. So it is written
 /// unconditionally — including into a caller-supplied sink, which is what makes the caret's gates
 /// reachable from a headless test where the mouse's are not.
@@ -385,7 +385,7 @@ const MODE_DECTCEM: u32 = 25;
 
 /// Whose page the negotiation is about to be written onto.
 ///
-/// **Production ticket 12's whole decision, as two words.** The alternate screen is entered exactly
+/// **The whole decision, as two words.** The alternate screen is entered exactly
 /// once per session and the only question is *by whom*: by [`crate::detect::batch`], ahead of the
 /// first capability question, whenever there is a terminal to ask; and by [`negotiation`] itself
 /// when there is not — a caller-supplied sink, a non-tty, `TERM=dumb`, and
@@ -420,13 +420,13 @@ pub(crate) enum Page {
 ///
 /// # What is not here
 ///
-/// **DEC mode 2048** — in-band resize reports — would close ticket 20's one open consequence, that a
+/// **DEC mode 2048** — in-band resize reports — would close the one open consequence, that a
 /// terminal resized while the application is completely idle is not noticed until the next byte
 /// arrives. It is not requested, and the reason is that requesting it is the cheap half: the report
 /// arrives as a `CSI 48 ; … t` nothing parses, so it would land in
 /// [`InputDiagnostics`](crate::InputDiagnostics) as an unrecognised sequence per resize, and the
-/// mode has no DECRQM answer in §10's batch to tell whether it took. That is a detection axis, a
-/// parser arm and a `Capabilities` field, and none of the three is this ticket's.
+/// mode has no DECRQM answer in the capability batch to tell whether it took. That is a detection
+/// axis, a parser arm and a `Capabilities` field, and none of the three is free.
 pub(crate) fn negotiation(config: &InputConfig, caps: &Capabilities, page: Page) -> Vec<u8> {
     let mut out = Vec::with_capacity(64);
     // **First, because everything after it is a mode set on the page this enters.** The alt screen
@@ -494,7 +494,7 @@ pub(crate) fn negotiation(config: &InputConfig, caps: &Capabilities, page: Page)
 ///
 /// These are the **bytes**; [`crate::shutdown`] is what decides who writes them and how often, and
 /// the split is the reason the bytes stayed here: whatever changed a mode is what knows how to
-/// change it back, and §9's *restoration includes input state* is not satisfied by a list somewhere
+/// change it back, and *restoration includes input state* is not satisfied by a list somewhere
 /// else. What the site adds is the atomic — a panic hook runs on whichever thread panicked, so the
 /// same sequence has to be reachable from a thread that owns none of this.
 ///
@@ -559,13 +559,13 @@ pub(crate) const ENABLE_AUTO_WRAP: &[u8] = b"\x1b[?7h";
 /// 1049 rather than 47 or 1047: it is the composite that saves the cursor position on the way in and
 /// restores it on the way out, which is the difference between a shell prompt that comes back where
 /// the user left it and one that comes back somewhere down the page. Every terminal this engine
-/// targets has it and there is no query for it in §10's probe set, so it goes out unconditionally —
+/// targets has it and there is no query for it in the probe set, so it goes out unconditionally —
 /// the same reasoning [`MODE_DECTCEM`] is written unconditionally for.
 pub(crate) const ENTER_ALT_SCREEN: &[u8] = b"\x1b[?1049h";
 /// `ED 2` — erase the whole page, cursor left where it is.
 ///
 /// Written once, on the arm where [`crate::detect::batch`] opened the page and then printed
-/// questions onto it (production ticket 12). Four bytes, on our own screen, and the serializer needs
+/// questions onto it. Four bytes, on our own screen, and the serializer needs
 /// nothing from it: the mirror is `Cell::UNKNOWN` at birth, so this makes the terminal *more* like
 /// what the mirror will conservatively assume rather than less.
 pub(crate) const ERASE_PAGE: &[u8] = b"\x1b[2J";
@@ -693,8 +693,8 @@ mod tests {
         );
     }
 
-    /// A caret that only moved costs a move: no shape, no visibility. **This is the property spec
-    /// §8's 29-byte caret frame is 29 bytes because of.**
+    /// A caret that only moved costs a move: no shape, no visibility. **This is the property a
+    /// 29-byte caret frame is 29 bytes because of.**
     #[test]
     fn a_caret_that_only_moved_says_only_that() {
         let caps = Capabilities::with_input(false, false, false, false, 0);
@@ -765,7 +765,7 @@ mod tests {
         assert_eq!(back.shape, None, "the terminal is still set to a bar");
     }
 
-    /// A caret off the edge is clamped, not refused: §12's signature has nothing to refuse with.
+    /// A caret off the edge is clamped, not refused: the signature has nothing to refuse with.
     #[test]
     fn a_caret_off_the_screen_is_clamped() {
         let caps = Capabilities::with_input(false, false, false, false, 0);
@@ -842,7 +842,7 @@ mod tests {
 
     /// **The page is entered once per session and the negotiation is not always who does it.**
     ///
-    /// Production ticket 12: on a real terminal `crate::detect::batch` has already switched the page
+    /// On a real terminal `crate::detect::batch` has already switched the page
     /// before the first question went out, so a `?1049h` here would be a second one. What that arm
     /// writes instead is `ED 2`, because the questions went out *after* `?1049h` cleared the page and
     /// a terminal that prints one has left it on our own screen. The epilogue is unchanged either

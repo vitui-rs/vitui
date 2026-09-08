@@ -30,7 +30,7 @@
 //! [`screen_frame`] returns those two numbers so that the shape is a *count* rather than a
 //! description. Every caller asserts `(32, 119)`, so a report that quietly started measuring a
 //! smaller screen fails instead of looking good — which is the same rule §14 applies to a scene list:
-//! *the scene list is normative, not an appendix.*
+//! *The scene list is normative, not an appendix.*
 
 use vitui_engine::Rect;
 
@@ -136,7 +136,7 @@ pub const ROWS: [&str; LIST_ROWS] = [
 // over one shape and drawing over another would be two screens with one name, which is the defect
 // `screen_frame` was extracted to remove.
 
-/// How many interactive regions the drawn screen has. **312**, which is spec §20's dense IDE screen.
+/// How many interactive regions the drawn screen has. **312**, which is the dense IDE screen.
 pub const REGIONS: usize = 312;
 
 /// What the drawn regions are labelled with.

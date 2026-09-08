@@ -31,8 +31,8 @@
 //! answer `None` and the rewrite pass is skipped entirely. Compacting into a free list, or sorting
 //! by anything, would renumber every entry above the first hole whether or not it had to.
 //!
-//! It costs 82.5 µs for one screen and 897 µs for twenty layers (spec §3's prototype measured
-//! 58.88 µs and 1.17 ms), and that is allowed **because it never runs on the render path** — §13's
+//! It costs 82.5 µs for one screen and 897 µs for twenty layers (the prototype measured
+//! 58.88 µs and 1.17 ms), and that is allowed **because it never runs on the render path** —
 //! cliff table lists it beside the frames that are deliberately outside the incremental budget.
 //! Where it does run is [`Screen::layers`](crate::Screen::layers), which is not inside `present` and
 //! *is* inside the application's frame loop; the note there is exact about the difference, and about
@@ -220,7 +220,7 @@ pub(crate) struct Channels {
     /// The underline's own colour. `Color::DEFAULT` on an inline cell, which has none.
     ul: crate::style::Color,
     /// The URI the hyperlink names, resolved through the link table rather than compared as an id —
-    /// **the link table is not swept, so its ids do not move**, and resolving anyway is what would
+    /// **The link table is not swept, so its ids do not move**, and resolving anyway is what would
     /// catch it if a future change swept it.
     link: Option<String>,
 }
@@ -279,12 +279,12 @@ mod tests {
     use crate::style::{Color, Style};
     use crate::testing::{Harness, pinned_extended};
 
-    /// §14's twelfth scene, with the two numbers the row was put on the list for.
+    /// The twelfth scene, with the two numbers the row was put on the list for.
     ///
     /// **A report, not a gate.** The shape of the growth is gated — `crate::gates`'
     /// `a_fading_operator_mints_per_distinct_style_and_never_per_cell` is a count and
     /// `tests/alloc.rs`'s settled arm is a zero — and these are the two absolute numbers spec §3
-    /// measured, re-taken on the shipped mechanism at §13's full screen:
+    /// measured, re-taken on the shipped mechanism at the full screen:
     ///
     /// | | entries created | per frame |
     /// |---|---|---|
@@ -379,7 +379,7 @@ mod tests {
     /// A sweep over a table with nothing dead in it takes the early return at the top of
     /// [`sweep`] — `remap` answers `None` for both tables and neither the compaction nor the
     /// rewrite pass runs at all. The first draft of this report built twenty layers of plain `'m'`
-    /// with one link each, swept, and reported *the mark pass alone* as though it were spec §3's
+    /// with one link each, swept, and reported *the mark pass alone* as though it were
     /// number. It is the same shape as the two vacuous operator gates this ticket found one file
     /// over, and the fix is the same one: **prove the mechanism ran before reporting what it cost**,
     /// which is why the timing loop asserts `renumbered` and a non-zero free count on every sample.
@@ -396,7 +396,7 @@ mod tests {
     /// empty ones — the same defect one level up. `Bench` has no per-sample setup hook, so the
     /// minimum-of-N discipline is kept by hand over a fixture rebuilt untimed between samples.
     ///
-    /// Spec §3's numbers are 58.88 µs for one screen and 1.17 ms for twenty layers. The ratio is the
+    /// The numbers are 58.88 µs for one screen and 1.17 ms for twenty layers. The ratio is the
     /// shape to read and it is not twenty: the work is two passes over the cells of every live
     /// surface and **the frame is one of the surfaces**, so the one-layer arm walks two screens and
     /// the twenty-layer arm walks twenty-one, and 21 / 2 is 10.5.

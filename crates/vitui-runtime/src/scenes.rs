@@ -1,4 +1,4 @@
-//! Spec §20's twenty scenes, as a normative list rather than an appendix.
+//! The twenty scenes, as a normative list rather than an appendix.
 //!
 //! > **A scene is removed only by a ticket naming the property it can no longer distinguish.**
 //!
@@ -22,7 +22,7 @@
 //!   source at **roughly 230% of the whole frame budget**, which disappears into any average taken
 //!   over the other nineteen. That figure was 321% when §14 measured it, which is the second half of
 //!   the same argument: **a number that moves by a third is not a number to average, and it is not a
-//!   number to gate on either** — see scene 19's `decided`.
+//!   number to gate on either** — see the `decided`.
 //! - **Every scene names where its numbers come from**, and
 //!   [`tests::every_scene_names_something_that_exists`] opens the file and looks. A list of prose
 //!   would let a scene stop being run without anything saying so, which is the failure the list
@@ -48,12 +48,12 @@
 
 use crate::register::{Instrument, State};
 
-/// One scene of spec §20's normative list.
+/// One scene of the normative list.
 #[derive(Clone, Copy, Debug)]
 pub struct Scene {
-    /// Its number in §20's table, which is how everything else refers to it.
+    /// Its number in the table, which is how everything else refers to it.
     pub number: u8,
-    /// The scene, in §20's own words.
+    /// The scene, in the words.
     pub name: &'static str,
     /// What it decided, with the figures §20 records.
     pub decided: &'static str,
@@ -61,7 +61,7 @@ pub struct Scene {
     pub state: State,
 }
 
-/// Spec §20's scene list, scene for scene.
+/// The scene list, scene for scene.
 pub const SCENES: [Scene; 20] = [
     Scene {
         number: 1,
@@ -434,7 +434,7 @@ mod tests {
 
     /// **Twenty scenes, numbered 1..=20, once each.**
     ///
-    /// The count is the gate: §20's list is normative and a scene is removed only by a ticket naming
+    /// The count is the gate: the list is normative and a scene is removed only by a ticket naming
     /// the property it can no longer distinguish, so a nineteenth-and-a-half is a diff that has to
     /// argue for itself.
     #[test]

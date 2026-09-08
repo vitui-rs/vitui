@@ -504,7 +504,7 @@ mod tests {
 
     /// **A Tier 2 row that can elide declares `Glyph::Ellipsis`, and one that cannot does not.**
     ///
-    /// §17's `glyphs` column is *the per-component demand set*, and §16's within-component
+    /// The `glyphs` column is *the per-component demand set*, and the within-component
     /// cross-family collapse gate runs over it — so a component that draws a marker its column does
     /// not declare is a gate running over less than the component draws. That is the **quiet**
     /// direction: nothing fails, the screen is right, and the collapse the column was meant to catch

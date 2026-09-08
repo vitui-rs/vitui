@@ -1,7 +1,7 @@
 //! Time, animation and deadlines: closed forms over `(now, start, duration)`, and the ledger that
 //! prices what they ask for.
 //!
-//! Spec §16. **There is no animation object.** A [`Tween`] is 48 bytes, `Copy` and heap-free; the
+//! **There is no animation object.** A [`Tween`] is 48 bytes, `Copy` and heap-free; the
 //! runtime holds nothing, and a hundred animating frames with four animations live allocate **0**
 //! (`tests/alloc.rs::a_hundred_animating_frames_with_four_animations_allocate_nothing`). Every
 //! helper here is a *function of the frame's own clock* — a value a component computes from
@@ -193,8 +193,7 @@ impl<T: Copy> Tween<T> {
     /// The eased phase, `0.0..=1.0`.
     ///
     /// This is the value a colour tween wants: `theme.mix(a, b, tween.phase(now))`, because
-    /// **colour is a verb on the theme** and a `Paint` cannot be built anywhere else (spec §15,
-    /// ADR 0018).
+    /// **colour is a verb on the theme** and a `Paint` cannot be built anywhere else.
     pub fn phase(&self, now: Instant) -> f32 {
         self.ease.at(raw_phase(self.start, self.dur, now))
     }
@@ -390,7 +389,7 @@ pub struct Spring {
 
 impl Spring {
     /// The angular frequency, in radians a second. **The module's and not the spring's**, because a
-    /// per-spring one is a fifth field and §16 says four.
+    /// per-spring one is a fifth field where the type has four.
     ///
     /// Twelve is a settle a person reads as *immediate but not instant*: a twenty-cell move is
     /// within half a cell of its target in a third of a second. A component that needs a different
@@ -541,7 +540,7 @@ pub struct Runaway {
 /// [`Runaway::at`] against the line a diagnostic wants to name, and it is a pointer compare because
 /// a `&'static Location` is one.
 ///
-/// Driven the way spec §1's loop is actually driven, over the scenes in `tests`:
+/// Driven the way the loop is actually driven, over the scenes in `tests`:
 ///
 /// | scene | frames | wakes | worst streak |
 /// |---|---|---|---|
@@ -836,7 +835,7 @@ mod tests {
         Driver::headless(80, 24).expect("attaching to a sink cannot fail")
     }
 
-    /// Run the loop the way spec §1 drives it — a wake, a frame, the fold — and return how many
+    /// Run the loop the way an application drives it — a wake, a frame, the fold — and return how many
     /// frames ran.
     ///
     /// **The pacing gate is `max(deadline, previous + TICK)`**, which is the engine's frame clock as
@@ -994,7 +993,7 @@ mod tests {
     /// 0.9333** — and the gap grows with the run.
     ///
     /// The schedule is a loop running 8% behind its nominal cadence, which is the shape engine
-    /// ticket 14 measured as *120 Hz configured achieved 99.7 fps*. The map's own figure is 0.9222,
+    /// was measured as *120 Hz configured achieved 99.7 fps*. The recorded figure is 0.9222,
     /// from a schedule that was a little further behind than this one; what is a property of the
     /// mechanism rather than of the schedule is that the anchored phase is **exactly** 1.0 and the
     /// accumulated one is **never** — a nominal interval cannot see a late frame.
@@ -1248,9 +1247,9 @@ mod tests {
     }
 
     /// **Sixty frames with a job in flight ask for 0 wakeups, against 60 for the polling shape** —
-    /// runtime ticket 16's criterion, re-gated over the ledger it was owed.
+    /// The criterion, re-gated over the ledger it was owed.
     ///
-    /// Ticket 16 counted this at its two call sites because the ledger did not exist yet, and said
+    /// This used to be counted at its two call sites because the ledger did not exist yet, and said
     /// so. Over the ledger it is stronger than *0 of 60*: the parked shape runs **one** frame and
     /// then blocks for ever, because a job in flight is not a reason to run a frame. The polling
     /// shape runs sixty, and its streak of sixty is a runaway on a screen doing nothing.

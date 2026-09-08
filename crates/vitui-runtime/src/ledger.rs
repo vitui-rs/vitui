@@ -638,7 +638,7 @@ mod tests {
     ///
     /// A frame allowed past the budget without one is not a cliff, it is a regression with a note
     /// attached. The three the map declared are here, and the check is that each says the word —
-    /// spec §19's table gives each of them a *why it is allowed*, and a detector is what makes that
+    /// the table gives each of them a *why it is allowed*, and a detector is what makes that
     /// sentence falsifiable rather than reassuring.
     #[test]
     fn every_cliff_names_the_detector_that_catches_it() {

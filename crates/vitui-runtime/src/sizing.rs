@@ -1,6 +1,6 @@
 //! Sizing: a plain function beside a component, and the dry run kept only as the detector.
 //!
-//! Spec §12; ADR 0014 (there is no measure pass). **This module declares no trait and no type a
+//! There is no measure pass. **This module declares no trait and no type a
 //! component has to implement**, and that is the whole of it: a sizing function is a *shape*.
 //!
 //! ```text
@@ -161,7 +161,7 @@ use crate::layout::text;
 /// **Protects:** `sizing::check`, `Agreement` — and not `Extent`, which is where this pair *sits*
 /// rather than what it is *about*. The `E0499` above is the trait that was not built (the module
 /// comment says so in as many words), so a rename of `check` or `Agreement` is what would leave the
-/// hostile half passing for the wrong reason. Ticket 19's twin gate reads this line.
+/// hostile half passing for the wrong reason. The twin gate reads this line.
 ///
 /// and the twin that names what shipped instead, by path: two children over **one** `&mut`, drawn
 /// one after another, because a sizing function does not hold a child at all.
@@ -640,7 +640,7 @@ mod tests {
     /// It read **2**, which is content row 4 *minus* the 3 — a scroll-*position* reading of
     /// `Ctx::scrolled`'s argument. `View::at` is `(x + origin.0, y + origin.1)` and
     /// `View::scrolled` **adds**, so the cell this verb writes lands at root row 7 and not at root
-    /// row 1; the extent was measuring one of those and the surface the other. Components ticket 12
+    /// row 1; the extent was measuring one of those and the surface the other. A components gate
     /// made the two origins take the translation with the same sign, and the figure is **8** — the
     /// row the verb actually reached, plus one.
     ///
@@ -869,7 +869,7 @@ mod tests {
         assert_eq!(auto_fit(std::iter::empty()), 0);
     }
 
-    /// The same rule ticket 01's module keeps, for the same reason: **this is a claim about absent
+    /// The same rule the data module keeps, for the same reason: **this is a claim about absent
     /// code, and absent code is only visible where it would have been written.** A test that
     /// constructed something instead would pass for any reason at all, including the trait existing
     /// and being unused.

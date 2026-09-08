@@ -37,7 +37,7 @@
 //!
 //! Two of the twenty-eight own an overlay — [`crate::input::select`] and
 //! [`crate::files::file_picker`] — and both take `&'f mut` of the state their popup body captures
-//! (spec §1's sentence about the fifth component). A table of `fn(&mut Bag, …)` pointers cannot
+//! (the sentence about the fifth component). A table of `fn(&mut Bag, …)` pointers cannot
 //! hand that over: a fn pointer's elided lifetimes are fresh and unrelated, so a reborrow out of
 //! the bag is shorter than `'f` whatever the caller does.
 //!
@@ -74,7 +74,7 @@
 //! `draws::rest` is where the first three meet and `tiles_into` writes the fourth, and
 //! [`Remainder`] keeps the spelling they replaced runnable so the gate can be watched failing. **The
 //! other twenty-five panels are handed the whole of their tile's interior and fill it themselves**,
-//! which is §2's *a component handed a rectangle writes all of that* on the screen rather than in a
+//! which is *a component handed a rectangle writes all of that* on the screen rather than in a
 //! sentence — twenty-six of the twenty-eight already did, and the two that did not were `select` and
 //! `file_picker`, whose remainder no `Response` could name.
 //!
@@ -420,7 +420,7 @@ pub fn panel_ids() -> Vec<&'static str> {
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
 pub enum Remainder {
     /// **The rule.** A rectangle a drawing did not write is written by the owner that handed it
-    /// over: spec §2's second half, and `draws::rest` is where the three of them meet.
+    /// over: the second half, and `draws::rest` is where the three of them meet.
     #[default]
     Written,
     /// **The defect**, and the spelling components 40 replaced. `crate::app::Clears` writes every
@@ -437,8 +437,8 @@ pub enum Remainder {
 ///
 /// # It is a fixture, and that it had to be is the finding
 ///
-/// ADR 0030's rule is *a memo carries the theme in its key iff its value is made of paints or
-/// glyphs*, and ticket 41's account of the defect is six panels holding such a memo with the theme
+/// The rule is *a memo carries the theme in its key iff its value is made of paints or
+/// glyphs*, and the account of the defect is six panels holding such a memo with the theme
 /// left out of the key. **No memo in this crate holds one.** [`crate::memos`] is that reading as a
 /// census: the three shipped ones hold a sub-cell bit grid, an axis domain and a wrap index, every
 /// cluster and every paint is derived from the theme in front of it on the frame that draws it, and
@@ -630,7 +630,7 @@ pub const CHROME_ROWS: u16 = 2;
 ///
 /// **The tiles tile the grid exactly** either way; see [`Gallery::ui_into`], where the boundaries
 /// are `grid.w * k / cols` rather than `k * tile_w`. A gap between tiles is a cell nobody writes,
-/// and spec §2's second half is the whole subject of register row 7.
+/// and the second half is the whole subject of register row 7.
 pub const fn grid(w: u16, h: u16) -> (u16, u16, usize) {
     let body = h.saturating_sub(CHROME_ROWS);
     let max_cols = w / MIN_TILE.0;
@@ -796,12 +796,12 @@ impl Gallery {
         (self.themes.selected(), self.themes.len())
     }
 
-    /// The repertoire axis of §16's matrix.
+    /// The repertoire axis of the matrix.
     pub const fn rung(&self) -> GlyphSet {
         self.rung
     }
 
-    /// The colour axis of §16's matrix.
+    /// The colour axis of the matrix.
     pub const fn tier(&self) -> ColorDepth {
         self.tier
     }
@@ -862,7 +862,7 @@ impl Gallery {
         self.themes.select(at);
     }
 
-    /// The next of the three repertoires, wrapping. §16's first axis.
+    /// The next of the three repertoires, wrapping. The first axis.
     ///
     /// **Through [`RUNGS`] and never by naming a variant.** A file in this crate that spells
     /// `GlyphSet::` fails `crate::gates`'s repertoire scan, whose one named exception is
@@ -875,7 +875,7 @@ impl Gallery {
         self.set_rung(RUNGS[(at + 1) % RUNGS.len()]);
     }
 
-    /// The next of the three colour depths a human can tell apart, wrapping. §16's second axis.
+    /// The next of the three colour depths a human can tell apart, wrapping. The second axis.
     ///
     /// **Three and not four.** `ColorDepth` has four arms; the matrix is three by three because
     /// `Indexed256` and `TrueColor` differ on the wire and not on the traffic light, and what this
@@ -2010,7 +2010,7 @@ mod draws {
 
     /// **The rectangle a drawing was handed and did not write, written by its owner.**
     ///
-    /// Three of the twenty-eight hand part of their tile back, each by the mechanism spec §2's rule
+    /// Three of the twenty-eight hand part of their tile back, each by the mechanism the rule
     /// names — [`panel`] gets `Frame::interior`, [`collapsible`] gets `Disclosure::used`, and
     /// [`scrollbar`] is handed a three-column bar out of a wider rectangle by *this* module. The
     /// remainder is the owner's, and the owner is here.
@@ -2072,7 +2072,7 @@ pub fn shape_as(w: u16, h: u16, frames: u32, remainder: Remainder) -> Shape {
 
 /// [`shape_as`], on one page of the twenty-eight.
 ///
-/// **A page is a different set of drawings in the same rectangles**, so §2's second half is a
+/// **A page is a different set of drawings in the same rectangles**, so the second half is a
 /// different claim on each of them — and the two tiles with no panel in them exist on the last page
 /// of a grid that does not divide and nowhere else.
 ///
@@ -2205,7 +2205,7 @@ pub struct Swap {
     pub changed: usize,
     /// **Cells whose value did not move**, which is `written - changed` and nothing more.
     ///
-    /// **It is on the wrong side of the question and it is printed, never gated**, which is §21's
+    /// **It is on the wrong side of the question and it is printed, never gated**, which is
     /// first refinement in the one place this module can demonstrate it: most of the cells a swap
     /// leaves alone are left alone *correctly*. A rung change moves the cells drawn from the theme's
     /// glyph table and no others, so the letters of every label are `kept` and right; the colour
@@ -2517,7 +2517,7 @@ pub mod defective {
     /// **Tiles laid out by multiplication instead of by the boundary arithmetic [`tile`] uses**, which
     /// leaves the remainder
     /// of a width that does not divide by the column count written by nobody. It is the gap between
-    /// tiles §2's second half is about, and it is invisible at every size that happens to divide.
+    /// tiles the second half is about, and it is invisible at every size that happens to divide.
     pub fn tiles_by_multiplication<I: Ink>(ink: &mut I, cx: &mut Ctx<'_, '_>, area: Rect, n: u16) {
         let opts = PanelOpts {
             padded: false,
@@ -2536,7 +2536,7 @@ pub mod defective {
 
 // ── §16's nine cells ─────────────────────────────────────────────────────────────────────────────
 
-/// One cell of §16's matrix: the repertoire axis against the colour axis, on this screen.
+/// One cell of the matrix: the repertoire axis against the colour axis, on this screen.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct MatrixCell {
     /// The repertoire the theme was built with.
@@ -2558,11 +2558,11 @@ pub struct MatrixCell {
     /// mirror. What `resolve` changes is the wire triple `roles_differ_on_wire` reads and the ten
     /// distinction bits.
     ///
-    /// So *the colour axis of §16's matrix is not observable on a canvas above the engine at all*,
+    /// So *the colour axis of the matrix is not observable on a canvas above the engine at all*,
     /// and that is ADR 0018 working rather than a hole: a component is handed the same paint whatever
     /// the terminal can show, which is what *a component names a role and never a colour* means. The
     /// column is reported so that the nine rows show the axis moving in
-    /// [`MatrixCell::roles_collapsed`] and standing still here — §21's refinement 1, *a counter on
+    /// [`MatrixCell::roles_collapsed`] and standing still here — the refinement 1, *a counter on
     /// the wrong side of the question is not a weak gate, it is a green one*, as a table.
     pub paints: usize,
     /// **Pairs of the thirteen roles that are one colour on the wire.** The colour axis, measured on
@@ -2575,7 +2575,7 @@ pub struct MatrixCell {
 
 /// **The three repertoires against the three colour depths, over this screen.**
 ///
-/// §16's matrix is *a count, not nine screenshots*, and this is where the count is taken over an
+/// The matrix is *a count, not nine screenshots*, and this is where the count is taken over an
 /// assembled screen rather than over one component. The application's `--matrix` prints it and
 /// `Ctrl+G`/`Ctrl+L` walk the same nine cells live, which is the half neither the runtime's
 /// `theme_numbers` nor its `glyph_numbers` can do: those own the mechanism and measure it over the
@@ -2966,7 +2966,7 @@ mod tests {
         assert!(!gallery.go_to("gauge", w, h));
     }
 
-    /// **§16's matrix, nine cells, and the two axes move in different columns.**
+    /// **The matrix, nine cells, and the two axes move in different columns.**
     ///
     /// Register row 45 filed this `Unreachable { needs: "`ColorDepth`" }` with runtime architecture
     /// issue 22 — *the issue that lifted the barrier* — as its inverter, so the citation had been
@@ -3027,7 +3027,7 @@ mod tests {
     /// **And a count over `Paint` reads fourteen of fourteen at every depth**, including one with no
     /// colour at all. The cause is asserted below and it is not a coarse comparison: `Theme::resolve`
     /// hands back the **same paint** for every role at every depth, because quantisation is the
-    /// engine's and happens before the mirror. §21's refinement 1 in a third place, and the reason
+    /// engine's and happens before the mirror. The refinement 1 in a third place, and the reason
     /// [`TrafficLight`] carries three numbers instead of one.
     #[test]
     fn the_traffic_light_is_read_on_the_wire_and_a_paint_count_cannot_see_it() {
@@ -3109,7 +3109,7 @@ mod tests {
 
     /// **Nothing in the gallery names crossterm, and `deny.toml`'s wrapper list is unchanged.**
     ///
-    /// The ticket asks for the gallery to join ADR 0001's wrapper list *because it uses crossterm for
+    /// The ticket asks for the gallery to join the wrapper list *because it uses crossterm for
     /// raw mode, the alternate screen and input*. It uses none: `Driver::attach` enters raw mode and
     /// the alternate screen, reads the input and restores both. So the criterion is met by the
     /// exception being unnecessary, and the line that would have had to change says so.
@@ -3281,7 +3281,7 @@ mod tests {
     /// **A carried surface after a change equals a fresh surface of what it changed to.**
     ///
     /// The equality residue means, and the one this module shipped without. A page change puts a
-    /// **different component in the same rectangle**, and when this was written §2's second half was
+    /// **different component in the same rectangle**, and when this was written the second half was
     /// not met on this screen — 525 cells of 3 000 at 100x30 written by nobody — so `Ctrl+N` left the
     /// previous page inside the new page's frames: a `radio` panel with a `collection`'s rows in it,
     /// on a screen whose every gate was green.
@@ -3540,7 +3540,7 @@ mod tests {
     /// **Every panel writes every cell of the interior it was handed**, which is register row 7 per
     /// component and over the shipped call site rather than over a second arrangement of it.
     ///
-    /// §21's own account of why this row survived: *the per-component forms were report-only across
+    /// The account of why this row survived: *the per-component forms were report-only across
     /// nine to twelve binaries*. [`shot`] draws one panel through the same tile loop the screen uses,
     /// so what is asserted here is what the gallery draws.
     ///
@@ -3550,7 +3550,7 @@ mod tests {
     /// Measured before anything was changed: handed a rectangle taller and wider than its content,
     /// every row of the freeze wrote all of it except **`select` and `file_picker` — 576 cells of a
     /// 48x13 interior each** — which are exactly the two whose body is in another layer. Their
-    /// remainder could not be *named*: §2's third clause is *the cells it does not write are named
+    /// remainder could not be *named*: the third clause is *the cells it does not write are named
     /// in its return value*, and both return the runtime's `Response`, which has no field for one.
     /// Writing them is the only reachable answer and both now do.
     ///
@@ -3594,12 +3594,12 @@ mod tests {
     /// **Register row 8: no cell carries the previous palette a frame after a swap.**
     ///
     /// **0 of 24 000 at 300x80 and 0 of 3 000 on every page at 100x30**, on all three axes and at
-    /// both arms of [`Remainder`]. It is the last of §21's two pinned reds and the second whose
+    /// both arms of [`Remainder`]. It is the last of the two pinned reds and the second whose
     /// failing set was measured on this screen.
     ///
     /// # The gate is a count over the surface against an oracle, and it had to be
     ///
-    /// §21's first refinement is *a threshold on the wrong side of the question is not a weak gate,
+    /// The first refinement is *a threshold on the wrong side of the question is not a weak gate,
     /// it is a green one*, and this row is its own example: the spelling that shipped asserted
     /// `changed > 0`, and one cell of 4 800 satisfies it while 3 583 carry the old palette. The
     /// complement is not the repair either — on this screen `kept` is **17 884 of 24 000** under a
@@ -3615,7 +3615,7 @@ mod tests {
     /// # And it is watched failing, over this screen, on the memo the rule is about
     ///
     /// [`crate::memos`]'s finding is that **no shipped memo in this crate holds a paint or a
-    /// cluster**, so ADR 0030's rule is true here vacuously and a gate resting on it would be green
+    /// cluster**, so the rule is true here vacuously and a gate resting on it would be green
     /// for ever. [`Keying`] is the memo built to be subject to it, at a right arm and a wrong one
     /// over the same twenty-eight call sites, and the wrong one is
     /// `the_tier_keyed_memo_is_wrong_on_this_screen_and_the_old_gate_passes_on_it`.
@@ -3689,7 +3689,7 @@ mod tests {
     /// **The defect, on this screen: `(data, tier)` keeps the previous palette and `changed > 0` is
     /// green on it.**
     ///
-    /// §21's refinement 1 as a measurement over the assembled gallery rather than as an arithmetic
+    /// The refinement 1 as a measurement over the assembled gallery rather than as an arithmetic
     /// on recalled numbers — `tests/gates.rs` keeps the arithmetic beside it, and this is the same
     /// sentence with the screen underneath.
     ///

@@ -5,7 +5,7 @@
 //! [`crate::document`] — the screens ticket 23 built beside it — now draws *through* it rather
 //! than through a caret and an index written next to the gate.
 //!
-//! # §11's headline, and it is the reason every type here is one type
+//! # the headline, and it is the reason every type here is one type
 //!
 //! > **Every backward question about text is O(prefix) unless an index already knows the answer,
 //! > and the index that answers them is the one the wrapping already needs.**
@@ -15,7 +15,7 @@
 //! A `textarea` has a wrap index because it wraps; an `input` keeps the *same* index under a
 //! different break rule ([`WrapKind::Ruler`]) whose only job is that a boundary is never more than
 //! one window behind the caret. That is why [`WrapKind`] is a flag on one component and not two
-//! components, and it is §5's `Mode` in a fourth family.
+//! components, and it is `Mode` in a fourth family.
 //!
 //! # Three things here are absences, and each is gated as one
 //!
@@ -26,7 +26,7 @@
 //! is; [`crate::input`] carries the `compile_fail` pair that names the absent API by path.
 //!
 //! **There is no run-list selection.** A selection is one anchored range in *bytes*
-//! ([`Text::selection`]). §11's cost argument is not contiguity — it is the **unit**: a run list
+//! ([`Text::selection`]). The cost argument is not contiguity — it is the **unit**: a run list
 //! addresses cluster indices and a buffer addresses bytes, so every gesture pays a prefix walk.
 //! [`defective::RunList`] is that spelling, kept runnable and priced.
 //!
@@ -48,7 +48,7 @@ use crate::clusters::next_cluster;
 
 // ── the break rule ───────────────────────────────────────────────────────────────────────────────
 
-/// **Which break rule the wrap index is built under.** §11's one flag.
+/// **Which break rule the wrap index is built under.** The one flag.
 ///
 /// `input` and `textarea` are one component and this is the whole of the difference. Not two
 /// functions and not two states: the index, the caret, the selection and the ring are identical
@@ -78,7 +78,7 @@ pub enum WrapKind {
 /// 1. **A row carries its end as well as its start.** A greedy break consumes the space it broke
 ///    at, so a row's content ends before the next row's start and a sentinel cannot say where. A
 ///    stand-in that guessed would be measuring the guess.
-/// 2. **The width is a field and not only a key.** That is the *point*: §11's fourth gate is *the
+/// 2. **The width is a field and not only a key.** That is the *point*: the fourth gate is *the
 ///    index's recorded width equals the width being drawn*, and an index that does not record its
 ///    width has no gate to fail. [`Index::built_at`] is the recording, and
 ///    [`crate::document::Defect::MemoKeyedOnRevision`] is what happens when the key drops it.
@@ -103,7 +103,7 @@ impl Index {
 
     /// [`Index::build`], under a stated break rule.
     ///
-    /// **The two arms share every line below this function**, which is §11's one flag as code: the
+    /// **The two arms share every line below this function**, which is the one flag as code: the
     /// caret, the selection, the ring and the splice do not know which one built the rows.
     pub fn build_with(text: &str, w: u16, revision: u64, kind: WrapKind) -> Index {
         let mut rows = Vec::new();
@@ -163,7 +163,7 @@ impl Index {
     }
 
     /// How many visual rows. **625 at [`crate::document::WIDE`] and 875 at
-    /// [`crate::document::NARROW`]**, which is §21's pair.
+    /// [`crate::document::NARROW`]**, which is the pair.
     pub fn rows(&self) -> usize {
         self.rows.len()
     }
@@ -173,7 +173,7 @@ impl Index {
         self.rows.is_empty()
     }
 
-    /// §11's own shape: the visual-row starts, plus the last row's end as the sentinel.
+    /// The shape: the visual-row starts, plus the last row's end as the sentinel.
     pub fn starts(&self) -> Vec<u32> {
         let mut out: Vec<u32> = self.rows.iter().map(|(s, _)| *s).collect();
         if let Some((_, end)) = self.rows.last() {
@@ -187,7 +187,7 @@ impl Index {
         self.revision
     }
 
-    /// **The width it was built at**, which §11's fourth gate compares against the width being
+    /// **The width it was built at**, which the fourth gate compares against the width being
     /// drawn.
     pub fn built_at(&self) -> u16 {
         self.width
@@ -263,7 +263,7 @@ impl Index {
         }
     }
 
-    /// **Rebuild the tail from row `restart`, keeping the rows before it.** §10's splice.
+    /// **Rebuild the tail from row `restart`, keeping the rows before it.** The splice.
     ///
     /// The restart point is the whole question — see [`crate::document::splice_sweep`] — so it is an argument rather
     /// than a policy, and the two spellings the scene compares are `row_of(at)` and one row earlier.
@@ -314,7 +314,7 @@ impl Index {
 
 // ── the caret ────────────────────────────────────────────────────────────────────────────────────
 
-/// **The caret: a `(byte, column)` pair.** §11's first sentence, as a type.
+/// **The caret: a `(byte, column)` pair.** The first sentence, as a type.
 ///
 /// Not a byte offset whose column is computed where it is needed. `display_width(&s[..caret])` is
 /// correct on every cluster and is **2 988 µs a frame at 1 MB against 80.12** — thirty budgets, on a
@@ -423,7 +423,7 @@ pub fn boundaries(text: &str) -> Vec<usize> {
 ///
 /// `from` must be a cluster boundary no further right than `caret`, carrying the column it sits
 /// at. That
-/// precondition is §11's whole complexity argument: `Graphemes` is a forward iterator, so the
+/// precondition is the whole complexity argument: `Graphemes` is a forward iterator, so the
 /// boundary *before* an offset can only be found by segmenting forward from one already known, **and
 /// which one you have decides the complexity.** With no index the only one you have is byte 0.
 pub fn step_left(text: &str, caret: Caret, from: Caret) -> Caret {
@@ -437,7 +437,7 @@ pub fn step_left(text: &str, caret: Caret, from: Caret) -> Caret {
 /// microseconds §11 states are three orders apart between a debug binary and a release one and
 /// would be three different orders somewhere else. [`crate::volume`] is what reads it, and
 /// [`defective::blind_left`] is the arm it separates: **one `Left` at the end of a pasted megabyte
-/// is one cluster from the row start and a million from byte 0**, which is the whole of §11's
+/// is one cluster from the row start and a million from byte 0**, which is the whole of
 /// complexity argument as a count rather than as a clock.
 ///
 /// `step_left` forwards to it with a throwaway, so there is one loop and not two — a counted copy
@@ -480,7 +480,7 @@ pub fn step_right(text: &str, caret: Caret) -> Caret {
 /// **One entry of the undo ring: `(at, removed, inserted)` plus the caret pair and the anchor the
 /// edit started from.**
 ///
-/// §11's own record. The caret pair is stored rather than recomputed for the reason the pair exists
+/// The record. The caret pair is stored rather than recomputed for the reason the pair exists
 /// at all: `set_pos(byte, col)` is **0.0007 µs** and `set_caret(byte)` — recovering the column by
 /// segmenting the prefix — is **6 109 µs** on a 1 MB line. Undo restores the pair.
 #[derive(Clone, PartialEq, Eq, Debug)]
@@ -523,7 +523,7 @@ const FIXED: usize = std::mem::size_of::<usize>() * 4 + std::mem::size_of::<Care
 /// **How many entries the ring holds by default. 256**, which is the cap §11 prices the frame at.
 pub const RING_ENTRIES: usize = 256;
 
-/// **How many bytes the ring holds by default. 25 600**, §11's second bound.
+/// **How many bytes the ring holds by default. 25 600**, the second bound.
 ///
 /// Two bounds rather than one, **because one large paste is one entry**: a ring bounded only on
 /// entries holds a megabyte per paste and 256 of them, and a ring bounded only on bytes drops a
@@ -568,7 +568,7 @@ impl Ring {
         }
     }
 
-    /// The same ring with coalescing off, which is the arm §11's **2.4×** is measured against.
+    /// The same ring with coalescing off, which is the arm **2.4×** is measured against.
     pub fn uncoalesced(mut self) -> Ring {
         self.coalesces = false;
         self
@@ -793,17 +793,17 @@ impl Text {
         &self.ring
     }
 
-    /// The first visual row drawn. `field` owns its offset (§17's `owns_offset`).
+    /// The first visual row drawn. `field` owns its offset (`owns_offset`).
     pub fn offset(&self) -> usize {
         self.offset
     }
 
-    /// **How many times the wrap memo has recomputed.** §11's *1 against 200*, as a counter.
+    /// **How many times the wrap memo has recomputed.** *1 against 200*, as a counter.
     pub fn recomputes(&self) -> u64 {
         self.recomputes
     }
 
-    /// **Restore a caret pair somebody else stored.** The undo path, and §11's `set_pos`.
+    /// **Restore a caret pair somebody else stored.** The undo path, and `set_pos`.
     ///
     /// It takes a [`Caret`] rather than a `(usize, u16)` and that is the whole safety: a `Caret`
     /// is produced only by a gesture, so a pair restored here was a boundary when it was made.
@@ -822,7 +822,7 @@ impl Text {
 
     /// **The wrap index at `w`, keyed on `(revision, width)`.**
     ///
-    /// Both halves of the key, and the second one is §11's fourth gate: *the index's recorded width
+    /// Both halves of the key, and the second one is the fourth gate: *the index's recorded width
     /// equals the width being drawn*. A memo keyed on the revision alone is a **hit** on a resize —
     /// the revision did not move — and what comes back was built at the old width.
     /// [`defective::stale_at`] is that key, and `crate::document`'s scene 13 is it drawn.
@@ -850,7 +850,7 @@ impl Text {
     /// **column** is not: a caret's column is a *screen* column, reset at every row start, and a
     /// greedy break consumes the space it broke at — so a step that crossed a row boundary and kept
     /// accumulating would report a column no cell is at. It is re-read from the caret's own row
-    /// start, which the index makes one row rather than one prefix. That is §11's headline arriving
+    /// start, which the index makes one row rather than one prefix. That is the headline arriving
     /// on the cheap direction: *the index that answers them is the one the wrapping already needs.*
     pub fn right(&mut self, w: u16, extend: bool) {
         let to = step_right(&self.buf, self.caret).byte();
@@ -860,7 +860,7 @@ impl Text {
 
     /// **`Left`, one cluster — and the index is what makes it one row rather than one buffer.**
     ///
-    /// §11's headline measurement: **3 161.68 µs with no index against 0.327 µs with one**. The
+    /// The headline measurement: **3 161.68 µs with no index against 0.327 µs with one**. The
     /// boundary before the caret is found by segmenting forward from the start of the caret's own
     /// visual row, and a caret sitting *on* a row start is answered from the row before — a `Left`
     /// at the end of a document that ends in a line break would otherwise answer *the caret did not
@@ -934,7 +934,7 @@ impl Text {
     /// **A click, which places the caret by a column and never by an offset.**
     ///
     /// `row` is a visual row and `col` a column inside it; the caret lands on the last boundary at
-    /// or before that column, which is a boundary by construction — §11's first gesture.
+    /// or before that column, which is a boundary by construction — the first gesture.
     pub fn click(&mut self, w: u16, row: usize, col: u16, extend: bool) {
         let (from, to) = self.row_span(w, |index| row.min(index.rows().saturating_sub(1)));
         let mut at = Caret { byte: from, col: 0 };
@@ -1146,7 +1146,7 @@ impl Text {
     /// A field declares `Interest::SCROLL` and owns its offset, so it must **consume** the
     /// notch: a widget that declares the pointer and does nothing with it is worse than one that
     /// declares nothing, because it is the topmost region over its rectangle and an enclosing
-    /// `scroll_area` never sees the notch either. That is components ticket 20's defect class, and
+    /// `scroll_area` never sees the notch either. That is the defect class, and
     /// this is the line that keeps `field` out of it.
     pub fn wheel(&mut self, w: u16, rows: u16, notches: i32) {
         if notches == 0 {
@@ -1194,14 +1194,14 @@ impl Text {
 ///
 /// Every arm is simpler than the correct one and three of the four are cheaper, which is the
 /// property that makes a gate over them worth having. None of them is a strawman: the caret at a
-/// byte offset is the API every text buffer in the survey has, the run list is §5's own selection
+/// byte offset is the API every text buffer in the survey has, the run list is the selection
 /// one family over, the naive splice restart is the one a reader of §10 writes, and the memo keyed
 /// on the revision is the key a reader of `CONTEXT.md`'s **Memo** paragraph writes.
 pub mod defective {
     use super::{Caret, Index, Text, WrapKind, step, step_right};
     use vitui_runtime::layout::text::width;
 
-    /// **The deleted API, built anyway so a gate can watch it fail.** §11's *put the caret at byte
+    /// **The deleted API, built anyway so a gate can watch it fail.** *put the caret at byte
     /// N*.
     ///
     /// The column is the engine's tables over the prefix, which is the *expensive* correct answer —
@@ -1224,7 +1224,7 @@ pub mod defective {
 
     /// **`Left` with no index**: the only boundary known is byte 0.
     ///
-    /// Correct, and **3 161.68 µs at the end of a pasted megabyte against 0.327**. §11's whole
+    /// Correct, and **3 161.68 µs at the end of a pasted megabyte against 0.327**. The whole
     /// complexity argument, as the arm that does the work.
     pub fn blind_left(text: &str, caret: Caret) -> Caret {
         blind_left_counted(text, caret, &mut 0)
@@ -1260,7 +1260,7 @@ pub mod defective {
         }
     }
 
-    /// **The selection as a run list over cluster indices**, which is §5's spelling one family over.
+    /// **The selection as a run list over cluster indices**, which is the spelling one family over.
     ///
     /// A text selection is contiguous by construction, so this is always exactly one run — and
     /// **that is not the cost argument**. The cost argument is the *unit*: a run addresses cluster
@@ -1506,7 +1506,7 @@ mod tests {
     /// **Criterion 4: the selection is one anchored range in bytes, and the run list pays a prefix
     /// walk per gesture.**
     ///
-    /// §11's cost argument is the **unit** and not contiguity: a run addresses cluster indices and
+    /// The cost argument is the **unit** and not contiguity: a run addresses cluster indices and
     /// a buffer addresses bytes. Fifty select-half-and-replace edits, counted rather than timed —
     /// the anchored range walks **nothing** and the run list walks a prefix every time.
     #[test]
@@ -1624,7 +1624,7 @@ mod tests {
     /// case.**
     ///
     /// A caret restored from an offset has to segment the prefix to find its column, which is
-    /// §11's **6 109 µs against 0.0007** on a 1 MB line. The gate is the *work*: restoring the pair
+    /// **6 109 µs against 0.0007** on a 1 MB line. The gate is the *work*: restoring the pair
     /// crosses nothing and recovering it crosses the prefix.
     #[test]
     fn undo_restores_the_pair_and_the_byte_spelling_has_to_segment_the_prefix() {
@@ -1650,7 +1650,7 @@ mod tests {
     /// **Criterion 7: the memo is keyed on `(revision, width)`, and the revision does not move when
     /// the caret does.**
     ///
-    /// §11's *200 recomputes at 306.51 µs/key against 1 at 1.587*, as a count. Two hundred caret
+    /// *200 recomputes at 306.51 µs/key against 1 at 1.587*, as a count. Two hundred caret
     /// steps over one document at one width cost **one** build; a revision that moved with the
     /// caret would cost two hundred.
     #[test]
@@ -1747,7 +1747,7 @@ mod tests {
         );
     }
 
-    /// **The ring is not read during a draw**, which is the half of §11's *the frame does not pay
+    /// **The ring is not read during a draw**, which is the half of *the frame does not pay
     /// for the ring* that lives on this side of the seam.
     ///
     /// The whole figure — *at cap 160.67 µs / 0 allocs, emptied 160.71 / 0 allocs, same document,
@@ -1896,7 +1896,7 @@ mod tests {
     ///
     /// A field declares `Interest::SCROLL` and owns its offset, so a notch it did not consume is
     /// worse than one it never declared: it is the topmost region over its rectangle, so an
-    /// enclosing `scroll_area` never sees the notch either. Components ticket 20's defect class.
+    /// enclosing `scroll_area` never sees the notch either. The defect class.
     #[test]
     fn the_wheel_moves_the_window_and_stops_at_both_ends() {
         let mut st = Text::of(prose(600), WrapKind::Words);

@@ -16,7 +16,7 @@
 //!   including the cells outside every damaged run — that is what says damage-tracked compositing
 //!   and full compositing are the same function.
 //!
-//! Spec §14 also names it as the oracle for §14's first fuzz target, draw sequences against a naive
+//! Spec §14 also names it as the oracle for the first fuzz target, draw sequences against a naive
 //! reference compositor, and **ticket 25 is where that happened**: the `cfg` is
 //! `any(test, feature = "fuzz")` now, because a fuzz target compiles this crate without `cfg(test)`
 //! — `fuzz/` is its own workspace, since `cargo-fuzz` needs nightly and `libfuzzer-sys`. It is on
@@ -31,7 +31,7 @@
 //!
 //! # The one thing it must not do
 //!
-//! Share code with the fast path. Every line here is written from spec §5's description of
+//! Share code with the fast path. Every line here is written from the description of
 //! painter's algorithm rather than from `LayerStack::composite_run`, including the ground fill,
 //! which the fast path does conditionally — it looks for an opaque layer covering the whole run and
 //! starts there — where this one does it unconditionally, for every cell, every time. That is the

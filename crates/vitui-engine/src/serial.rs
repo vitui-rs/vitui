@@ -12,11 +12,11 @@
 //! `DECSTBM` + `SU`/`SD` takes a steady frame of a scrolling list from **643 bytes to 20** — a band of
 //! rows moved instead of rewritten. It is a pre-pass and it is **verified rather than guessed**,
 //! because the filter behind it can only emit cells the packet carries and `SU` moves every column of
-//! every row in the band. See [`Serializer::scroll_prepass`], which is also where §8's rejected
+//! every row in the band. See [`Serializer::scroll_prepass`], which is also where the rejected
 //! speculative version and its 27x candidate-verification regression are written down.
 //!
-//! It reaches four of §14's twelve — the two list arms, the virtualised tree and the table — and
-//! **two of those four are not on §8's list of what it is for.** The other eight are screens with no
+//! It reaches four of the twelve — the two list arms, the virtualised tree and the table — and
+//! **two of those four are not on the list of what it is for.** The other eight are screens with no
 //! shift in them and pay the probe and nothing else.
 //!
 //! # The equality filter, always on, and a gap priced in bytes
@@ -78,7 +78,7 @@
 //! Every frame that has anything to say opens with SGR 0. That is tcell's "make no style
 //! assumptions", four bytes, and it is what lets the emit loop start from a style it knows rather
 //! than from one it inherited. Where the terminal has mode 2026 the frame is wrapped in it, and
-//! `?2026h` + `0m` + `?2026l` is §8's **20 bytes of fixed framing** — which matters only because a
+//! `?2026h` + `0m` + `?2026l` is **20 bytes of fixed framing** — which matters only because a
 //! caret blink is a 29-byte frame.
 //!
 //! **A hyperlink is closed before the frame ends, and SGR 0 is not what closes it.** An open OSC 8
@@ -133,7 +133,7 @@ use crate::style::{Color, Style, TAG_DEFAULT, TAG_INDEXED, TAG_RGB};
 /// It is paid for, and the measurement is not close. A row becomes known only when **one** frame
 /// writes all of it, and at 300 columns almost nothing ever does: a dialog is sixty columns wide, a
 /// chart plots four hundred points across eighty rows, a list draws its rows and not the gutter beside
-/// them. Driven over spec §14's twelve scenes, per-row knowledge left **every row of eleven of them
+/// them. Driven over the twelve scenes, per-row knowledge left **every row of eleven of them
 /// unknown for ever**, and the filter measured byte for byte identical to no filter at all. That is
 /// not the *cost in bytes on the frames after a sweep* the row flag was priced as; it is the filter
 /// not existing.
@@ -177,7 +177,7 @@ use crate::style::{Color, Style, TAG_DEFAULT, TAG_INDEXED, TAG_RGB};
 ///
 /// It is not made exact, and the reason is that the exact version already has a price attached. It
 /// needs an identity derived from the *narrowed content* rather than from the table, which is spec
-/// §6's **content-keyed packet** one layer along: built, measured at 1.8x on an adversarial page, and
+/// **content-keyed packet** one layer along: built, measured at 1.8x on an adversarial page, and
 /// refused on the app thread's behalf. Nothing here reopens that. What bounds the residual instead is
 /// what bounds the table itself — an extended cell is under 1% of a screen, and the channel
 /// that would have to be *animated* to make this cost anything is an underline colour.
@@ -381,7 +381,7 @@ pub(crate) struct Serializer {
     prev: Option<GraphemeId>,
     /// Whether a non-ASCII cluster has gone out on the row the cursor is on.
     ///
-    /// Spec §10's rule, as one boolean carried through a scan that is already running: **after a run
+    /// The rule, as one boolean carried through a scan that is already running: **after a run
     /// containing any non-ASCII cluster, the next move on that row is `CHA` rather than `CUF`.** A
     /// width disagreement is *permanent* once a mirror exists — the mirror records what was
     /// intended, so an overpainted neighbour is never re-emitted — and `CUF` is relative and
@@ -392,7 +392,7 @@ pub(crate) struct Serializer {
     non_ascii_on_row: bool,
     /// Whether this frame's opening bytes have gone out.
     ///
-    /// §8's *every frame that has anything to say opens with SGR 0*, read strictly: the framing is
+    /// *every frame that has anything to say opens with SGR 0*, read strictly: the framing is
     /// written by [`open_frame`](Serializer::open_frame) on the first cell that actually reaches the
     /// wire, so **a frame the filter emptied says nothing at all** rather than spending twenty bytes
     /// announcing it. It is not only a byte count: the reset is what lets the emit loop start from a
@@ -429,32 +429,32 @@ pub(crate) struct Serializer {
     #[cfg(test)]
     narrowings: usize,
     /// Which configuration of the filter this serializer is running. **One value ships**; the rest
-    /// exist so §8's *there is no threshold* is reproducible. See [`Filter`].
+    /// exist so *there is no threshold* is reproducible. See [`Filter`].
     #[cfg(test)]
     filter: Filter,
     /// Whether the scroll region pre-pass runs at all. **True in a shipping build**, and switchable
-    /// from a test for the same reason [`Filter`] has three variants that lost: §8's byte table has a
+    /// from a test for the same reason [`Filter`] has three variants that lost: the byte table has a
     /// *filtered* column and a *+ scroll region* column, and a table with one arm cannot reproduce a
     /// claim about two.
     #[cfg(test)]
     scroll_region: bool,
-    /// Whether to keep verifying candidates after one has been refused: **§8's 27x regression**, and
+    /// Whether to keep verifying candidates after one has been refused: **the 27x regression**, and
     /// the reason it is a field rather than a paragraph. See
     /// [`verifies_every_match`](Serializer::verifies_every_match).
     #[cfg(test)]
     verify_every_match: bool,
     /// How many frames took the scroll path, and how many candidates were verified to get there.
     ///
-    /// **The second number is the gate.** §8's 27x regression was verifying every candidate that
+    /// **The second number is the gate.** The 27x regression was verifying every candidate that
     /// matched the probe, and the shape of the fix is *one*, so the property is a count and not a
     /// stopwatch — see `crate::gates::a_repeating_rows_screen_verifies_one_candidate_a_frame`.
     #[cfg(test)]
     scrolls: usize,
     #[cfg(test)]
     verifies: usize,
-    /// What §10's rule has cost, in bytes, since this serializer was built.
+    /// What the rule has cost, in bytes, since this serializer was built.
     ///
-    /// **A report, and spec §15's second owed measurement.** The rule refuses `CUF` on a row that has
+    /// **A report, and the second owed measurement.** The rule refuses `CUF` on a row that has
     /// emitted a non-ASCII cluster, and what that costs is exactly the difference between the
     /// encoding actually chosen and the `CUF` that was refused — summed here rather than obtained by
     /// running a second serializer, because a second serializer would be a second configuration and
@@ -495,14 +495,14 @@ impl Serializer {
         }
     }
 
-    /// Serialise under one of the configurations that lost, which is how §8's sweep is reproduced
+    /// Serialise under one of the configurations that lost, which is how the sweep is reproduced
     /// rather than quoted. See [`Filter`].
     #[cfg(test)]
     pub(crate) fn set_filter(&mut self, filter: Filter) {
         self.filter = filter;
     }
 
-    /// Serialise with the scroll pre-pass off: §8's *filtered* column, which is the arm its
+    /// Serialise with the scroll pre-pass off: *filtered* column, which is the arm its
     /// *+ scroll region* column is a ratio against.
     #[cfg(test)]
     pub(crate) fn set_scroll_region(&mut self, on: bool) {
@@ -527,14 +527,14 @@ impl Serializer {
         self.verifies
     }
 
-    /// Whether the mirror is compared at all. **Always, in a shipping build** — §8's *run it
+    /// Whether the mirror is compared at all. **Always, in a shipping build** — *run it
     /// always*, and the reason is that damage area does not predict whether it pays.
     #[cfg(not(test))]
     fn compares(&self) -> bool {
         true
     }
 
-    /// See the shipping arm above; [`Filter::Off`] is §8's `span` column and reachable from tests.
+    /// See the shipping arm above; [`Filter::Off`] is the `span` column and reachable from tests.
     #[cfg(test)]
     fn compares(&self) -> bool {
         self.filter != Filter::Off
@@ -548,7 +548,7 @@ impl Serializer {
         true
     }
 
-    /// See the shipping arm above. Off is §8's *filtered* column.
+    /// See the shipping arm above. Off is *filtered* column.
     #[cfg(test)]
     fn scrolls_at_all(&self) -> bool {
         self.scroll_region
@@ -556,7 +556,7 @@ impl Serializer {
 
     /// Whether a candidate the probe matched but the obligations refused is followed by the next one.
     ///
-    /// **Never, in a shipping build.** This is §8's 27x regression, and it is here rather than
+    /// **Never, in a shipping build.** This is the 27x regression, and it is here rather than
     /// described because a cliff quoted is a cliff nobody can re-measure: `Filter` carries the three
     /// gap rules that lost for the same reason, and the argument is the same one — a variant no
     /// shipping build can construct is an instrument, and a variant a caller can select is a knob.
@@ -611,7 +611,7 @@ impl Serializer {
         }
     }
 
-    /// What §10's `CHA`-after-non-ASCII rule has cost in bytes. See
+    /// What `CHA`-after-non-ASCII rule has cost in bytes. See
     /// [`cha_rule_bytes`](Serializer::cha_rule_bytes).
     #[cfg(test)]
     pub(crate) fn cha_rule_bytes(&self) -> usize {
@@ -1034,7 +1034,7 @@ impl Serializer {
     /// **The row question is deliberately not asked here.** [`Mirror::is_known`] over the whole row
     /// would be cheaper to write and is *stricter than the obligation*: the columns this frame
     /// repaints need not be known at all, and on the scene this optimisation exists for the frame
-    /// repaints every one of them. That is ADR 0006's amendment arriving a second time — the row is
+    /// repaints every one of them. That is the amendment arriving a second time — the row is
     /// the wrong granularity for a screen no single frame writes whole — and forfeiting the scroll it
     /// is the whole point of is a worse answer than a per-cell walk.
     fn exposed_row_is_clear(&self, rows: PacketRows<'_>, y: u16) -> bool {
@@ -1107,7 +1107,7 @@ impl Serializer {
 
     /// Write the bytes every frame opens with, once, on the first cell that actually goes out.
     ///
-    /// Mode 2026 where the terminal has it, outside the reset: `?2026h` + `0m` + `?2026l` is §8's
+    /// Mode 2026 where the terminal has it, outside the reset: `?2026h` + `0m` + `?2026l` is
     /// twenty bytes of fixed framing. **The frame is never split on purpose** — a
     /// synchronised-output block spanning two `write` calls is still one block to the terminal, and
     /// a frame split into two blocks tears — so `write_frame`'s partial-write loop is about the
@@ -1283,15 +1283,15 @@ impl Serializer {
     /// Price the columns strictly between `from` and `to` against the move that skipping them needs,
     /// and paint through them where they are cheaper.
     ///
-    /// Both halves of §8's gap merge, because they are one mechanism seen twice: the columns inside a
+    /// Both halves of the gap merge, because they are one mechanism seen twice: the columns inside a
     /// run that the filter skipped, and the columns between two runs that the packet never carried.
     /// The second is the only place this file emits a cell the packet does not carry — see
     /// [`price_gap`](Serializer::price_gap) for the two conditions that fence it.
     ///
     /// §8 credits it with taking the three dialogs from 1 491 bytes to 1 203. **That scene cannot show
-    /// it here**, because §14's `three-dialogs-apart` rewrites every cell of all three dialogs with a
-    /// new counter and a new colour every frame and so has no unchanged column to bridge; §8's dialogs
-    /// had a live status bar. What it is worth on §14's list is 160 bytes a scene on the three rows
+    /// it here**, because the `three-dialogs-apart` rewrites every cell of all three dialogs with a
+    /// new counter and a new colour every frame and so has no unchanged column to bridge; the dialogs
+    /// had a live status bar. What it is worth on the list is 160 bytes a scene on the three rows
     /// that do produce gaps, and the mechanism is pinned directly by
     /// `tests::two_runs_on_one_row_are_bridged_out_of_the_mirror`.
     fn consider_gap(
@@ -1438,7 +1438,7 @@ impl Serializer {
 
     /// Whether the cluster about to be emitted would join the one before it into a single cluster.
     ///
-    /// This is spec §10's rule — *a width disagreement is permanent once a mirror exists* — arriving
+    /// This is the rule — *a width disagreement is permanent once a mirror exists* — arriving
     /// one ticket early and for the neighbouring reason. §10 states it as `CHA` rather than `CUF`
     /// after a non-ASCII run, which is about the cursor *compounding* an error; this is about the
     /// bytes themselves re-segmenting. Both are the same underlying fact: **what the engine put in
@@ -1475,7 +1475,7 @@ impl Serializer {
         !cursor.is_break(first)
     }
 
-    /// Put the cursor at `(x, y)` in the fewest bytes §8's encoding set allows.
+    /// Put the cursor at `(x, y)` in the fewest bytes the encoding set allows.
     ///
     /// `CUP`, `CHA`, `CUF`, `CR`, `CR`+`LF`s — **priced by digit count, with no lookup table.**
     /// Every candidate's cost is a small sum and the cheapest wins; there is no per-move search over
@@ -1598,7 +1598,7 @@ impl Serializer {
         best
     }
 
-    /// `CSI y;x H`, and nothing else: the cursor and §10's row flag are the caller's to update, so
+    /// `CSI y;x H`, and nothing else: the cursor and the row flag are the caller's to update, so
     /// that there is one place each is written.
     fn cup(&mut self, x: u16, y: u16) {
         self.out.extend_from_slice(b"\x1b[");
@@ -1609,7 +1609,7 @@ impl Serializer {
     }
 }
 
-/// Which of §8's five cursor encodings a move is spelled with.
+/// Which of the five cursor encodings a move is spelled with.
 ///
 /// An enum rather than five branches writing bytes as they are priced, because the price is a sum
 /// over candidates and the winner is only known at the end. `CUB` is deliberately absent: runs are
@@ -1630,7 +1630,7 @@ enum Move {
 
 /// A packet's damaged rows, in the shape both the filter and the scroll pre-pass need.
 ///
-/// Runs arrive in ascending row order and are disjoint (§14's gate #2), so a row's runs are a
+/// Runs arrive in ascending row order and are disjoint (the gate #2), so a row's runs are a
 /// contiguous slice of the packet and finding one is a walk rather than a sort. `Copy`, because the
 /// pre-pass asks the same packet three questions and each of them wants its own cursor.
 #[derive(Clone, Copy)]
@@ -1716,7 +1716,7 @@ impl Row<'_> {
 
 /// How the mirror is consulted. **One value ships**; the other three are the instrument.
 ///
-/// §8's conclusion about the gap merge is that *there is no threshold*, and the sweep behind it is
+/// The conclusion about the gap merge is that *there is no threshold*, and the sweep behind it is
 /// the evidence rather than the claim: the chart gets monotonically worse as a cell-count threshold
 /// climbs 0 → 24 while the dialogs get better and then flat, so the two scenes want opposite
 /// thresholds. **A conclusion of that shape cannot be reproduced by the configuration that won** —
@@ -1734,12 +1734,12 @@ pub(crate) enum Filter {
     /// What ships: compare every cell against the mirror, and price a gap in bytes.
     #[default]
     Bytes,
-    /// Compare, and never merge a gap: §8's `strict` column.
+    /// Compare, and never merge a gap: the `strict` column.
     Strict,
-    /// Compare, and merge any gap of at most `n` columns: §8's `gap 6 cells` column, and every point
+    /// Compare, and merge any gap of at most `n` columns: the `gap 6 cells` column, and every point
     /// of its sweep.
     Cells(u16),
-    /// Do not compare at all: §8's `span` column, which is what impl 13 shipped.
+    /// Do not compare at all: the `span` column, which is what impl 13 shipped.
     Off,
 }
 
@@ -1766,7 +1766,7 @@ const SYNC_END: &[u8] = b"\x1b[?2026l";
 ///
 /// A scalar handle *is* its own bytes; anything above the scalars is a lookup in the packet's own
 /// arena, which is where the app thread put a copy at pack time. **The engine table is never
-/// reached from here** — that is the whole of ADR 0011's second sentence, and it is what lets the
+/// reached from here** — that is the whole of the second sentence, and it is what lets the
 /// app thread sweep its interner while a frame is being written.
 fn emit_grapheme(out: &mut Vec<u8>, g: GraphemeId, packet: &Packet) {
     let mut buf = [0u8; 4];
@@ -1900,7 +1900,7 @@ fn emit_sgr_delta(
 ///
 /// An extended word has no inline colours — bits 51..0 are the handle — so all four come from the
 /// packet's own copy of the table, which is where the app thread put them at pack time. The engine
-/// table is never reached from here, and that is ADR 0011's second sentence again.
+/// table is never reached from here, and that is the second sentence again.
 ///
 /// A handle the packet does not carry means `pack` and `serialize` disagree about which frame this
 /// is, and there is nothing truthful to paint: the terminal's own colours and no hyperlink are the
@@ -1998,13 +1998,13 @@ const UNDERLINE: Channel = Channel {
 /// somethings: ConPTY, Termux, VSCode's integrated terminal and JetBrains' all mis-parse the colon
 /// form. [`crate::quirks`] is where the four are, and where the count is joined to them.
 ///
-/// **§8's own table spells the semicolon form and §10 names the legacy one *pre-ITU-T*, and the two
+/// **The table spells the semicolon form and §10 names the legacy one *pre-ITU-T*, and the two
 /// sentences cannot both be about the default.** The reading taken here is §10's, because it is the
 /// one with a mechanism: four quirk entries force `legacy` on terminals that parse only semicolons,
-/// so `legacy` cannot be what a terminal with no quirk entry receives. §8's spellings are the
+/// so `legacy` cannot be what a terminal with no quirk entry receives. The spellings are the
 /// configuration its byte tables were measured on, which is why the colon form's one extra byte per
 /// parameterised colour shows up as a wire-budget number that had to be re-measured. Recorded in
-/// impl 13's Progress rather than resolved by this comment.
+/// the Progress rather than resolved by this comment.
 fn emit_color(out: &mut Vec<u8>, params: &mut u32, c: Color, ch: Channel, legacy: bool) {
     /// `;` for the pre-ITU-T form, `:` for the modern one.
     fn sep(out: &mut Vec<u8>, legacy: bool) {
@@ -2057,7 +2057,7 @@ fn param(out: &mut Vec<u8>, params: &mut u32, n: u32) {
     push_num(out, n);
 }
 
-/// How many decimal digits `n` takes, which is the whole of §8's pricing.
+/// How many decimal digits `n` takes, which is the whole of the pricing.
 ///
 /// A loop rather than a table: the numbers here are a row, a column or a distance on an 80x24 to
 /// 300x80 screen, so this runs one to three times and a table would be a table to keep in step.
@@ -2680,9 +2680,9 @@ mod tests {
 
     /// **The one configuration that ships.**
     ///
-    /// Everything else on [`Filter`] is the instrument §8's sweep is reproduced with, and a default
+    /// Everything else on [`Filter`] is the instrument the sweep is reproduced with, and a default
     /// that drifted would quietly make every byte count in this crate a measurement of something
-    /// nobody chose. Spec §8's *the serializer has no knobs* is what this asserts.
+    /// nobody chose. *the serializer has no knobs* is what this asserts.
     #[test]
     fn the_filter_that_ships_is_priced_in_bytes() {
         assert_eq!(Serializer::new(8, 2).filter, Filter::Bytes);
@@ -2691,7 +2691,7 @@ mod tests {
     /// The filter, at its simplest: a frame that rewrites a row without changing it says nothing.
     ///
     /// **And it says nothing *at all*** — not twenty bytes of framing announcing that it has nothing
-    /// to say. §8's *every frame that has anything to say opens with SGR 0*, read strictly.
+    /// to say. *every frame that has anything to say opens with SGR 0*, read strictly.
     #[test]
     fn a_frame_that_changes_nothing_emits_no_bytes_at_all() {
         let mut frame = Surface::new(8, 2);
@@ -2734,7 +2734,7 @@ mod tests {
     /// [`Packet::repaint`] — the flag a renumbering sweep sets.
     ///
     /// The row question survives as a query over the cells, and this is what asks it: every column of
-    /// the row emitted is a known row, and a `repaint` puts it back to none of them. §14's gate on the
+    /// the row emitted is a known row, and a `repaint` puts it back to none of them. The gate on the
     /// count is `crate::gates::a_renumbering_sweep_marks_every_mirror_row_unknown`.
     #[test]
     fn a_repaint_forgets_every_cell_and_the_next_frame_emits_them_all() {
@@ -2787,7 +2787,7 @@ mod tests {
     /// them.
     ///
     /// Two bytes of `.` against a four-byte `CUF`, so the serializer repaints cells it knows are
-    /// already right — which is §8's *the gap merge removes escapes at the cost of cells the terminal
+    /// already right — which is *the gap merge removes escapes at the cost of cells the terminal
     /// was going to parse as a run anyway.*
     #[test]
     fn a_cheap_gap_is_painted_through_rather_than_moved_over() {
@@ -2887,19 +2887,19 @@ mod tests {
         f.present(&mut frame).len()
     }
 
-    /// **§8's sweep, and its conclusion: there is no threshold.**
+    /// **The sweep, and its conclusion: there is no threshold.**
     ///
     /// > A sweep shows it: the chart goes 4 581 → 4 735 → 5 135 → 5 276 → 5 507 → 5 909 → 7 611 as
     /// > the threshold climbs 0 → 24, monotonically worse, while the dialogs go 1 491 → 1 203 and then
     /// > flat. **The two scenes want opposite thresholds, so there is no threshold.**
     ///
-    /// The same shape, over one geometry in two glyph widths, because **§14's twelve cannot produce
+    /// The same shape, over one geometry in two glyph widths, because **the twelve cannot produce
     /// it and that is worth knowing rather than working around.** `crate::gates`'s sweep over the
     /// twelve is flat past four columns on every one of them: the scenes that filter at all are label
     /// rows where a counter changes, so their gaps are a handful of ASCII columns and every threshold
-    /// above four behaves identically. §8's chart is braille and ours plots `*`; §8's dialogs have a
+    /// above four behaves identically. The chart is braille and ours plots `*`; the dialogs have a
     /// live status bar and ours rewrite every cell of all three every frame. Neither is a defect in
-    /// the scene — both are §14's list as it was settled — but a conclusion about the *unit* a
+    /// the scene — both are the list as it was settled — but a conclusion about the *unit* a
     /// threshold is in cannot be drawn from scenes whose gaps are all one byte wide.
     ///
     /// So the fixture is a row whose gaps are one, two, three, … columns wide, filled once with a
@@ -2952,7 +2952,7 @@ mod tests {
     ///
     /// §6 produces genuinely separate runs on a row and the gap between them is not in the packet —
     /// but it *is* in the mirror, so it can be repainted out of it and priced by the same rule. This
-    /// is where §8's three dialogs go from 1 491 bytes to 1 203.
+    /// is where the three dialogs go from 1 491 bytes to 1 203.
     ///
     /// The assertion that says the bytes came from the mirror is the `abc` in the middle: `b` and `c`
     /// are columns this frame did not damage, so nothing in the packet holds them.
@@ -3142,7 +3142,7 @@ mod tests {
     // `shortest`, and the one rule in it that is correctness rather than byte count.
     // -----------------------------------------------------------------------------------------
 
-    /// Every encoding in §8's set, each on the frame that makes it the cheapest.
+    /// Every encoding in the set, each on the frame that makes it the cheapest.
     ///
     /// **The costs are asserted, not the spellings' presence**, because the property is *fewest
     /// bytes* and a test that only checked which letter appeared would pass a `CUF` that cost more
@@ -3220,7 +3220,7 @@ mod tests {
         assert_eq!(replay(&f).cell(297, 0).grapheme, GraphemeId::scalar('x'));
     }
 
-    /// **Spec §10's rule.** After a run containing a non-ASCII cluster, the next move on that row is
+    /// **The rule.** After a run containing a non-ASCII cluster, the next move on that row is
     /// absolute — and the frame it is about is a frame where `CUF` would otherwise have won.
     #[test]
     fn a_non_ascii_run_forces_the_next_move_on_its_row_to_be_absolute() {
@@ -3326,7 +3326,7 @@ mod tests {
         );
     }
 
-    /// **Spec §15's second owed measurement, paid.** What the `CHA`-after-non-ASCII rule costs in
+    /// **The second owed measurement, paid.** What the `CHA`-after-non-ASCII rule costs in
     /// bytes, against the 848 bytes `shortest` won on the chart.
     ///
     /// A report rather than a gate — the numbers belong to the fixtures, not to the mechanism — and
@@ -3336,7 +3336,7 @@ mod tests {
     /// **The answer is that it costs nothing on anything §14 measures, and up to a third of the frame
     /// on a shape §14 does not have.** The rule only ever charges for a move that is *along a row the
     /// serializer has already put a non-ASCII cluster on*, and that needs two things at once: several
-    /// runs on one row, and non-ASCII inside them. §14's twelve have the first — the chart is 113
+    /// runs on one row, and non-ASCII inside them. The twelve have the first — the chart is 113
     /// moves — and none of them has the second, because the chart plots with `*`. A full screen of
     /// CJK has the second and not the first: its runs are whole rows, so every move is a row change
     /// and `CUF` was never a candidate.
@@ -3435,7 +3435,7 @@ mod tests {
     // The frame's framing, and the session's.
     // -----------------------------------------------------------------------------------------
 
-    /// §8's twenty bytes of fixed framing, on the frame that is the reason they are counted.
+    /// The twenty bytes of fixed framing, on the frame that is the reason they are counted.
     #[test]
     fn the_frame_is_wrapped_in_mode_2026_where_the_terminal_has_it() {
         // §8's caret frame: an eight-byte `CUP` and one ASCII cell is the nine bytes of *the
@@ -3761,7 +3761,7 @@ mod tests {
 
     /// **Report: the worst case, and the tearing that is a known consequence rather than a bug.**
     ///
-    /// §8's row is 805 657 bytes, 24 000 SGR sequences and 925 µs for a frame where every cell has a
+    /// The row is 805 657 bytes, 24 000 SGR sequences and 925 µs for a frame where every cell has a
     /// distinct style — 33.6 bytes a cell against 1.0 for a realistic one. The byte count and the SGR
     /// count are exact and machine-independent, which is why they are the numbers this prints; the
     /// microseconds are a build and a machine, so run it with `--release` before believing them.

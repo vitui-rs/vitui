@@ -1,4 +1,4 @@
-//! Spec §17's five obligations and the two stated after the map closed, as **queries over
+//! The five obligations and the two stated after the map closed, as **queries over
 //! [`crate::INVENTORY`]**, each returning a count or an equality.
 //!
 //! > Every documentation and verification obligation is a query over it, not a sentence in a
@@ -50,14 +50,14 @@
 //!
 //! [`Verdict::assert_met`] panics with the failing set and the ticket that inverts it. Each of the
 //! nine is watched panicking by a `#[should_panic]` test below, because **a gate nobody has watched
-//! fail is not a gate** — §21's own three-for-three finding, from the other direction.
+//! fail is not a gate** — the three-for-three finding, from the other direction.
 //! `tests::all_nine_obligation_queries_are_met_and_o5_was_the_last_to_turn` writes the number down,
 //! so each one that turns is a deliberate edit here rather than a silent change of colour. **All
 //! seven have turned and each cost that edit** — and this sentence itself said *five* while six
 //! were green, which is the defect production 10 was opened for, met inside the file it was opened
 //! about. What changes when one turns is the arm it is watched failing on: a `Met` verdict cannot
 //! be watched panicking, so the `#[should_panic]` moves from
-//! *the evidence is empty* to *the evidence is one row wrong*, and for O2 and O7 that is one arm
+//! *The evidence is empty* to *the evidence is one row wrong*, and for O2 and O7 that is one arm
 //! per direction. **Every one of the nine is now watched on the second arm**, so the refusal above
 //! is no longer load-bearing for any live verdict — and it stays, because the population an
 //! obligation is asked about can go empty on its own: [`o6`] derives its from the freeze, and a
@@ -355,21 +355,21 @@ pub const KEYBOARD_REGISTERED: &[&str] = &[
 
 /// The scenes that exist, as `(component, axis)` pairs. O5's evidence.
 ///
-/// **Twenty-five of thirty-four.** Ticket 04 put twelve here off spec §21's own rows, ticket 09
+/// **Twenty-five of thirty-four.** Ticket 04 put twelve here off the rows, ticket 09
 /// added two, ticket 20 added one, components 32 added three, production 05 added `field`'s last
 /// three and production 06 `table`'s last two, and neither components ticket 10 nor components
 /// ticket 11 moved it at all.
 ///
-/// **Production 05's three are the first entries here that no components ticket could have added**,
-/// and the distinction is worth keeping beside ticket 20's and ticket 11's below. Ticket 10's
-/// finding was *a component is not a scene*; ticket 11's was *a standing is not a pair*; ticket
+/// **The three are the first entries here that no components ticket could have added**,
+/// and the distinction is worth keeping beside the original's and the below. Ticket 10's
+/// finding was *a component is not a scene*; the original's was *a standing is not a pair*; ticket
 /// 20's was *a pair §21 had no way to state*. This one is none of those: §21 states one `field`
 /// row, the freeze declares four axes for the component, and the other three were expressible from
 /// the day the freeze was written. Nothing had scheduled them — which is the gap
 /// `.scratch/vitui-production/` exists to close, and the reason an assertion that is accurate about
 /// the present is not a plan.
 ///
-/// **Ticket 20's is the pair §21 could not state**, and it is worth separating from the two below it
+/// **The original's is the pair §21 could not state**, and it is worth separating from the two below it
 /// for the same reason they are separated from each other. §21 carries the wheel as one row over one
 /// component, which is exactly what was writable while the click was an arithmetic substitution — a
 /// delta added to an offset has no second axis to be wrong on. `scroll_area` has declared
@@ -377,12 +377,12 @@ pub const KEYBOARD_REGISTERED: &[&str] = &[
 /// what it decided is a pair rather than a number: a body dead downward is alive sideways.
 ///
 /// **Ticket 11 built five scenes for `collection` and added no pair either, for a reason worth
-/// separating from ticket 10's.** Ticket 10's was *a component is not a scene*; this one is *a
+/// separating from ticket 10's.** The original's was *a component is not a scene*; this one is *a
 /// standing is not a pair*. The three pairs `collection` declares — scrolled, shrunk, wheeled — were
-/// already claimed here by ticket 04, off §21's own **scene** rows 4, 5 and 6. What ticket 11 changed is that
+/// already claimed here by ticket 04, off the **scene** rows 4, 5 and 6. What ticket 11 changed is that
 /// those three scenes stopped being `Unsubjected` and became `Red` with an exact failing set, and
 /// [`axis_scenes_of`](crate::scenes::axis_scenes_of) does not read `standing` at all: its one filter
-/// is `owed`, because §21's `(owed)` marks a scene *whose number was never measured*, and a red
+/// is `owed`, because the `(owed)` marks a scene *whose number was never measured*, and a red
 /// scene's numbers are measured. The fifth scene, the narrow collection, deliberately claims **no**
 /// pair — `INVENTORY` sets `narrow: false` on `collection` because a row truncates through
 /// `text::fit`, which is `text`'s flag, and scene 28 already carries `(text, narrow)`. A pair here
@@ -577,7 +577,7 @@ pub const VOLUME_MEASURED: &[&str] = &[
 /// count with no population at all — *components with 0 doc-tests == 0* — so the reading is owed
 /// rather than given. **It is the same population, for the same reason.** `spinner` is the one row
 /// of the twenty-nine that no ticket has built: its mechanism is *a component that owns a clock*,
-/// it is still §22's, and it is components ticket 42's to prototype. A doc page for a function that
+/// it is still §22's, and it is the original's to prototype. A doc page for a function that
 /// does not exist is not a page anybody can write, and asking for one puts a permanent row in the
 /// failing set that **no ticket on this backlog can invert** — which turns a query that is
 /// measuring something into a query that always reads red and is therefore never read.
@@ -691,7 +691,7 @@ pub fn o3(goldens: &[(&str, u8)]) -> Verdict {
 /// so the constructor's vacuity refusal never fires. *An equality between two things that do not
 /// exist holds.*
 ///
-/// That is §21's first refinement arriving from a direction it did not name — **a threshold on the
+/// That is the first refinement arriving from a direction it did not name — **a threshold on the
 /// wrong side of the question is not a weak gate, it is a green one** — and it is the same shape as
 /// the gallery gate that asserted `changed > 0` while 3 583 cells of 4 800 carried the old palette.
 /// So the population here is the **union of the two lists**: the components that have declared
@@ -775,7 +775,7 @@ pub fn o5(scenes: &[(&str, Axis)]) -> Verdict {
 /// A growth relation and a per-input ceiling, both counts. **The defect this obligation exists for
 /// passes the relation** — the whole column prefix painted once a point is `O(subh)` inside a visit,
 /// which is linear with `subh` in front of it — and **a ceiling alone is met by any constant chosen
-/// large enough**, which is §21's first refinement by name. `crate::volume` carries an arm for each
+/// large enough**, which is the first refinement by name. `crate::volume` carries an arm for each
 /// half and `crate::volume::tests::neither_criterion_would_do_on_its_own` is where that is measured
 /// rather than argued.
 pub fn o6(measured: &[&str]) -> Verdict {
@@ -946,7 +946,7 @@ mod tests {
     }
 
     /// **The subjects a posted wheel notch is played over are counted here and nowhere else.**
-    /// Register row 129, and the second half of components ticket 20's criterion 6.
+    /// Register row 129, and the second half of criterion 6.
     ///
     /// `crate::wheel` asserts the freeze *declares* the axis for both subjects it plays over; this
     /// asserts the other direction, which is the one that can go quietly wrong: **O5 holds a pair
@@ -961,14 +961,14 @@ mod tests {
     /// # The pane and the tree joined `Subject::ALL` rather than a fourth source, and that is the
     /// shape holding twice
     ///
-    /// Production 09's third scene is a **fourth arm of `crate::wheel`'s own drive loop**, not a
+    /// The third scene is a **fourth arm of `crate::wheel`'s own drive loop**, not a
     /// screen of its own — a pane's notch has an area's cadence exactly, because the pane hands its
-    /// rectangle to `scroll_area`. Production 07's second is the **fifth**, for the same reason one
+    /// rectangle to `scroll_area`. The second is the **fifth**, for the same reason one
     /// family over: a tree's notch has a collection's cadence exactly, because `tree` hands its
     /// rectangle to `collection_shaped`. So the join below is still over three sources and
     /// [`crate::wheel::Subject::ALL`] is at **five**. **The rule is: a new cadence is a new source
     /// and a new subject of an existing cadence is not** — the two screens production 09 adds post
-    /// no notch at all, and neither does production 07's narrow one.
+    /// no notch at all, and neither does the narrow one.
     ///
     /// # The population is two gates' subject lists, not one, since production 05
     ///
@@ -1062,7 +1062,7 @@ mod tests {
     /// a data volume, each measured at a million inputs by an instrument that runs the shipped
     /// component and counts its steps. **O5 was the last and it is the one worth more than the
     /// other four together** — production tickets 05 to 09 took the fourteen `(component, axis)`
-    /// pairs that had no scene, and production 07's `tree` pair was the one that emptied the
+    /// pairs that had no scene, and the `tree` pair was the one that emptied the
     /// failing set. Nothing here turned it: [`o5`] is a query and its evidence is
     /// [`AXIS_SCENES`], so the edit that turned it was a scene.
     #[test]
@@ -1145,7 +1145,7 @@ mod tests {
 
     /// **The exact failing sets, so that a change in either direction is visible.**
     ///
-    /// §21's rule for a pinned red gate: *it asserts its exact failing set, fires in both
+    /// The rule for a pinned red gate: *it asserts its exact failing set, fires in both
     /// directions, and says what to invert when it is fixed*. Twenty-nine components, nineteen
     /// built, thirty-four axis obligations and thirty-four goldens owed.
     #[test]

@@ -12,7 +12,7 @@
 //!
 //! Terminals disagree with each other and with the standard — only 7 of 23 surveyed widen a VS16
 //! emoji correctly, kitty sums a ZWJ family emoji to 6 where the answer is 2, Windows Terminal
-//! draws a combining mark at width 1 — and the engine does not follow the terminal here. §8's
+//! draws a combining mark at width 1 — and the engine does not follow the terminal here.
 //! `CHA`-after-non-ASCII rule bounds the disagreement instead. See
 //! `.scratch/vitui-engine-architecture/research/02-grapheme-clustering-and-width.md`.
 //!

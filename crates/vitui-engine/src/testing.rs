@@ -7,7 +7,7 @@
 //! the bytes through the terminal model, assert the replayed screen equals the frame. It stores
 //! nothing, so there is no file to review, nothing to bless and no maintenance — and a golden byte
 //! string would have pinned the encoding, which is exactly the part ticket 15 has still to change. It lives here rather than in [`crate::roundtrip`] because
-//! [`crate::gates`] drives spec §14's twelve scenes through the same instrument, and a second copy
+//! [`crate::gates`] drives the twelve scenes through the same instrument, and a second copy
 //! of it was a second copy that could quietly assert less: the first draft of the scene gates
 //! checked the replayed screen and forgot the mirror.
 
@@ -68,7 +68,7 @@ pub(crate) fn assert_pairing_holds(s: &Surface) {
 ///
 /// **Two callers and one definition, for the reason the second caller exists.**
 /// [`crate::gates::the_pairing_invariant_survives_twelve_bisecting_layers_over_cjk`] drives it to
-/// hold spec §3's pairing invariant over the composited frame, and [`crate::golden`] blesses the
+/// hold the pairing invariant over the composited frame, and [`crate::golden`] blesses the
 /// picture it makes — *the one frame in this crate whose correctness no other instrument makes
 /// visible to a human.* The round trip cannot see a frame whose halves do not pair, because the
 /// serializer emits nothing for a continuation and the terminal model consumes nothing for one; the
@@ -110,7 +110,7 @@ pub(crate) mod bisecting_cjk {
 
 /// The two terminals the compositor is driven against, and why there are exactly two.
 ///
-/// Spec §5's colour resolution depends on an answer from the other end, so a test about
+/// The colour resolution depends on an answer from the other end, so a test about
 /// an operator has to say which terminal it is on. One definition of each, because the *silent* one
 /// is the default state of every headless test in this crate and a second copy of it could quietly
 /// answer something.
@@ -119,7 +119,7 @@ pub(crate) mod terminal {
 
     /// **Silent on OSC 10 and OSC 11, at a depth that has colour.**
     ///
-    /// Both halves are deliberate. Silent about the two default colours is spec §5's silent path,
+    /// Both halves are deliberate. Silent about the two default colours is the silent path,
     /// which is load-bearing rather than a limitation: a cell with a default colour is left unmixed
     /// rather than mixed against a guess, because the guess is a dark theme and on a light-theme
     /// terminal it draws a shadow backwards. And **truecolor**, because at [`ColorDepth::None`] §5
@@ -183,7 +183,7 @@ impl Recorder {
 
     /// A sink that takes `chunk` bytes at a time and returns `WouldBlock` every `block`th call.
     ///
-    /// That is spec §8's honest way to test the partial-write loop: whether a real pipe fragments a
+    /// That is the honest way to test the partial-write loop: whether a real pipe fragments a
     /// write is the kernel's business, so the fragmentation is made deterministic instead.
     pub(crate) fn awkward(chunk: usize, block: usize) -> Recorder {
         Recorder {
@@ -262,7 +262,7 @@ pub(crate) fn pinned_extended() -> Overrides {
 /// A screen, a sink, and the terminal model the sink's bytes are replayed through.
 ///
 /// One harness, two callers: [`crate::roundtrip`] drives the shapes ticket 03 could express and
-/// [`crate::gates`] drives spec §14's normative twelve through it. Every `present` here closes the
+/// [`crate::gates`] drives the normative twelve through it. Every `present` here closes the
 /// round trip, so a caller cannot accidentally get a weaker one by writing its own loop.
 pub(crate) struct Harness {
     pub(crate) screen: Screen,
@@ -469,7 +469,7 @@ impl Harness {
 
     /// Drive this harness's frames with the scroll pre-pass off.
     ///
-    /// §8's byte table has a *filtered* column and a *+ scroll region* column, and a harness with one
+    /// The byte table has a *filtered* column and a *+ scroll region* column, and a harness with one
     /// arm cannot reproduce a claim about two. It goes through the harness for the reason
     /// [`with_filter`](Harness::with_filter) does: every configuration of the instrument is still
     /// driven through the round trip.
@@ -685,7 +685,7 @@ impl Harness {
         &self.term
     }
 
-    /// The bytes `attach` wrote before any frame existed: ticket 21's negotiation.
+    /// The bytes `attach` wrote before any frame existed: the negotiation.
     pub(crate) fn prologue(&self) -> Vec<u8> {
         self.recording.lock().unwrap().bytes[..self.prologue.0].to_vec()
     }

@@ -8,7 +8,7 @@
 //! item. The cases below have no such type, because the whole of the claim is that a **name**
 //! is absent.
 //!
-//! Nine of §12's twelve refusals are gated on the type that would have carried the refused item —
+//! Nine of the twelve refusals are gated on the type that would have carried the refused item —
 //! [`Screen`](crate::Screen) for reactivity and the display query, [`View`](crate::View) for layout, widgets, a clock and a
 //! scheduler, [`LayerStack`](crate::LayerStack) for alpha and the flattened cache, [`Slot`](crate::Slot) for blocking and
 //! completion, and `lib.rs`'s own `#![forbid(unsafe_code)]` for the twelfth. Three have no such

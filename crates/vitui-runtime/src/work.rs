@@ -1,6 +1,6 @@
 //! Async work: the handoff between a background thread and the frame.
 //!
-//! Spec §17. Six names — [`Slot`] (the engine's, re-exported), [`Drain`], [`Task`], [`Worker`],
+//! Six names — [`Slot`] (the engine's, re-exported), [`Drain`], [`Task`], [`Worker`],
 //! [`Landing`] and [`Cancel`] — and the whole module is `std::sync`, `std::cell` and the engine's
 //! two handoff types. There is no executor here and no future: **the runtime takes no dependency
 //! beyond the engine**, so a worker is a *noun* rather than a spawned task on somebody's runtime.
@@ -76,7 +76,7 @@ use std::sync::{Arc, Condvar, Mutex, MutexGuard, PoisonError};
 
 /// Where a worker leaves a result for the app thread. **The engine's, re-exported unchanged.**
 ///
-/// Spec §4 lists three names that are the engine's and are not the runtime's; shipping a second type
+/// Three names here are the engine's and are not the runtime's; shipping a second type
 /// with this name across the seam is the review finding `GlyphSet` already carries. `work` wraps it
 /// — in [`Task`] — and adds [`Drain`] beside it. It adds nothing *to* it.
 pub use vitui_engine::Slot;
@@ -88,7 +88,7 @@ pub use vitui_engine::Slot;
 /// `Wake`, so **both halves of the handoff are already on this crate's public surface** — a caller
 /// who cannot name them can hire no worker and write no loop. Before `Driver::wait` existed neither
 /// was reachable and neither had to be: `Driver::attach` dropped the handle it was given and there
-/// was nothing above the engine that could park. Spec §21 left the loop unowned, and an application
+/// was nothing above the engine that could park. Who owns the loop is still open, and an application
 /// that owns it needs the two nouns the parking is written in.
 pub use vitui_engine::{Wake, WakeHandle};
 
@@ -1206,7 +1206,7 @@ mod tests {
 
     /// **Sixty frames with a job in flight ask for 0 wakeups; the polling shape asks for 60.**
     ///
-    /// The count is taken at the two call sites, because the runtime's wake ledger is ticket 06's
+    /// The count is taken at the two call sites, because the wake ledger is the
     /// and does not exist yet. What it is really asserting is on the other side of the same coin and
     /// is structural: `take` is the whole of the app thread's side, so the parked shape has nothing
     /// to ask for — and `tests::the_module_names_no_deadline` is the half that stops a later edit

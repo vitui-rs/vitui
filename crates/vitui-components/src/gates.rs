@@ -1,4 +1,4 @@
-//! Spec §21's register: **a hundred and thirty-five gates as a value, one row per gate, and a number
+//! The register: **a hundred and thirty-five gates as a value, one row per gate, and a number
 //! for how many of them anything runs.**
 //!
 //! > The register is data, not prose — one row per gate with its kind, its owner, where it stood at
@@ -46,7 +46,7 @@
 //!   inverts it.
 //! - [`Standing::Unreachable`] is a **result**. Five gates cannot be written from this crate at all,
 //!   and each says exactly what would have to become public. That is not *not yet*: `vitui-components`
-//!   depends on `vitui-runtime` and nothing else (§19's C6), so a gate needing an engine name is a
+//!   depends on `vitui-runtime` and nothing else (C6), so a gate needing an engine name is a
 //!   compile error and no amount of component code changes it.
 //! - [`Standing::Unsubjected`] is the vacuity arm, and it exists because [`crate::obligations`]
 //!   already proved it necessary one file over: *a query over an obligation nobody has met yet is
@@ -65,7 +65,7 @@
 //! inversion is the one to read.
 //!
 //! **Ticket 09 added five and one of them is red on purpose.** Rows 57–60 are the dense screen —
-//! 338 regions, the metric row, the equality against a naive twin at two sizes, and ADR 0026's five
+//! 338 regions, the metric row, the equality against a naive twin at two sizes, and the five
 //! re-damage instances each standing on a screen instead of in a sentence — and they are
 //! `Evaluated` over a screen rather than over a component, which is the same standing ticket 04's
 //! four rows have and for the same reason: what they gate is that *the instrument separates a
@@ -146,7 +146,7 @@
 //! `name: "Rgb",` alone would have gone on passing while meaning the opposite. The citations are
 //! struck for that reason and not because the rows went green.
 //!
-//! # Two of §21's rows are corrected here, from the shipped code rather than from the prototypes
+//! # Two of the rows are corrected here, from the shipped code rather than from the prototypes
 //!
 //! §21 was written against twelve prototypes, and two of its sentences do not survive contact with
 //! the crates that shipped. Both corrections are recorded on the row and neither changes its
@@ -164,7 +164,7 @@
 /// What shape of gate a row is.
 ///
 /// R15's list, unchanged: **a gate is a count, a ratio, an equality or a compile outcome; a timing is
-/// a report.** [`Kind::Relation`] and [`Kind::Invariant`] are the two §21's own table adds, and they
+/// a report.** [`Kind::Relation`] and [`Kind::Invariant`] are the two the table adds, and they
 /// are not loopholes — a relation is what a row says when its number belongs to the **data** rather
 /// than to the mechanism, which is refinement 1's whole distinction.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -177,7 +177,7 @@ pub enum Kind {
     /// Two things computed two ways, compared.
     Equality,
     /// An inequality. **The honest form when the number belongs to the data** — `verbs <= writes` is
-    /// §21's own example, and it says *never verb equality across sizes* in as many words.
+    /// the example, and it says *never verb equality across sizes* in as many words.
     Relation,
     /// Something that must not compile, with a positive twin naming the protected item by path.
     CompileOutcome,
@@ -186,7 +186,7 @@ pub enum Kind {
 }
 
 impl Kind {
-    /// The word §21's table prints.
+    /// The word the table prints.
     pub fn word(self) -> &'static str {
         match self {
             Kind::Count => "count",
@@ -322,16 +322,16 @@ impl Standing {
 pub struct Row {
     /// Its number here, which is how everything else refers to it.
     pub number: u8,
-    /// Whether it is a row of spec §21's thirty-two-row table, or one this ticket wrote beside it.
+    /// Whether it is a row of the thirty-two-row table, or one this ticket wrote beside it.
     ///
     /// The count test asserts **the split** rather than the total, so a forty-fifth row has to say
     /// which side of the line it is on — the engine's and the runtime's arrangement, for its reason.
     pub on_spec_table: bool,
-    /// The gate, in §21's own words where §21 has words for it.
+    /// The gate, in the words where §21 has words for it.
     pub gate: &'static str,
     /// Count, ratio, equality, relation, compile outcome or invariant.
     pub kind: Kind,
-    /// Whose gate it is, in §21's `C NN` numbering — the **architecture** map's tickets, which is
+    /// Whose gate it is, in the `C NN` numbering — the **architecture** map's tickets, which is
     /// what that table's owner column names. Implementation tickets are spelled `components NN` and
     /// appear only in the `inverted_by` fields.
     pub owner: &'static str,
@@ -341,61 +341,61 @@ pub struct Row {
     pub standing: Standing,
 }
 
-/// The dense screen's own file, which is where components ticket 09's four rows run.
+/// The dense screen's own file, which is where the four rows run.
 const DENSE: &str = "crates/vitui-components/src/dense.rs";
 
-/// The listing's own file, which is where components ticket 11's two rows run.
+/// The listing's own file, which is where the two rows run.
 const LISTING: &str = "crates/vitui-components/src/listing.rs";
 
 /// The wheel gate's file. Components ticket 20, and the one row on this register whose instrument
 /// posts a pointer event.
 const WHEEL: &str = "crates/vitui-components/src/wheel.rs";
 
-/// The scroll area's own file, which is where components ticket 18's six rows run.
+/// The scroll area's own file, which is where the six rows run.
 const AREA: &str = "crates/vitui-components/src/area.rs";
 
-/// The forest's own file, which is where components ticket 16's rows run.
+/// The forest's own file, which is where the rows run.
 const FOREST: &str = "crates/vitui-components/src/forest.rs";
 
-/// The grid's own file, which is where components ticket 14's four rows run.
+/// The grid's own file, which is where the four rows run.
 const GRID: &str = "crates/vitui-components/src/grid.rs";
 
-/// The accordion's own file, which is where components ticket 21's rows run.
+/// The accordion's own file, which is where the rows run.
 const ACCORDION: &str = "crates/vitui-components/src/accordion.rs";
-/// **`collapsible`'s own file**, which is where components ticket 22's rows run. The component and
+/// **`collapsible`'s own file**, which is where the rows run. The component and
 /// its two refused spellings are one file, so a reviewer's diff between them is a field.
 const DISCLOSE: &str = "crates/vitui-components/src/disclose.rs";
 
-/// The document's own file, which is where components ticket 23's rows run.
+/// The document's own file, which is where the rows run.
 const DOCUMENT: &str = "crates/vitui-components/src/document.rs";
 const CLUSTERS: &str = "crates/vitui-components/src/clusters.rs";
 
-/// The popup's own file, which is where components ticket 25's rows run.
+/// The popup's own file, which is where the rows run.
 const POPUP: &str = "crates/vitui-components/src/popup.rs";
 
-/// The collection's own file, which is where components ticket 12's rows run.
+/// The collection's own file, which is where the rows run.
 const COLLECT: &str = "crates/vitui-components/src/collect.rs";
 
-/// The three scrolling components' own file. Components ticket 19's seven rows are measured here.
+/// The three scrolling components' own file. The seven rows are measured here.
 const SCROLL: &str = "crates/vitui-components/src/scroll.rs";
 
-/// The order's own file, which is where components ticket 13's rows run.
+/// The order's own file, which is where the rows run.
 const ORDER: &str = "crates/vitui-components/src/order.rs";
 
-/// The series screen's own file, which is where components ticket 27's rows run.
+/// The series screen's own file, which is where the rows run.
 const SERIES: &str = "crates/vitui-components/src/series.rs";
 
-/// The chart's own file, which is where components ticket 28's rows run.
+/// The chart's own file, which is where the rows run.
 const CHART: &str = "crates/vitui-components/src/chart.rs";
 const FIELD_NUMBERS: &str = "crates/vitui-components/examples/field_numbers.rs";
 
-/// **The text machine's own file**, which is where components ticket 24's rows run. The buffer, the
+/// **The text machine's own file**, which is where the rows run. The buffer, the
 /// caret pair, the anchored selection, the undo ring and the wrap index are one module, and the
 /// spellings §11 refuses are one `defective` module inside it — so a reviewer's diff between the
 /// shipped build and any of them is one value.
 const EDIT: &str = "crates/vitui-components/src/edit.rs";
 
-/// **The overlay family's own file**, which is where components ticket 26's rows run. The three
+/// **The overlay family's own file**, which is where the rows run. The three
 /// kinds, the two axes, the sizing function, the gutter and the two halves of a modal are one module,
 /// and the spellings §12 refuses are one `defective` module inside it.
 const OVERLAY: &str = "crates/vitui-components/src/overlay.rs";
@@ -403,7 +403,7 @@ const OVERLAY: &str = "crates/vitui-components/src/overlay.rs";
 /// The overlay family's report.
 const POPUP_NUMBERS: &str = "crates/vitui-components/examples/popup_numbers.rs";
 
-/// **The picture screen's own file**, which is where components ticket 29's rows run. The screen,
+/// **The picture screen's own file**, which is where the rows run. The screen,
 /// the two false ladders, the two traps and the wire probe are one module, so a reviewer's diff
 /// between the correct build and any of them is a field on `Build`.
 const PICTURE: &str = "crates/vitui-components/src/picture.rs";
@@ -411,10 +411,10 @@ const PICTURE: &str = "crates/vitui-components/src/picture.rs";
 /// The picture screen's report.
 const MEDIA_NUMBERS: &str = "crates/vitui-components/examples/media_numbers.rs";
 
-/// **The media family's own file**, which is where components ticket 30's components live.
+/// **The media family's own file**, which is where the components live.
 const MEDIA: &str = "crates/vitui-components/src/media.rs";
 
-/// **The preview pane's three screens**, which is where components ticket 31's rows run. The pane,
+/// **The preview pane's three screens**, which is where the rows run. The pane,
 /// its two keys, its five offset spellings and the two places a landing can be taken are one
 /// module, so a reviewer's diff between the arm that ships and any of the others is a field on
 /// `Build`.
@@ -426,11 +426,11 @@ const FILES: &str = "crates/vitui-components/src/files.rs";
 /// The preview pane's report.
 const PREVIEW_NUMBERS: &str = "crates/vitui-components/examples/preview_numbers.rs";
 
-/// **The player chrome's file.** Six of §14's ten parts, the grab, and the shape that is kept
+/// **The player chrome's file.** Six of the ten parts, the grab, and the shape that is kept
 /// because it was wrong.
 const PLAYER: &str = "crates/vitui-components/src/media/player.rs";
 
-/// **The F5 module's file**, which is where components ticket 34's two indicator rows run. `meter`
+/// **The F5 module's file**, which is where the two indicator rows run. `meter`
 /// and `sparkline` are one module because §19 homes them there, and their two claims are two calls
 /// into `chart`.
 const INDICATE: &str = "crates/vitui-components/src/indicate.rs";
@@ -438,7 +438,7 @@ const INDICATE: &str = "crates/vitui-components/src/indicate.rs";
 /// **The F2 module's file**, where `panel`, `rule` and `status_bar` live.
 const STRUCTURE: &str = "crates/vitui-components/src/structure.rs";
 
-/// **Components ticket 35's report**, which prints the three things its rows compress into a
+/// **The report**, which prints the three things its rows compress into a
 /// sentence: what a shared offset does to a band whose content has no rows, the two densities' form,
 /// and the pager's window.
 const COMPOSITE_NUMBERS: &str = "crates/vitui-components/examples/composite_numbers.rs";
@@ -447,11 +447,11 @@ const COMPOSITE_NUMBERS: &str = "crates/vitui-components/examples/composite_numb
 /// arm. Ticket 38.
 const CONTRACT: &str = "crates/vitui-components/src/contract.rs";
 
-/// **Components ticket 38's report**, which prints the chord that differs where the equality prints
+/// **The report**, which prints the chord that differs where the equality prints
 /// a count.
 const CONTRACT_NUMBERS: &str = "crates/vitui-components/examples/contract_numbers.rs";
 
-/// **Components ticket 34's report**, which prints the two things its rows compress into a sentence:
+/// **The report**, which prints the two things its rows compress into a sentence:
 /// the two eighth-block runs side by side, and the sparkline's three verb counts over one write
 /// count.
 const TIER_TWO_NUMBERS: &str = "crates/vitui-components/examples/tier_two_numbers.rs";
@@ -460,7 +460,7 @@ const TIER_TWO_NUMBERS: &str = "crates/vitui-components/examples/tier_two_number
 /// scan runs over rather than as a review habit.
 const DOC: &str = "crates/vitui-components/src/doc.rs";
 
-/// **Components ticket 36's report**, which prints the page table O1's count compresses into a
+/// **The report**, which prints the page table O1's count compresses into a
 /// number, the axis join with the freeze's answer beside the page's, and the fence census.
 const DOC_NUMBERS: &str = "crates/vitui-components/examples/doc_numbers.rs";
 
@@ -475,7 +475,7 @@ const GOLDEN: &str = "crates/vitui-components/src/golden.rs";
 /// fourth entry of `tests/glyph_matrix.rs`'s own exception list.
 const GOLDEN_TESTS: &str = "crates/vitui-components/tests/golden.rs";
 
-/// Ticket 37's report.
+/// The report.
 const GOLDEN_NUMBERS: &str = "crates/vitui-components/examples/golden_numbers.rs";
 
 /// **`field`'s own file**, which is where the component's rows run. `input.rs` and not `edit.rs`,
@@ -488,7 +488,7 @@ const INPUT: &str = "crates/vitui-components/src/input.rs";
 /// gives: a screen only an application can reach is a screen no `cargo test` can measure.
 const GALLERY: &str = "crates/vitui-components/src/gallery.rs";
 
-/// **The memo census** — ADR 0030's rule with a population it can be false on, and the finding that
+/// **The memo census** — the rule with a population it can be false on, and the finding that
 /// the population is one row and it had to be built.
 const MEMOS: &str = "crates/vitui-components/src/memos.rs";
 
@@ -509,7 +509,7 @@ const OBLIGATIONS: &str = "crates/vitui-components/src/obligations.rs";
 /// deliberate defects. Components ticket 44.
 const VOLUME: &str = "crates/vitui-components/src/volume.rs";
 
-/// Ticket 44's report, which is where the clock and its 16.7 ms denominator live.
+/// The report, which is where the clock and its 16.7 ms denominator live.
 const VOLUME_NUMBERS: &str = "crates/vitui-components/examples/volume_numbers.rs";
 
 /// **O7's own file** — the join between the freeze and `crates/vitui-apps/examples/`, by import
@@ -521,7 +521,7 @@ const CONSUMER: &str = "crates/vitui-components/src/consumer.rs";
 /// this crate at all.
 const APPS: &str = "crates/vitui-apps/src/lib.rs";
 
-/// How many rows of [`REGISTER`] are spec §21's own table. **Thirty-two, and it is closed** — a
+/// How many rows of [`REGISTER`] are the table. **Thirty-two, and it is closed** — a
 /// thirty-third would be a spec change.
 pub const SPEC_ROWS: usize = 32;
 
@@ -539,12 +539,12 @@ pub const SPEC_ROWS: usize = 32;
 /// The scenes themselves stay `Unsubjected` in [`crate::scenes`], and that file says why the two are
 /// not the same claim.
 ///
-/// **Ticket 07's five are the same kind of standing**, over the chip and the two bars its own
+/// **The five are the same kind of standing**, over the chip and the two bars its own
 /// helpers stand up rather than over a component: rows 48–52. Row 48 is the one worth reading
 /// twice — it is the **reachable form of row 1**, which is `Unreachable` and stays that way, and
 /// the two rows now sit side by side saying which question each of them can answer.
 ///
-/// **Ticket 08's four are rows 53–56, and its fifth is row 5** — which moved from `Unreachable` to
+/// **The four are rows 53–56, and its fifth is row 5** — which moved from `Unreachable` to
 /// `Evaluated` without anything in the runtime changing, because the barrier had been misread. See
 /// this module's header: that is the only inversion on this register that corrected a *standing*
 /// rather than supplying a *subject*, and it is the one worth being suspicious about the next time
@@ -552,7 +552,7 @@ pub const SPEC_ROWS: usize = 32;
 ///
 /// **Components ticket 11 moved it from forty-one to forty-two, and the one row is row 66** — the
 /// regions equality, `Evaluated` over the listing's two arms rather than over `collection`, which is
-/// components ticket 04's standing and its reason: what it gates is that *the instrument separates a
+/// the standing and its reason: what it gates is that *the instrument separates a
 /// correct build from a defective one*. The **scene** stays red, and `crate::scenes` says at length
 /// why those are not one claim. Its second row, 67, is `Red` on purpose.
 ///
@@ -574,17 +574,17 @@ pub const SPEC_ROWS: usize = 32;
 /// had nothing to run over, and all three turned together, which is what the ticket predicted
 /// because they were pinned on one fact and it was the subject.
 ///
-/// **Two of the six are absences.** Row 137 is §11's own deletion — *there is no such thing as "put
+/// **Two of the six are absences.** Row 137 is the deletion — *there is no such thing as "put
 /// the caret at byte N"* — as three `compile_fail` pairs, and it is two deletions rather than one
 /// because `Caret`'s public fields would be `set_caret` three keystrokes shorter. Row 139 is the
-/// per-cluster region count, which is ADR 0027's defect from the other side: there, widgets merged
+/// per-cluster region count, which is the defect from the other side: there, widgets merged
 /// into one id and the screen still rendered correctly; here, one widget declares hundreds of
 /// entries and the screen still renders correctly.
 ///
 /// **Two of the nine are a review's and not the ticket's** — rows 142 and 143, and both are gaps
 /// the ticket's own gates did not cover. 142 is that the rows do not *tile* the buffer, so a caret
 /// placed by asking which drawn row contains its byte is lost by one trailing space; 143 is a
-/// declared `Interest::SCROLL` the component never consumed, which is components ticket 20's defect
+/// declared `Interest::SCROLL` the component never consumed, which is the defect
 /// class arriving on a component that gate has no subject for.
 ///
 /// Row 21 stays `Unreachable` and row 130 is its crate-own form, which is row 41's standing to row
@@ -593,7 +593,7 @@ pub const SPEC_ROWS: usize = 32;
 /// **Components ticket 36 moved it from a hundred and ninety-three to a hundred and ninety-six**,
 /// and none of the three is an inversion: rows 210, 211 and 212 are O1's other three halves, which
 /// row 30 could not carry because it is `Kind::Count` and O1 is a count *and* a compile outcome —
-/// which is what §21's own `mixed` in the kind column was hiding.
+/// which is what the `mixed` in the kind column was hiding.
 ///
 /// **Components ticket 40 moved it from two hundred and eight to two hundred and nine, and the one
 /// is an inversion**: row 7, the sentinel — *every cell of the rectangle written at least once* —
@@ -614,7 +614,7 @@ pub const SPEC_ROWS: usize = 32;
 /// the list beside it — are the two edits.
 ///
 /// **Production ticket 04 moved it from two hundred and twenty-four to two hundred and twenty-eight,
-/// and it emptied the `Unsubjected` column.** Rows 15 to 18 are §21's own, `field`'s four, and all
+/// and it emptied the `Unsubjected` column.** Rows 15 to 18 are the original's, `field`'s four, and all
 /// four named components 24 — which built the component and then filed six *new* rows for it instead
 /// of standing these up. Three of the four were stale the way rows 11 and 12 were: the instruments
 /// ran over the shipped `field` and the standing said nothing ran. **Two of the four were missing a
@@ -622,7 +622,7 @@ pub const SPEC_ROWS: usize = 32;
 /// nothing has moved*:
 ///
 /// - rows 15 and 16 were watched over a `step_right` walk of the corpus and over the gestures, both
-///   of which read a caret over a buffer that does not move. §11's two caret defects arrived on an
+///   of which read a caret over a buffer that does not move. The two caret defects arrived on an
 ///   **edit**. `document::edit_walk` plays a script at each of 144 seats — both ends, the seat, an
 ///   insert, a backspace, a delete and three undos — and counts the three producers apart, because
 ///   gate 1 is *structurally* unable to fail on the one that walks and has teeth on the one that
@@ -632,13 +632,13 @@ pub const SPEC_ROWS: usize = 32;
 ///   is about *the width being drawn*. It now reads `built_at()` off the state after
 ///   `crate::input::field_into` has drawn it.
 ///
-/// Row 17 was the one already carrying its population — 500 deterministic edits, because §11's own
+/// Row 17 was the one already carrying its population — 500 deterministic edits, because the original's
 /// defect agreed with a rebuild 499 times in 500 — and what it gained is that the population runs
 /// through `Text::insert` as well as through `Index::spliced`, and that the two report the same three
 /// numbers. **Four unsubjected became none**, and every row of this register is now `Evaluated` or
 /// `Unreachable` and nothing else.
 ///
-/// **The four `gate` strings are §21's own words and were left alone**, which is a rule this ticket
+/// **The four `gate` strings are the words and were left alone**, which is a rule this ticket
 /// nearly broke: extending row 15's to *at both ends and across an edit* and row 17's to *over five
 /// hundred edits* reads as clarification and is a **spec edit**, arriving as a one-line diff in this
 /// file, exactly what `tests::thirty_two_rows_are_the_specs_and_two_hundred_and_two_are_this_\
@@ -646,14 +646,14 @@ pub const SPEC_ROWS: usize = 32;
 ///
 /// **Production ticket 03 moved it from two hundred and twenty-two to two hundred and twenty-four,
 /// and neither of the two is an inversion — both are standings that had gone stale.** Rows 11 and 12
-/// are §21's own, `table`'s two, and both named components 15 as the ticket that would subject them;
+/// are the original's, `table`'s two, and both named components 15 as the ticket that would subject them;
 /// components 15 declared the component and did not edit the rows, and nothing left on any backlog
 /// was going to. The instruments were already there and already green — `crate::grid` has drawn
 /// through `crate::collect::table` since components 15 — so what this ticket added is the half that
 /// made each of them able to fail: row 11's sweep now asserts that its four declared column counts
 /// are **four different tables** before asserting they draw one screen, and carries the clip-only
 /// sweep beside it as the control that steps at every arm. **Six unsubjected became four**, and all
-/// four of those are on §21's table too — they are the field's, and production ticket 04 takes them.
+/// four of those are on the table too — they are the field's, and production ticket 04 takes them.
 ///
 /// **Components architecture 20 moved it from two hundred and twenty-eight to two hundred and
 /// twenty-nine**, and it is not an inversion: row 234 is a property the freeze had been asserting
@@ -673,7 +673,7 @@ pub const SPEC_ROWS: usize = 32;
 /// **Components ticket 46 moved it from two hundred and eighteen to two hundred and twenty**, and
 /// neither of the two is an inversion: rows 232 and 233 are the twenty-ninth component's — *stored
 /// state may be an anchor, never a phase*, and the playhead's cadence beside it. It is the last row
-/// of §17's freeze to be built, so **every row of that table is `built` from here on** and the four
+/// of the freeze to be built, so **every row of that table is `built` from here on** and the four
 /// populations that read the column — O1's, O2's, O3's and O7's — moved to twenty-nine with no edit
 /// to any of them.
 ///
@@ -690,7 +690,7 @@ pub const SPEC_ROWS: usize = 32;
 /// `crate::contract::Contract::live` is that machine — it runs the shipped component.
 pub const EVALUATED: usize = 229;
 
-/// Spec §21's register, row for row, and this ticket's gates beside it.
+/// The register, row for row, and this ticket's gates beside it.
 #[expect(
     clippy::large_const_arrays,
     reason = "a `static` is what the lint asks for and it would cost every reader of this table a \
@@ -8751,7 +8751,7 @@ pub const REGISTER: [Row; 234] = [
 ///
 /// `Task` holds three `Cell`s and a `PhantomData<*const ()>` brand, so a shared reference to one
 /// cannot cross a thread. That is what makes a component's async state the app thread's alone — spec
-/// §17's G10.
+/// G10.
 ///
 /// ```compile_fail,E0277
 /// use vitui_runtime::work::Task;
@@ -9106,10 +9106,10 @@ mod tests {
 
     /// **The split, not the total.**
     ///
-    /// §21's table is thirty-two rows and it is closed; everything after it is a gate a ticket on
+    /// The table is thirty-two rows and it is closed; everything after it is a gate a ticket on
     /// this lineage wrote. Asserting the split is what made the forty-fifth row — components ticket
     /// 05's matrix barrier — say which side of the line it is on, and a thirty-third row claiming to
-    /// be §21's is a spec change, which should not be able to arrive as a one-line diff in this
+    /// be one of them is a design change, which should not be able to arrive as a one-line diff in this
     /// file.
     #[test]
     fn thirty_two_rows_are_the_specs_and_two_hundred_and_two_are_this_lineages() {
@@ -9204,7 +9204,7 @@ mod tests {
     /// R15's refinement 1. There is no way to decide from the outside whether a number belongs to
     /// the mechanism or to the data, so what is checked is that the row **says which**: a row whose
     /// gate is an inequality has to be a [`Kind::Relation`], and the one row that spells an
-    /// inequality out — `verbs <= writes`, §21's own example of *never verb equality across sizes* —
+    /// inequality out — `verbs <= writes`, the example of *never verb equality across sizes* —
     /// is the case this catches.
     #[test]
     fn an_inequality_is_never_filed_as_an_equality() {
@@ -9264,7 +9264,7 @@ mod tests {
 
     /// **`vitui-alloc-probe` is the only counting allocator in the workspace.**
     ///
-    /// §19's finding: twelve component prototypes each hand-rolled one. The scan is over every `.rs`
+    /// The finding: twelve component prototypes each hand-rolled one. The scan is over every `.rs`
     /// file in the repository — including the four detached workspaces, which `cargo test
     /// --workspace` cannot reach — for a `GlobalAlloc` implementation, and there must be exactly one.
     ///
@@ -9362,7 +9362,7 @@ mod tests {
     /// the repertoire. Spec §13 says the same in as many words: *§16 owns the lookup; the branch is
     /// two `match`es and a 16-entry array in the component crate.*
     ///
-    /// Both cannot hold, and §21's own refinement 3 says what to do about it: **name the exception;
+    /// Both cannot hold, and the refinement 3 says what to do about it: **name the exception;
     /// do not loosen the gate.** So `crate::chart::raster::geom` is excepted by file name, and the number
     /// of occurrences in that file is asserted — a second file fails, and a fourth occurrence in
     /// this one fails. What is *not* excepted is the thing row 26 is actually about: no private
@@ -9488,7 +9488,7 @@ mod tests {
 
     /// **This lineage carries at least one `*_numbers.rs` example.**
     ///
-    /// §21's table records **0 against the runtime's 19** at the branch point. The convention is the
+    /// The table records **0 against the runtime's 19** at the branch point. The convention is the
     /// runtime's: a file in `examples/` named `<subject>_numbers.rs` that prints the numbers a human
     /// reads and asserts the **shape** — counts, so that a report which has quietly started measuring
     /// something smaller fails instead of looking good.

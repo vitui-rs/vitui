@@ -1,7 +1,6 @@
 //! What the terminal reported, and nothing it did not.
 //!
-//! Six event variants, one owned type, no borrow across the seam. See spec §9 and
-//! `docs/adr/0007-the-input-model-is-honest-about-the-terminal.md`.
+//! Six event variants, one owned type, no borrow across the seam.
 //!
 //! # The two conveniences that are deliberately absent
 //!
@@ -25,8 +24,7 @@
 //! **Consecutive mouse moves coalesce.** An intermediate pointer position carries no intent — it says
 //! only where the pointer was on the way — and an unbounded queue fed by a waving hand is the one
 //! path by which a terminal can eat an application's memory. A press, a release, a wheel turn, a
-//! keystroke and a resize all express something the user meant and are **never** dropped. See
-//! `docs/adr/0008-intent-is-never-dropped-position-is.md`.
+//! keystroke and a resize all express something the user meant and are **never** dropped.
 //!
 //! **The queue grows and nothing caps it.** A terminal without bracketed paste delivers a pasted
 //! megabyte as key events, so the growth is real; it is bounded by the paste and drains itself.
@@ -43,8 +41,8 @@
 //! - **No protocol has a "the mouse left the terminal" event**, so a hover highlight can stick.
 //!   Synthesising one from focus loss was refused for the same reason as the synthetic release.
 //!
-//! The first and third are claims about other people's software and spec §15 lists them as
-//! unverified. They are written here as the reason for a shape, not as facts about any terminal.
+//! The first and third are claims about other people's software and are unverified. They are
+//! written here as the reason for a shape, not as facts about any terminal.
 //!
 //! # This module reaches for nothing in the crate, and that is load-bearing
 //!
@@ -65,17 +63,16 @@ pub(crate) mod parse {
     //!
     //! # Why this is ours rather than crossterm's
     //!
-    //! ADR 0001 keeps crossterm for raw mode, the tty test and the terminal's size, and crossterm's own
+    //! crossterm is kept for raw mode, the tty test and the terminal's size, and its own
     //! parser is unreachable for the one reason that decides it: it comes bundled with a reader.
     //! `crossterm::event::read` opens `/dev/tty` itself and registers `SIGWINCH` on the same poll, and
     //! there is no door into the parser without the fd. Detection already holds the one reader this
     //! process has (`crate::detect::Tty`), and a second reader of the same terminal steals bytes from
     //! the first — silently, and only under load.
     //!
-    //! Architecture ticket 10 asked for the other half of the same thing: *the input thread is testable
-    //! without a tty by feeding byte sequences to the parser*. A parser that owns no file descriptor is
-    //! what makes register entry #16 — five adversarial splits — a cheap assertion rather than a pty
-    //! fixture.
+    //! The other half of the same thing is that *the input thread is testable without a tty by
+    //! feeding byte sequences to the parser*. A parser that owns no file descriptor is what makes
+    //! five adversarial byte splits a cheap assertion rather than a pty fixture.
     //!
     //! # Incremental, because a pty splits where the kernel felt like splitting
     //!
@@ -224,8 +221,8 @@ pub(crate) mod parse {
         /// How many bytes this parser is holding, and how many it has reserved to hold them.
         ///
         /// Both halves, because the buffers are **reused** rather than freed: one that was cleared
-        /// and not shrunk has a length of zero and every byte it ever saw still committed. §14's
-        /// second target has *no unbounded growth* as one of its three oracles, and that is a claim
+        /// and not shrunk has a length of zero and every byte it ever saw still committed. The
+        /// second fuzz target has *no unbounded growth* as one of its three oracles, and that is a claim
         /// about the second number as much as the first.
         ///
         /// The `utf8` array is not counted: it is four inline bytes and it is why the parser is
@@ -923,8 +920,8 @@ pub(crate) mod parse {
         ///
         /// Absent means "no modifiers, a press", which is what every legacy terminal means by
         /// sending nothing. **A terminal that never sends the second sub-parameter never yields
-        /// `Repeat` or `Release`** — that is register entry #13, and it is this line rather than a
-        /// rule written down somewhere.
+        /// `Repeat` or `Release`**, and this line is where that is decided rather than a rule
+        /// written down somewhere.
         fn modifiers(&self, n: usize) -> (Mods, KeyKind) {
             let mods = self.sub(n, 0).map_or(Mods::NONE, Mods::from_csi);
             let kind = match self.sub(n, 1) {
@@ -952,7 +949,7 @@ pub(crate) mod parse {
 /// Something the terminal reported.
 ///
 /// **Owns everything.** [`Screen::next_event`](crate::Screen::next_event) is
-/// `&mut self -> Option<Event>`, fixed by spec §12's seam, and a returned value cannot borrow the
+/// `&mut self -> Option<Event>`, and a returned value cannot borrow the
 /// queue it came from. The only variant that allocates is [`Event::Paste`], which is also the rare
 /// one.
 /// # Exhaustive, where the wire's own vocabulary is not
@@ -1358,8 +1355,8 @@ impl std::fmt::Debug for Mods {
 ///
 /// **A grapheme cluster and never a `char`**, because kitty flag 16 reports the *codepoints* a key
 /// would produce, which is a sequence: a dead-key accent, an Indic conjunct and an IME commit all
-/// arrive as more than one scalar for one keystroke. Spec §3's constraint on a cell applies here for
-/// the same reason.
+/// arrive as more than one scalar for one keystroke — the same reason a cell holds a cluster
+/// rather than a `char`.
 ///
 /// **Inline and never a `String`**, because a keystroke must not allocate — asserted through the
 /// counting allocator rather than reviewed.
@@ -1431,8 +1428,8 @@ impl KeyText {
     /// hold — and a `char` cannot reach it.
     ///
     /// It is public because the layer above could not otherwise **test** the half of a binding that
-    /// reads `text` — runtime architecture issue 28, where `vitui_runtime::keys::On::Typed` had no
-    /// positive test in its own crate for want of any way to build the key that would match one.
+    /// reads `text`: `vitui_runtime::keys::On::Typed` had no positive test in its own crate for
+    /// want of any way to build the key that would match one.
     ///
     /// **No `&str` constructor is offered**, and not for want of a use: a multi-scalar cluster is a
     /// dead key, an Indic conjunct or an IME commit, none of which any binding compares against, so
@@ -1462,7 +1459,7 @@ impl KeyText {
 
     /// Append one scalar, or **empty the whole thing** when it will not fit.
     ///
-    /// Clamp-and-discard as ADR 0022 asks for everywhere else, with the discard taken whole: half a
+    /// Clamp-and-discard, as everywhere else in this crate, with the discard taken whole: half a
     /// grapheme cluster is not a shorter cluster, it is a different one, and a text field that
     /// received the first half of a dead-key sequence is worse than one that received nothing. The
     /// keystroke itself is never lost — [`Key::code`] is unaffected.
@@ -1526,7 +1523,7 @@ pub enum MouseKind {
 
 /// A wheel notch, which is a direction.
 ///
-/// Spec §9 sketched this as `Delta`, and the name did not survive contact: the 1006 encoding reports
+/// This was sketched as `Delta`, and the name did not survive contact: the 1006 encoding reports
 /// one notch per event and carries no magnitude at all, so a type called `Delta` would promise a
 /// number no terminal sends. An application that wants acceleration counts the notches, with the
 /// timestamps it already has.
@@ -1712,9 +1709,8 @@ impl Event {
     ///
     /// Every event **is** stamped at read time — the input thread takes one [`Instant`] per read and
     /// hands it to the parser — and three of the six have a field to keep it in. [`Event::Resize`],
-    /// [`Event::FocusGained`] and [`Event::FocusLost`] are spec §9's `Resize(u16, u16)` and two unit
-    /// variants, and widening them to carry a timestamp nobody has asked for would be the first
-    /// place this type stopped being §9's.
+    /// [`Event::FocusGained`] and [`Event::FocusLost`] carry a size and nothing, and widening them
+    /// to hold a timestamp nobody has asked for would be paying for a field on every event.
     ///
     /// The stamp exists because **the app thread cannot recover it**: between the read and the
     /// handler sit the frame clock's hold — 7.3 ms at 120 Hz — and the application's own slowness.
@@ -1757,8 +1753,8 @@ pub enum MouseMode {
 /// nothing.
 ///
 /// Focus reporting and paste are off by default because each converts an idle application into a
-/// woken one — focus reporting on every alt-tab, motion tracking on every pointer move — and spec
-/// §11's standing requirement is that an idle application costs nothing.
+/// woken one — focus reporting on every alt-tab, motion tracking on every pointer move — and the
+/// standing requirement is that an idle application costs nothing.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub struct InputConfig {
     /// The floor on mouse reporting.
@@ -1834,8 +1830,8 @@ impl Queue {
     /// A keystroke may not allocate, and a `VecDeque` allocates when it grows — so the capacity is
     /// taken once, at `attach`, where allocation is permitted. It is a floor and not a cap: **the
     /// queue grows and nothing bounds it**, because a terminal without bracketed paste delivers a
-    /// pasted megabyte as key events and dropping the oldest would repeal ADR 0008 for a case that
-    /// resolves in seconds.
+    /// pasted megabyte as key events, and dropping the oldest would throw away intent for a case
+    /// that resolves in seconds.
     const CAPACITY: usize = 256;
 
     pub(crate) fn new() -> Queue {
@@ -1849,7 +1845,8 @@ impl Queue {
 
     /// Add one event, coalescing it into the last if both are pointer motion.
     ///
-    /// **This is the whole of ADR 0008.** A press, a release, a wheel turn, a keystroke and a resize
+    /// **This is the whole of *intent is never dropped, position is*.** A press, a release, a wheel
+    /// turn, a keystroke and a resize
     /// all express something the user meant and fall through to the push; an intermediate pointer
     /// position says only where the pointer was on the way, and the newer one supersedes it whole —
     /// position, buttons, modifiers and timestamp.
@@ -1923,7 +1920,7 @@ impl Queue {
         inner.diagnostics.last.extend_from_slice(last);
     }
 
-    /// How many events are waiting. The gate for register entry #14 is a count, so this exists.
+    /// How many events are waiting. The gate over the queue is a count, so this exists.
     #[cfg(test)]
     pub(crate) fn len(&self) -> usize {
         self.lock().events.len()

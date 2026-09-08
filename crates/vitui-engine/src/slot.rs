@@ -1,8 +1,8 @@
 //! `Slot<T>`: what is offered instead of blocking.
 //!
-//! Spec §11's last section is one sentence long — *what is offered instead of blocking is
+//! The last section is one sentence long — *what is offered instead of blocking is
 //! [`WakeHandle`](crate::WakeHandle) and a `Slot<T>` whose only accessor is a non-blocking
-//! [`take`](Slot::take)* — and §12's refusal 7 is what it costs: **there is no `recv`, no `wait`, no
+//! [`take`](Slot::take)* — and the refusal 7 is what it costs: **there is no `recv`, no `wait`, no
 //! `Future` and no completion returned by anything on the app-thread side.** That absence is the
 //! second compile-time rung of the unblockable app thread, and it is checkable by reading the API
 //! rather than by running anything. `crate::gates::every_blocking_receive_in_the_crate_is_outside_the_app_threads_loop` is the half a
@@ -31,10 +31,10 @@
 //! writing it here: the three lines an application would write instead are `Receiver::recv`,
 //! `Condvar::wait` or `block_on`, and each of those is a frozen interface. A named, shipped,
 //! documented type with **no blocking accessor on it** is what makes the cheap thing the obvious
-//! thing — and §11's lint fragment names `std::sync::mpsc::Receiver::recv` and
+//! thing — and the lint fragment names `std::sync::mpsc::Receiver::recv` and
 //! `std::sync::Mutex::lock` for the application that reaches past it anyway.
 //!
-//! The lock inside is not a contradiction, and the distinction is the whole of §11's definition of
+//! The lock inside is not a contradiction, and the distinction is the whole of the definition of
 //! the offence: **what freezes an interface is waiting for work that has not happened**, not
 //! waiting for a `memcpy` that is already running. This lock is held for one move of one value and
 //! never across anything that can block, so its worst case is the length of a `mem::replace` on
@@ -68,7 +68,7 @@ use std::sync::{Mutex, PoisonError};
 ///
 /// [`put`](Slot::put) answers with whatever it displaced. A slot is not a queue — a queue that the
 /// app thread drains at frame rate is a queue that grows without bound when the producer is faster,
-/// which is spec §7's backpressure question arriving on the application's side of the fence — so
+/// which is the backpressure question arriving on the application's side of the fence — so
 /// *latest wins* is the only policy that has no unbounded state in it. But a superseded value that
 /// merely vanished would be a `Drop` at a moment nobody chose, on a thread nobody chose, and that is
 /// exactly the class of thing this crate does not do to its caller. So it comes back, on the worker's
@@ -110,7 +110,7 @@ use std::sync::{Mutex, PoisonError};
 /// ```
 pub struct Slot<T> {
     /// **A `Mutex<Option<T>>`, and not an `AtomicPtr`.** The atomic version needs a `Box` per `put`
-    /// and one `unsafe` to get the value back out, and §12's refusal 12 is that there is no `unsafe`
+    /// and one `unsafe` to get the value back out, and the refusal 12 is that there is no `unsafe`
     /// in this crate. The lock is held for a `mem::replace` and the values that cross here are
     /// whole results — one per frame at the very most, against a frame that is 16.6 ms long.
     held: Mutex<Option<T>>,
@@ -142,7 +142,7 @@ impl<T> Slot<T> {
     /// Take the value if there is one, and answer at once if there is not.
     ///
     /// The **only** accessor. There is no blocking twin of this function anywhere, which is the
-    /// property §12's refusal 7 is about.
+    /// property the refusal 7 is about.
     pub fn take(&self) -> Option<T> {
         self.lock().take()
     }

@@ -1,6 +1,6 @@
 //! Identity: where a name that survives between frames comes from.
 //!
-//! Spec §5; ADR 0013 (an `Id` may never be persisted). **The source is the call site.**
+//! An `Id` may never be persisted. **The source is the call site.**
 //! `#[track_caller]` gives the caller's `file:line:col` — stable across frames, unique per call site,
 //! and free at run time because it is a `&'static Location`.
 //!
@@ -172,7 +172,7 @@ impl Id {
 struct Slot {
     id: u64,
     /// Which frame claimed it. **Compared against the table's stamp**, which is why the table is
-    /// never cleared — and why a `Frame` that was never begun would hang without ticket 08's two
+    /// never cleared — and why a `Frame` that was never begun would hang without the two
     /// remedies.
     stamp: u32,
 }
@@ -185,7 +185,7 @@ struct Slot {
 /// **13.20× for 4× the widgets**. This is **1.1 ns** and **3.95×**. Duplicate detection is part of the
 /// design rather than a debug aid, so it had to be affordable on every frame at every widget.
 ///
-/// **Stamped rather than cleared**, which is what makes ticket 08's `begin` obligation an obligation:
+/// **Stamped rather than cleared**, which is what makes the `begin` obligation an obligation:
 /// a table whose stamp matches every slot has no free slot, and a naive probe walks the ring for
 /// ever.
 #[derive(Clone, Debug)]
@@ -249,7 +249,7 @@ impl IdTable {
     /// Claim an id for this frame.
     ///
     /// `None` means **the id is already claimed** — a merge. The policy is that **the first claimant
-    /// wins and the second is inert**, which is why ticket 13's overlay id is handed over rather than
+    /// wins and the second is inert**, which is why an overlay's id is handed over rather than
     /// derived: a widget that wanted to own something and lost has to be told, and the way it is told
     /// is that its `Response` does nothing.
     ///
@@ -633,7 +633,7 @@ mod tests {
 /// ```
 ///
 /// **Protects:** `Id`. This type is a `#[cfg(doc)]` marker that exists only to hold the pair, so the
-/// item a rename would move is `Id` and not the marker. Ticket 19's twin gate reads this line.
+/// item a rename would move is `Id` and not the marker. The twin gate reads this line.
 ///
 /// and the twin, which is the one collection an `Id` belongs in — keyed within a frame, thrown away
 /// with it:
@@ -649,6 +649,6 @@ mod tests {
 ///
 /// **The file pointer is an address**, so an `Id` differs between two runs of the same binary. An
 /// ordering would invite a `BTreeMap` keyed on one, and a `BTreeMap` that outlives a frame is a
-/// stored value with extra steps — which is the thing ADR 0013 forbids.
+/// stored value with extra steps — which is the thing this type forbids.
 #[cfg(doc)]
 pub struct WhyAnIdIsNotOrdered;

@@ -27,7 +27,7 @@ use crate::sweep;
 
 /// A hyperlink's identity, stable for the life of the table that minted it.
 ///
-/// **Crate-internal, and that is architecture ticket 21's answer.** It was public and opaque, minted
+/// **Crate-internal, and that is architecture the answer.** It was public and opaque, minted
 /// by `Screen::link`, and the URI now travels at the drawing verb instead — see
 /// [`Link`](crate::Link). Nothing outside this crate holds one, so the question the ticket was asked
 /// about cannot be posed: there is no second mint, no second handle space for a caller to confuse
@@ -35,7 +35,7 @@ use crate::sweep;
 /// the table it is used against. `crate::audit::REFUSED_NAMES` is where the absence is gated.
 ///
 /// It is also one exception fewer to argue about
-/// `docs/adr/0023-the-cell-is-never-visible-in-the-public-api.md`: §12's refusal 11 — *no cells, no
+/// `docs/adr/0023-the-cell-is-never-visible-in-the-public-api.md`: the refusal 11 — *no cells, no
 /// grapheme handles, no style bits* — now holds with nothing beside it.
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Hash, Default)]
 pub(crate) struct LinkId(u32);
@@ -141,7 +141,7 @@ impl ExtStyle {
 #[derive(Debug, Default)]
 pub(crate) struct ExtStyles {
     /// Indexed by handle. A handle is stable until [`compact`](ExtStyles::compact) renumbers it,
-    /// which is spec §3's mark-and-compact sweep and happens where allocation is already permitted,
+    /// which is the mark-and-compact sweep and happens where allocation is already permitted,
     /// never inside a frame.
     ///
     /// **This is the table that can grow without bound**, and the only one: a caller whose
@@ -155,7 +155,7 @@ pub(crate) struct ExtStyles {
     /// How many entries this table has ever minted, **never reset by a sweep**.
     ///
     /// [`len`](ExtStyles::len) answers how much the table holds *now*, which after a sweep is a
-    /// different question — and *entries created* is the number spec §3's growth table is made of:
+    /// different question — and *entries created* is the number the growth table is made of:
     /// 96 over 120 settled frames against 11 484 fading. Measuring that as a length delta measures
     /// the sweep instead, because a table that grows by 96 a frame and is swept back every third
     /// frame has a length delta of about nothing while creating 96 a frame.
@@ -198,7 +198,7 @@ impl ExtStyles {
 
     /// How many entries this table has ever minted, however many it holds now.
     ///
-    /// What spec §3's growth table counts. See [`ExtStyles::minted`].
+    /// What the growth table counts. See [`ExtStyles::minted`].
     #[cfg(test)]
     pub(crate) fn minted(&self) -> u64 {
         self.minted

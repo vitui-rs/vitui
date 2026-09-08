@@ -2,7 +2,7 @@
 //! engine.
 //!
 //! This is the primitive every hostile-axis ticket on the backlog is written against. Three of
-//! spec §17's four axes were caught **only** by an equality against a reference render, and every
+//! the four axes were caught **only** by an equality against a reference render, and every
 //! one of them made the defective build look *healthier* — the inverted scroll drew nothing at
 //! **12.21 us against 62.96**, the stale tail is **71 of 80 rows** with the defective build **2.3x
 //! faster marking 226x less**, and twenty wheel clicks moved the offset **0 against 16**. No counter
@@ -21,7 +21,7 @@
 //!    `#[cfg(any(test, feature = "fuzz"))]`. `cfg(test)` is set only when the engine is compiled as
 //!    a test target *of itself*, and the `fuzz` feature is off by default and reachable only from
 //!    `fuzz/`, which is a detached workspace. A dependency never sees the module at all.
-//! 3. **This crate cannot name `vitui_engine`.** Components spec §0's constraint C6: the
+//! 3. **This crate cannot name `vitui_engine`.** Components the constraint C6: the
 //!    `[dependencies]` table is `vitui-runtime` and nothing else, gated by
 //!    `line::tests::the_components_manifest_names_only_the_runtime` one crate down and by
 //!    `deny.toml`'s `{ name = "vitui-engine", wrappers = ["vitui-runtime", "vitui"] }`. A
@@ -113,7 +113,7 @@ pub struct Cell {
 /// exactly the cells the shrink axis is about.
 /// # It is also the only instrument that can answer *how much of this frame was a change*
 ///
-/// `marked` — spec §20's damaged-cell count — is [`crate::counters::Reading::Unreachable`] and
+/// `marked` — the damaged-cell count — is [`crate::counters::Reading::Unreachable`] and
 /// stays that way: `crates/vitui-engine/src/damage.rs` is `pub(crate)` throughout and `Presented`
 /// carries no count, so nothing above the engine can read the engine's damage. What **is** knowable
 /// from here is the rule that decides it: *the engine filters a write whose value equals the cell's
@@ -255,7 +255,7 @@ impl Canvas {
     /// The engine's damage is a per-row **bitset** and this is deliberately the other structure:
     /// `crates/vitui-engine/src/damage.rs` measured *one span per surface row* and rejected it —
     /// 2.53x on three dialogs standing apart, 37.07x on a sub-cell chart, against 1.00x everywhere
-    /// for the bitset. Spec §2's x8.4 amplification and §21's scene 19 are stated **under the model
+    /// for the bitset. The x8.4 amplification and the scene 19 are stated **under the model
     /// that lost**, so a scene that has to report an amplification factor needs both numbers over
     /// one frame: [`Canvas::repaints`] is what the shipped structure charges and the sum of these
     /// spans is what the other one would have.
@@ -446,8 +446,8 @@ impl fmt::Display for Diff {
 /// **after clipping**, so the extent of every write comes from the engine. Where the columns are is
 /// this crate's arithmetic: the verb started at `x` and ran for `cells` columns. That is exact for a
 /// verb that starts inside its context and wrong by the discarded prefix for one that starts left of
-/// the clip — ADR 0022's clamp-and-discard, and [`Tally`] states the same caveat for the same reason.
-/// A fixture drawing outside its own rectangle is already failing spec §2's partition rule, which is
+/// the clip — the clamp-and-discard, and [`Tally`] states the same caveat for the same reason.
+/// A fixture drawing outside its own rectangle is already failing the partition rule, which is
 /// what the tally beside the canvas is measuring.
 #[derive(Debug)]
 pub struct Pen {
@@ -631,7 +631,7 @@ fn clusters(s: &str, limit: u16) -> Vec<(u16, u16, &str)> {
 ///
 /// # It is small on purpose
 ///
-/// §21's scenes are stated at a million rows and 5 475 600 pairs. Those magnitudes live on
+/// The scenes are stated at a million rows and 5 475 600 pairs. Those magnitudes live on
 /// [`crate::scenes::Scene`], which is a value describing a screen; a fixture is what a test actually
 /// stands up, and the reference arm is `w * h` calls to `Ctx::set` a frame. The scene says how big
 /// the screen was; the fixture says how big this run is.
@@ -694,7 +694,7 @@ impl Fixture {
         }
     }
 
-    /// **Less content, in the same rectangle.** The `shrunk` gesture, in §21's own spelling.
+    /// **Less content, in the same rectangle.** The `shrunk` gesture, in the spelling.
     pub fn shrunk_to(&self, rows: usize) -> Fixture {
         let mut next = self.clone();
         next.rows.truncate(rows);
@@ -829,7 +829,7 @@ pub mod defective {
     /// **The stale tail: 71 of 80 rows, the defective build 2.3x faster marking 226x less.**
     ///
     /// It stops when it runs out of content instead of clearing the rest of its rectangle, so what
-    /// stays on screen is the previous frame — spec §2's *no cell never*, from the direction no
+    /// stays on screen is the previous frame — *no cell never*, from the direction no
     /// counter watches. Visible only across two frames, which is why [`super::play`] takes a
     /// sequence of steps and does not clear the surface between them.
     pub fn stale_tail(pen: &mut Pen, cx: &mut Ctx<'_, '_>, fx: &Fixture) {
@@ -850,7 +850,7 @@ pub mod defective {
         super::rows_at_a_time(pen, cx, &fx.scrolled_to(0));
     }
 
-    /// **Green at 300x80 and red at 60x20** — §13's overlap, the one axis on which a component's
+    /// **Green at 300x80 and red at 60x20** — the overlap, the one axis on which a component's
     /// construction changes rather than its contents.
     ///
     /// Below twenty columns it reserves two columns for an affordance and never writes them, so the
@@ -923,7 +923,7 @@ impl Run {
 
 /// **`us / marked / writes / verbs / regions / stops / allocations`, in one line.**
 ///
-/// So that a later ticket's numbers are comparable with §21's without re-deriving the format.
+/// So that a later ticket's numbers are comparable with the without re-deriving the format.
 ///
 /// # `marked` prints `unreachable`, and printing `0` there would be the defect this file is about
 ///
@@ -932,7 +932,7 @@ impl Run {
 /// `submitted`, `coalesced` and `discarded_for_resize` and no count of cells. So
 /// [`Counters::marked`] is [`crate::counters::Reading::Unreachable`] and this row prints the word.
 ///
-/// A `0` there would be worse than a gap in exactly the way §21's first refinement describes: *a
+/// A `0` there would be worse than a gap in exactly the way the first refinement describes: *a
 /// threshold on the wrong side of the question is not a weak gate, it is a green one*. Two of the
 /// four axes were established by a build that **marked less** — the stale tail marks 226x less than
 /// the correct one — so a report showing `marked=0` next to a healthy-looking microsecond figure is
@@ -963,7 +963,7 @@ impl MetricRow {
 
     /// The seven columns, without the scene's name in front of them.
     ///
-    /// [`crate::scenes::report`] puts §21's own numbering and wording there instead, so that a scene
+    /// [`crate::scenes::report`] puts the numbering and wording there instead, so that a scene
     /// the report can only name lines up under the same headings as one it can measure.
     pub fn columns(&self) -> String {
         let micros = self.elapsed.as_secs_f64() * 1e6 / f64::from(self.frames.max(1));
@@ -985,7 +985,7 @@ impl MetricRow {
         )
     }
 
-    /// The line, in §21's column order, with the scene's name in front of it.
+    /// The line, in the column order, with the scene's name in front of it.
     pub fn line(&self) -> String {
         format!("{:<52}  {}", self.scene, self.columns())
     }
@@ -1004,7 +1004,7 @@ pub fn metric_heading() -> String {
 /// The surface persisting across steps is the mechanism, not an optimisation. The stale tail is a
 /// defect *of the second frame given the first*, and a runner that started each step from a blank
 /// surface would score it clean — the same way `Gallery::resize` scores clean by allocating a new
-/// `Surface`, which is §21's own reason for not banking that gate.
+/// `Surface`, which is the reason for not banking that gate.
 ///
 /// # Panics
 ///
@@ -1182,7 +1182,7 @@ mod tests {
     /// **The two correct arms agree cell for cell**, which is what makes every disagreement below
     /// evidence about the painter rather than about the runner.
     ///
-    /// §21's scene 2, in its own words: *the same screen drawn naive and correct* — 0 of 24 000 cells
+    /// The scene 2, in its own words: *the same screen drawn naive and correct* — 0 of 24 000 cells
     /// apart. This is the same equality over a fixture small enough for a per-cell oracle.
     #[test]
     fn the_same_screen_drawn_both_ways_is_equal_cell_for_cell() {
@@ -1242,7 +1242,7 @@ mod tests {
 
     /// **The stale tail: 71 of 80 rows, and it needs two frames to be visible at all.**
     ///
-    /// §21's spelling of the shrink axis: *content shrinking inside a rectangle that does not move*.
+    /// The spelling of the shrink axis: *content shrinking inside a rectangle that does not move*.
     /// The rectangle here is 40x80 on both frames and only the content changes, which is the
     /// distinction the terminal-resize spelling cannot make.
     #[test]
@@ -1386,7 +1386,7 @@ mod tests {
 
     /// **The metric row prints `marked=unreachable` and never `marked=0`.**
     ///
-    /// §21's first refinement, as a string: *a threshold on the wrong side of the question is not a
+    /// The first refinement, as a string: *a threshold on the wrong side of the question is not a
     /// weak gate, it is a green one*. Two of the four axes marked **less** than the correct build,
     /// so a `0` in this column beside a healthy microsecond figure is the defective build's own
     /// self-portrait.

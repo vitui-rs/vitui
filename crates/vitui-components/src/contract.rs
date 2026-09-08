@@ -2,11 +2,11 @@
 //! from that data, and a sweep that asks the machine what it actually takes.**
 //!
 //! > O4 — a declared keyboard contract, rendered as help | equality (documented == R12-registered),
-//! > plus §21's walkthrough and *a chord types nothing*.
+//! > plus the walkthrough and *a chord types nothing*.
 //!
 //! Three checks, and this module carries the first. The other two were already green when it was
 //! written and are cited here rather than rebuilt: the walkthrough is register rows 34 and 88 —
-//! *the walk repeats no id, and reaches every stop unless a trap is standing*, with
+//! *The walk repeats no id, and reaches every stop unless a trap is standing*, with
 //! `Frame::trap_scopes` naming the modal exception rather than the gate being loosened — and *a
 //! chord pressed into every focusable types nothing* is row 5, over [`crate::keys::TEXT_BEARING`]'s
 //! seven and over a real [`crate::input::form`].
@@ -171,7 +171,7 @@ pub struct Bind {
     /// **The modifiers this binding is deaf to**, and it is `Shift` almost everywhere it is not
     /// `NONE`.
     ///
-    /// Spec §3's rule is that [`crate::keys::SIGNIFICANT`] is `CTRL | ALT` and **Shift is
+    /// The rule is that [`crate::keys::SIGNIFICANT`] is `CTRL | ALT` and **Shift is
     /// deliberately not in it**, because a capital is what Shift is for. A component that filters a
     /// key through [`crate::keys::is_chord`] and then matches on `code` therefore answers `Shift+X`
     /// exactly as it answers `X` — by construction and not by accident — so the sweep finds two
@@ -349,7 +349,7 @@ pub const CODES: [Code; 16] = [
 
 /// **The modifier states a code is swept at.**
 ///
-/// `Ctrl+Shift` is in it because §5's `Mode::Multi` binds it and because a component that read
+/// `Ctrl+Shift` is in it because the `Mode::Multi` binds it and because a component that read
 /// `Ctrl` without masking `Shift` would take it silently. `Alt` is in it for the opposite reason:
 /// **nothing on this map binds it**, so an `Alt` that lands anywhere is a component reading a
 /// modifier byte it does not own.
@@ -596,7 +596,7 @@ mod live {
 
     /// **A collection is swept twice, with a selection and without** — architecture issue 22.
     ///
-    /// `Escape` is answered only when there is something to clear. It is the one chord in §5's table
+    /// `Escape` is answered only when there is something to clear. It is the one chord in the table
     /// whose default owner is the *container* rather than the widget, so a collection with nothing
     /// selected declines it and a modal dialog gets its key. A sweep that only ever drives a fresh
     /// [`CollState`] therefore reports the binding dead, which is a gate playing a conditional
@@ -854,7 +854,7 @@ mod live {
 
     /// **`select`'s two frames — three when the popup is the subject — written out.**
     ///
-    /// The generic [`probe`] cannot reach this family, and the reason is spec §1's own sentence
+    /// The generic [`probe`] cannot reach this family, and the reason is the sentence
     /// about the fifth component: `Ctx::overlay`'s body outlives the base pass, so a popup's state
     /// and its options are `&'f mut` and `&'f`. A draw closure of the shape
     /// `FnMut(&mut Pen, &mut Ctx<'_, '_>, &mut S)` hands its state a lifetime **shorter** than the
@@ -1164,7 +1164,7 @@ mod live {
 
 // ── the declaration ──────────────────────────────────────────────────────────────────────────────
 
-/// A key bind that answers `Shift` too — §3's rule, and [`Bind::ignores`]'s whole subject.
+/// A key bind that answers `Shift` too — the rule, and [`Bind::ignores`]'s whole subject.
 const fn key(code: Code, action: ActionId, help: &'static str) -> Bind {
     Bind {
         trigger: Trigger::Key(Chord::new(code)),
@@ -1236,10 +1236,10 @@ const fn click(mods: Mods, action: ActionId, help: &'static str) -> Bind {
 /// them at compile time.
 const CTRL_SHIFT: Mods = Mods::CTRL.with(Mods::SHIFT);
 
-/// **§5's collection: the arrows, the two selection chords, and the type-ahead.**
+/// **The collection: the arrows, the two selection chords, and the type-ahead.**
 ///
-/// Shared verbatim by `table` and `tree`, which *call* `collection_into` — spec §6's *a table is a
-/// collection plus a column split* and §7's *a tree is a collection plus a flatten index* — so
+/// Shared verbatim by `table` and `tree`, which *call* `collection_into` — *a table is a
+/// collection plus a column split* and *a tree is a collection plus a flatten index* — so
 /// three rows of the freeze declare one list and `tests::the_three_collections_declare_one_contract`
 /// is what says they still do.
 const COLLECTION_FULL: &[Bind] = &[
@@ -1332,11 +1332,11 @@ const PAGER_BINDS: usize = 21;
 /// `tests::the_three_collections_declare_the_pager_plus_the_listing` takes it off the same slice.
 const COLLECTION: &[Bind] = COLLECTION_FULL.split_at(PAGER_BINDS).0;
 
-/// **§12's overlay family: the owner's four, and the popup's list underneath them.**
+/// **The overlay family: the owner's four, and the popup's list underneath them.**
 ///
 /// A component with two keyboards, and the contract is the **union** because a help bar is about a
 /// component and not about one of its states: shut, the owner's drain loop runs; open, *the popup
-/// takes the keyboard from its owner* (components 26), and what answers is §5's collection at
+/// takes the keyboard from its owner* (components 26), and what answers is the collection at
 /// `Mode::Single` plus the popup's own `Enter` and `Esc`. Three lines therefore name both meanings,
 /// because one spelling does two things across the two states.
 ///
@@ -1408,7 +1408,7 @@ const SELECT: &[Bind] = &[
     click(CTRL_SHIFT, 26, "Add the range up to here"),
 ];
 
-/// **§11's field: the cluster steps, the edits, and the two chords it owns.**
+/// **The field: the cluster steps, the edits, and the two chords it owns.**
 ///
 /// Read at [`crate::edit::WrapKind::Words`], which is the configuration where the contract is
 /// whole — see `tests::the_break_rule_decides_two_of_the_fields_own_bindings`.
@@ -1437,7 +1437,7 @@ const FIELD: &[Bind] = &[
     key(Code::Char(' '), 19, "Type a space"),
 ];
 
-/// **§3's `nav::cursor` over a form's rows, and the arrows are what `Ctrl+G` takes away.**
+/// **The `nav::cursor` over a form's rows, and the arrows are what `Ctrl+G` takes away.**
 const FORM: &[Bind] = &[
     key(Code::Up, 1, "Previous field"),
     key(Code::Down, 2, "Next field"),
@@ -1453,13 +1453,13 @@ const FORM: &[Bind] = &[
     ),
 ];
 
-/// **§8's collapsible: the header, activated.**
+/// **The collapsible: the header, activated.**
 const COLLAPSIBLE: &[Bind] = &[
     key(Code::Enter, 1, "Open or close the section"),
     key(Code::Char(' '), 2, "Open or close the section"),
 ];
 
-/// **§14's slider: eight codes, and `Up` pairs with `Right` because a value grows upward.**
+/// **The slider: eight codes, and `Up` pairs with `Right` because a value grows upward.**
 const SLIDER: &[Bind] = &[
     key(Code::Right, 1, "Larger"),
     key(Code::Up, 2, "Larger"),
@@ -1634,13 +1634,13 @@ pub const REGISTERED: [(&str, usize); 13] = [
 /// **What a focusable gets for free, measured on the control arm. 10.**
 ///
 /// `Tab` and `BackTab` at all five modifier states, and nothing else: the focus walk takes them
-/// before a component sees them, which is §21's *`Tab` inside a trap* answered from the other side
+/// before a component sees them, which is *`Tab` inside a trap* answered from the other side
 /// — it is the runtime's key and no component's. Subtracted from all thirteen; see [`control`].
 pub const RUNTIMES_SHARE: usize = 10;
 
 /// **What `WrapKind` takes away from a field's contract. 3.**
 ///
-/// `Up`, `Down` and `Enter`, at `WrapKind::Ruler` — ADR 0042's *a field declines what it cannot act
+/// `Up`, `Down` and `Enter`, at `WrapKind::Ruler` — *a field declines what it cannot act
 /// on* as a number. Counted in spellings the three are six, because each ignores `Shift`.
 pub const RULER_REMOVES: usize = 6;
 
@@ -1685,7 +1685,7 @@ pub const PICKER_IS_MISSING: usize = 0;
 ///
 /// **The one that disappears is the one that works.** A sweep reading `Mode::Single` would report a
 /// collection deaf to `Ctrl` and fluent in the two gestures its own mode refuses, which is why the
-/// contract is read at `Mode::Multi` — §5's *click, ctrl-click, shift-click, `Space`, `Shift+↑/↓`,
+/// contract is read at `Mode::Multi` — *click, ctrl-click, shift-click, `Space`, `Shift+↑/↓`,
 /// `Ctrl+A`, `Escape`* is written about `Multi` in as many words.
 pub const SINGLE_KEEPS: usize = 2;
 
@@ -1887,8 +1887,8 @@ mod tests {
 
     /// **The three collections declare one contract and the pager declares its keys alone.**
     ///
-    /// §6's *a table is a collection plus a column split* and §7's *a tree is a collection plus a
-    /// flatten index* as an equality between three declarations, and §5's store without its row
+    /// *a table is a collection plus a column split* and *a tree is a collection plus a
+    /// flatten index* as an equality between three declarations, and the store without its row
     /// loop as the difference — `pagination` reaches `CollState` and the thirteen arms of `apply`
     /// and reaches neither the type-ahead nor `from_click` (components 35).
     #[test]
@@ -1984,7 +1984,7 @@ mod tests {
         assert!((field.live)(Trigger::Key(Chord::key('q'))));
     }
 
-    /// **§11's one flag takes three binds away, and the field declines them rather than eating
+    /// **The one flag takes three binds away, and the field declines them rather than eating
     /// them**.
     ///
     /// `Up`, `Down` and `Enter`: a one-row `input` has no row to step to and its `Enter` is the
@@ -2039,7 +2039,7 @@ mod tests {
     /// application.**
     ///
     /// Every one of them was a component matching on `k.code` with no modifier guard, and every one
-    /// of them was invisible to §21's *a chord pressed into every focusable types nothing* — moving
+    /// of them was invisible to *a chord pressed into every focusable types nothing* — moving
     /// a caret, opening a list and clearing a selection all type nothing. `Ctrl+Left` is the sharpest:
     /// it is what a user pressing for **word motion** means, and word motion is [`ABSENT`]'s one
     /// row, so the widget was swallowing the accelerator *and* answering it with a cluster.

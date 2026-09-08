@@ -1,16 +1,16 @@
 //! **F8 navigation**, ~35 entries, expressed by `collection` + `overlay`, and **no v1 component of
-//! its own** — plus spec §3's [`cursor`], the helper that decides *what a `Group` moves with*.
+//! its own** — plus the [`cursor`], the helper that decides *what a `Group` moves with*.
 //!
-//! The reduction is R1 and R3: §5's `Mode` absorbs tabs, the content switcher, the menu
-//! bar, the submenu and the command palette body, and §12's two axes absorb the popup that carries
+//! The reduction is R1 and R3: the `Mode` absorbs tabs, the content switcher, the menu
+//! bar, the submenu and the command palette body, and the two axes absorb the popup that carries
 //! them. The dock is v2.
 //!
 //! **An empty module is a claim and it is checked.** [`MEMBERS`] being empty is counted by
 //! `inventory::tests::the_module_tree_and_the_families_column_agree`, which runs the join in both
 //! directions. The one entry this family owes a ticket rather than a reduction is `command
 //! palette` — R3 over
-//! §5 and §12 with **no mechanism named as new**, which spec §18 says needs a ticket rather than an
-//! assertion. It is one of the two §18 exemplars that were not built.
+//! Two families with **no mechanism named as new**, which needs a decision rather than an
+//! assertion. It is one of the two exemplars that were not built.
 //!
 //! # `nav::cursor`'s placement is the decision, not its contents
 //!
@@ -18,7 +18,7 @@
 //! list would otherwise write for itself. What the helper decides is **where they live**: in the
 //! family module, called by a collection that has opened its own
 //! [`Group`](vitui_runtime::focus::ScopeKind::Group) scope — so *a list is one tab stop* is true of
-//! every list rather than of the lists whose author remembered. Spec §3 puts the number on it:
+//! every list rather than of the lists whose author remembered. The number is:
 //! **266 tab stops become 69** on C02's screen. [`STOPS_UNGROUPED`] and [`STOPS_GROUPED`] are what
 //! that measurement is on the screen this crate can actually stand up, and [`fixture`]'s
 //! documentation says why the two are not the same screen.
@@ -60,7 +60,7 @@ pub const MEMBERS: &[&str] = &[];
 ///
 /// **A page is a parameter and not a constant**, because it is the viewport's height in rows and
 /// only the caller knows that. A helper that guessed would be laying something out, which is the one
-/// thing no layer of this library does for its caller (ADR 0002, one crate down).
+/// thing no layer of this library does for its caller.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub struct Cursor {
     /// Which entry the cursor is on.
@@ -229,7 +229,7 @@ impl TypeAhead {
 /// Answers the index of the first label the buffer is a prefix of, or `None` when the key is not
 /// text or nothing matches. ASCII-case-insensitive, because a user typing at a list is not thinking
 /// about Shift — and *ASCII*, deliberately: a full Unicode case fold needs tables, and this crate's
-/// dependency list is `vitui-runtime` and nothing else (§19's C6).
+/// dependency list is `vitui-runtime` and nothing else (C6).
 ///
 /// # The `deadline_for` is the point of the function
 ///
@@ -279,7 +279,7 @@ pub fn matched(buf: &str, labels: &[&str]) -> Option<usize> {
     })
 }
 
-/// **Spec §3's helper: what a `Group` moves with.**
+/// **The helper: what a `Group` moves with.**
 ///
 /// [`step`] first, then [`seek`] — and the order is load-bearing rather than tidy. A list whose
 /// entries begin with `h`, `j`, `k` and `l` must still move on `Home`, and a reading that offered
@@ -349,7 +349,7 @@ pub struct Stops {
     pub walk: usize,
 }
 
-/// How many panels [`fixture`] stands up. Twelve, which is §8's accordion and §21's gallery.
+/// How many panels [`fixture`] stands up. Twelve, which is the accordion and the gallery.
 pub const PANELS: usize = 12;
 /// The smallest collection on [`fixture`]'s screen.
 pub const ROWS_MIN: usize = 4;
@@ -363,9 +363,9 @@ pub const CHROME: usize = 2;
 /// [`Group`](vitui_runtime::focus::ScopeKind::Group) scope, which is the entire difference the
 /// measurement is about.
 ///
-/// # Why it is not the screen spec §3 measured
+/// # Why it is not the screen that was measured
 ///
-/// §3's **266 tab stops become 69** is C02's twelve-panel gallery. When this fixture was written not
+/// **266 tab stops become 69** is C02's twelve-panel gallery. When this fixture was written not
 /// one of the components on it — `table`, `tree`, `select`, `form`, `pagination` — was declared
 /// here; all five are now, and the fixture stays anyway, because what it measures is the
 /// **identity** and not the screen. There is no way to stand C02's screen up from this crate and no
@@ -377,7 +377,7 @@ pub const CHROME: usize = 2;
 ///
 /// So the fixture is stated rather than fitted, and `examples/nav_numbers.rs` prints both columns.
 /// **What reproduces is the identity** — a collection is one tab stop, whatever it holds — and that
-/// is the claim §3's sentence makes; the magnitude is a property of a screen this ticket does not
+/// is the claim the sentence makes; the magnitude is a property of a screen this ticket does not
 /// own. A fixture aimed at a remembered number is a fixture that has stopped measuring anything.
 pub fn fixture(cx: &mut Ctx<'_, '_>, group: bool) {
     let band = cx.area();
@@ -447,9 +447,9 @@ pub const STOPS_GROUPED: usize = 36;
 /// screen whose contents had disappeared.
 pub const RING_ENTRIES: usize = 138;
 
-/// **Spec §3's figure, on C02's screen: 266 tab stops.** Recorded, not reproduced — see [`fixture`].
+/// **The figure, on C02's screen: 266 tab stops.** Recorded, not reproduced — see [`fixture`].
 pub const SPEC_UNGROUPED: usize = 266;
-/// **Spec §3's figure, on C02's screen: 69 tab stops.** Recorded, not reproduced — see [`fixture`].
+/// **The figure, on C02's screen: 69 tab stops.** Recorded, not reproduced — see [`fixture`].
 pub const SPEC_GROUPED: usize = 69;
 
 #[cfg(test)]
@@ -811,8 +811,8 @@ mod tests {
     /// **Acceptance criterion 6: a collection is one tab stop.**
     ///
     /// [`STOPS_UNGROUPED`] against [`STOPS_GROUPED`] on the screen this crate can stand up — spec
-    /// §3's **266 against 69** is C02's gallery and [`fixture`] says why it is not recoverable. What
-    /// the gate asserts is the identity §3's sentence makes, in a form that is a property of the
+    /// **266 against 69** is C02's gallery and [`fixture`] says why it is not recoverable. What
+    /// the gate asserts is the identity the sentence makes, in a form that is a property of the
     /// mechanism rather than of the screen: **the walk with groups is exactly three per panel** —
     /// header, collection, footer — whatever any collection holds.
     ///

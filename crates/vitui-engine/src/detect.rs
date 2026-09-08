@@ -533,7 +533,7 @@ fn refuse_in_tests() {}
 /// Detection has to read raw bytes with a deadline, and there is exactly one way to do that in this
 /// crate's dependency policy: a thread that blocks on `stdin` and a channel with `recv_timeout`.
 /// The thread is therefore **kept** rather than detached — it is held on the `Screen` — because a
-/// second reader of the same file descriptor steals bytes from the first, and ticket 20's input
+/// second reader of the same file descriptor steals bytes from the first, and the input
 /// thread is the one that will adopt this channel rather than opening its own.
 ///
 /// Raw mode is entered here because a line-buffered terminal answers nothing until a newline that

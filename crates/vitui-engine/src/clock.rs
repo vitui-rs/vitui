@@ -39,7 +39,7 @@
 //! are not the same four: *the renderer going free* has no variant of its own. Ignoring it is not
 //! available — the case is real and it loses a frame outright. A slow link, the user stops typing
 //! exactly while the renderer is inside a 200 ms write: `present` refused, the damage is still in
-//! §6's structure, nothing else is going to happen, and the last keystroke's echo never reaches the
+//! the structure, nothing else is going to happen, and the last keystroke's echo never reaches the
 //! terminal. Unbounded, not merely late.
 //!
 //! So the fourth reason exists, it is [`Reason::Owed`], and it surfaces as [`Wake::Deadline`]. Three
@@ -52,7 +52,7 @@
 //!    *re-view, and the animation phase falls out of `elapsed()`* — which is correct for an owed
 //!    frame, because time has genuinely passed. `Posted` maps onto *a background result landed*, and
 //!    would send the runtime looking for one that does not exist.
-//! 3. **A fifth variant is a public surface this backlog has not decided.** §12's four are settled,
+//! 3. **A fifth variant is a public surface this backlog has not decided.** The four are settled,
 //!    and every non-`Quit` variant already means the same thing to the caller: drain, draw, present.
 //!
 //! Recorded because it may return: if the runtime ever needs to tell an owed frame from a deadline —
@@ -294,7 +294,7 @@ impl WakeSource {
     /// deregistration is simply not renewing it* is the same statement read from the other side. A
     /// caller that registers once and never again gets one wake, which is what it asked for.
     ///
-    /// The engine holding the set instead would be a scheduler, and §12's refusal 9 is that there
+    /// The engine holding the set instead would be a scheduler, and the refusal 9 is that there
     /// isn't one: this is a deadline **sink**.
     ///
     /// A later deadline also changes nothing a parked thread has to know about — it is already waiting
@@ -345,7 +345,7 @@ impl WakeSource {
     ///
     /// So the app thread does park after this, and that is the honest state: nothing can be painted
     /// and nothing is going to happen. It is not a new hang — **a dead renderer is indistinguishable
-    /// from a permanently busy one through the public surface** (§12's refusal 7), and a permanently
+    /// from a permanently busy one through the public surface** (the refusal 7), and a permanently
     /// busy one parks the app thread in exactly the same place. What this call buys is that the park
     /// is not *waiting on the renderer*: any `post` or `quit` gets the app thread out, and `present`
     /// answers `submitted: false` for ever after. Telling the application is a `Wake::Quit` and a
@@ -461,7 +461,7 @@ impl Wakes {
 /// The minimum gap between two frames.
 ///
 /// **In hertz, set by the application and never discovered**, because a tty cannot report a refresh
-/// rate and no display query exists anywhere in this crate (§12's refusal 10). The application
+/// rate and no display query exists anywhere in this crate (the refusal 10). The application
 /// discovers it from the platform and says so;
 /// [`Screen::set_max_frame_rate`](crate::Screen::set_max_frame_rate) covers a monitor changing under
 /// a running program.
@@ -497,7 +497,7 @@ impl FrameClock {
     /// A monitor changed under the running program.
     ///
     /// **Ignored on the deterministic clock**, which is what keeps `set_max_frame_rate` from turning
-    /// a reproducible path into a timed one. Ignored rather than refused, because §12's signature has
+    /// a reproducible path into a timed one. Ignored rather than refused, because the signature has
     /// nothing to refuse with and the call is not a mistake — an application may reasonably set its
     /// ceiling at startup and choose its clock somewhere else.
     pub(crate) fn set_rate(&mut self, hz: f32) {

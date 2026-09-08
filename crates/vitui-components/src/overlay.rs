@@ -3,14 +3,14 @@
 //! The reduction is R1 and R2: modality is a `bool`, and the eighteen named popup,
 //! dialog, drawer, sheet and toast entries are two axes of one component.
 //!
-//! `select` declares this family and is homed under F6, because §12's finding is that the popup is
+//! `select` declares this family and is homed under F6, because the finding is that the popup is
 //! the *owner's* — [`crate::input::SelectState`] is written only by the owner and
 //! [`PopupState`] only by the body, and `&'f mut` is what makes *request the overlay last* a borrow
 //! error rather than a comment.
 //!
 //! # Three kinds on two axes, and the axes are not "modal"
 //!
-//! [`FAMILY`] is §12's table as a value a test iterates, three rows and three [`Kind`] arms with no
+//! [`FAMILY`] is the table as a value a test iterates, three rows and three [`Kind`] arms with no
 //! fourth on either side. **Modality is one `bool` on the request** —
 //! [`OverlayOpts::scrim`](vitui_runtime::overlay::OverlayOpts::scrim) being `Some` — and forces no
 //! construction here at all: [`Kind::Dialog`] is a kind because it needs a **host owner, a barrier
@@ -37,12 +37,12 @@
 //! [`SPEC_GRANTED`], for ever, and the arm is [`crate::input::Sizing::FromTheDrawnExtent`].
 //! `CONTEXT.md`'s *one frame old* is survivable for a scroll area and fatal for an overlay.
 //!
-//! # §9's bar decision moves into the body, and the fixpoint does not arise
+//! # the bar decision moves into the body, and the fixpoint does not arise
 //!
 //! Because the owner asked for a size and the runtime answered, the gutter is decided **inside the
-//! body**, by [`gutter`], in **0 passes** — against [`scroll::MAX_PASSES`] for §9's fixpoint over
+//! body**, by [`gutter`], in **0 passes** — against [`scroll::MAX_PASSES`] for the fixpoint over
 //! the same two numbers. A popup owns its own viewport: its horizontal extent *is* the viewport it
-//! was granted less the bar, so the two booleans §9 couples have nothing to couple through.
+//! was granted less the bar, so the two coupled booleans have nothing to couple through.
 //!
 //! Owner-side, the decision is made before the runtime has answered, and on a screen too short
 //! [`SPEC_UNREACHABLE`] of [`SHORT_OPTIONS`] rows is unreachable with no bar — because
@@ -82,7 +82,7 @@
 //!
 //! # The sentence `Ctx::overlay` owed is written, and this file is where that is checked
 //!
-//! Spec §1 states it as an obligation with an owner:
+//! It is an obligation with an owner:
 //!
 //! > On an overlay body that captures its owner's state by `&mut`, rustc's own `help:` line — *add
 //! > explicit lifetime `'f` to the type of `st`* — **compiles**. What then fails is the caller, with
@@ -91,10 +91,10 @@
 //! > owes: *the body answers through the inbox; a `&'f mut` capture compiles and costs you the state
 //! > for the rest of the frame.*
 //!
-//! Components ticket 10 could not write it — it does not touch `crates/vitui-runtime/`, and a note
+//! The crate that met it could not write it — it does not touch `crates/vitui-runtime/`, and a note
 //! about `Ctx::overlay` written anywhere else is a note nobody hits, because the diagnostic that
 //! sends a reader looking arrives at the **caller** and names `E0503` on a field read. Runtime
-//! ticket 13's own follow-up wrote it, under the heading *The body answers through the inbox, and a
+//! a follow-up wrote it, under the heading *The body answers through the inbox, and a
 //! `&'f mut` capture costs you the state*.
 //!
 //! **A sentence owed on another crate's item is checked by opening that crate's file**, which is
@@ -126,7 +126,7 @@ pub const MEMBERS: &[&str] = &["overlay"];
 // the family: three kinds on two axes
 // ═════════════════════════════════════════════════════════════════════════════════════════════════
 
-/// **The three kinds §12's eight entries are, and there is no fourth.**
+/// **The three kinds the eight entries are, and there is no fourth.**
 ///
 /// The split is not between the eight components. It is [`FAMILY`]'s two columns: *does it declare
 /// anything* and *is its owner guaranteed to be drawing*. Everything else about the eight — where it
@@ -171,7 +171,7 @@ impl Kind {
     }
 }
 
-/// **One row of §12's family table: a kind, and where it sits on the two axes.**
+/// **One row of the family table: a kind, and where it sits on the two axes.**
 ///
 /// A value a test iterates and not a table in a comment, for [`crate::disclose::SPLIT`]'s reason:
 /// every obligation stated as a sentence has been broken by someone who had read it.
@@ -183,11 +183,11 @@ pub struct Axes {
     pub declares: bool,
     /// **Axis B.** Whether its owner is guaranteed to be drawing on every frame it is up.
     pub owner_draws: bool,
-    /// The §12 entries this kind is. Their union is the family and nothing appears twice.
+    /// The entries this kind is. Their union is the family and nothing appears twice.
     pub members: &'static [&'static str],
 }
 
-/// **§12's family, as three rows.** The eight entries, the two axes, and no other structure.
+/// **The family, as three rows.** The eight entries, the two axes, and no other structure.
 pub const FAMILY: [Axes; 3] = [
     Axes {
         kind: Kind::Popup,
@@ -209,7 +209,7 @@ pub const FAMILY: [Axes; 3] = [
     },
 ];
 
-/// **How many entries [`FAMILY`] covers: eight, over three kinds.** §12's own list.
+/// **How many entries [`FAMILY`] covers: eight, over three kinds.** The list.
 pub const ENTRIES: usize = 8;
 
 /// The row of [`FAMILY`] a kind is.
@@ -270,12 +270,12 @@ pub fn popup_size(options: &[&str], within: (u16, u16)) -> (u16, u16) {
     (w, h)
 }
 
-/// **What [`popup_size`] grants §12's own dropdown: `(20, 8)`.**
+/// **What [`popup_size`] grants the dropdown: `(20, 8)`.**
 pub const SPEC_GRANTED: (u16, u16) = (20, 8);
 
 /// **What a popup sized from its own drawn extent is granted, on every frame, for ever: `(20, 0)`.**
 ///
-/// §12's *the size may not come from the drawn extent*. The popup has no frame before the one it
+/// *The size may not come from the drawn extent*. The popup has no frame before the one it
 /// opens on, so the extent it reads is zero; granted zero rows it draws nothing; having drawn
 /// nothing its extent is zero again. See [`crate::input::Sizing::FromTheDrawnExtent`].
 pub const SPEC_GRANTED_FROM_EXTENT: (u16, u16) = (20, 0);
@@ -289,7 +289,7 @@ pub const SPEC_GRANTED_FROM_EXTENT: (u16, u16) = (20, 0);
 pub struct Gutter {
     /// Whether a vertical bar stands. It costs a **column**.
     pub bar: bool,
-    /// **How many passes it took. Zero, always.** §9's fixpoint does not arise here — see [`gutter`].
+    /// **How many passes it took. Zero, always.** The fixpoint does not arise here — see [`gutter`].
     pub passes: u8,
 }
 
@@ -303,13 +303,13 @@ impl Gutter {
 
 /// **Whether a popup granted `granted` cells needs a bar for `rows` of content — in no passes.**
 ///
-/// One comparison. §9's [`decide`](scroll::decide) iterates because the axis a bar *reports* and the
+/// One comparison. The [`decide`](scroll::decide) iterates because the axis a bar *reports* and the
 /// axis it *costs* are perpendicular, so raising the vertical bar can raise the horizontal one and
 /// round again — [`scroll::MAX_PASSES`] worst case. **A popup has no second axis to be coupled
 /// through**: its content is as wide as the viewport it was granted, because the labels truncate to
 /// it, so reserving a column narrows the labels and changes no row count.
 ///
-/// That is the whole of §12's *0 passes against ≤ 3*, and it is why the decision has to be made here
+/// That is the whole of *0 passes against ≤ 3*, and it is why the decision has to be made here
 /// rather than owner-side: the owner does not know what it will be granted.
 ///
 /// ```
@@ -322,7 +322,7 @@ impl Gutter {
 /// assert_eq!(g.passes, 0);
 /// // Everything fits: no bar, still no passes.
 /// assert!(!gutter((20, 8), 4).bar);
-/// // §9's own loop over the same two numbers, for the comparison the gate makes.
+/// // The same loop over the same two numbers, for the comparison the gate makes.
 /// assert_eq!(decide((20, 3), (20, 4), Hide::WhenItFits).passes, MAX_PASSES);
 /// ```
 #[must_use]
@@ -333,7 +333,7 @@ pub const fn gutter(granted: (u16, u16), rows: u32) -> Gutter {
     }
 }
 
-/// **The options §12's short-screen case is measured over: four.**
+/// **The options the short-screen case is measured over: four.**
 pub const SHORT_OPTIONS: usize = 4;
 
 /// **Rows the owner-side spelling leaves unreachable on a screen too short: one of
@@ -365,7 +365,7 @@ pub enum Dismissal {
 }
 
 impl Dismissal {
-    /// All four, in the order §12 lists them.
+    /// All four, in order.
     pub const ALL: [Dismissal; 4] = [
         Dismissal::Escape,
         Dismissal::Chose,
@@ -434,17 +434,17 @@ impl Blur {
     }
 }
 
-/// **§12's remembered price of a catcher layer: 386 912 bytes.**
+/// **The remembered price of a catcher layer: 386 912 bytes.**
 ///
 /// Recorded, not reproduced: the engine publishes no cell width and nothing above it can ask for
 /// one, so what this crate measures is [`CATCHER_CELLS`] against [`BLUR_CELLS`] — the same ratio,
 /// in the unit a component can count.
 pub const SPEC_CATCHER_BYTES: usize = 386_912;
 
-/// **§12's remembered price of the blur position: 2 592 bytes.** Recorded, not reproduced.
+/// **The remembered price of the blur position: 2 592 bytes.** Recorded, not reproduced.
 pub const SPEC_BLUR_BYTES: usize = 2_592;
 
-/// **Cells a catcher layer covers on §12's own screen**, which is every cell of it.
+/// **Cells a catcher layer covers on the screen**, which is every cell of it.
 pub const CATCHER_CELLS: u64 = crate::popup::SCREEN;
 
 /// **Cells the blur position covers**, which is the popup and nothing else.
@@ -456,7 +456,7 @@ pub const BLUR_CELLS: u64 = crate::popup::POPUP.0 as u64 * crate::popup::POPUP.1
 
 /// **What the body owns and the owner never writes.**
 ///
-/// §12's second half of *two structs, one writer each*.
+/// The second half of *two structs, one writer each*.
 /// [`crate::input::SelectState`] is the owner's, written only by the owner from its own
 /// input and the inbox; this is the body's, borrowed `&'f mut` and written only by the body.
 ///
@@ -474,14 +474,14 @@ pub const BLUR_CELLS: u64 = crate::popup::POPUP.0 as u64 * crate::popup::POPUP.1
 ///
 /// # Why it is not `Copy`
 ///
-/// It holds a [`CollState`], because §5's `Mode` absorbs the listbox the popup *is* and a second row
+/// It holds a [`CollState`], because the `Mode` absorbs the listbox the popup *is* and a second row
 /// store would be a second place the offset lives. A body that captured a `Copy` offset instead
 /// writes into a value that dies with the frame: [`crate::popup::WHEEL_CLICKS`] notches move it
 /// **0**, and the screen is identical while it happens. See
 /// [`crate::input::defective::a_copy_of_the_offset`].
 #[derive(Clone, PartialEq, Eq, Debug, Default)]
 pub struct PopupState {
-    /// The list: the offset, the cursor, the selection and the type-ahead buffer. §5's, not a second
+    /// The list: the offset, the cursor, the selection and the type-ahead buffer — the collection's own, not a second
     /// one.
     pub list: CollState,
     /// **The inbox.** What the body decided, for the owner to take on the frame after. `None` once
@@ -553,7 +553,7 @@ impl PopupState {
 // the component
 // ═════════════════════════════════════════════════════════════════════════════════════════════════
 
-/// [`overlay`]'s options. Spec §1's rule 3: a `Default` struct, never a required builder.
+/// [`overlay`]'s options. rule 3: a `Default` struct, never a required builder.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub struct ShellOpts {
     /// Which of the three kinds. [`Kind::Popup`] by default.
@@ -577,7 +577,7 @@ impl Default for ShellOpts {
 /// **What [`overlay`] answers: what happened to the blur position, what it handed over, and what it
 /// decided about the gutter.**
 ///
-/// Three fields because §1's rule 4 and §2's *the cells it does not write are named in its return
+/// Three fields because rule 4 and *the cells it does not write are named in its return
 /// value* are two obligations and a shell owes both.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub struct Shell {
@@ -824,7 +824,7 @@ where
 pub const RIG_W: u16 = 20;
 /// A screen with room for a popup: the anchor's row and eight below it.
 pub const RIG_H: u16 = 12;
-/// **A screen too short for its own popup**, which is what §12's short-screen case is.
+/// **A screen too short for its own popup**, which is what the short-screen case is.
 pub const SHORT_H: u16 = 3;
 /// The four options [`SHORT_OPTIONS`] counts.
 pub const SHORT: [&str; SHORT_OPTIONS] = ["alpha", "beta", "gamma", "delta"];
@@ -928,7 +928,7 @@ pub struct Sharing {
 
 /// **Two `select`s open at once, under one owner id or under two.**
 ///
-/// §12's *one owner is one layer*. Shared, the second request is inert — the census is keyed on the
+/// *one owner is one layer*. Shared, the second request is inert — the census is keyed on the
 /// owner — so one popup is simply absent, one slot is resized between the two sizes every frame, and
 /// nothing on the screen says which of the two you are looking at.
 #[must_use]
@@ -1172,13 +1172,13 @@ pub struct Keyboard {
     pub chosen: usize,
     /// Whether the popup is shut at the end.
     pub shut: bool,
-    /// Whether the focus is the owner's own id at the end. §12's *the owner refocuses itself*.
+    /// Whether the focus is the owner's own id at the end. *the owner refocuses itself*.
     pub focus_is_the_owners: bool,
 }
 
 /// **Open a popup with `Enter`, move its cursor with `Down`, and leave it the way `finish` says.**
 ///
-/// The walk §12 describes and the four gates it needs, in one run:
+/// The walk and the four gates it needs, in one run:
 ///
 /// * the popup **survives the handover** — the frame after it takes the keyboard, which is the frame
 ///   `Response::focus_left` fires on the owner;
@@ -1316,7 +1316,7 @@ pub const LONG: usize = 32;
 
 /// **How far [`crate::popup::WHEEL_CLICKS`] notches move a popup's offset, under one `Holds`.**
 ///
-/// `by_mut_ref` false is §7's literal `Copy`-only body one family over: the body writes into a value
+/// `by_mut_ref` false is the literal `Copy`-only body one family over: the body writes into a value
 /// that dies with the frame, the owner hands it the same number again, and the screen is identical
 /// while it happens.
 #[must_use]
@@ -1371,7 +1371,7 @@ pub fn wheeled(by_mut_ref: bool) -> i32 {
 /// **The file the owed sentence had to be written in**, repo-relative.
 pub const OWED_IN: &str = "crates/vitui-runtime/src/ctx.rs";
 
-/// **The sentence spec §1 says `Ctx::overlay`'s documentation owes**, as three phrases a scan looks
+/// **The sentence `Ctx::overlay`'s documentation owes**, as three phrases a scan looks
 /// for.
 ///
 /// Four and not one because the obligation is four claims — *the body answers through the inbox*,
@@ -1379,7 +1379,7 @@ pub const OWED_IN: &str = "crates/vitui-runtime/src/ctx.rs";
 /// code of the diagnostic a reader will actually meet** — and a note that carries three of them is
 /// a note that has lost the half a reader needs.
 ///
-/// # The fourth arrived with components ticket 36, and it is the one a reader searches for
+/// # The fourth arrived late, and it is the one a reader searches for
 ///
 /// O1 states the obligation as *the sentence exists verbatim, **with the `E0503` trap named***, and
 /// the two halves are not the same claim. The first three are the mechanism; `E0503` is the string
@@ -1449,7 +1449,7 @@ pub fn owed_sentence_is_written() -> Vec<&'static str> {
 /// **Which of [`OWED_SENTENCE`]'s phrases a source carries.** The half of
 /// [`owed_sentence_is_written`] that is not a file read.
 ///
-/// Split out by components ticket 36, and not for tidiness: the shipped runtime carries all four,
+/// Split out, and not for tidiness: the shipped runtime carries all four,
 /// so the gate above cannot be watched reporting a partial answer, and *a note that carries three
 /// of the four* is the failure the fourth phrase was added to catch.
 #[must_use]
@@ -1538,7 +1538,7 @@ mod tests {
     use crate::scroll::{Hide, MAX_PASSES, decide};
     use vitui_runtime::ctx::Driver;
 
-    /// **§12's family is three kinds over eight entries, and the two axes separate exactly what §12
+    /// **The family is three kinds over eight entries, and the two axes separate exactly what the design
     /// says they separate.**
     #[test]
     fn the_family_is_three_kinds_on_two_axes_and_eight_entries() {
@@ -1608,7 +1608,7 @@ mod tests {
 
     /// **The shell hands its interior over unwritten, and the parts tile the rectangle exactly.**
     ///
-    /// §2's second half. With a bar the interior plus the bar's column is the rectangle; without one
+    /// The second half. With a bar the interior plus the bar's column is the rectangle; without one
     /// the interior *is* the rectangle. Swept over every size a popup can be, because a partition
     /// that holds at one size is an arithmetic coincidence.
     #[test]
@@ -1652,7 +1652,7 @@ mod tests {
 
     /// **`select`'s shut face is a partition of its rectangle, at every width, truncated or not.**
     ///
-    /// §2, the crate's central rule, over the component this ticket built — and it is here because the
+    /// The crate's central rule over this component — and it is here because the
     /// diff had a defect it would have caught: the label was padded to the whole width and then the
     /// ellipsis was written **over the pad's last cell**, so one cell of every truncated `select` was
     /// written twice. Nothing on the screen shows it and no other counter moves.
@@ -1664,11 +1664,11 @@ mod tests {
     /// and this component was one of the two rows of the freeze that did not meet it: handed a
     /// rectangle taller than its face it wrote **one row of it**, 576 cells of a 48x13 tile left to
     /// whatever was already there. The other is `crate::files::file_picker` — the two overlay owners,
-    /// which is the family §12 gives its own rules, and not a coincidence: their body is in another
+    /// which is the family with its own rules, and not a coincidence: their body is in another
     /// layer, so a tall rectangle looks to each of them like somebody else's problem.
     ///
     /// **The remainder could not be named**, which is what makes writing it the only answer rather
-    /// than the chosen one: §2's third clause is *the cells it does not write are named in its return
+    /// than the chosen one: the third clause is *the cells it does not write are named in its return
     /// value*, and `select_into` returns the runtime's `Response`, which has no field for a
     /// rectangle. `crate::disclose`'s `Disclosure::used` is what naming it looks like where the
     /// return type is this crate's own.
@@ -1710,7 +1710,7 @@ mod tests {
 
     /// **The size comes from a sizing function, and the drawn extent is a fixpoint at zero.**
     ///
-    /// §12's *the size may not come from the drawn extent*, as three rows of one table. The
+    /// *The size may not come from the drawn extent*, as three rows of one table. The
     /// difference between the first two is a **cap**; the difference between either and the third is
     /// that the third never gets off the ground.
     #[test]
@@ -1742,7 +1742,7 @@ mod tests {
         assert_eq!(popup_size(&SHORT, (RIG_W, SHORT_H)), (7, SHORT_H));
     }
 
-    /// **The gutter is decided in no passes, and §9's loop over the same two numbers takes three.**
+    /// **The gutter is decided in no passes, and the loop over the same two numbers takes three.**
     #[test]
     fn the_gutter_is_decided_in_no_passes_and_section_nines_fixpoint_takes_three() {
         let granted = (RIG_W, SHORT_H);
@@ -1760,7 +1760,7 @@ mod tests {
 
     /// **A screen too short leaves no row unreachable, and sizing to the content leaves one.**
     ///
-    /// §12's *1 of 4*. The reason it is one and not four is
+    /// *1 of 4*. The reason it is one and not four is
     /// [`vitui_runtime::overlay::place`]: it clamps a position and never a size, so the popup
     /// is flush with the near edge and hangs off the far one.
     #[test]
@@ -1852,7 +1852,7 @@ mod tests {
     /// **An open popup holds the keyboard, and gives it back to its owner on the way out.**
     ///
     /// The gate this ticket's application earned, and the four things it checks are four sentences of
-    /// §12 that no other instrument here reaches:
+    /// what no other instrument here reaches:
     ///
     /// * the popup **survives the handover** — the frame after it takes the keyboard;
     /// * the arrows reach **the list** and not the owner, whose own drain loop reads `Down` as
@@ -1907,7 +1907,7 @@ mod tests {
     ///
     /// A sequence no other instrument here plays, because every one of them opens a *fresh* popup:
     /// what the body reports survives the dismissal, so a popup shut **by a blur** comes back with
-    /// *the focus is not inside me* still on record. The latch lives on the owner and
+    /// *The focus is not inside me* still on record. The latch lives on the owner and
     /// [`SelectState::open`](crate::input::SelectState::open) clears it, which is what makes the
     /// clearing reach an application that opens the popup by its own verb rather than by a keystroke.
     ///
@@ -1954,7 +1954,7 @@ mod tests {
 
     /// **The sentence `Ctx::overlay` owed is written where it is owed.**
     ///
-    /// Spec §1 states it as an obligation with an owner and components ticket 10 could not discharge
+    /// It is an obligation with an owner, and the crate that met it could not discharge
     /// it. It is discharged, on the runtime's own item, and this is the scan that says so — a `use`
     /// cannot see a doc comment and neither can a `compile_fail`.
     #[test]

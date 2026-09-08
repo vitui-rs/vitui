@@ -23,7 +23,7 @@ use crate::style::Style;
 ///
 /// Read as three ranges, a wide **scalar** has no representation: `漢` is U+6F22 and is two columns,
 /// so it would have to be interned to be a wide head — and then a screen of CJK would intern 12 000
-/// times, against the sentence above and against spec §4's measurement that a full screen of CJK is
+/// times, against the sentence above and against the measurement that a full screen of CJK is
 /// *cheaper* than one of Latin. A wide head and its narrow twin are one bit apart.
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]

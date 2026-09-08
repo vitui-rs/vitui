@@ -1,9 +1,9 @@
 //! Overlays: the two-phase protocol, the body queue, placement and the scrim.
 //!
-//! Spec §10; ADR 0017 and ADR 0034. **Request during the draw, satisfy after it, answer
+//! **Request during the draw, satisfy after it, answer
 //! next frame.** The constraint is inherited and not re-derived here: a component cannot open a
 //! layer mid-draw, because `LayerStack::view` holds `&mut` of the stack for the life of the view
-//! (`E0499`, engine architecture ticket 14 R2). So [`Ctx::overlay`](crate::Ctx::overlay) queues a
+//! (`E0499`). So [`Ctx::overlay`](crate::Ctx::overlay) queues a
 //! request and [`Driver::frame`](crate::Driver::frame) runs the bodies after the base pass, in
 //! `(z, seq)` order, in rounds bounded at [`OVERLAY_ROUNDS`](crate::ctx::OVERLAY_ROUNDS).
 //!
@@ -11,7 +11,7 @@
 //!
 //! `cx.overlay(area, opts, body)` — the shape the proposal had — cannot work. A component carries
 //! `#[track_caller]` and the attribute reaches *into* the body, so an id derived inside the request
-//! is the caller's location, which is the id the owner claimed one line earlier. §5's collision
+//! is the caller's location, which is the id the owner claimed one line earlier. The collision
 //! policy then makes the second claimant inert and **the overlay is silently dropped**.
 //!
 //! The verb therefore takes the owner as an argument, and there is no second spelling that derives
@@ -35,8 +35,8 @@
 //! **That replaces a bump region that allocated nothing, and the trade was decided rather than
 //! discovered.** The arena held the bodies' bytes with their types erased, which needs `unsafe`; the
 //! property *no `unsafe` in any shipped crate above the engine* is worth more than the sentence *the
-//! overlay frame allocates nothing*. See ADR 0034, which supersedes ADR 0017's arena consequence,
-//! and spec §19, which now states the exception with its count beside it.
+//! overlay frame allocates nothing*: **n** overlays standing cost **n + 1** allocations, and a
+//! frame with none costs nothing at all.
 //!
 //! **The queue cannot keep its capacity across frames, and the `'f` bound is the reason.** A body may
 //! capture anything that outlives the frame call, so a stored body is `+ 'f` — and safe Rust cannot
@@ -67,7 +67,7 @@
 //! - the overlay, from this module;
 //! - the [`Scrim`], an *operator* layer, because a terminal cell has no alpha — it transforms what is
 //!   already there rather than covering it;
-//! - [`ScopeKind::Trap`](crate::ScopeKind::Trap), ticket 12's, for the keyboard.
+//! - [`ScopeKind::Trap`](crate::ScopeKind::Trap), for the keyboard.
 //!
 //! and [`Ctx::modal_barrier_here`](crate::Ctx::modal_barrier_here) for the pointer.
 //! **The barrier stops the pointer and only the pointer**: a barrier with no trap around it lets
@@ -388,7 +388,7 @@ impl Scrim {
 
 /// What an overlay is asked for, beyond its owner and its anchor.
 ///
-/// **There is no `Default`, and the missing one is the size.** Spec §12 says a component's size is
+/// **There is no `Default`, and the missing one is the size.** A component's size is
 /// stated or comes from a sizing function, because there is no measure pass — so a default size
 /// would be a zero-area overlay that draws nothing, silently, which is the exact failure mode this
 /// ticket exists to remove one instance of. [`OverlayOpts::sized`] is the base expression the

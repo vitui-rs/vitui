@@ -27,7 +27,7 @@
 //!    six reads of `Frame::tab_walk` — a walkthrough that consulted the frame's own answer would be
 //!    testing one expression against itself (`ctx.rs`'s own note, one crate down).
 //!
-//! # Every region and every stop figure in §12's table reproduces, and it is by construction
+//! # Every region and every stop figure in the table reproduces, and it is by construction
 //!
 //! The base is `312 + 2 + 3 = 317` regions and `312 + 2 + 2 = 316` stops. **The one region that is
 //! not a stop is the menu bar itself**, which declares [`Interest::HOVER`] and nothing else so that
@@ -50,7 +50,7 @@
 //!
 //! # What does not reproduce, and both are findings rather than misses
 //!
-//! **`allocations` is not 0 and cannot be.** §12's table reads `0` in all five rows. That table was
+//! **`allocations` is not 0 and cannot be.** The table reads `0` in all five rows. That table was
 //! measured on the prototype's crate-private bump arena, which runtime ticket 21 **deleted**:
 //! a body is now one `Box` in a queue the frame call owns, so a frame with `n` overlays
 //! standing costs `n + 1` allocations and a frame with none costs nothing. The runtime's own gate is
@@ -97,13 +97,13 @@ use vitui_runtime::Rect;
 
 // ── the screen ───────────────────────────────────────────────────────────────────────────────────
 
-/// The screen's width. §12's own, and [`crate::dense::W`]'s, so that two screens on this backlog are
+/// The screen's width. The original's, and [`crate::dense::W`]'s, so that two screens on this backlog are
 /// comparable without a conversion.
 pub const W: u16 = 300;
 /// The screen's height. See [`W`].
 pub const H: u16 = 80;
 
-/// **312 chips**, which is §12's own count and what the base row is built out of.
+/// **312 chips**, which is the count and what the base row is built out of.
 pub const CHIPS: usize = 312;
 /// A chip's width. [`crate::dense::CHIP`]'s, for [`W`]'s reason.
 pub const CHIP: u16 = 12;
@@ -114,7 +114,7 @@ pub const CHIP_ROWS: usize = CHIPS / PER_ROW;
 /// The row the chip band starts on: the menu bar is row 0 and the two `select`s row 1.
 pub const BAND_TOP: u16 = 2;
 
-/// **Two `select`s**, §12's own count. One opens; the other owns the dialog.
+/// **Two `select`s**, the count. One opens; the other owns the dialog.
 pub const SELECTS: usize = 2;
 /// A `select`'s width, which is also its popup's.
 pub const SELECT: u16 = 20;
@@ -130,7 +130,7 @@ pub const REGIONS: usize = CHIPS + SELECTS + 1 + MENUS;
 /// [`Interest::HOVER`] and is therefore not in the ring.
 pub const STOPS: usize = CHIPS + SELECTS + MENUS;
 
-/// **The popup's granted size, `(20, 8)`** — §12's own, and the one it contrasts `(20, 0)` against.
+/// **The popup's granted size, `(20, 8)`** — the original's, and the one it contrasts `(20, 0)` against.
 pub const POPUP: (u16, u16) = (SELECT, 8);
 /// A menu's granted size.
 pub const MENU: (u16, u16) = (16, 3);
@@ -148,18 +148,18 @@ pub const BUTTONS: usize = 2;
 pub const DROPDOWN_DELTA: (usize, usize) = (2, 1);
 /// **What a menu with its submenu adds: four regions and two stops — and §12 says six and six.**
 ///
-/// The subtraction is §5's rule and it is a finding rather than a discrepancy. §12's six is
+/// The subtraction is the rule and it is a finding rather than a discrepancy. The six is
 /// [`MENU_ROWS`] twice, *each row a target of its own*; §5 collapses a menu into a
 /// [`Mode`](crate::collect::Mode) of `collection`, and **a collection declares one hit entry however
 /// many rows it has**. So each level of the shipped menu is [`DROPDOWN_DELTA`] — one entry for its
 /// rows and one for the blur position — and two levels are twice that.
 ///
 /// It is the same subtraction [`PER_ROW_ENTRIES`] prices for a dropdown, arriving on the construction
-/// §12's own prototype spent per row. Reproducing the six would mean declaring per row on purpose,
+/// the prototype spent per row. Reproducing the six would mean declaring per row on purpose,
 /// which is the defect [`Config::PerRow`] exists to be.
 pub const MENU_DELTA: (usize, usize) = (2 * DROPDOWN_DELTA.0, 2 * DROPDOWN_DELTA.1);
 
-/// **§12's remembered menu delta.** Recorded, not reproduced — see [`MENU_DELTA`].
+/// **The remembered menu delta.** Recorded, not reproduced — see [`MENU_DELTA`].
 pub const SPEC_MENU_DELTA: (usize, usize) = (MENU_ROWS * 2, MENU_ROWS * 2);
 /// **What a modal adds: two regions and two stops.** Its buttons; the `Trap` scope declares neither,
 /// which is `Ctx::scope`'s own sentence — *a scope renames nothing and declares no region*.
@@ -198,13 +198,13 @@ pub const SCREEN: u64 = W as u64 * H as u64;
 
 /// **Allocations a frame with `n` overlays standing costs: `n + 1`, and `0` for none.**
 ///
-/// §12's table reads **0** in every row, and that was true of the prototype's crate-private bump
+/// The table reads **0** in every row, and that was true of the prototype's crate-private bump
 /// arena. Runtime ticket 21 deleted it: a body is one `Box` in a queue the frame call owns,
 /// and the queue is the `+ 1`. The `+ 1` is not slack — a stored body is `+ 'f` and safe Rust cannot
 /// put a `'f`-bounded value inside the thing borrowed for `'f`, so the queue is a local of
 /// `Driver::frame` rather than a field.
 ///
-/// **Asserted as measured rather than bent to fit**: the only edit that would make §12's zero true
+/// **Asserted as measured rather than bent to fit**: the only edit that would make the zero true
 /// again is the arena, which is seven `unsafe` blocks in a workspace that has none.
 #[must_use]
 pub const fn overlay_allocs(bodies: usize) -> usize {
@@ -213,7 +213,7 @@ pub const fn overlay_allocs(bodies: usize) -> usize {
 
 /// **Layers the census keeps alive, as `(configuration, §12 remembers, measured here)`.**
 ///
-/// §12's table reads 2 / 4 / 3 because every request in the prototype carried `shadow: 96` — a second
+/// The table reads 2 / 4 / 3 because every request in the prototype carried `shadow: 96` — a second
 /// operator layer beside the overlay's own. [`vitui_runtime::overlay::OverlayOpts`] has no shadow
 /// field, so the shipped numbers are 1 / 2 / 1. **The ratio between a dropdown and a menu with its
 /// submenu survives**: twice, either way.
@@ -228,7 +228,7 @@ pub const LAYERS: [(&str, usize, usize); 4] = [
 /// stops, against 317 and 316.**
 ///
 /// Both `select`s request at `(20, 0)` and each body declares its collection entry and its blur
-/// position anyway — [`DROPDOWN_DELTA`] twice. §12's *the size may not come from the drawn extent* is
+/// position anyway — [`DROPDOWN_DELTA`] twice. *the size may not come from the drawn extent* is
 /// what puts a popup at `h = 0` in the first place: a popup has no frame before the one it opens on,
 /// so its extent there is 0 and stays 0.
 ///
@@ -238,7 +238,7 @@ pub const CLOSED_DECLARES: (usize, usize) =
     (REGIONS + 2 * DROPDOWN_DELTA.0, STOPS + 2 * DROPDOWN_DELTA.1);
 
 /// **What one open dropdown declaring one hit entry per row costs**: eight entries and eight stops
-/// **on top of** the one and the one §5's rule spends for the whole collection.
+/// **on top of** the one and the one the rule spends for the whole collection.
 ///
 /// *On top of* and not *instead of*, and the reason is that the rows are still drawn by the
 /// collection: the defect a caller who wants a per-row hover actually writes is a loop of
@@ -249,7 +249,7 @@ pub const PER_ROW_ENTRIES: usize = POPUP.1 as usize;
 
 /// **Flips an overlay that declares *and* covers its anchor takes: 99 in 100 frames.**
 ///
-/// §12's Axis A. A tooltip made of cells and nothing else is fine; one that declares a hit entry over
+/// The Axis A. A tooltip made of cells and nothing else is fine; one that declares a hit entry over
 /// a rectangle covering its own anchor takes the anchor's hover away, which closes it, which uncovers
 /// the anchor, which opens it again. One flip a frame for ever, and 99 is [`FLIP_FRAMES`] less the
 /// first, which has no predecessor to differ from.
@@ -259,7 +259,7 @@ pub const FLIP_FRAMES: u32 = 100;
 
 /// **Frames a dialog owned by the menu row that opened it lives, out of eight: 3.**
 ///
-/// §12's Axis B — *the census is over the request*. The application believes the dialog open for all
+/// The Axis B — *the census is over the request*. The application believes the dialog open for all
 /// eight; the row that owns it exists only while the menu is drawing, so the body runs on exactly the
 /// frames its owner requests it on and the layer dies with the request.
 pub const DIALOG_LIVES: u32 = 3;
@@ -269,17 +269,17 @@ pub const CENSUS_FRAMES: u32 = 8;
 /// **Wheel notches every instrument that prices a dead wheel posts: twenty.**
 ///
 /// [`crate::wheel::CLICKS`] and not a second constant, because it is the same twenty and this crate
-/// keeps one home for a number. §12 states it inside its own section — *§7's literal `Copy`-only body
+/// keeps one home for a number. §12 states it inside its own section — *the literal `Copy`-only body
 /// moves the offset 0 in 20 wheel clicks*.
 pub const WHEEL_CLICKS: u32 = crate::wheel::CLICKS;
 
-/// **`Tab`s pressed against a modal, which is §12's own six.** With a trap none of them leaves; with
+/// **`Tab`s pressed against a modal, which is the six.** With a trap none of them leaves; with
 /// no trap every one of them does.
 pub const TABS: u32 = 6;
 
 /// **Stops a walkthrough visits with the modal up: 2, of 318 declared.**
 ///
-/// §21's third refinement — *name the exception; do not loosen the gate* — and this is the screen it
+/// The third refinement — *name the exception; do not loosen the gate* — and this is the screen it
 /// is named on. The gate is the conjunction §21 states: *the walk repeats no id, and reaches every
 /// stop unless a trap is standing*, with `Frame::trap_scopes` as the only thing that can answer the
 /// second half.
@@ -293,7 +293,7 @@ pub const TRAPPED_VISITS: usize = BUTTONS;
 /// [`crate::dense::DIALOG`] up.
 pub const SCRIM_UNDER: u64 = crate::dense::SCRIM_UNDER;
 
-/// **Writes the scrim-under arm costs over the complement: 600.** §12's *600 fewer writes*, and
+/// **Writes the scrim-under arm costs over the complement: 600.** *600 fewer writes*, and
 /// [`crate::dense::SCRIM_EXCESS_WRITES`] for [`SCRIM_UNDER`]'s reason.
 pub const SCRIM_EXCESS_WRITES: u64 = crate::dense::SCRIM_EXCESS_WRITES;
 
@@ -308,7 +308,7 @@ pub const SCRIM_EXCESS_WRITES: u64 = crate::dense::SCRIM_EXCESS_WRITES;
 /// `"date modified"` and its seven neighbours.
 ///
 /// **The relation is what this screen can be held to** — 90 against the text-first arm's **0** — and
-/// the relation is the one §12 states. §12's 107 says that its own popup carried 107 cells of ink in
+/// the relation is the one §12 states. The 107 says that its own popup carried 107 cells of ink in
 /// 160; [`OPTIONS`] is this popup's data and was not chosen to make a number come out.
 pub const FILL_FIRST: u64 = 1 + popup_ink();
 
@@ -337,7 +337,7 @@ pub const fn popup_ink() -> u64 {
 
 // ── the five configurations ──────────────────────────────────────────────────────────────────────
 
-/// **The five rows of §12's table, and the spellings this ticket stands beside them.**
+/// **The five rows of the table, and the spellings this ticket stands beside them.**
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Config {
     /// Nothing open. The base row.
@@ -347,19 +347,19 @@ pub enum Config {
     /// A menu on the bar with a submenu nested in it — two overlays, one owner each.
     MenuAndSubmenu,
     /// A modal dialog with a scrim, a `Trap` and a barrier. The scrim is the engine's **operator
-    /// layer**, which is §12's third spelling and the one that costs neither cells nor damage.
+    /// layer**, which is the third spelling and the one that costs neither cells nor damage.
     ModalAndScrim,
-    /// The same modal **without** its trap. §12's six `Tab`s, as a screen.
+    /// The same modal **without** its trap. The six `Tab`s, as a screen.
     ModalWithoutTrap,
     /// One `select` open, its popup filling its rectangle before it writes its rows.
     FillFirst,
-    /// **Both `select`s requested at `h = 0`, with bodies that declare before they look.** §12's
+    /// **Both `select`s requested at `h = 0`, with bodies that declare before they look.**
     /// closed-popup case, and the arm that declares.
     ClosedDeclares,
     /// Both `select`s requested at `h = 0`, with bodies that look first. The correct arm.
     ClosedSilent,
     /// One `select` open, its popup declaring **one hit entry per row** instead of one for the
-    /// collection. What §5's rule is worth here.
+    /// collection. What the rule is worth here.
     PerRow,
 }
 
@@ -377,7 +377,7 @@ impl Config {
         Config::PerRow,
     ];
 
-    /// §12's five, in §12's order.
+    /// The five, in the order.
     pub const TABLE: [Config; 5] = [
         Config::Nothing,
         Config::OneSelect,
@@ -472,7 +472,7 @@ pub const SELECT_ROOT: Id = Id::named("popup.select");
 pub const CHIP_ROOT: Id = Id::named("popup.chip");
 /// The root a dropdown's option list is keyed off — **one entry for the whole collection**.
 ///
-/// **Keyed and not bare, and that is §12's own sentence arriving inside a body.** Two `select`s
+/// **Keyed and not bare, and that is the sentence arriving inside a body.** Two `select`s
 /// standing at once are two overlays, and the two bodies are one function; with a bare `Id::named`
 /// the second popup's entries land on ids the first has already claimed, `Ctx::interact` makes the
 /// merged claim **inert**, and the frame reports 319 regions where two popups declared four. The
@@ -562,7 +562,7 @@ pub struct Shape {
     /// How many overlay requests named an owner that had already asked. **Zero, or two overlays are
     /// sharing one slot**.
     pub merged: u32,
-    /// **How many claims landed on an id that had already claimed this frame.** §21's register row 3,
+    /// **How many claims landed on an id that had already claimed this frame.** The register row 3,
     /// and the counter that catches a defect [`Shape::merged`] cannot see: two overlays with distinct
     /// *owners* whose *bodies* declare the same ids. See [`LIST`], which is the instance this file
     /// shipped and then removed.
@@ -571,12 +571,12 @@ pub struct Shape {
     pub focused: Option<Id>,
 }
 
-/// **Everything §12's screen holds across frames, which is what a popup being the owner's costs a
+/// **Everything the screen holds across frames, which is what a popup being the owner's costs a
 /// caller.**
 ///
 /// One [`SelectState`] and one [`PopupState`] per widget, and there is nowhere else for either to
 /// live: the owner's crosses the base pass by value and the body's crosses the **frame** by
-/// `&'f mut`, so both have to be outside the frame call. That is §12's *two structs, one writer
+/// `&'f mut`, so both have to be outside the frame call. That is *two structs, one writer
 /// each* arriving as a fact about the caller's own storage.
 #[derive(Clone, Debug, Default)]
 pub struct Held {
@@ -830,9 +830,9 @@ pub fn draw_into<'f, I: Ink>(
 
 /// **The menu, and the submenu nested inside it.**
 ///
-/// Two levels of one mechanism: each is [`crate::overlay::overlay`]'s shell over §5's collection, so
+/// Two levels of one mechanism: each is [`crate::overlay::overlay`]'s shell over the collection, so
 /// each declares **one** blur position and **one** entry for its rows, whatever the row count. That
-/// is [`MENU_DELTA`], and it is not §12's — see that constant for the subtraction.
+/// is [`MENU_DELTA`], and it is not the — see that constant for the subtraction.
 ///
 /// `sub` is an `Option` and this function's own reason for existing: an overlay body is `FnMut`, so
 /// it cannot move a capture, and the inner request needs to move a `&'f mut PopupState` into the
@@ -920,7 +920,7 @@ fn request_menu<'f>(
 /// one arm.**
 ///
 /// The barrier and the trap are two verbs and the shell puts down both; `trapped` is
-/// [`crate::overlay::defective::no_trap`], which is the arm §12's six `Tab`s are measured on.
+/// [`crate::overlay::defective::no_trap`], which is the arm the six `Tab`s are measured on.
 fn request_dialog(cx: &mut Ctx<'_, '_>, trapped: bool) {
     let theme = *cx.theme();
     cx.overlay(
@@ -1024,7 +1024,7 @@ pub fn popup_cells_into<I: Ink>(
 
 // ── the frame structures, measured over a real overlay pass ──────────────────────────────────────
 
-/// **One configuration, measured**: its shape, its per-frame cost and §20's nine counters.
+/// **One configuration, measured**: its shape, its per-frame cost and the nine counters.
 #[derive(Clone, Copy, Debug)]
 pub struct Measured {
     /// Which configuration.
@@ -1032,7 +1032,7 @@ pub struct Measured {
     /// What the frame turned out to be.
     pub shape: Shape,
     /// **A report and never a gate.** R15's rule, inherited unchanged, and it is taken with a
-    /// [`Tally`] in the loop — see [`cost`] for the figure comparable with §12's own.
+    /// [`Tally`] in the loop — see [`cost`] for the figure comparable with the original's.
     pub per_frame: Duration,
     /// The nine, of which this crate can read eight.
     pub counters: Counters,
@@ -1102,7 +1102,7 @@ pub fn shape(config: Config) -> Shape {
 
 /// **What the frame costs a component**, drawn through [`Direct`] rather than through a [`Tally`].
 ///
-/// The one number here comparable with §12's own microseconds, and separate from [`steady`]'s for
+/// The one number here comparable with the microseconds, and separate from [`steady`]'s for
 /// the reason [`crate::listing::volume_cost`] states: a `Tally` keeps a `BTreeSet` of every cell it
 /// sees, so a figure taken with one in the loop is a report about the instrument. The two run the
 /// identical [`draw_into`], which is [`crate::ink`]'s whole argument.
@@ -1286,13 +1286,13 @@ pub fn opening(cycles: u32) -> Opening {
 
 // ── the two re-damage instruments ────────────────────────────────────────────────────────────────
 
-/// **Where a scrim's cells go**, which is §12's three spellings and not two.
+/// **Where a scrim's cells go**, which is the three spellings and not two.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum ScrimSpelling {
     /// **Filled under the dialog.** The defect: every cell of the dialog is written twice and
     /// re-damaged on every frame the modal is up.
     Under,
-    /// **The four rectangles around the dialog.** §2's complement, and there is no cut-out — a
+    /// **The four rectangles around the dialog.** The complement, and there is no cut-out — a
     /// terminal cell has no alpha channel, so a scrim cannot have a hole in it.
     Around,
     /// **The engine's operator layer**, which is what [`OverlayOpts::modal`] asks for and what
@@ -1391,7 +1391,7 @@ pub fn scrim_steady(spelling: ScrimSpelling, frames: u32) -> crate::dense::Redam
     })
 }
 
-/// **What one scrim spelling writes on a steady frame**, which is §12's *600 fewer writes*.
+/// **What one scrim spelling writes on a steady frame**, which is *600 fewer writes*.
 pub fn scrim_writes(spelling: ScrimSpelling) -> u64 {
     let mut driver = crate::runner::driver_at(W, H, Density::Compact);
     let mut tally = Tally::new();
@@ -1468,7 +1468,7 @@ const TIP_W: u16 = 40;
 /// The small screen's height.
 const TIP_H: u16 = 8;
 
-/// **§12's Axis A, as a count: an overlay that declares *and* covers its anchor takes its own
+/// **The Axis A, as a count: an overlay that declares *and* covers its anchor takes its own
 /// hover — and [`Kind::Transient`] cannot, at any rectangle.**
 ///
 /// The pointer is parked once and never moves. When a *declaring* tooltip's rectangle covers the
@@ -1548,7 +1548,7 @@ pub fn tooltip_flips(kind: Kind, covers: bool, frames: u32) -> u32 {
 
 // ── axis B: the census is over the request ───────────────────────────────────────────────────────
 
-/// **§12's Axis B, as a count: a dialog owned by the menu row that opened it lives 3 of 8 frames.**
+/// **The Axis B, as a count: a dialog owned by the menu row that opened it lives 3 of 8 frames.**
 ///
 /// The application believes the dialog open on every one of `frames`; the menu is open on
 /// `menu_open`. The dialog's owner is a *menu row*, which exists only while the menu is drawing, so
@@ -1692,7 +1692,7 @@ fn is_dialog_button(id: Id) -> bool {
 /// **How a closing modal hands the keyboard on.** Three spellings, and they are three programs.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Dismiss {
-    /// §12's rule: **on the way out the owner refocuses itself** — one id it already has, so no id
+    /// The rule: **on the way out the owner refocuses itself** — one id it already has, so no id
     /// belonging to anybody else is named.
     OwnerRefocusesItself,
     /// Nothing at all, so the **vanish rule** answers: forward through the previous ring from where
@@ -1880,7 +1880,7 @@ mod tests {
 
     /// **The base row: 317 regions and 316 stops, and the difference has a name.**
     ///
-    /// §12's first row, and the whole reason the deltas below land on §12's own numbers. The bar is
+    /// The first row, and the whole reason the deltas below land on the numbers. The bar is
     /// in the hit index and not in the ring, which is what a region that is not a stop *is*.
     #[test]
     fn the_base_screen_is_317_regions_and_316_stops_and_the_bar_is_the_difference() {
@@ -1914,10 +1914,10 @@ mod tests {
         );
     }
 
-    /// **Every one of §12's five rows reproduces, and so do the four beside them.**
+    /// **Every one of the five rows reproduces, and so do the four beside them.**
     ///
     /// The regions and the stops are not a report: they are a property of what the frame declared,
-    /// which is what makes them the two columns of §12's table this crate can be held to.
+    /// which is what makes them the two columns of the table this crate can be held to.
     #[test]
     fn every_configuration_declares_what_the_specs_table_says() {
         for config in Config::ALL {
@@ -1974,7 +1974,7 @@ mod tests {
     /// **A popup at `h = 0`: 321 / 318 when its body declares before it looks, 317 / 316 when it
     /// looks first.**
     ///
-    /// §12's *the size may not come from the drawn extent* is what puts a popup at `(20, 0)`, and
+    /// *The size may not come from the drawn extent* is what puts a popup at `(20, 0)`, and
     /// this is what it costs. Both `select`s request, so it is [`DROPDOWN_DELTA`] twice.
     #[test]
     fn a_popup_at_h_zero_declares_321_against_317_when_its_body_declares_before_it_looks() {
@@ -1990,7 +1990,7 @@ mod tests {
         );
     }
 
-    /// **What §5's one-entry-per-collection is worth here**, which is why 321 is *small*.
+    /// **What the one-entry-per-collection is worth here**, which is why 321 is *small*.
     ///
     /// §12 says the closed case is small *only because a collection declares one hit entry however
     /// many rows it has*. The other spelling is [`Config::PerRow`], and the difference is the popup's
@@ -2010,7 +2010,7 @@ mod tests {
         );
     }
 
-    /// **The census keeps one layer an overlay, and §12's column counts two.**
+    /// **The census keeps one layer an overlay, and the column counts two.**
     ///
     /// The finding, as a table: every request in the prototype carried a shadow, so its host held
     /// twice what the shipped one does — and the ratio between a dropdown and a menu with its
@@ -2088,7 +2088,7 @@ mod tests {
     /// engine's operator layer, neither.*
     ///
     /// **600 and not 229**, and the reason is [`crate::dense::SCRIM_UNDER`]'s: nothing in this dialog
-    /// is painted in the scrim's role, so the difference is total, and §2's 229 says that on C01's
+    /// is painted in the scrim's role, so the difference is total, and the 229 says that on C01's
     /// screen 371 of the dialog's 600 cells already carried what the scrim wrote. It is the same six
     /// hundred cells and the same constant, because this screen stands the same dialog up.
     #[test]
@@ -2148,7 +2148,7 @@ mod tests {
 
     /// **The opening frame is a cliff, and *once per opening* is a count rather than a timing.**
     ///
-    /// §21's rule: a gate is a count, a ratio, an equality or a compile outcome, and a timing is a
+    /// The rule: a gate is a count, a ratio, an equality or a compile outcome, and a timing is a
     /// report. So the microseconds are printed by `examples/popup_numbers.rs` and gated by nothing,
     /// and what is asserted here is that the census went from keeping no layer to keeping one exactly
     /// as many times as the modal opened — and that thirty openings at one size cost **no**
@@ -2164,7 +2164,7 @@ mod tests {
         );
     }
 
-    /// **§12's Axis A: an overlay that declares *and* covers its anchor flips 99 times in 100
+    /// **The Axis A: an overlay that declares *and* covers its anchor flips 99 times in 100
     /// frames, and a [`Kind::Transient`] cannot flip at either rectangle.**
     ///
     /// Four readings over one function, which is what makes Axis A a fact about the kind rather than
@@ -2189,7 +2189,7 @@ mod tests {
         }
     }
 
-    /// **§12's Axis B: a dialog owned by the menu row that opened it lives 3 of 8 frames.**
+    /// **The Axis B: a dialog owned by the menu row that opened it lives 3 of 8 frames.**
     ///
     /// The application believes it open on all eight. The census is over the **request**.
     #[test]
@@ -2201,9 +2201,9 @@ mod tests {
 
     /// **A standing trap pulls the focus in, and six `Tab`s do not take it out.**
     ///
-    /// §12's *a modal additionally needs a `Trap`, and without one six `Tab`s leave it.*
+    /// *a modal additionally needs a `Trap`, and without one six `Tab`s leave it.*
     ///
-    /// # The untrapped arm is stronger than §12's sentence, and it is what the shipped runtime does
+    /// # The untrapped arm is stronger than the sentence, and it is what the shipped runtime does
     ///
     /// §12 presumes the focus starts inside the dialog and walks out. On this runtime a standing trap
     /// is also what *pulls* the focus in, so the modal without one never receives the keyboard at
@@ -2234,10 +2234,10 @@ mod tests {
         assert_eq!(loose.traps, 0);
     }
 
-    /// **§21's third refinement, as a screen: the walk reaches every stop unless a trap is standing.**
+    /// **The third refinement, as a screen: the walk reaches every stop unless a trap is standing.**
     ///
     /// > *R08's* a walkthrough visits every tab stop exactly once *fails on exactly one panel of
-    /// > twelve, and correctly: §12's dialog is open and a `Trap` is what a modal is.*
+    /// > twelve, and correctly: the dialog is open and a `Trap` is what a modal is.*
     ///
     /// The gate is the conjunction and the exception is **named** rather than the gate loosened —
     /// `Frame::trap_scopes` is the only thing that can answer it, and this is a second instrument

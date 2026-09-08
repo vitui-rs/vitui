@@ -12,13 +12,13 @@
 //!
 //! # The `+` in `table = collection + column rectangles` is paid in verbs
 //!
-//! §6's headline, and it reproduces here **as a structure and not as a magnitude**: the same
+//! The headline, and it reproduces here **as a structure and not as a magnitude**: the same
 //! rectangle, the same [`CELLS`] cells, and a twelve-column table costs [`VERBS_TWELVE`] drawing
 //! calls where the same screen drawn as one column costs [`VERBS_ONE`]. Damage is marked once per
 //! verb, and C02's partition rule makes each column **two** verbs — the text, then the padding after
 //! it — because the alternative is a cell written twice. Two verbs a cell is the floor.
 //!
-//! §6's own figures are 913 → 2 497 for 23 030 cells at 165.6 µs, on a **prototype screen this
+//! The figures are 913 → 2 497 for 23 030 cells at 165.6 µs, on a **prototype screen this
 //! ticket does not own**: two tables, a menu bar, a toolbar and a status bar on one 300x80 terminal.
 //! One table filling the same terminal is a different screen and reports different magnitudes;
 //! `examples/grid_numbers.rs` prints both columns rather than engineering the difference away, which
@@ -41,15 +41,15 @@
 //!    out level. [`Tally`] keeps [`Tally::asked`] and [`Tally::reported`] apart, so the arms differ
 //!    by exactly the overrun: [`BAND_OVERRUN`] columns a row, [`H`] rows, [`RE_DAMAGED`] cells.
 //! 2. **The equality against a reference render is blind to it, and that is the scene's finding.**
-//!    §6's own sentence says why in the clause before it — *the screen is correct, because the
+//!    The sentence says why in the clause before it — *the screen is correct, because the
 //!    pinned band draws afterwards and wins* — so a comparison of the two surfaces reports **0 cells
 //!    over 0 rows**. Watched doing exactly that in
 //!    `tests::the_equality_is_blind_to_the_band_and_the_pair_is_not`.
 //!
-//! What does see it is the pair `writes` against `distinct`, which is §21's register row 6 — C02's
-//! *no cell twice*, filed there as a **report per component**. So the honest form of §6's sentence
+//! What does see it is the pair `writes` against `distinct`, which is the register row 6 — C02's
+//! *no cell twice*, filed there as a **report per component**. So the honest form of the sentence
 //! is that no gate C01, C02 or C03 left behind was *being run*; C02 had already named the counter.
-//! The equality's job on this screen is the **other** defect on the same axis, §3.3's inverted
+//! The equality's job on this screen is the **other** defect on the same axis, the inverted
 //! horizontal sign, which draws a partly blank band and measures as an improvement — and that one no
 //! counter separates.
 //!
@@ -74,7 +74,7 @@
 //!
 //! # There is no sticky header on this screen, and the reason is a coordinate system
 //!
-//! §6's sticky header is a rect split and it costs one `cut`. It is not on this screen, because a
+//! The sticky header is a rect split and it costs one `cut`. It is not on this screen, because a
 //! header drawn at the table's own row 0 and a body drawn inside
 //! [`Ctx::scroll_scope`](vitui_runtime::Ctx::scroll_scope) are **two coordinate spaces**, and both
 //! of this crate's recorders — [`Tally`] and [`crate::runner::Pen`] — union what they see in the
@@ -96,11 +96,11 @@
 //!
 //! `table` was not declared. [`standing`] is a [`Verdict`] over one subject, [`subjects_declared`]
 //! opens the file the freeze homes it in, and [`owed_message`] is the sentence that separates
-//! *waiting for its subject* from *the code is wrong* — ticket 09's criterion 7, inherited whole.
+//! *waiting for its subject* from *the code is wrong* — criterion 7, inherited whole.
 //! The sentence is kept live rather than deleted, because a message no test can read is a message
 //! that rots; what asserts it green is `tests::the_grid_stands_on_the_table_it_is_a_screen_of`.
 //!
-//! **§21's register rows 11 and 12 are this file's**, and they read `Evaluated` since production
+//! **The register rows 11 and 12 are this file's**, and they read `Evaluated` since production
 //! ticket 03 — which is later than it sounds: the instruments below were green from the day
 //! components 15 declared the component and nothing edited the standings, so both rows spent the
 //! rest of that backlog claiming to have nothing to run over while running. What ticket 03 added is
@@ -129,14 +129,14 @@ use crate::runner::{Diff, Fixture, Pen, compare};
 
 // ── the screen ───────────────────────────────────────────────────────────────────────────────────
 
-/// The terminal's width. **Three hundred**, which is §6's own screen and §20's budget line.
+/// The terminal's width. **Three hundred**, which is the screen and the budget line.
 pub const W: u16 = 300;
 /// The terminal's height. **Eighty**, likewise.
 pub const H: u16 = 80;
 /// Cells of the rectangle. `300 x 80`, and every arm of every scene here writes a partition of it.
 pub const CELLS: u64 = W as u64 * H as u64;
 
-/// The three volumes §21's collection scenes state, reused because a table's row axis is a
+/// The three volumes the collection scenes state, reused because a table's row axis is a
 /// collection's row axis and §6 asserts the frame flat at all three.
 pub const VOLUMES: [u64; 3] = [1_000, 100_000, 1_000_000];
 
@@ -146,15 +146,15 @@ pub const DECLARED: [usize; 4] = [12, 40, 120, 240];
 /// **The vertical offset every frame here is drawn at. Zero, and it is a finding rather than a
 /// default.**
 ///
-/// §21's row 7 states the gesture as `rows: 0` — this scene's axis is the horizontal one, and the
-/// vertical one is §21's row 4, `collection`'s. So a zero here would be the right answer anyway.
+/// The row 7 states the gesture as `rows: 0` — this scene's axis is the horizontal one, and the
+/// vertical one is the row 4, `collection`'s. So a zero here would be the right answer anyway.
 ///
 /// For components ticket 14 it was also **the only answer available**, because
 /// [`Ctx::scroll_scope`](vitui_runtime::Ctx::scroll_scope) scrolled the wrong way — C03's inverted
 /// scroll sign inside the runtime's own verb, filed as
 /// `.scratch/vitui-runtime-architecture/issues/26` and negated there. That half is spent: the scope
 /// now answers `offset..offset + h`, `tests::a_scroll_scope_at_a_nonzero_offset_shows_its_content`
-/// asserts the corrected sign, and what keeps this constant at zero is §21's gesture and nothing
+/// asserts the corrected sign, and what keeps this constant at zero is the gesture and nothing
 /// else.
 pub const OFFSET: i32 = 0;
 
@@ -168,17 +168,17 @@ pub use crate::collect::visible_columns as visible;
 /// Components ticket 14 wrote these types on this screen because there was no `table` to own them.
 /// Components ticket 15 declared the component, and the screen now draws *through* it — so a second
 /// definition here would be exactly what [`crate::ink`] refuses one file over: **a gate written
-/// against a copy of the code tests the copy.** `ColSpec` keeps its spelling because §21's scene and
+/// against a copy of the code tests the copy.** `ColSpec` keeps its spelling because the scene and
 /// this module's whole vocabulary use it; the component calls it [`crate::collect::Column`], and the
 /// two are one type.
 pub use crate::collect::{Band, Column as ColSpec, MAX_COLS, Pin, Slack, Solved, solve_columns};
 
-/// **The twelve columns of §21's scene**, or the sweep's forty, hundred-and-twenty or
+/// **The twelve columns of the scene**, or the sweep's forty, hundred-and-twenty or
 /// two-hundred-and-forty.
 ///
 /// Two pinned left, one pinned right, and the rest scrolling — the prototype's own shape. The
 /// scrolling columns' widths are **wider than the prototype's** and that is the scene's requirement
-/// rather than a preference: §21's row says *horizontal overflow*, and a twelve-column table whose
+/// rather than a preference: the row says *horizontal overflow*, and a twelve-column table whose
 /// columns sum to less than a 300-cell terminal has none. Σ of the nine scrolling minima is
 /// [`CONTENT_W`] against a [`VIEW_W`]-cell viewport, so the band overflows at twelve columns and the
 /// scene can be played at all.
@@ -249,7 +249,7 @@ pub const MAX_HOFF: i32 = CONTENT_W as i32 - VIEW_W as i32;
 /// A **column boundary**, and that is the scene's own control rather than a convenience. At an
 /// offset inside a column the first visible column starts left of the band and the band's clip
 /// discards its prefix — which is correct, and which makes both recorders wrong by exactly that
-/// prefix (`crate::counters::Tally`'s documented caveat, ADR 0022's clamp-and-discard). At a
+/// prefix (`crate::counters::Tally`'s documented caveat, the clamp-and-discard). At a
 /// boundary nothing is discarded on the left, every write on both arms starts inside its own
 /// rectangle, and the only asymmetry left between them is the one under test.
 pub const HOFF: i32 = 96;
@@ -258,8 +258,8 @@ pub const HOFF: i32 = 96;
 ///
 /// `HOFF + 20`. Here the first visible column starts twenty cells left of the band, so the
 /// arithmetic arm writes them into the **left** pin — which the pins do not draw over, because they
-/// draw first. The picture is wrong, the equality fires, and that is the case §6's sentence is not
-/// about: §6's *the screen is correct* holds only where the overrun is on the right.
+/// draw first. The picture is wrong, the equality fires, and that is the case the sentence is not
+/// about: *the screen is correct* holds only where the overrun is on the right.
 pub const HOFF_STRADDLE: i32 = HOFF + 20;
 
 /// **Columns of the table the band's last visible column overwrites, at [`HOFF`].**
@@ -291,19 +291,19 @@ pub const COLUMNS_DRAWN: usize = 11;
 /// §6 says *two verbs a cell is the floor and there is no cheaper correct shape*, and the floor is
 /// exact for a cell with any padding in it. A cell narrower than its own content has none —
 /// [`Ink::run`] is handed a zero-length run and refuses to issue one — so the honest form of the
-/// sentence is **at most two a cell, two whenever anything is padded**. It is a refinement of §6's
+/// sentence is **at most two a cell, two whenever anything is padded**. It is a refinement of
 /// figure rather than a disagreement with it: no cell here costs three.
 pub const FULL_COLUMNS: usize = 2;
 
 /// **Drawing verbs the twelve-column table costs.** `2 x H x COLUMNS_DRAWN - H x FULL_COLUMNS`.
 ///
-/// §6's figure is **2 497** on its own screen — two tables and three bars on one terminal. What
+/// The figure is **2 497** on its own screen — two tables and three bars on one terminal. What
 /// reproduces is the shape and not the magnitude; see [`VERBS_ONE`].
 pub const VERBS_TWELVE: u64 = 2 * H as u64 * COLUMNS_DRAWN as u64 - H as u64 * FULL_COLUMNS as u64;
 
 /// **Drawing verbs the same rectangle costs drawn as one column** — a list, expressed as a table.
 ///
-/// §6's figure is **913**, and the ratio it reports is 2.7x. This screen's is 10x, because §6's
+/// The figure is **913**, and the ratio it reports is 2.7x. This screen's is 10x, because
 /// one-column arm shared its terminal with a four-column table and three bars and this one does not.
 pub const VERBS_ONE: u64 = 2 * H as u64;
 
@@ -342,7 +342,7 @@ pub const STRADDLE_CELLS: usize = 712;
 /// **Cells the equality reports different for the *correct* arm at [`HOFF_STRADDLE`], which is a
 /// number about the recorder and not about the painter.**
 ///
-/// `10 x H`. At an offset inside a column the band's clip discards a **prefix**, and ADR 0022's
+/// `10 x H`. At an offset inside a column the band's clip discards a **prefix**, and
 /// clamp-and-discard means [`crate::runner::Pen`] — like [`Tally`] — is then wrong by exactly that
 /// prefix: it advances from the `x` the verb was given by the columns the engine says landed, and
 /// those are not the same columns. Both instruments state the caveat; this is it as a number.
@@ -428,7 +428,7 @@ fn cell_text(buf: &mut Buf, key: u16, row: u64) -> &str {
 
 // ── what is drawn, and the three ways to get it wrong ────────────────────────────────────────────
 
-/// **How the scrolling band reaches the surface**, which is the whole of scene 30's first arm.
+/// **How the scrolling band reaches the surface**, which is the whole of the first arm.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum BandShape {
     /// **The rule.** The band is a view: a column at the viewport's edge is clipped, and the cells
@@ -490,11 +490,11 @@ impl HSign {
     }
 }
 
-/// **Whether the rows the content no longer reaches are written**, which is §17's `shrunk` axis.
+/// **Whether the rows the content no longer reaches are written**, which is the `shrunk` axis.
 ///
 /// `crate::collect::Tail` under the name this screen gives it, and it is a second enum for
 /// [`BandShape`]'s and [`ColVirt`]'s reason rather than a copy of one: the component's is
-/// crate-private and this module's [`Opts`] is a screen's vocabulary, spelled the way §21's rows
+/// crate-private and this module's [`Opts`] is a screen's vocabulary, spelled the way the rows
 /// spell it. The variant doc is written once, over there.
 ///
 /// See [`crate::collect::defective::table_stale_tail`], which is this enum's one value on the
@@ -577,7 +577,7 @@ impl Opts {
         }
     }
 
-    /// **The arm §17's `shrunk` axis is about**: the rows the content reaches and nothing below
+    /// **The arm the `shrunk` axis is about**: the rows the content reaches and nothing below
     /// them. Production 06.
     pub fn stale_tail() -> Opts {
         Opts {
@@ -612,14 +612,14 @@ impl Opts {
 /// all.
 ///
 /// The rectangle is the whole context. One hit entry, one tab stop, and the cell under the pointer
-/// is arithmetic on both axes (ADR 0028 on the row axis, §6's cumulative array on the column axis) —
+/// is arithmetic on both axes (ADR 0028 on the row axis, the cumulative array on the column axis) —
 /// which is why there is no per-cell target and no per-row one.
 ///
 /// # Panics
 ///
 /// Panics on an [`Opts`] with **two** defects set at once. Each of the component's refused arms is
 /// one field changed against the shipped build, so a pair of them is a build nothing on this map has
-/// priced; §21's rule is that a screen states what it plays, and a silently-composed double defect
+/// priced; the rule is that a screen states what it plays, and a silently-composed double defect
 /// is a screen playing something else.
 ///
 /// [`Direct`]: crate::ink::Direct
@@ -724,7 +724,7 @@ pub fn draw_into<I: Ink>(
     iterated
 }
 
-/// **One cell: the text, then the padding after it.** §6's floor, and there is no cheaper correct
+/// **One cell: the text, then the padding after it.** The floor, and there is no cheaper correct
 /// shape.
 ///
 /// The pad is placed from the text's **own** width and not from what the engine reported, because a
@@ -806,7 +806,7 @@ pub fn frame(o: Opts, declared: usize, rows: u64, hoff: i32) -> Shape {
 /// [`frame`], over `frames` measured frames, with the **per-frame** time beside it.
 ///
 /// **The duration is a report and never a gate.** R15's rule, inherited unchanged, and the reason is
-/// on this page: §6's refused arm is *identical time*.
+/// on this page: the refused arm is *identical time*.
 ///
 /// # Panics
 ///
@@ -857,7 +857,7 @@ pub fn frame_over(
 
 /// **What the frame costs a component**, drawn through [`Direct`] rather than through a [`Tally`].
 ///
-/// The one number here comparable with §6's own 165.6 µs, and separate from [`frame_over`]'s for a
+/// The one number here comparable with the original's 165.6 µs, and separate from [`frame_over`]'s for a
 /// reason worth the second function: a `Tally` keeps a `BTreeSet` of every cell it sees, so a figure
 /// taken with one in the loop is a report about the instrument.
 ///
@@ -885,7 +885,7 @@ pub fn frame_cost(o: Opts, declared: usize, rows: u64, hoff: i32, frames: u32) -
     started.elapsed() / frames
 }
 
-/// **The shape at every one of [`DECLARED`]**, which is what §6's column-axis equality is asserted
+/// **The shape at every one of [`DECLARED`]**, which is what the column-axis equality is asserted
 /// over.
 pub fn across_declared(o: Opts) -> Vec<(usize, Shape)> {
     DECLARED
@@ -930,7 +930,7 @@ fn counters_one(o: Opts, allocs: Allocations) -> Counters {
     Counters::of(&driver, &t, allocs)
 }
 
-/// **Which of §20's nine counters tell two arms apart.**
+/// **Which of the nine counters tell two arms apart.**
 ///
 /// An empty answer means the equality against a reference render is the only detector there is; a
 /// non-empty one names a cheaper gate. A counter that is
@@ -1043,8 +1043,8 @@ pub fn oracle(declared: usize, hoff: i32) -> Fixture {
 ///
 /// It is still one [`Ctx::set`](vitui_runtime::Ctx::set) a cell, no runs and no offset it did not
 /// compute itself. `tests::the_two_per_cell_oracles_are_the_same_program` compares it against
-/// components ticket 04's over a fixture small enough to run that one, which is where the claim
-/// *the same program* is checked rather than asserted.
+/// the original's over a fixture small enough to run that one, which is where the claim
+/// *The same program* is checked rather than asserted.
 pub fn per_cell(pen: &mut Pen, cx: &mut Ctx<'_, '_>, fx: &Fixture) {
     let body = cx.theme().paint(Role::Body);
     let (w, h) = fx.size();
@@ -1070,7 +1070,7 @@ pub fn banded(pen: &mut Pen, cx: &mut Ctx<'_, '_>, _fx: &Fixture) {
     let _ = draw_into(pen, cx, &specs, Opts::correct(), VOLUMES[2], 0, HOFF);
 }
 
-/// **The band written by arithmetic instead of into a view**, at [`HOFF`]. §6's refused arm.
+/// **The band written by arithmetic instead of into a view**, at [`HOFF`]. The refused arm.
 pub fn arithmetic(pen: &mut Pen, cx: &mut Ctx<'_, '_>, _fx: &Fixture) {
     let specs = columns(12);
     let _ = draw_into(
@@ -1084,7 +1084,7 @@ pub fn arithmetic(pen: &mut Pen, cx: &mut Ctx<'_, '_>, _fx: &Fixture) {
     );
 }
 
-/// **The horizontal sign inverted**, at [`HOFF`]. §3.3's refused arm, and C03's trap on the other
+/// **The horizontal sign inverted**, at [`HOFF`]. The refused arm, and C03's trap on the other
 /// axis.
 pub fn inverted(pen: &mut Pen, cx: &mut Ctx<'_, '_>, _fx: &Fixture) {
     let specs = columns(12);
@@ -1096,7 +1096,7 @@ pub fn inverted(pen: &mut Pen, cx: &mut Ctx<'_, '_>, _fx: &Fixture) {
 ///
 /// The same defect and the other half of the picture: at [`HOFF_STRADDLE`] the first visible column
 /// starts left of the band and the arithmetic arm writes into the **left** pin, which draws first
-/// and does not draw again. §6's *the screen is correct* is a statement about the right edge only.
+/// and does not draw again. *the screen is correct* is a statement about the right edge only.
 pub fn arithmetic_straddling(pen: &mut Pen, cx: &mut Ctx<'_, '_>, _fx: &Fixture) {
     let specs = columns(12);
     let _ = draw_into(
@@ -1149,7 +1149,7 @@ pub const SHRUNK_TO: usize = crate::listing::SHRUNK_TO;
 pub const FULL_ROWS: usize = crate::listing::FULL_ROWS;
 
 /// **Rows left standing when the table's content shrinks inside a rectangle that does not move.
-/// Seventy-one of eighty**, which is §21's own number for this defect one component down.
+/// Seventy-one of eighty**, which is the number for this defect one component down.
 ///
 /// `H - SHRUNK_TO`, and it is stated as an arithmetic identity here and asserted against a **drawn**
 /// screen in `tests::the_stale_tail_is_seventy_one_of_eighty_rows_over_a_table`: an equality
@@ -1201,7 +1201,7 @@ pub const SHRUNK_DISTINCT: u64 = CELLS;
 /// **Columns that do not fill the band.** One pin and two narrow fixed columns at [`W`].
 ///
 /// Every other column list on this screen overflows the viewport by construction — [`columns`]
-/// exists to put *horizontal overflow* on the screen, which is §21's row 7 — so the case below the
+/// exists to put *horizontal overflow* on the screen, which is the row 7 — so the case below the
 /// viewport had never been drawn here at all.
 pub fn narrow_columns() -> Vec<ColSpec> {
     vec![
@@ -1240,8 +1240,8 @@ pub fn narrow_columns() -> Vec<ColSpec> {
 ///
 /// What decided it against *the caller owes it* was the failure mode rather than the rule: an
 /// untouched cell keeps **whatever was there**, so the first frame after a column set narrows keeps
-/// the wider set's *data* on the screen. That is §17's `shrunk` axis and not a background gap, and
-/// §2's second half is already pinned red on six panels for cases that really are background.
+/// the wider set's *data* on the screen. That is the `shrunk` axis and not a background gap, and
+/// the second half is already pinned red on six panels for cases that really are background.
 ///
 /// **This assertion was a tripwire and it fired**, which is the register's own *pinned red* shape
 /// one instrument down: it said in as many words that failing meant the defect had been repaired,
@@ -1385,7 +1385,7 @@ pub fn unwritten(specs: &[ColSpec], rows: u64) -> usize {
     unwritten_with(specs, rows, Opts::correct())
 }
 
-/// [`unwritten`], with the arm named — architecture issue 24's two builds over one instrument.
+/// [`unwritten`], with the arm named — the two builds over one instrument.
 pub fn unwritten_with(specs: &[ColSpec], rows: u64, opts: Opts) -> usize {
     let mut driver = crate::runner::driver_at(W, H, Density::default());
     let mut pen = Pen::new(W, H);
@@ -1402,7 +1402,7 @@ pub fn unwritten_with(specs: &[ColSpec], rows: u64, opts: Opts) -> usize {
 /// **The table's shrink, as an equality against the shipped component over the same content.**
 ///
 /// Two frames into **one** [`crate::runner::Pen`]: the first draws [`FULL_ROWS`] rows, the second
-/// draws [`SHRUNK_TO`]. §17's own spelling of the axis — *content shrinking inside a rectangle that
+/// draws [`SHRUNK_TO`]. The spelling of the axis — *content shrinking inside a rectangle that
 /// does not move* — and the rectangle is [`W`] by [`H`] on both frames.
 ///
 /// The reference arm is the **shipped table over the same two frames**, which is production 05's
@@ -1454,7 +1454,7 @@ pub fn tabled(pen: &mut Pen, cx: &mut Ctx<'_, '_>, fx: &Fixture) {
     let _ = draw_into(pen, cx, &specs, Opts::correct(), fx.len() as u64, 0, 0);
 }
 
-/// **The same table with the tail below the content refused.** §17's `shrunk` axis, on the shipped
+/// **The same table with the tail below the content refused.** The `shrunk` axis, on the shipped
 /// component.
 pub fn stale_tailed(pen: &mut Pen, cx: &mut Ctx<'_, '_>, fx: &Fixture) {
     let specs = columns(12);
@@ -1475,7 +1475,7 @@ pub fn shrunk_counters(rule: Allocations, refused: Allocations) -> (Counters, Co
     )
 }
 
-/// **Which of §20's nine counters tell the two arms of [`stale`] apart, and in which direction.**
+/// **Which of the nine counters tell the two arms of [`stale`] apart, and in which direction.**
 ///
 /// See [`counters_that_separate`]: an empty answer means the equality is the only detector there is.
 /// This one is **not** empty, and that is the finding rather than a weakness — every counter that
@@ -1521,7 +1521,7 @@ fn band_pass_shape(per_band: bool) -> Shape {
 /// §6 states the difference as **4% cheaper and refused**. What the refusal buys is on the other
 /// side of the equals sign and no timer can see it: three loops share nothing but the author writing
 /// the same bounds three times, and each of the three has to seek its own
-/// [`Scan`](crate::collect::Scan) — so §5's `O(log k + h)` becomes `3·(log k + h)` on a selection
+/// [`Scan`](crate::collect::Scan) — so the `O(log k + h)` becomes `3·(log k + h)` on a selection
 /// query the shipped shape does once.
 ///
 /// # Round-robin and minimum-of-N, because the two arms are within each other's noise
@@ -1581,7 +1581,7 @@ fn band_pass_draw<I: Ink>(ink: &mut I, cx: &mut Ctx<'_, '_>, specs: &[ColSpec], 
 /// **Two tables on one screen, every visible cell declaring a target.** `(regions, merges)`.
 ///
 /// `keyed` picks the shipped build; `false` is [`crate::collect::defective::row_keyed_cells`], where
-/// a row's cells all derive one id. §4's *one axis out, the same defect has a different arithmetic*
+/// a row's cells all derive one id. *one axis out, the same defect has a different arithmetic*
 /// as a measurement: the screen renders identically either way, because **drawing does not consume
 /// an id**, and `merges` is the only counter that separates them.
 ///
@@ -1662,7 +1662,7 @@ pub fn identity_merges(keyed: bool) -> (usize, u64) {
 /// **The same two tables with no target declared in a cell**, which is what a table costs when it
 /// is only a picture. `(regions, merges)`.
 ///
-/// §6's *a table declares 59 regions against 1 195 for one entry per visible cell* one screen over:
+/// *a table declares 59 regions against 1 195 for one entry per visible cell* one screen over:
 /// the entry count is a choice a **cell** makes, and the component's own is one a table.
 pub fn inert_cells() -> (usize, u64) {
     let specs = columns(12);
@@ -1923,7 +1923,7 @@ mod tests {
     ///
     /// It read *written by nothing* until architecture issue 24, and it was a **tripwire** and not
     /// an approval: 21 760 untouched cells of 24 000, with its own failure message saying that
-    /// failing meant the defect had been repaired. It fired. §2's rule is what decided it — *a
+    /// failing meant the defect had been repaired. It fired. The rule is what decided it — *a
     /// component handed a rectangle writes all of it* — and the failure mode is what made the
     /// decision easy rather than close: an untouched cell keeps whatever was there, so this is the
     /// shrink axis's second surface, *the rectangle loses columns and keeps the wider set's data*,
@@ -2124,14 +2124,14 @@ mod tests {
         assert!(checked > 100, "a sweep of {checked} offsets is a sample");
     }
 
-    /// **§6's headline, as a structure: the same cells, and the verbs are the difference.**
+    /// **The headline, as a structure: the same cells, and the verbs are the difference.**
     ///
     /// One column and twelve, over one rectangle. The cells are identical to the cell — every arm
     /// writes a partition of [`CELLS`] — and the verb count is what moves, because a list writes one
     /// row as one run and a table cuts it into columns, each of which C02's partition rule makes two
     /// verbs.
     ///
-    /// §6's own 913 → 2 497 for 23 030 cells belongs to a prototype screen with two tables and three
+    /// The original's 913 → 2 497 for 23 030 cells belongs to a prototype screen with two tables and three
     /// bars on it. `examples/grid_numbers.rs` prints both columns.
     #[test]
     fn the_same_rectangle_costs_the_same_cells_and_many_more_verbs_as_a_table() {
@@ -2197,21 +2197,21 @@ mod tests {
     /// **The column axis of the data-volume invariant: identical writes and identical verbs at 12,
     /// 40, 120 and 240 declared columns.**
     ///
-    /// §21's register row 11, and row 75 beside it — the screen's own copy of the same equality,
+    /// The register row 11, and row 75 beside it — the screen's own copy of the same equality,
     /// which is the standing this one had while it waited. Both are drawn through the component
     /// since components 15. The extras are
     /// appended after the nine that decide the window, so the viewport admits the same columns at
     /// every declared count — which is what makes the equality a statement about the mechanism
     /// rather than about the declaration list.
     ///
-    /// §6's own sweep steps once between 12 and 40 and is flat after. It does not step here, and
-    /// that is the scene's requirement rather than a better result: §21's row asks for *horizontal
+    /// The sweep steps once between 12 and 40 and is flat after. It does not step here, and
+    /// that is the scene's requirement rather than a better result: the row asks for *horizontal
     /// overflow*, so this table's twelve columns already overflow and the viewport has nothing left
     /// to admit.
     ///
     /// # The four arms are four different tables, and that half is asserted rather than assumed
     ///
-    /// Production ticket 03's requirement, and it is the whole difference between this and *a gate
+    /// Production the requirement, and it is the whole difference between this and *a gate
     /// that cannot fail*: [`columns`] truncates and then appends, so a declaration list that had
     /// stopped growing would hand the sweep **four copies of one table**, and an equality between
     /// four copies of one thing holds for ever. The arms are therefore checked to *be* four tables
@@ -2312,13 +2312,13 @@ mod tests {
     ///
     /// `crate::listing`'s discovery arriving on the column axis: the engine reports a fully clipped
     /// verb as **zero columns**, so a table that declares every column and lets the clip discard the
-    /// rest writes exactly what the virtualised one writes. §21's register row 4 — *writes flat
+    /// rest writes exactly what the virtualised one writes. The register row 4 — *writes flat
     /// 1k → 1M* — and every write-count gate in the stack are green on it.
     ///
     /// What moves is `verbs`, and `asked` beside it is where the cells went: the columns were
-    /// measured, truncated and handed to a verb, and the clip threw them away. §6's *3.3x the frame
+    /// measured, truncated and handed to a verb, and the clip threw them away. *3.3x the frame
     /// and 7.2x the verbs* is one screen's version of the ratio below; this screen's is larger,
-    /// because §6's prototype capped a frame at 128 drawn columns and this one does not.
+    /// because the prototype capped a frame at 128 drawn columns and this one does not.
     #[test]
     fn the_clip_only_spelling_costs_verbs_and_no_writes_at_all() {
         let virtualised = frame(Opts::correct(), 120, VOLUMES[2], HOFF);
@@ -2375,7 +2375,7 @@ mod tests {
     /// **The band defect: the equality is blind to it and the pair is not.**
     ///
     /// Criterion 3, and the scene's whole finding. §6 says *no gate left by C01, C02 or C03 sees
-    /// it*; measured here, one does — C02's `writes == distinct`, §21's register row 6, which §21
+    /// it*; measured here, one does — C02's `writes == distinct`, the register row 6, which §21
     /// itself files as a **report per component**. What is true is the half §6 states in the clause
     /// before: the *screen* is correct, so the equality against a reference render reports **0 cells
     /// over 0 rows** on a build that will re-damage [`RE_DAMAGED`] cells every frame for ever.
@@ -2450,7 +2450,7 @@ mod tests {
         );
     }
 
-    /// **The other half of the band, and the half §6's sentence is not about.**
+    /// **The other half of the band, and the half the sentence is not about.**
     ///
     /// At an offset inside a column the overrun is on the **left**, where the pins have already
     /// drawn. The picture is wrong, so the equality does fire — and the pair fires too, which is
@@ -2507,7 +2507,7 @@ mod tests {
 
     /// **The inverted horizontal sign: caught by the equality, and by nothing else.**
     ///
-    /// C03's trap on the other axis, and §21's register row 12 doing the job the research assigned
+    /// C03's trap on the other axis, and the register row 12 doing the job the research assigned
     /// it. The defective arm issues **every verb** it would have issued and the clip eats most of
     /// the writes, so it draws a partly blank band and measures as an improvement — fewer writes, a
     /// shorter frame, the same verbs.
@@ -2571,7 +2571,7 @@ mod tests {
         );
     }
 
-    /// **The cheap per-cell oracle and components ticket 04's are the same program.**
+    /// **The cheap per-cell oracle and the original's are the same program.**
     ///
     /// [`per_cell`] exists because [`crate::runner::reference`] asks a [`Fixture`] for every cell
     /// independently and the fixture segments a whole row to answer — 250x too slow at 300 columns
@@ -2597,7 +2597,7 @@ mod tests {
 
     /// **A frame of the grid allocates nothing**, as a total.
     ///
-    /// §21's refinement 2: *a mean cannot see anything below n; a total can see one*. The probe is
+    /// The refinement 2: *a mean cannot see anything below n; a total can see one*. The probe is
     /// installed by the caller — `examples/grid_numbers.rs` — because a library cannot install a
     /// global allocator on a consumer's behalf; what is asserted here is the thing that makes the
     /// total assertable at all, which is that the draw path holds no `Vec` and no `format!`.
@@ -2641,7 +2641,7 @@ mod tests {
     /// the corrected answer — kept rather than deleted, because a gate that was red for one
     /// integration and green after it is the register working. Register row 77.
     ///
-    /// **It is no longer the reason [`OFFSET`] is zero**; §21's own gesture for this scene is
+    /// **It is no longer the reason [`OFFSET`] is zero**; the gesture for this scene is
     /// `rows: 0`, and that was always the other reason.
     #[test]
     fn a_scroll_scope_at_a_nonzero_offset_shows_its_content() {

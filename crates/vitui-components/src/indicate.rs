@@ -1,6 +1,6 @@
 //! **F5 indicators**, ~46 entries, expressed by `meter`, `chart`, `plot`, `overlay` and deadlines.
 //!
-//! The reduction is R2 and R4. R2 is the larger half and it is ADR 0018's `Role`:
+//! The reduction is R2 and R4. R2 is the larger half and it is `Role`:
 //! status LEDs, health pills, dot indicators, badge variants, inline messages, banners, alerts and
 //! callouts are an **argument**, not a component, and [`ROLE_VARIANTS`] is that list as a value with
 //! `tests::no_role_variant_is_a_component_row` as the gate over [`crate::INVENTORY`].
@@ -9,7 +9,7 @@
 //!
 //! # The two components here are one sentence each, and each sentence is a call into `chart`
 //!
-//! Components ticket 34 states them and `crate::INVENTORY`'s `COMPOSITIONS` carries both edges:
+//! `crate::INVENTORY`'s `COMPOSITIONS` carries both edges:
 //!
 //! - [`meter`] is **`chart`'s prefix construction at 2 rungs** — the ladder comes from
 //!   [`geom`]`(Kind::Bars, …)` and nothing here decides how many sub-cells a rung has;
@@ -43,7 +43,7 @@ use crate::scroll::{Orient, stripe};
 /// The components homed in this module. See [`crate::Family::members`].
 pub const MEMBERS: &[&str] = &["meter", "sparkline", "spinner"];
 
-/// **The role variants §18's R2 absorbs, as a value.**
+/// **The role variants R2 absorbs, as a value.**
 ///
 /// > `primary / secondary / ghost / danger`, link buttons, status LEDs, health pills, dot
 /// > indicators, badge variants, inline messages, banners, alerts and callouts — all of them are an
@@ -97,7 +97,7 @@ const LEFT8: [char; 9] = [
 
 /// [`meter`]'s options.
 ///
-/// Spec §1's rule 3: a `Default` struct, never a required builder.
+/// A `Default` struct, never a required builder.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub struct MeterOpts {
     /// Which way it fills. Horizontal by default — a meter is a bar beside a label far more often
@@ -127,12 +127,12 @@ impl Default for MeterOpts {
 /// It writes every cell of the rectangle it was handed, from a fraction, and holds nothing across
 /// frames. The ladder is the repertoire's and not the width's.
 ///
-/// `value` is a fraction, `0.0..=1.0`. **It is not a range**, which is spec §9's unit rule and
+/// `value` is a fraction, `0.0..=1.0`. **It is not a range**, which is the unit rule and
 /// [`crate::input::slider`]'s own sentence: the one thing no layer of this library does for its
 /// caller is decide what a number means.
 ///
 /// **`gauge` collapses into this row, and that collapse is a judgement rather than a measurement** —
-/// the only one of §17's six that is. `crate::INVENTORY`'s own doc comment carries the marking and
+/// the only one of the six that is. `crate::INVENTORY`'s own doc comment carries the marking and
 /// `crate::inventory::tests::the_six_collapses_are_recorded_and_the_judgement_is_marked` reads it.
 ///
 /// ```
@@ -270,7 +270,7 @@ fn geom_for(sub: u32) -> crate::chart::raster::Geom {
 
 /// [`sparkline`]'s options.
 ///
-/// Spec §1's rule 3: a `Default` struct, never a required builder. **There is no `threshold` field
+/// A `Default` struct, never a required builder. **There is no `threshold` field
 /// and no `declared` field**, and both absences are the component's own claim: a sparkline that took
 /// a threshold would need a row to draw it on, and a row it draws chrome on is a chart.
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
@@ -328,7 +328,7 @@ pub fn sparkline_with(
 
 /// **[`sparkline`], drawing through an [`Ink`] so a counter can see every cell.**
 ///
-/// # What is *not* here, and each absence is one of ticket 34's criteria
+/// # What is *not* here, and each absence is deliberate
 ///
 /// No gutter, because a gutter is a label column and there is nothing to label. No tick values, no
 /// [`crate::chart::axes::nice_step`], no [`crate::chart::axes::tick_count`]. No axis row and no
@@ -390,16 +390,16 @@ pub fn sparkline_into<I: Ink>(
 
 /// **The spinner's frame set at each of the three rungs**, in [`RUNGS`]'s order.
 ///
-/// It is the component's own table and not a [`Glyph`], and that is §16's rule working rather than
+/// It is the component's own table and not a [`Glyph`], and that is the rule working rather than
 /// a hole. A `Glyph` is *one lookup with no spelling blank* — one meaning with one spelling per
 /// rung; a spinner needs an **ordered set of `n` spellings that differ from each other**, which is
 /// not one lookup and not `n` of them either: cycling `ArrowUp`, `ArrowDown`, `ArrowLeft`,
 /// `ArrowRight` at a reader is telling them nothing four times. So the ladder lives here, exactly as
 /// [`crate::chart::raster::RUNGS`] is `chart`'s and [`crate::media::sub_rows`] is the picture's.
 ///
-/// # Three ladders, and the middle one is components ticket 46's correction to the prototype
+/// # Three ladders, and the middle one is a correction to the prototype
 ///
-/// Components ticket 42 measured `4 / 10 / 10` with the braille spinner at **`Unicode | Extended`**,
+/// The prototype measured `4 / 10 / 10` with the braille spinner at **`Unicode | Extended`**,
 /// and that puts braille at the wrong rung: the engine's own `GlyphSet` says `Unicode` is *Unicode a
 /// normal text font covers* and `Extended` is *braille, block elements, emoji, powerline*. A
 /// terminal that promised the middle rung and got braille renders tofu, which is the one failure the
@@ -446,7 +446,7 @@ pub fn ladder(set: GlyphSet) -> &'static [&'static str] {
 /// `spinner`, derived from the shipped table rather than asserted in a comment.
 ///
 /// `chart`, `plot`, `meter` and `sparkline` each derive theirs the same way, and until components
-/// ticket 46 shipped this table `spinner`'s was the one literal in that column that nothing
+/// this table shipped, `spinner`'s was the one literal in that column that nothing
 /// checked — so a ladder changing shape would have moved no number anywhere.
 #[must_use]
 pub fn constructions() -> usize {
@@ -464,7 +464,7 @@ pub fn constructions() -> usize {
 ///
 /// # Stored state may be an anchor, never a phase
 ///
-/// Spec §8 refused `Collapsing` and `Expanding` because *a transition state has to be stored, which
+/// `Collapsing` and `Expanding` are refused because *a transition state has to be stored, which
 /// means the machine can be found halfway between two states with no clock running*. Read as *a
 /// component may not store anything a clock moves* that would forbid a spinner, and it is not that
 /// rule — [`crate::disclose::Collapse`] is the proof, since it stores a `Tween` across frames.
@@ -475,11 +475,11 @@ pub fn constructions() -> usize {
 ///   *between* two states, because the state **is** a function of `now`, so a machine that has been
 ///   asleep for an hour computes the same answer as one that has been drawing at sixty hertz;
 /// - a **phase** is only meaningful relative to a frame that already ran, and a machine holding one
-///   *can* be found halfway with no clock running — which is §8's sentence exactly.
+///   *can* be found halfway with no clock running — which is the sentence exactly.
 ///
 /// A spinner asks for **strictly less** than the collapsible already ships: [`ANCHOR_BYTES`] against
 /// [`crate::disclose::TWEEN_BYTES`], with no target, no `from` and nothing to land on. Components
-/// ticket 42 is the prototype and ADR 0051 is the decision.
+/// the prototype is where it was measured and the decision is recorded beside it.
 ///
 /// # And the clock is the frame's
 ///
@@ -513,11 +513,11 @@ impl SpinState {
 
     /// **Start spinning at `now`, one ladder frame every `per`.**
     ///
-    /// A zero `per` is **static and asks for nothing**, which is §8's own arrangement one component
+    /// A zero `per` is **static and asks for nothing**, which is the arrangement one component
     /// over: `Collapse::set` takes a `Duration` and a zero one steps rather than tweening. There is
     /// no theme bit to read instead — `Distinction` has ten entries and none of them is *motion is
     /// visible*, `Fade` being about whether a run of intermediate colours survives quantisation — so
-    /// **the motion switch is the caller's `Duration`**, exactly as the collapsible's is.
+    /// **The motion switch is the caller's `Duration`**, exactly as the collapsible's is.
     pub const fn start(&mut self, now: Instant, per: Duration) {
         self.steps = if per.is_zero() {
             None
@@ -557,7 +557,7 @@ impl SpinState {
 
 /// [`spinner`]'s options.
 ///
-/// Spec §1's rule 3: a `Default` struct, never a required builder.
+/// A `Default` struct, never a required builder.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub struct SpinOpts {
     /// The role the ladder frame is drawn in.
@@ -579,14 +579,14 @@ impl Default for SpinOpts {
 ///
 /// **Hostile axes:** none.
 ///
-/// The twenty-ninth row of spec §17's freeze and the last to be built. It declares no region — a
+/// The twenty-ninth row of the freeze and the last to be built. It declares no region — a
 /// spinner is a pure drawer, as [`crate::text::text`] with no interest is — and it **partitions its
 /// rectangle**: the mark, the label, the pad, and a run for every row below the first.
 ///
 /// # It owns an anchor and it does not own a clock
 ///
 /// [`SpinState`] is the anchor and `Ctx::now` is the clock. See [`SpinState`] for the rule and what
-/// it costs; ADR 0051 for the decision and the measurement that refuses the other arm.
+/// it costs, and the measurement that refuses the other arm is recorded with the decision.
 ///
 /// # It asks only if the draw put a cell on the screen
 ///
@@ -783,7 +783,7 @@ mod tests {
 
     /// **Criterion 1: `spinner` is three constructions, and the number is derived.**
     ///
-    /// Components ticket 42 left `constructions: 2` as an *argument* — every other
+    /// The prototype left `constructions: 2` as an *argument* — every other
     /// multi-construction row asserts `row.constructions == distinct(...)` against a shipped table
     /// and `spinner`'s table was on a branch, so nothing in the tree would have noticed the ladder
     /// changing shape. This is that derivation, and running it moved the number.
@@ -859,7 +859,7 @@ mod tests {
 
     /// **A stopped spinner asks for nothing on the next frame, and a zero period never asked.**
     ///
-    /// The half `collapsible` cannot have: a tween has somewhere to land, so §8's *frames to quiet*
+    /// The half `collapsible` cannot have: a tween has somewhere to land, so *frames to quiet*
     /// is a cadence. A spinner has no transient at all, so it is a **count**, and the count is one.
     #[test]
     fn a_stopped_spinner_is_quiet_at_once_and_a_zero_period_never_asked() {
@@ -904,7 +904,7 @@ mod tests {
 
     /// **A clipped spinner writes nothing and asks for nothing, and the defective arm asks anyway.**
     ///
-    /// The first of the two rules ticket 46 gates, and the reason it needs a runnable arm rather
+    /// The first of the two gated rules, and the reason it needs a runnable arm rather
     /// than a paragraph: **the two screens are cell for cell identical**. What separates them is one
     /// deadline, so a comparison of pictures reports them the same and only the ledger disagrees.
     ///
@@ -1072,7 +1072,7 @@ mod tests {
 
     /// **No component body in this crate samples its own clock.**
     ///
-    /// The scan ticket 46 owes, and it is `crate::order`'s arrangement: an absence has no
+    /// The scan this owes, and it is `crate::order`'s arrangement: an absence has no
     /// expression, so what keeps it true is a source scan rather than a type. The rule is *the clock
     /// is the frame's* — `Ctx::now` — and the edit that would break it is somebody reaching for
     /// `Instant::now()` because it is in scope in every crate.
@@ -1228,7 +1228,7 @@ mod tests {
     ///
     /// **The rung is an index and not a named repertoire**, which is `chart::raster::RUNGS`'s own
     /// purpose: naming one here would make this module the second file in the crate that spells a
-    /// repertoire, and the exception §16 states is worth exactly one file.
+    /// repertoire, and the one stated exception is worth exactly one file.
     fn driver_at(w: u16, h: u16, rung: usize) -> Driver {
         let mut driver = Driver::headless(w, h).expect("a sink cannot fail to attach");
         driver.set_theme(
@@ -1276,7 +1276,7 @@ mod tests {
     /// Block elements are the *Unicode* rung by `CONTEXT.md`'s own definition — *Unicode with box
     /// drawing and block elements* — so an operator who has promised block elements has promised all
     /// of them and the top two rungs are one construction. `1 / 8 / 8` is three readings and two
-    /// values, which is the number §17's column carries.
+    /// values, which is the number the column carries.
     #[test]
     fn a_meter_is_two_constructions_and_the_ladder_is_charts() {
         let ladders: Vec<u8> = RUNGS.iter().map(|&set| geom(Kind::Bars, set).sy).collect();

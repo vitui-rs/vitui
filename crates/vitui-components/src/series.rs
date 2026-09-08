@@ -41,7 +41,7 @@
 //!
 //! # Verbs are not flat and are not gated as flat
 //!
-//! §21's register carries `verbs <= writes` for this component and says *never verb equality across
+//! The register carries `verbs <= writes` for this component and says *never verb equality across
 //! sizes* in as many words. A run ends where a cell's owner changes, so a plot's verb count tracks
 //! the **picture** and is not monotone in *n*. [`Shape`] carries both, and the gate is the relation
 //! while the counts are a report.
@@ -55,7 +55,7 @@
 //! the second sentence as the thing that *is* a branch, and a branch on the repertoire is a
 //! component naming the repertoire.
 //!
-//! Settled the way §21's own refinement 3 settles this shape — **name the exception, do not loosen
+//! Settled the way the refinement 3 settles this shape — **name the exception, do not loosen
 //! the gate** — and the exception is [`crate::chart::raster::geom`], which the register's scan holds
 //! to the exact lines that may spell one.
 //!
@@ -99,7 +99,7 @@ pub use crate::chart::raster::{
 pub use crate::chart::{Opts, SERIES_RGB, Series, series_paint};
 // ── the screen ───────────────────────────────────────────────────────────────────────────────────
 
-/// The wide screen's width. §21's own 300x80.
+/// The wide screen's width. The original's 300x80.
 pub const W: u16 = 300;
 /// The wide screen's height.
 pub const H: u16 = 80;
@@ -108,11 +108,11 @@ pub const NARROW_W: u16 = 60;
 /// The narrow screen's height. Twenty.
 pub const NARROW_H: u16 = 20;
 
-/// How many series the screen stands up. **Two**, which is §21's own content and the number that
+/// How many series the screen stands up. **Two**, which is the content and the number that
 /// makes a shared cell possible at all — one series never shares a cell with itself.
 pub const SERIES: usize = 2;
 
-/// The three data volumes §21's scene 15 states.
+/// The three data volumes the scene 15 states.
 pub const VOLUMES: [usize; 3] = [1_000, 100_000, 1_000_000];
 
 /// **Interactive regions the screen declares. Two** — one for the plot and one for the chart.
@@ -204,7 +204,7 @@ impl ScreenState {
 
 /// **The legend, and it is a partition of every row it draws.**
 ///
-/// The label goes through [`fit_into`], which is where truncation is decided and where §16's
+/// The label goes through [`fit_into`], which is where truncation is decided and where
 /// one-cell ellipsis holds. [`defective::legend_that_does_not_narrow`] is the same function with the
 /// label written whole and the clip left to decide where it stops — **green at 300x80 and red at
 /// 60x20**, which is the two-size axis this screen is played at two sizes for.
@@ -823,7 +823,7 @@ pub fn assert_stands_up(scene: &str) {
 /// **Rect a correct frame writes at 300x80, at every one of [`VOLUMES`]. 21 872.**
 ///
 /// It is arithmetic a reader can do: `300 * 80` is 24 000, the legend's interior is `28 * 78` and it
-/// draws only [`SERIES`] of those rows, so `24 000 - (2 184 - 56)` is 21 872. §13's own figure,
+/// draws only [`SERIES`] of those rows, so `24 000 - (2 184 - 56)` is 21 872. The figure,
 /// reproduced exactly.
 pub const WRITES: u64 = 21_872;
 
@@ -862,7 +862,7 @@ pub const RASTER_BYTES_60X20: usize = 2 * 60 * 20;
 ///
 /// **The fold moves by two orders of magnitude and not three** over the thousandfold volume the
 /// application offers — [`FOLD_RATIO`] — because a fold walks the points and *then* writes a raster
-/// whose size is the rectangle, and only the first half is in `n`. §13's 1 849 000x is a **different
+/// whose size is the rectangle, and only the first half is in `n`. The 1 849 000x is a **different
 /// axis**: one fold against a memo that skipped it, which is the chain's ratio and not the volume's.
 /// Quoting it as this one is how the sentence acquired a third order it never had.
 ///
@@ -923,7 +923,7 @@ pub const AXIS_MAX_PASSES: u8 = 4;
 mod tests {
     use super::*;
 
-    /// A 60x20 raster built over `points`, which is §13's own object.
+    /// A 60x20 raster built over `points`, which is the object.
     fn raster_60x20(points: usize) -> Raster {
         let data = Series::build(points, SERIES);
         let g = geom(Kind::Marks, RUNGS[2]);
@@ -1006,7 +1006,7 @@ mod tests {
 
     /// **The verb count is not monotone in `n`**, at the size §13 states it at.
     ///
-    /// §13's own 2 551 / 3 772 / 2 472 does not reproduce and the **shape** does: this screen is
+    /// The original's 2 551 / 3 772 / 2 472 does not reproduce and the **shape** does: this screen is
     /// **2 554 / 3 775 / 2 475**, three more at every volume and the same rise and fall. The three
     /// are structural and are the same three at every volume — one verb a pane, from the chrome
     /// going through `crate::frame::block_into` rather than through a prototype's own border loop —
@@ -1320,7 +1320,7 @@ mod tests {
     ///
     /// The naive fixpoint converges on 175 248 in at most four passes and **oscillates on 464**. The
     /// hysteresis form never loops and settles on a gutter that is not a fixed point of its own rule
-    /// on **all 464** — §9's outcome exactly. Computing the gutter from the whole domain is 175 712
+    /// on **all 464** — the outcome exactly. Computing the gutter from the whole domain is 175 712
     /// pairs, **0 oscillations, always 1 pass**: there is no edge left to oscillate in.
     #[test]
     fn the_axis_loop_oscillates_on_four_hundred_and_sixty_four_and_the_whole_domain_on_none() {
@@ -1348,12 +1348,12 @@ mod tests {
     /// are **wider** than the integers they replaced. Found by looking rather than by construction —
     /// the pair below is the first one the sweep's own datasets produce.
     ///
-    /// # §13's illustration is not reachable on a 1 / 2 / 5 ladder, and it is not the mechanism
+    /// # the illustration is not reachable on a 1 / 2 / 5 ladder, and it is not the mechanism
     ///
     /// §13 offers `0 2.5 5 7.5 10` against `0 5 10` as the reason fewer ticks are not a subset of
     /// more. `nice_step(10, 5)` on a 1 / 2 / 5 x 10^k ladder is **2.0**, not 2.5, so that particular
     /// pair needs a ladder with 2.5 on it. The *finding* survives untouched — the sweep oscillates on
-    /// 464 pairs — because the mechanism that produces it is the second sentence of §13's own
+    /// 464 pairs — because the mechanism that produces it is the second sentence of the original's
     /// paragraph: *dropping older, larger samples can leave `-0.05` where `900` was.*
     #[test]
     fn a_narrower_plotting_area_can_produce_a_wider_label() {
@@ -1392,7 +1392,7 @@ mod tests {
     /// **The screen stands on its two declared components**, and the fact is computed rather than
     /// typed.
     ///
-    /// Ticket 27's criterion 7, inverted by ticket 28. [`subjects_declared`] opens the file the
+    /// criterion 7, inverted by ticket 28. [`subjects_declared`] opens the file the
     /// freeze homes both components in and reads what is declared there, so the day one of them
     /// moves this test fails and the standing is a deliberate edit — in the same direction it was
     /// made in. It is the same shape `crate::dense`'s went through one ticket family earlier, and
@@ -1416,7 +1416,7 @@ mod tests {
         assert_eq!(shape(Build::correct(), (W, H), VOLUMES[0]).regions, REGIONS);
     }
 
-    /// **The waiting message separates *unimplemented* from *wrong*.** Ticket 09's criterion 7.
+    /// **The waiting message separates *unimplemented* from *wrong*.** criterion 7.
     ///
     /// It names the subjects, the file, the declarations and the ticket, and says in as many words
     /// that it is not a defect in the screen.

@@ -1,7 +1,6 @@
 //! The focus ring, the three scope kinds, and the rule for a widget that stops drawing.
 //!
-//! Spec §8; [ADR 0012](../../../docs/adr/) and [ADR 0015](../../../docs/adr/). Two structures live
-//! here and they are the two halves of §8:
+//! Two structures live here and they are the two halves of focus:
 //!
 //! - **the ring** — the tab stops this frame declared, in draw order, each carrying a rectangle in
 //!   the enclosing scroll area's content coordinates;
@@ -84,7 +83,7 @@ pub enum ScopeKind {
 /// # The rectangle, and why it is not on the hit index
 ///
 /// `rect` is in **the enclosing scroll area's content coordinates**, read at `end` and never across
-/// a frame. Ticket 14's scroll-into-view resolves from the ring that has just drawn —
+/// a frame. Scroll-into-view resolves from the ring that has just drawn —
 /// exactly where the press award already is — so the *next* frame is already scrolled, and what
 /// crosses the frame boundary is a scroll offset naming no `Rect`.
 ///

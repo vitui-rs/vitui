@@ -12,8 +12,8 @@
 //! | seam | what it decided |
 //! |---|---|
 //! | the answer and the question | [`Preview::shows`] — **eight bytes on the payload**, and a landing that does not match is dropped without a cell written |
-//! | the answer and the offset | [`Reset::OnTheLanding`], and §15's other four spellings each produce their own defect |
-//! | the answer and the extent | §15's *unclamped* is **not a spelling of the offset at all** — see [`Extent`] |
+//! | the answer and the offset | [`Reset::OnTheLanding`], and the other four spellings each produce their own defect |
+//! | the answer and the extent | *unclamped* is **not a spelling of the offset at all** — see [`Extent`] |
 //! | the answer and the revision | [`Bump::OnTheLanding`]: a landing that did not happen is still a drop |
 //! | the answer and the frame | [`PaneState::land`] is a **top-of-view verb**, because [`Task::take`] is destructive |
 //!
@@ -28,9 +28,9 @@
 //!
 //! # `Worker` is `Send`, and the auto trait that matters is `!Sync`
 //!
-//! Spec §15 corrects G10, which named the wrong one, and **its correction is itself half wrong**:
+//! An earlier statement named the wrong one, and **the correction is itself half wrong**:
 //! a `Worker` is an `Arc<Inbox>` and is `Sync` as well as `Send`, which `crate::gates`'s row 31
-//! already recorded. [`WhyTheAutoTraitIsSync`] is **G10b** — the half §15 adds and row 31 did not
+//! already recorded. [`WhyTheAutoTraitIsSync`] is the half the correction adds and the original did not
 //! have — with the `compile_fail` halves over `Task` and a compiling twin naming `Cell`, `RefCell`,
 //! `Task` and `Worker` by path, so that neither half can go green by the other's mechanism.
 
@@ -59,7 +59,7 @@ pub const MEMBERS: &[&str] = &["file_picker", "file_preview_pane"];
 /// newest — that is an answer to a question *nobody is asking any more*, and it is the runtime's
 /// half. This is the other one: an answer to a question **nobody ever asked**, which arrives with a
 /// perfectly current generation because the job that made it was started for the right question and
-/// answered a different one. §15:
+/// answered a different one:
 ///
 /// > An asynchronous answer carries the identity of the question it answers, and the pane may write
 /// > only on an equality against it — `shows() == dir.at(pos).ino`, 8 bytes on the payload.
@@ -70,7 +70,7 @@ pub const MEMBERS: &[&str] = &["file_picker", "file_preview_pane"];
 ///
 /// # `extent` is a property of the file and not of the pane
 ///
-/// §9's precondition — *a declared content size* — is a field of the answer, so while the next file
+/// The precondition — *a declared content size* — is a field of the answer, so while the next file
 /// decodes the pane's extent is the previous file's: **4 000 where 800 is right**. That is what
 /// makes a preview pane a *positive case* for bars-reserved rather than a new question for it, and
 /// it is also the whole of [`Extent`].
@@ -94,7 +94,7 @@ impl<T: Preview + ?Sized> Preview for &T {
     }
 }
 
-/// **What [`PaneState::land`] did with the outbox.** Three arms, and the third is the one §15 is
+/// **What [`PaneState::land`] did with the outbox.** Three arms, and the third is the one at
 /// about.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Landed {
@@ -108,7 +108,7 @@ pub enum Landed {
 
 // ── the four axes a pane can be spelled on ───────────────────────────────────────────────────────
 
-/// **Where the offset goes when a new file arrives.** §15's table, less the row that is not on this
+/// **Where the offset goes when a new file arrives.** The table, less the row that is not on this
 /// axis at all — see [`Extent`] — and less the per-file map, which is [`defective::Mapped`].
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
 pub enum Reset {
@@ -125,20 +125,20 @@ pub enum Reset {
     Never,
 }
 
-/// **What content size the pane declares**, and this is where §15's *unclamped* row lives.
+/// **What content size the pane declares**, and this is where *unclamped* row lives.
 ///
-/// # §15's five spellings are four on the offset axis, and the fifth is on this one
+/// # the five spellings are four on the offset axis, and the fifth is on this one
 ///
-/// §15 prices an *unclamped* offset at **the body draws nothing at all**, and there is no way to
+/// An *unclamped* offset costs **the body drawing nothing at all**, and there is no way to
 /// leave an offset unclamped in this build: [`crate::scroll::scroll_area`] clamps against the extent
 /// it is handed, on **every** frame, and the clamp is free. What a caller can do instead is decline
-/// to bound it — declare an extent no offset can be past — and that produces §15's row exactly,
+/// to bound it — declare an extent no offset can be past — and that produces the row exactly,
 /// with its cause named.
 ///
 /// **And it costs two things rather than one.** The offset survives the shrink, so at row 3 926 over
 /// an 800-row document the body draws nothing; *and* the area's tail is
 /// `[extent, offset + viewport)`, which over an unbounded extent is **empty**, so the cells the
-/// body cannot write are cells nobody writes. §15's *1 650 writes against 4 166* is a partition
+/// body cannot write are cells nobody writes. *1 650 writes against 4 166* is a partition
 /// failure and not only a blank body — see [`crate::preview::UNCLAMPED_WRITES`].
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
 pub enum Extent {
@@ -168,7 +168,7 @@ pub enum Bump {
     EveryFrame,
 }
 
-/// **Where the landing is taken.** R18 §7's unenforced ordering, as an axis.
+/// **Where the landing is taken.** R18 the unenforced ordering, as an axis.
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
 pub enum Taken {
     /// **The rule.** Once, at the top of the view, by [`PaneState::land`], before anything draws.
@@ -300,7 +300,7 @@ impl<T: Preview> PaneState<T> {
     /// value every reader on the frame shares. A view that asks for it wherever it happens to want
     /// it hands the *first* consumer the answer and the second `None`, on the same frame, with no
     /// thread having done anything at all — and a view has no `&mut` with which to put back what it
-    /// took. That is R18 §7's unenforced ordering, and it is
+    /// took. That is R18 the unenforced ordering, and it is
     /// [`crate::preview::TORN`]`[0]` frames of 20 against 0.
     ///
     /// It is a verb on the state and not a step inside [`file_preview_pane`] for that reason: a
@@ -353,7 +353,7 @@ impl<T: std::fmt::Debug> std::fmt::Debug for PaneState<T> {
 ///
 /// # The key is the *file* and every natural way to name it names a position
 ///
-/// That is §10's memo-key rule arriving through the one door whose trigger is not a gesture. One
+/// That is the memo-key rule arriving through the one door whose trigger is not a gesture. One
 /// re-sort — one line of application code, no keystroke — and a position-keyed pane is wrong on
 /// **100 of 100 frames** afterwards, at the same number of questions either way, *because the
 /// question still matches, so nothing posts, so nothing wakes, so no frame corrects it.*
@@ -412,7 +412,7 @@ where
 
 // ── the pane's options ───────────────────────────────────────────────────────────────────────────
 
-/// [`file_preview_pane`]'s options. Spec §1's rule 3: a `Default` struct, never a required builder.
+/// [`file_preview_pane`]'s options. rule 3: a `Default` struct, never a required builder.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub struct PaneOpts {
     /// The role the cells past the document's extent are written in.
@@ -438,7 +438,7 @@ impl PaneOpts {
     ///
     /// **[`Hide::Never`] is not a default carried through; it is the decision.** A pane's extent is a
     /// property of the *file*, so a gutter cut only when an axis overflows appears and disappears as
-    /// the selection moves — the furniture jumping while the content does. §15 states it as the
+    /// the selection moves — the furniture jumping while the content does, which is the
     /// consequence rather than as a preference: *that makes a preview pane a positive case for
     /// bars-reserved rather than a new question for it.*
     fn area(self) -> AreaOpts {
@@ -458,9 +458,9 @@ impl PaneOpts {
 ///
 /// **Hostile axes:** `scrolled`, `shrunk`, `wheeled`.
 ///
-/// Scenes 23 and 24, and §15 states the second of them in its own words — *a landing is a shrink*,
+/// Two scenes, and the second is *a landing is a shrink*,
 /// from another thread for the first time. The offset belongs to neither side, which is where the
-/// five spellings of scene 24 come from.
+/// five spellings of the second come from.
 ///
 /// It asks its question on every frame, declares the extent of the answer it is showing, and calls
 /// `line` once per document row that is both inside the viewport and inside the document. Everything
@@ -683,7 +683,7 @@ pub struct Entry<'a> {
 
 /// **What the picker's owner keeps**: whether it is open, and what was chosen.
 ///
-/// [`crate::input::SelectState`]'s two-struct arrangement, and for §12's reason: the owner and the
+/// [`crate::input::SelectState`]'s two-struct arrangement, and for the reason: the owner and the
 /// body are two writers and folding them together is the thing that cannot be done.
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
 pub struct PickerState {
@@ -741,7 +741,7 @@ pub struct PickerBody<T> {
     pub list: CollState,
     /// **The preview pane's document and offset, and it is private.**
     ///
-    /// ADR 0039 refuses a component that takes its own landing, and what makes the refusal hold is
+    /// A component that takes its own landing is refused, and what makes the refusal hold is
     /// that there is **one** consumer. A `pub` field here would put a second `PaneState::land` in
     /// reach of the caller, on the one screen where a second reader of the same value is the whole
     /// defect. [`PickerBody::pane`] is the read-only half.
@@ -752,7 +752,7 @@ pub struct PickerBody<T> {
     /// frame beside [`PickerBody::answer`].
     ///
     /// Two slots and not one, and the reason is that this family's two owners hold their choice in
-    /// different shapes (architecture issue 23). `select`'s popup answers the *previously chosen*
+    /// different shapes. `select`'s popup answers the *previously chosen*
     /// index on `Esc`, which works because a `SelectState` always has one; a picker's
     /// [`PickerState::chosen`] is an `Option<u64>` that starts empty, so *answer what was already
     /// there* is `None` on the first open — indistinguishable from *nothing has been decided yet*,
@@ -827,7 +827,7 @@ impl Default for PickerOpts {
 ///
 /// **Hostile axes:** `scrolled`, `shrunk`, `wheeled`.
 ///
-/// Scene 25. All three are [`crate::collect::collection`]'s and [`file_preview_pane`]'s, which is
+/// All three are [`crate::collect::collection`]'s and [`file_preview_pane`]'s, which is
 /// R3's claim read on this list: a composition that introduces no mechanism introduces no axis
 /// either.
 ///
@@ -837,7 +837,7 @@ impl Default for PickerOpts {
 /// second key loop, and `crate::preview::picker_declares_what_its_parts_declare` compares the frame
 /// it produces against the three parts drawn by hand.
 ///
-/// **`'f` is the mechanism and not an annotation** — spec §1's own sentence about the fifth
+/// **`'f` is the mechanism and not an annotation** — the sentence about the fifth
 /// component, one family over. The body outlives the base pass, so everything it touches is borrowed
 /// for the frame: the caller's body state, the listing, and the task the answer comes through.
 ///
@@ -939,8 +939,8 @@ where
 
 /// **What the picker's own list refuses**, as one value.
 ///
-/// Production 08, and it is [`crate::input::SelectShape`]'s `list` field one component over and for
-/// its reason: spec §15 states the picker's body as *the shell, then a collection beside a preview
+/// It is [`crate::input::SelectShape`]'s `list` field one component over and for
+/// its reason: the picker's body is *the shell, then a collection beside a preview
 /// pane*, so the axes a windowed list can be wrong on are `collection`'s vocabulary reached by
 /// calling it. One struct rather than three booleans, which is
 /// [`crate::collect::TableShape`]'s arrangement and its reason — three enums side by side in a call
@@ -962,14 +962,14 @@ pub(crate) struct PickerShape {
 
 /// **Whether the picker's body has a keyboard at all**, and the refused arm is what shipped.
 ///
-/// Architecture issue 23. Until it was answered, `picker_body` seated no focus and declared no
+/// Until this was answered, `picker_body` seated no focus and declared no
 /// [`crate::collect::Refusal`], so **an open `file_picker` could only be used with a mouse**: no
 /// arrows, no `Home`/`End`, no type-ahead and no way to choose a file from the keyboard. It rendered
 /// perfectly, which is why nothing caught it — every gate in this module and in [`crate::preview`]
 /// drives the picker with a pointer or asserts about the pane.
 ///
 /// It is an axis rather than a deleted branch for [`CollShape`]'s reason: a gate written against
-/// *the same screen with one thing changed* separates a keyboard from its absence, where a gate
+/// *The same screen with one thing changed* separates a keyboard from its absence, where a gate
 /// written against a second implementation would test the second implementation.
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
 pub(crate) enum Keyboard {
@@ -977,7 +977,7 @@ pub(crate) enum Keyboard {
     /// `Esc` through the collection's one drain loop.
     #[default]
     Seated,
-    /// **What shipped until issue 23**: no focus, no refusal, a pointer-only popup.
+    /// **What shipped for a while**: no focus, no refusal, a pointer-only popup.
     Unseated,
 }
 
@@ -991,7 +991,7 @@ pub(crate) enum Keyboard {
 /// A body is `FnMut(&mut Ctx<'f, '_>) + 'f`, so a `&mut I` borrowed for this call cannot travel into
 /// one — [`crate::input::select_into`]'s note, and its reason: a body's `Ctx` is rooted at its own
 /// layer, so a tally that saw both would union two grids. What `ink` sees is the **shut face**,
-/// which is what §2's partition rule is about here.
+/// which is what the partition rule is about here.
 #[track_caller]
 #[expect(
     clippy::too_many_arguments,
@@ -1196,7 +1196,7 @@ where
 
 /// **The picker's body: the shell, then a collection beside a preview pane.**
 ///
-/// The three pieces, in the order §15 states them: the landing is taken at the top of the body, the
+/// The three pieces, in order: the landing is taken at the top of the body, the
 /// listing runs, and the pane asks about whatever the cursor is now on.
 #[expect(
     clippy::too_many_arguments,
@@ -1379,9 +1379,9 @@ pub(crate) fn picker_body<'f, I: Ink, T>(
 /// **G10b: what `Cell` and `RefCell` remove is `Sync`, and a `Task` is the only thing here that is
 /// neither.**
 ///
-/// # G10 named the wrong auto trait, and §15's correction is itself half wrong
+/// # G10 named the wrong auto trait, and the correction is itself half wrong
 ///
-/// Spec §15 rewrites G10 as *`Task` and `Worker` are `!Sync`; `Cell`, `RefCell`, `Worker` **are**
+/// The corrected statement is *`Task` and `Worker` are `!Sync`; `Cell`, `RefCell`, `Worker` **are**
 /// `Send`*, and the half about `Cell` is the finding: the property the design needs is **`!Sync`**,
 /// because the app thread owns the staleness arithmetic and a job may never hold a *reference* to
 /// the task that spawned it. `Send` is the wrong question in both directions — `Cell` and `RefCell`
@@ -1393,7 +1393,7 @@ pub(crate) fn picker_body<'f, I: Ink, T>(
 /// [`Worker`](vitui_runtime::work::Worker) is an `Arc<Inbox>` and is `Sync` as well as `Send`. That
 /// is asserted here rather than worked around, and it costs the design nothing — what a component
 /// may not share is its own `Task`, which is where the whole staleness arithmetic lives. Row 31
-/// carries the `Task` half and this type carries **G10b**, which §15 adds and row 31 did not have:
+/// carries the `Task` half and this type carries the half the correction added:
 /// the `Cell`/`RefCell` sentence, spelled as a compiling case.
 ///
 /// # The pair, and why both halves are needed
@@ -1434,14 +1434,14 @@ pub(crate) fn picker_body<'f, I: Ink, T>(
 /// fn needs_send<T: Send>(_: &T) {}
 /// fn needs_sync<T: Sync>(_: &T) {}
 ///
-/// // §15's own sentence: what `Cell` and `RefCell` remove is `Sync`, and they are what the
+/// // What `Cell` and `RefCell` remove is `Sync`, and they are what the
 /// // staleness arithmetic is written in.
 /// needs_send(&Cell::new(0u64));
 /// needs_send(&RefCell::new(0u64));
 /// assert_eq!(Cell::new(7u64).get(), 7);
 /// assert_eq!(*RefCell::new(7u64).borrow(), 7);
 ///
-/// // A worker crosses to the thread it hires — and it is `Sync` too, which §15 says it is not.
+/// // A worker crosses to the thread it hires — and it is `Sync` too, which the original denied.
 /// let worker = Worker::queueing();
 /// needs_send(&worker);
 /// needs_sync(&worker);
@@ -1455,7 +1455,7 @@ pub struct WhyTheAutoTraitIsSync;
 
 // ── the refused spellings ────────────────────────────────────────────────────────────────────────
 
-/// **What §15 refuses, kept runnable so that each refusal is a number rather than a sentence.**
+/// **What is refused, kept runnable so that each refusal is a number rather than a sentence.**
 ///
 /// Every arm here is the shipped pane with one field of [`PaneShape`] changed, except the per-file
 /// map — which is a *structure* the shipped pane has nowhere to put, and that is its refusal.
@@ -1483,10 +1483,10 @@ pub mod defective {
         })
     }
 
-    /// A pane that declares no bound at all. **The body draws nothing at all**, which is §15's
+    /// A pane that declares no bound at all. **The body draws nothing at all**, which is
     /// *unclamped* row with its cause named.
     ///
-    /// **Two fields, because §15's row is two clauses**: *the offset is unclamped* is *left where it
+    /// **Two fields, because the row is two clauses**: *the offset is unclamped* is *left where it
     /// was* **and** *nothing clamped it*. [`clamped_and_kept`] is this arm with the second removed
     /// and the first kept, so the pair is the isolation — one field between them, and the field is
     /// the extent.
@@ -1519,7 +1519,7 @@ pub mod defective {
         })
     }
 
-    /// **A picker whose list asks to be brought into view on every frame.** §17's `wheeled` axis on
+    /// **A picker whose list asks to be brought into view on every frame.** The `wheeled` axis on
     /// this component, and the arm `CONTEXT.md` forbids by name.
     ///
     /// `Reveal::EveryFrame` on the collection inside the popup. The wheel is then dead: a notch
@@ -1620,7 +1620,7 @@ pub mod defective {
         )
     }
 
-    /// **A picker whose popup has no keyboard at all** — architecture issue 23, and it is what
+    /// **A picker whose popup has no keyboard at all**, which is what
     /// shipped for eight tickets.
     ///
     /// `Keyboard::Unseated`: the body seats no focus and declares no

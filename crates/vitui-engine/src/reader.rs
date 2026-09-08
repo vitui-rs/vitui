@@ -276,7 +276,7 @@ mod tests {
     }
 
     /// A read that parses to nothing — an unrecognised sequence — must not wake the app thread: a
-    /// wake with an empty queue is a frame nobody asked for, and spec §11's idle guarantee is a
+    /// wake with an empty queue is a frame nobody asked for, and the idle guarantee is a
     /// count.
     #[test]
     fn a_read_that_yields_no_event_posts_no_wake() {

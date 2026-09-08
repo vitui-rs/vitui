@@ -27,7 +27,7 @@
 //! # The order is the caller's and a component may only ask
 //!
 //! **No [`Id`](vitui_runtime::Id) is anywhere near it**, because the index is keyed on the caller's
-//! node ids — exactly the keys that may be written to disk — so ADR 0013's *an `Id` may never be
+//! node ids — exactly the keys that may be written to disk — so *an `Id` may never be
 //! persisted* is satisfied by construction rather than by a rule.
 //!
 //! The component holds a **one-slot** request ([`Asked`]) drained by the caller after the draw, and
@@ -90,24 +90,24 @@ use crate::collect::{Selection, Span};
 
 /// **One row of a materialised display order.**
 ///
-/// `{ node, depth, flags, h }` and no more, which is ADR 0031's *one structure, five names*: a
+/// `{ node, depth, flags, h }` and no more, which is *one structure, five names*: a
 /// table's order is this record with three fields unused and a wrap index is it with one. Building
 /// five is the mistake; three names for one mechanism is already one too many.
 ///
 /// **No `Id`.** `node` is the *caller's* key — a row id, a byte offset, a line number — which is
-/// what makes the index persistable and keeps ADR 0013's rule satisfied by construction.
+/// what makes the index persistable and keeps the rule satisfied by construction.
 /// # It is eight bytes, and it was sixteen until components ticket 17
 ///
 /// Spec §7 states the record with its widths — `struct Row { node: u32, depth: u16, flags: u8, h: u8
 /// } // 8 bytes` — and §10, which is where *one structure, five names* is written, states the four
 /// field **names** and no widths at all. Components ticket 13 built this type from §10 and widened
-/// three of the four; the divergence went unremarked because §7's own criterion, *a gate asserts its
-/// size*, is components ticket 17's and had nothing to run over yet.
+/// three of the four; the divergence went unremarked because the criterion, *a gate asserts its
+/// size*, is the original's and had nothing to run over yet.
 ///
 /// **Narrowing it here is not a decision reopened**: the widths were stated by the section that owns
 /// the record, and the number they were widened to was asserted rather than argued. What the
-/// narrowing buys is that §7's own memory figures come back — a million rows is **7.63 MiB** against
-/// 15.26, and the variable-height prefix sum beside it is **11.44 MiB** against 19.07, which is §7's
+/// narrowing buys is that the memory figures come back — a million rows is **7.63 MiB** against
+/// 15.26, and the variable-height prefix sum beside it is **11.44 MiB** against 19.07, which is
 /// *7 → 11 MB* to the megabyte. See [`ENTRY_BYTES`] and [`index_bytes`].
 ///
 /// The three ceilings it costs are stated rather than discovered: a caller's key is bounded at
@@ -167,9 +167,9 @@ impl Entry {
     }
 }
 
-/// **What one row of a materialised display order costs. Eight bytes — spec §7's own figure.**
+/// **What one row of a materialised display order costs. Eight bytes — the figure.**
 ///
-/// The gate components ticket 17's criterion 1 asks for, and it is a `size_of` rather than a
+/// The gate criterion 1 asks for, and it is a `size_of` rather than a
 /// hand-added tally so that a fifth field arriving fails here rather than in a comment.
 pub const ENTRY_BYTES: usize = size_of::<Entry>();
 
@@ -273,7 +273,7 @@ impl Rows {
 
 /// **How many bytes the revision costs on the wire between a caller and a component. Eight.**
 ///
-/// §10's *one `u64` compared once a frame*, as a measurement rather than as a sentence.
+/// *one `u64` compared once a frame*, as a measurement rather than as a sentence.
 pub const REVISION_BYTES: usize = size_of::<Revision>();
 
 // ── the order ────────────────────────────────────────────────────────────────────────────────────
@@ -403,7 +403,7 @@ impl Order {
 
 /// **The flatten index's own three verbs**, which are the ones §7 is about.
 ///
-/// They are on [`Order`] rather than on a type of their own because §10's whole ruling is that
+/// They are on [`Order`] rather than on a type of their own because the whole ruling is that
 /// `tree`'s flatten index **is** the order — *three names for one mechanism is already one too many*.
 /// What separates them from the two above is only that they read [`Entry::depth`], and reading it is
 /// the entire reason the field exists.
@@ -411,7 +411,7 @@ impl Order {
     /// **The interval node `i`'s subtree occupies, read from [`Entry::depth`] and nothing else.**
     ///
     /// A contiguous scan over eight-byte records, forward from `i` while the depth stays greater.
-    /// The half of §7's sentence that makes the field earn its place: *`depth` is not there for the
+    /// The half of the sentence that makes the field earn its place: *`depth` is not there for the
     /// indent — it is there so a collapse can find the interval it removes **without touching the
     /// forest***. From the data the same answer is one random access per removed row, which is
     /// 115 µs against 1 187 at 349 524 rows. [`subtree_costs`] is that as a pair of measurements.
@@ -453,7 +453,7 @@ impl Order {
     /// The rebuild walks a shuffled forest at 85 ns a row and the splice moves records at 0.26 ns, so
     /// the crossover is at about **99.7% of the index removed** — in a tree, only at the root, where
     /// the rebuild wins by doing nothing. A branch that has to stay correct for ever is not worth
-    /// 340 µs once, so this sentence is a doc comment and not a `match`. That is §7's own
+    /// 340 µs once, so this sentence is a doc comment and not a `match`. That is the original's
     /// instruction, followed literally.
     ///
     /// The row itself stays and gains [`Entry::FOLDED`], which is what makes the fold visible to a
@@ -740,7 +740,7 @@ pub fn reconcile_permutation(
 
 /// **Reconcile one position — the editing slot, the cursor, the anchor — against a splice.**
 ///
-/// `None` when the row it named was removed. One position, and §6's *0.29 µs to follow a million-row
+/// `None` when the row it named was removed. One position, and *0.29 µs to follow a million-row
 /// sort, because it is one position* is a statement about this function's shape rather than about
 /// its speed.
 pub fn reconcile_position(at: Option<usize>, splice: &Splice) -> Option<usize> {
@@ -758,7 +758,7 @@ pub fn reconcile_position(at: Option<usize>, splice: &Splice) -> Option<usize> {
 
 /// **The prefix sum over [`Entry::h`], built in the same pass and only when rows can differ.**
 ///
-/// §7's *variable row height is a fourth field*. `Row::h` is a byte the record already had; this is
+/// *variable row height is a fourth field*. `Row::h` is a byte the record already had; this is
 /// the `Vec<u32>` beside it, and the three things §7 states about it are all measurements here rather
 /// than sentences:
 ///
@@ -771,7 +771,7 @@ pub fn reconcile_position(at: Option<usize>, splice: &Splice) -> Option<usize> {
 ///
 /// # `row_at` is `O(log n)` per viewport and not per row
 ///
-/// The content row at screen `y` is a binary search — 0.019 µs against 0.0006 — and §7's footnote is
+/// The content row at screen `y` is a binary search — 0.019 µs against 0.0006 — and the footnote is
 /// that the difference only matters if it is asked once a **row**. [`crate::collect::tree`] asks it
 /// once a frame and steps from there, so the index stays `O(1)` per row.
 ///
@@ -842,7 +842,7 @@ impl Heights {
         }
     }
 
-    /// **Re-accumulate across a [`Splice`].** The 2.25× half of §7's paragraph.
+    /// **Re-accumulate across a [`Splice`].** The 2.25× half of the paragraph.
     ///
     /// The rows before the interval keep their sums; everything after is walked again, which is what
     /// the cost is: a splice on the index moves records, and a splice here moves records **and** adds
@@ -860,7 +860,7 @@ impl Heights {
 
 /// **The content rows a viewport admits, found by one binary search and then by stepping.**
 ///
-/// `(rows, searches)` — and the second half is the whole point. §7's footnote is that a
+/// `(rows, searches)` — and the second half is the whole point. The footnote is that a
 /// variable-height index makes *the content row at screen `y`* an `O(log n)` question, and that this
 /// is affordable **once a frame** and not once a row: 0.019 µs against 0.0006 is nothing at eighty
 /// rows a frame and is a budget at eighty rows a *row*.
@@ -882,7 +882,7 @@ pub fn window_stepped(heights: &Heights, top: u32, view: u32) -> (Vec<usize>, us
     (out, 1)
 }
 
-/// **The same window, asked once a row.** The spelling §7's footnote exists to refuse.
+/// **The same window, asked once a row.** The spelling the footnote exists to refuse.
 ///
 /// It is correct — the rows are the same rows — and it is `O(h log n)` where the one above is
 /// `O(log n + h)`. A gate on the answer cannot tell them apart; a count of the searches can.
@@ -1151,7 +1151,7 @@ impl WrapIndex {
 
 // ── the measurements ─────────────────────────────────────────────────────────────────────────────
 
-/// **What one edit costs a selection, both ways.** §10's table, as a value.
+/// **What one edit costs a selection, both ways.** The table, as a value.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub struct EditCost {
     /// Spans before the edit.
@@ -1166,7 +1166,7 @@ pub struct EditCost {
 
 /// **The same edit, reconciled as a splice and as a permutation.**
 ///
-/// §10's sharpest pair, and the reason `Clear` is the honest default for one and `Drop` for the
+/// The sharpest pair, and the reason `Clear` is the honest default for one and `Drop` for the
 /// other: *a subtree is contiguous in pre-order display coordinates, so under a splice a sorted span
 /// list transforms in `O(spans)` and cannot shatter.*
 ///
@@ -1229,7 +1229,7 @@ pub fn splice_vs_permutation(
     (spliced, permuted)
 }
 
-/// **An interval edit on the selection store, against a bit vector.** §21's register row 13.
+/// **An interval edit on the selection store, against a bit vector.** The register row 13.
 ///
 /// `(spans_touched, bits_touched)`. The span list touches the spans that meet the interval — one,
 /// for a contiguous selection — and a bit vector has to move every bit after it, because a bit's
@@ -1297,7 +1297,7 @@ pub fn policy_costs(len: usize, removed: Range<usize>, rounds: u32) -> (u128, u1
 
 /// **A forest as a pre-order depth array**, which is the data side of the index.
 ///
-/// The oracle half of §7's sentence lives here rather than in `crate::forest`, because the sentence
+/// The oracle half of the sentence lives here rather than in `crate::forest`, because the sentence
 /// is about *this* index and a measurement whose two arms sit in two files is a measurement nobody
 /// can put side by side. One `u16` a node, and the subtree of node `i` is the following run of nodes
 /// deeper than it.
@@ -1326,7 +1326,7 @@ pub fn flattened(forest: &[u16]) -> Order {
     )
 }
 
-/// **§7's *115 µs against 1 187*: the interval a collapse removes, from the index and from the data.**
+/// ***115 µs against 1 187*: the interval a collapse removes, from the index and from the data.**
 ///
 /// `(from_the_index, from_the_forest)` in nanoseconds, minimum of `rounds`. Both answer the same
 /// number over the same forest; the difference is that the index is a contiguous scan over
@@ -1381,7 +1381,7 @@ fn shuffle(n: usize) -> Vec<u32> {
     out
 }
 
-/// **§7's *splice, always*: what a collapse costs by splice and what the same one costs rebuilt.**
+/// ***splice, always*: what a collapse costs by splice and what the same one costs rebuilt.**
 ///
 /// `(splice, rebuild)` in nanoseconds, minimum of `rounds`. The splice is flat in what it removes and
 /// the rebuild is proportional to what **remains**, which is the whole reason there is no threshold:
@@ -1423,7 +1423,7 @@ pub fn fold_costs(forest: &[u16], at: usize, rounds: u32) -> (u128, u128) {
     (spliced, rebuilt)
 }
 
-/// **§7's *2.25×*: what the same splice costs with the height prefix sum beside the index.**
+/// ***2.25×*: what the same splice costs with the height prefix sum beside the index.**
 ///
 /// `(index_only, index_and_heights)` in nanoseconds, minimum of `rounds`. The extra is the tail that
 /// has already been moved being added up again, and there is no shape that avoids it while keeping
@@ -1449,7 +1449,7 @@ pub fn heights_splice_cost(forest: &[u16], at: usize, rounds: u32) -> (u128, u12
     (bare, with)
 }
 
-/// **§7's *0.019 µs against 0.0006*: a binary search against an array index.**
+/// ***0.019 µs against 0.0006*: a binary search against an array index.**
 ///
 /// `(binary_search, direct)` in nanoseconds, minimum of `rounds`. The point of the pair is not that
 /// one is cheaper — it is that thirty times a *frame* is nothing and thirty times a *row* is a
@@ -1561,11 +1561,11 @@ pub fn document() -> Vec<&'static str> {
     (0..80).map(|i| JOINED[i % JOINED.len()]).collect()
 }
 
-/// The two widths the resize case is played at. §10's own pair.
+/// The two widths the resize case is played at. The pair.
 pub const WIDE: u16 = 300;
 /// The narrow half of the resize. See [`WIDE`].
 pub const NARROW: u16 = 120;
-/// How many display rows the screen shows at once. §10's *69 of 80 rows differ* is over this many.
+/// How many display rows the screen shows at once. *69 of 80 rows differ* is over this many.
 pub const SCREEN_ROWS: usize = 80;
 
 #[cfg(test)]
@@ -1943,13 +1943,13 @@ mod tests {
     /// **Criterion 9: the 300 → 120 resize, where the wrong key recomputes less and is wrong on the
     /// screen.**
     ///
-    /// §10's sharpest arrival and the one that names the detector. A wrap index memoised on the
+    /// The sharpest arrival and the one that names the detector. A wrap index memoised on the
     /// **revision alone** hits after a resize, so it draws the document at the previous width: fewer
     /// display rows than the narrow width needs, and most of the visible window showing the wrong
     /// source line. Every counter approves — it recomputes **1 against 2** — which is why
     /// `recomputes` is useless here and [`Keyed::built_at`] is not.
     ///
-    /// # The magnitudes are this corpus's and the structure is §10's
+    /// # The magnitudes are this corpus's and the structure is
     ///
     /// §10 records **625 rows drawn where 875 are needed; 69 of 80 rows differ**, over C06's
     /// document, which is not in this repository. [`document`] is stated rather than fitted, so what
@@ -2016,7 +2016,7 @@ mod tests {
         );
     }
 
-    /// **A splice is spliced and not rebuilt**, which is the other half of §10's table.
+    /// **A splice is spliced and not rebuilt**, which is the other half of the table.
     ///
     /// A count rather than a timing: the splice touches the interval and the tail, and the rebuild
     /// touches every row. Measured as *entries the caller had to construct*, because that is the
@@ -2050,7 +2050,7 @@ mod tests {
     }
     // ── components ticket 17: the flatten index ──────────────────────────────────────────────────
 
-    /// **§7's *`depth` is not there for the indent*: the interval, from the index and from the
+    /// ***`depth` is not there for the indent*: the interval, from the index and from the
     /// data.**
     ///
     /// An equality first — both arms answer the same interval, which is what makes the pair a
@@ -2080,9 +2080,9 @@ mod tests {
         );
     }
 
-    /// **§7's *splice, always*: `splice == rebuild`, and the fold is a no-op on a leaf.**
+    /// ***splice, always*: `splice == rebuild`, and the fold is a no-op on a leaf.**
     ///
-    /// The equality is the gate and the crossover is a doc comment, which is §7's own instruction:
+    /// The equality is the gate and the crossover is a doc comment, which is the instruction:
     /// a rebuild path that has to stay correct for ever is not worth 340 µs once. The leaf half is
     /// here because it is the one way this verb can be wrong without the screen saying so — a
     /// revision stamped for an edit that removed nothing is a `Clear` on the next frame.
@@ -2150,7 +2150,7 @@ mod tests {
         assert!(!spliced.at(last).expect("a leaf").is_folded());
     }
 
-    /// **§7's *variable row height is a fourth field*, in the three things it says about it.**
+    /// ***variable row height is a fourth field*, in the three things it says about it.**
     ///
     /// The growth is arithmetic over [`ENTRY_BYTES`], the splice is a count of what has to be
     /// re-accumulated, and `row_at` is asserted over a sweep rather than at the interesting index.
@@ -2223,7 +2223,7 @@ mod tests {
         assert_eq!(heights, Heights::built(&order), "spliced == rebuilt");
     }
 
-    /// **§7's footnote: `row_at` is `O(log n)` per viewport and not per row.**
+    /// **The footnote: `row_at` is `O(log n)` per viewport and not per row.**
     ///
     /// The two spellings answer the **same rows** — which is why no gate on the picture separates
     /// them — and one of them asks the index eighty times where the other asks once. The count is

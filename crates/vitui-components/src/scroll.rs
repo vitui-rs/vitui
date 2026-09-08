@@ -4,25 +4,25 @@
 //! The reduction is R2 and R5; `pull-to-refresh` is the family's one residue entry, a
 //! touch gesture with no terminal meaning and nobody who could change that.
 //!
-//! `collection` declares this family and is homed under F7. Spec §9's C21 is why the distinction
+//! `collection` declares this family and is homed under F7. C21 is why the distinction
 //! is worth the confusion: **a `scroll_area` costs its content and a virtualised `collection` costs
 //! its visible window**, and the wrong pairing is 7 907 us at 100 000 rows — seventy-nine budgets.
 //!
 //! # `bar` draws the thumb first, and that is the whole helper
 //!
-//! Spec §3's table gives it one job — *the bar every scrollable draws* — and one shape: **thumb,
-//! then the track above and below.** It is spec §2's partition rule at the smallest scale it comes
+//! The table gives it one job — *the bar every scrollable draws* — and one shape: **thumb,
+//! then the track above and below.** It is the partition rule at the smallest scale it comes
 //! in, and it is a helper rather than a paragraph because the other order is what everybody writes:
 //! fill the groove, then put the thumb on it. That reads correctly, it is one verb shorter, and it
 //! writes every cell of the thumb **twice** — [`TRACK_FIRST_EXCESS`] cells a frame on a two-bar
 //! screen, on every frame, whether anything scrolled or not.
 //!
 //! Nothing about it looks like a fill, which is [`crate::frame`]'s fifteen-cell instance again one
-//! helper down: ADR 0026 found the same shape in five places and three of them were not fills.
+//! helper down: the same shape turned up in five places and three of them were not fills.
 //!
 //! # The unit is content cells, and it comes from one place
 //!
-//! Spec §9, collecting C05's debt: *the extent, the offset, the thumb and scroll-into-view are all
+//! Collecting one debt: *the extent, the offset, the thumb and scroll-into-view are all
 //! in content cells and all come from one place.* Measured in **rows** instead, on content where
 //! one row in eight is three cells tall, the extent reads 1 000 000 where it is 1 250 000 — *time,
 //! writes, verbs, marked cells, regions and allocations are all identical*, the area reaches row
@@ -40,7 +40,7 @@ pub const MEMBERS: &[&str] = &["scroll_area", "scrollbar", "sticky"];
 /// Which way a bar runs.
 ///
 /// Named `Orient` and not `Axis`: [`crate::Axis`] is re-exported at this crate's root and means one
-/// of §17's four **hostile axes**, and a reader meeting two `Axis`es in one file has to check which
+/// of the four **hostile axes**, and a reader meeting two `Axis`es in one file has to check which
 /// crate each came from — [`crate::text::Justify`]'s naming note, for its reason.
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Default, Hash)]
 pub enum Orient {
@@ -53,7 +53,7 @@ pub enum Orient {
 
 /// **Where the content is, in content cells.**
 ///
-/// Three numbers in one unit, which is spec §9's rule rather than an ergonomic grouping: an extent
+/// Three numbers in one unit, which is the rule rather than an ergonomic grouping: an extent
 /// in rows against a viewport in cells is a defect that moves no counter at all.
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Default, Hash)]
 pub struct Span {
@@ -67,7 +67,7 @@ pub struct Span {
 
 /// [`bar`]'s options.
 ///
-/// Spec §1's rule 3: a `Default` struct, never a required builder.
+/// A `Default` struct, never a required builder.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub struct BarOpts {
     /// Which way it runs.
@@ -90,7 +90,7 @@ impl Default for BarOpts {
 
 /// **Where the thumb sits in a track of `track` cells: `(start, length)`.**
 ///
-/// The only arithmetic that turns a [`Span`] into cells, which is spec §9's *all come from one
+/// The only arithmetic that turns a [`Span`] into cells, which is *all come from one
 /// place* as a function rather than as a sentence.
 ///
 /// Three cases, and the first two are the ones a bar drawn by hand gets wrong:
@@ -266,11 +266,11 @@ pub(crate) fn band(area: Rect, orient: Orient, from: u16, n: u16) -> Rect {
 ///
 /// A vertical bar is one verb a row, because [`Ink::run`] writes one row: the bar is a column and a
 /// column is not a run. That is why `verbs` is the counter this helper is *worst* on and the pair is
-/// the one it is judged by — §21's *`verbs <= writes`* is a relation for exactly this reason.
+/// the one it is judged by — *`verbs <= writes`* is a relation for exactly this reason.
 ///
 /// # It is `pub(crate)` because a slider draws through it, and that is the point rather than a leak
 ///
-/// Spec §3 gives [`bar`] one job — *the bar every scrollable draws* — and one shape: **thumb, then
+/// [`bar`] has one job — *the bar every scrollable draws* — and one shape: **thumb, then
 /// the track above and below**. [`crate::input::slider`] is the same shape with **three** stretches
 /// rather than two, because a slider's groove carries two roles and [`BarOpts`] has one `track`
 /// field. So `bar` itself cannot draw it and this is what the two share: one definition of *write
@@ -325,15 +325,15 @@ pub(crate) fn stripe<I: Ink>(
 
 /// **Whether the cells of the rectangle the content does not reach are written.**
 ///
-/// [`crate::collect::Tail`] **reached and not restated**, which is the same decision production 06
+/// [`crate::collect::Tail`] **reached and not restated**, which is the same decision
 /// made about a table's clamp: two enums with two arms and one meaning are a second answer to one
-/// question, and §2's *a component owes every cell of its rectangle* is one rule with two
+/// question, and *a component owes every cell of its rectangle* is one rule with two
 /// components under it. What differs is the surface — a collection's tail is the **rows** below its
 /// content and an area's is `[extent, offset + viewport)` on **both** axes, which is why
 /// [`tail_into`] has an inner loop and `collect`'s has none.
 pub(crate) use crate::collect::Tail;
 
-/// **What a band actually translates by**, which is §17's `scrolled` axis on [`sticky`].
+/// **What a band actually translates by**, which is the `scrolled` axis on [`sticky`].
 ///
 /// The rule is [`Shares::of`] negated: `child` narrows the clip and `scrolled` puts the shared axis
 /// back into content coordinates. Every other arm is one expression away from it, and **at offset
@@ -357,7 +357,7 @@ pub(crate) enum Shared {
     /// **The defect.** Nothing is pinned — both axes translate, so a one-row header's only row is
     /// pushed out of its own band and clipped away.
     Both,
-    /// **The defect.** §17's inverted sign, on the band rather than on the body: `scrolled(dx, dy)`
+    /// **The defect.** The inverted sign, on the band rather than on the body: `scrolled(dx, dy)`
     /// where the rule is `scrolled(-dx, -dy)`.
     Inverted,
     /// **The defect.** The `Ctx::child` is dropped and the origin moved by arithmetic, so a body
@@ -439,7 +439,7 @@ pub mod defective {
     /// neighbour draws afterwards and wins, the picture is identical, and the overrun is re-damaged
     /// on every steady frame for ever.
     ///
-    /// It is spec §6's pinned-column finding on the other axis, which is what spec §9 asks to be
+    /// It is the pinned-column finding on the other axis, and what asks to be
     /// shown: *a body drawn by arithmetic instead of into a view has identical writes, identical
     /// verbs, identical output and cells re-damaged every steady frame.*
     /// **It is the arithmetic arm's entry point and not a second body**, which is production
@@ -449,7 +449,7 @@ pub mod defective {
     /// `tests::a_band_is_a_view_and_the_arithmetic_spelling_re_damages_what_is_under_it` is watched
     /// through it.
     ///
-    /// **No `#[track_caller]`, exactly as before the fold.** Production 09's first draft added one
+    /// **No `#[track_caller]`, exactly as before the fold.** A first draft added one
     /// and a review caught it: this function did not carry the attribute, so `cx.id()` mints *its
     /// own* line, and adding one would have made it mint the caller's — a change to a shipped
     /// signature's behaviour, unasked and ungated. It changes nothing observable, because a band
@@ -470,9 +470,9 @@ pub mod defective {
     ///
     /// The one entry the two [`crate::surround`] screens reach, and the reason there is no
     /// `omitted_tail` and no `inverted_band` beside it: a band refusal has to arrive *through the
-    /// area*, because `scroll_area` is what calls [`super::sticky`] for all four of §9's bands and
+    /// area*, because `scroll_area` is what calls [`super::sticky`] for all four of the bands and
     /// nothing else in this crate opens a band of its own. A `pub fn` taking a band's own signature
-    /// would have no caller, which is production 08's own review finding — four wrappers written
+    /// would have no caller, which a review found — four wrappers written
     /// and deleted for exactly that.
     #[expect(
         clippy::too_many_arguments,
@@ -537,19 +537,19 @@ pub struct Shown {
 pub struct Decision {
     /// What stands.
     pub shown: Shown,
-    /// **How many passes the loop took, including the one that changed nothing.** Spec §9's gate is
+    /// **How many passes the loop took, including the one that changed nothing.** The gate is
     /// *worst case 3 passes*, and the third is the pass that proves it is a fixpoint.
     pub passes: u8,
 }
 
-/// The largest number of passes [`decide`] may take. Spec §9: **worst case 3 passes.**
+/// The largest number of passes [`decide`] may take: **worst case 3 passes.**
 pub const MAX_PASSES: u8 = 3;
 
 /// **How the *presence* of a bar is decided.**
 ///
 /// # `WhenItFits` requires a declared content size, and that is a rule about the caller
 ///
-/// ADR 0029's second half: *reserved auto-hiding bars require a declared content size, because the
+/// The second half: *reserved auto-hiding bars require a declared content size, because the
 /// measurement is taken inside the rectangle the decision produced.* This crate keeps that
 /// unwritable rather than documented — [`scroll_area`] takes its extent as an **argument**, so
 /// there is no closure to hand it, no `measure` hook and nothing that could see the reduced
@@ -653,7 +653,7 @@ pub fn max_offset(extent: (u32, u32), view: (u16, u16)) -> (i32, i32) {
 // `sticky` — a band is one construction with an axis argument
 // ═════════════════════════════════════════════════════════════════════════════════════════════════
 
-/// **Which of the body's two offsets a band shares.** Spec §9's axis argument.
+/// **Which of the body's two offsets a band shares.** The axis argument.
 ///
 /// > A band is a rectangle split that shares one of the two offsets and pins the other to zero, and
 /// > it must be a view. The header shares `x`; the pinned column shares `y`; the footer shares `x`;
@@ -688,7 +688,7 @@ impl Shares {
     }
 }
 
-/// **Which of spec §9's four bands this is.**
+/// **Which of the four bands this is.**
 ///
 /// Four names and **one** construction: they differ in the rectangle they were cut from and in
 /// [`Shares`], and in nothing else. Four components here would be four places for the wheel rule
@@ -706,7 +706,7 @@ pub enum Which {
 }
 
 impl Which {
-    /// Which offset this band shares. **The table is spec §9's own sentence.**
+    /// Which offset this band shares. **The table is the sentence.**
     pub const fn shares(self) -> Shares {
         match self {
             Which::Header | Which::Footer => Shares::X,
@@ -751,8 +751,8 @@ impl Band {
 /// one and there is no second axis for it to be wrong on. It declares nothing, so nothing here is a
 /// target and no notch reaches it.
 ///
-/// This is the one construction spec §9 states, with [`Shares`] as its axis argument. `scroll_area`
-/// calls it for all four of §9's bands and nothing else in this crate opens a band of its own.
+/// This is the one construction, with [`Shares`] as its axis argument. `scroll_area`
+/// calls it for all four of the bands and nothing else in this crate opens a band of its own.
 ///
 /// # The coordinates the body draws in
 ///
@@ -763,7 +763,7 @@ impl Band {
 /// makes a title and the cells under it unable to disagree about where a column is: they are the
 /// same number.
 ///
-/// # It declares nothing, and that is spec §9's rule rather than an omission
+/// # It declares nothing, and that is the rule rather than an omission
 ///
 /// > One construction with an axis argument, not four components — and **one hit entry for all
 /// > four**, because a band that were a second scroll area would win the wheel from the body it is
@@ -810,7 +810,7 @@ pub fn sticky(
 ///
 /// There is **one** band body in this crate and this is it: [`sticky`] is this with the rule, and
 /// [`defective::arithmetic_band`] is this with one arm. A second body written beside it would be
-/// two places for §9's sentence to be got wrong, which is `crate::ink`'s own rule about copies
+/// two places for the sentence to be got wrong, which is `crate::ink`'s own rule about copies
 /// arriving on a policy rather than on a writer.
 fn sticky_shaped(
     cx: &mut Ctx<'_, '_>,
@@ -878,14 +878,14 @@ impl Default for ScrollbarOpts {
 ///
 /// **Hostile axes:** `narrow`.
 ///
-/// Scene 17, the other half of the fixpoint. **It does not own an offset**: the [`Span`] arrives from
+/// The other half of the fixpoint. **It does not own an offset**: the [`Span`] arrives from
 /// whoever does, which is why the wheel is not on this line.
 ///
-/// [`bar`] is the *helper* this draws through — spec §3's *the bar every scrollable draws* — and
+/// [`bar`] is the *helper* this draws through — *the bar every scrollable draws* — and
 /// this is the **component**: it declares a hit entry, so the thumb is a drag target and the
 /// steppers are click targets, and it returns a [`Response`] like everything else on this map.
 ///
-/// **It does not own an offset** (spec §17's freeze says so in its own column, and §9 says why):
+/// **It does not own an offset**, and the freeze says so in its own column:
 /// a bar that moved an offset of its own would be a second scroll area, and a second scroll area
 /// inside one wins the wheel from the body it is a bar of. What it publishes is `Interest::CLICK`
 /// and `Interest::HOVER` and **never** `Interest::SCROLL`, so a wheel click over the bar chains
@@ -987,7 +987,7 @@ pub fn scrollbar_into<I: Ink>(
 
 /// **Everything a [`scroll_area`] stores: an offset in content cells, per axis.**
 ///
-/// One pair of `i32`s and nothing else. Spec §9: *the extent, the offset, the thumb and
+/// One pair of `i32`s and nothing else: *the extent, the offset, the thumb and
 /// scroll-into-view are all in content cells and all come from one place* — this is that place for
 /// the second of the four, and [`Span`] is it for the other three.
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Default, Hash)]
@@ -1084,7 +1084,7 @@ impl Parts {
     }
 }
 
-/// **The split, and the whole of ADR 0029 as arithmetic: the rectangle is reduced before the body
+/// **The split, and the whole of *bars are reserved* as arithmetic: the rectangle is reduced before the body
 /// is called.**
 ///
 /// The bands are cut first because their sizes are the caller's and do not depend on the decision;
@@ -1131,7 +1131,7 @@ pub fn parts(rect: Rect, extent: (u32, u32), opts: &AreaOpts) -> Parts {
 /// **Why a reserved auto-hiding bar takes a declared content size and there is no way to measure
 /// one.**
 ///
-/// ADR 0029's second half, kept unwritable rather than written down: *a measured extent and a
+/// The second half, kept unwritable rather than written down: *a measured extent and a
 /// hideable reserved bar are incompatible, because the measurement is taken inside the rectangle
 /// the decision produced.* [`scroll_area`] takes its extent as an **argument** — a pair of numbers
 /// the caller already owns before the frame reaches the area — so there is no closure to ask, no
@@ -1183,9 +1183,9 @@ pub struct WhyAnAutoHidingBarNeedsADeclaredExtent;
 ///
 /// # Bars are reserved. There is no overlay option
 ///
-/// ADR 0029, and it is unconditional. An overlay bar is free exactly where the body does not draw
+/// Unconditional. An overlay bar is free exactly where the body does not draw
 /// under it — **0 cells** — and costs cells re-damaged on every steady frame where it does, against
-/// **0** for the reserved twin on the same screen with the same content. ADR 0029 prices that at
+/// **0** for the reserved twin on the same screen with the same content. That is priced at
 /// **3 535 cells a frame**; `crate::area` measures the double write underneath it at
 /// [`crate::area::OVERLAY_REDAMAGE`] and says at length why the two are different quantities. What
 /// makes the rule unconditional rather than a default is the *exactly*: **free where nothing is
@@ -1196,7 +1196,7 @@ pub struct WhyAnAutoHidingBarNeedsADeclaredExtent;
 ///
 /// # A `scroll_area` costs its content
 ///
-/// Spec §9's C21: a `scroll_area` costs its **content** and a virtualised `collection` costs its
+/// C21: a `scroll_area` costs its **content** and a virtualised `collection` costs its
 /// **visible window**, and the wrong pairing is the single most expensive mistake available above
 /// this runtime. **Every shipped scrollable of unbounded data is a [`crate::collect::collection`]**
 /// — this is for a form, a preview, a picture, a document whose size the caller already knows. A
@@ -1225,7 +1225,7 @@ pub struct WhyAnAutoHidingBarNeedsADeclaredExtent;
 /// `crate::wheel` runs both directions over this component and over `collection` separately, and
 /// `examples/wheel_numbers.rs` prints the pair.
 ///
-/// **Since runtime architecture issue 33 the every-frame asker is no longer silent.** A request
+/// **The every-frame asker is no longer silent.** A request
 /// that survives to `end` asks for the frame that reads it, so a body that asks unconditionally
 /// asks for a wake unconditionally, and the application stops sleeping — which is the first
 /// symptom of this fault any instrument has ever had. The screen is still identical and every
@@ -1241,7 +1241,7 @@ pub struct WhyAnAutoHidingBarNeedsADeclaredExtent;
 ///
 /// # The unit is content cells, everywhere
 ///
-/// `extent` is `Σ h` and never a row count. Spec §9 prices the substitution at **row 799 999 of
+/// `extent` is `Σ h` and never a row count. The substitution is priced at **row 799 999 of
 /// 999 999** over a million rows one in eight of which is three cells tall — a fifth of the content
 /// unreachable, with *time, writes, verbs, marked cells, regions and allocations all identical*.
 /// See [`crate::area::Unit`].
@@ -1284,7 +1284,7 @@ pub fn scroll_area(
 /// [`scroll_area`], with the options and the band drawer spelled out.
 ///
 /// `band` is called once per standing band, **inside its view**, with the coordinates
-/// [`sticky`] documents. It is called for all four of spec §9's bands and the caller tells them
+/// [`sticky`] documents. It is called for all four of the bands and the caller tells them
 /// apart by [`Band::which`].
 #[track_caller]
 pub fn scroll_area_with(
@@ -1518,7 +1518,7 @@ const HBAR: u64 = u64::MAX - 1;
 
 /// **`[extent, offset + viewport)` on both axes, written by the owner of the rectangle.**
 ///
-/// Spec §2's partition rule at the one place a body cannot reach: the body draws what the content
+/// The partition rule at the one place a body cannot reach: the body draws what the content
 /// admits and this is the rest of the rectangle. Leaving it out is what a scroll area whose extent
 /// has just shrunk looks like — the old rows still on the screen, under a correct offset.
 fn tail_into<I: Ink>(
@@ -1546,13 +1546,13 @@ fn tail_into<I: Ink>(
 
 // ── the two-bar screen ───────────────────────────────────────────────────────────────────────────
 
-/// The screen's width. §20 prices every dense screen on this map at 300×80.
+/// The screen's width. Every dense screen here is priced at 300×80.
 pub const W: u16 = 300;
 /// The screen's height.
 pub const H: u16 = 80;
-/// The vertical extent the screen's content has, in content cells. §9's own screen: a million rows.
+/// The vertical extent the screen's content has, in content cells. The screen: a million rows.
 pub const ROWS: u32 = 1_000_000;
-/// The horizontal extent, in content cells. §9's watermark reads `(400, 69)` against its viewport.
+/// The horizontal extent, in content cells. The watermark reads `(400, 69)` against its viewport.
 pub const COLS: u32 = 400;
 
 // ── the ledger ───────────────────────────────────────────────────────────────────────────────────
@@ -1568,8 +1568,8 @@ pub const BAR_CELLS: u64 = (H - 1) as u64 + (W - 1) as u64;
 /// **Rect a track-first pair of bars writes twice, every frame. This screen's own number.**
 ///
 /// It is `thumb_v + thumb_h` and nothing else: the excess *is* the thumb, because the thumb is
-/// exactly what the groove was written under. Spec §3 remembers **221** on C02's two-bar screen and
-/// **345** on §9's; see [`crate::scroll`]'s test module and
+/// exactly what the groove was written under. The remembered figures are **221** on a two-bar screen and
+/// **345** on this one; see [`crate::scroll`]'s test module and
 /// `examples/press_numbers.rs` for which halves of those reproduce here and which are another
 /// screen's magnitudes.
 pub const TRACK_FIRST_EXCESS: u64 = 224;
@@ -1646,7 +1646,7 @@ mod tests {
     }
 
     /// **A bar writes a partition of its rectangle, at every length, offset and orientation** —
-    /// spec §2's first equality on the helper it is stated about, and its second restricted to the
+    /// the first equality on the helper it is stated about, and its second restricted to the
     /// bar.
     ///
     /// Swept rather than sampled, because every interesting case is a place the arithmetic runs
@@ -1706,7 +1706,7 @@ mod tests {
     ///
     /// Both arms draw the same cells with the same glyphs in the same places, so the only counter
     /// that separates them is the pair. The track-first arm is *cheaper* in verbs, which is the
-    /// shape ADR 0026 records four other times: **the defective build is always faster and always
+    /// shape that turns up four other times: **the defective build is always faster and always
     /// marks less.**
     ///
     /// The excess is asserted to equal the two thumbs, which is what makes it a property of the
@@ -1837,7 +1837,7 @@ mod tests {
     ///
     /// A partition and not a picture: every cell of the rectangle belongs to exactly one part, at
     /// every size a rectangle comes in. An overlay bar cannot satisfy this at all — the cells under
-    /// it belong to two — which is ADR 0029 as arithmetic rather than as a measurement.
+    /// it belong to two — which is *bars are reserved* as arithmetic rather than as a measurement.
     #[test]
     fn the_parts_of_a_reserved_area_tile_its_rectangle_exactly() {
         for w in 1u16..24 {
@@ -1883,7 +1883,7 @@ mod tests {
 
     /// **A `scrollbar` writes a partition of its rectangle, at every orientation, size and offset.**
     ///
-    /// Spec §2's first equality on the component rather than on [`bar`], and it is swept because
+    /// The first equality on the component rather than on [`bar`], and it is swept because
     /// the interesting cases are all places the arithmetic runs out: a bar shorter than its two
     /// steppers, a bar of one cell, and — the one this test was written for — **a horizontal bar
     /// more than one row tall**, which `scroll_area` never produces and a caller can ask for at
@@ -1940,7 +1940,7 @@ mod tests {
 
     /// **Criterion 4, first half: one construction, and the four bands are its four configurations.**
     ///
-    /// The table is spec §9's own sentence — *the header shares `x`; the pinned column shares `y`;
+    /// The table is the sentence — *the header shares `x`; the pinned column shares `y`;
     /// the footer shares `x`; the gutter shares neither* — asserted rather than paraphrased, and
     /// the source scan beside it is what keeps a second construction from being written next to it.
     #[test]
@@ -1992,7 +1992,7 @@ mod tests {
 
     /// **Criterion 4, second half: the four bands share one hit entry, because they declare none.**
     ///
-    /// Spec §9: *a band that were a second scroll area would win the wheel from the body it is a
+    /// *A band that were a second scroll area would win the wheel from the body it is a
     /// header of.* The gate is that the hit count does not depend on how many bands stand — the
     /// same frame with four bands and with none declares the same regions.
     #[test]

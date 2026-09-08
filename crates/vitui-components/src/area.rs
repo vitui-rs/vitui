@@ -14,11 +14,11 @@
 //!
 //! # The three numbers this screen refuses to reproduce, and why each one matters
 //!
-//! §21's rule is that a figure is asserted **as measured** and the difference explained. Three of
-//! §9's are measured here and none of the three comes out at the remembered value. They are not
+//! The rule is that a figure is asserted **as measured** and the difference explained. Three of
+//! All three are measured here and none of them comes out at the remembered value. They are not
 //! three sloppy figures: each disagreement says something about the mechanism.
 //!
-//! **1. §9's `3 535` is a damage figure and not a double-write count.** ADR 0029 states both
+//! **1. `3 535` is a damage figure and not a double-write count.** ADR 0029 states both
 //! numbers in the same document and they are about different quantities — *3 535 cells a frame
 //! against 0 for the reserved twin*, and then, three paragraphs down, *the amplifier is an engine
 //! fact: damage is one span per surface row … ×8.4 where two bars contest ~423 cells.* `423 × 8.36`
@@ -62,10 +62,10 @@
 //!    recorded a verb where it was *called*, so two areas sixty columns apart recorded their bands
 //!    as one and the reserved twin reported 119 cells re-damaged on a frame that re-damages none.
 //!    The repair is `vitui_runtime::Ctx::origin`, which the runtime did not publish until runtime
-//!    architecture issue 32 — spec §6's *a translated band makes `distinct` meaningless* met from
+//!    architecture issue 32 — *a translated band makes `distinct` meaningless* met from
 //!    a third side.
 //! 4. **The wrong pairing goes through both**, because its gate is a count and its figure is a
-//!    timing, and §20's rule keeps those apart.
+//!    timing, and the rule keeps those apart.
 //!
 //! # The screen is red, and it is red for one reason rather than two
 //!
@@ -76,7 +76,7 @@
 //! the file the freeze homes the three in, and [`owed_message`] is the sentence that separates
 //! *waiting for its subject* from *the code is wrong*. Inverted by **components 19**.
 //!
-//! **Ticket 20's wheel gate is not asked here and that is deliberate.** §9's watermark line — *the
+//! **The wheel gate is not asked here and that is deliberate.** The watermark line — *the
 //! area is dead downward, twenty wheel clicks move the offset 0, and alive sideways* — is the same
 //! defect [`crate::listing`] pins as scene 6, and a second copy of a pinned gate is a second thing
 //! to invert.
@@ -103,7 +103,7 @@ use crate::scroll::{self, Orient, Span};
 /// Whether a bar takes room from the body or floats over it.
 ///
 /// **[`Bars::Overlay`] is a negative case and never an option a component offers** (ADR 0029, and
-/// components ticket 19's first criterion in as many words). It exists here so the rule can be
+/// the first criterion in as many words). It exists here so the rule can be
 /// measured rather than repeated: an overlay bar is free exactly where the body does not draw under
 /// it, which is not a property any component can guarantee of its body.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -151,7 +151,7 @@ pub use crate::scroll::MAX_PASSES;
 pub const SWEEP_VIEWPORTS: u16 = 39;
 /// The extents the sweep visits on each axis: `0..60`.
 pub const SWEEP_EXTENTS: u32 = 60;
-/// **The domain, and it is §9's own figure**: `39 · 39 · 60 · 60`.
+/// **The domain, and it is the figure**: `39 · 39 · 60 · 60`.
 pub const SWEEP_PAIRS: u64 = (SWEEP_VIEWPORTS as u64)
     * (SWEEP_VIEWPORTS as u64)
     * (SWEEP_EXTENTS as u64)
@@ -326,7 +326,7 @@ impl Responsive {
 /// **The reflow loop**: run the fixpoint against a responsive body, frame after frame.
 ///
 /// The extent is measured at the width the *previous* frame left, which is what a watermark is.
-/// Declared content has no such dependency, which is exactly the difference ADR 0029's second
+/// Declared content has no such dependency, which is exactly the difference the second
 /// sentence is about.
 pub fn oscillates(free: (u16, u16), body: Responsive, frames: usize, bars: Bars) -> Vec<Shown> {
     let mut out = Vec::with_capacity(frames);
@@ -348,7 +348,7 @@ pub fn flips(seq: &[Shown]) -> usize {
 /// How many frames the reflow loop is run for. §9: **99 flips in 99 frames**, which is 100 frames
 /// and the 99 windows between them.
 pub const REFLOW_FRAMES: usize = 100;
-/// §9's own figure: **the decision flips 99 times in 99 frames with no input.**
+/// The figure: **the decision flips 99 times in 99 frames with no input.**
 pub const REFLOW_FLIPS: usize = REFLOW_FRAMES - 1;
 
 // ── the hysteresis screen ────────────────────────────────────────────────────────────────────────
@@ -403,7 +403,7 @@ pub fn fitting(hide: Hide) -> Fitting {
 // 2. `Σ h` is the extent — scene 18
 // ═════════════════════════════════════════════════════════════════════════════════════════════════
 
-/// The area's width. **§9's own watermark line**: the watermark reads `(400, 69)` against a
+/// The area's width. **the watermark line**: the watermark reads `(400, 69)` against a
 /// `(246, 69)` viewport.
 pub const AW: u16 = 246;
 /// The area's height, in content cells. **Sixty-nine**, which is where *7 cells of 69* comes from
@@ -418,7 +418,7 @@ pub const SCREEN_W: u16 = AW + 1;
 /// which is the screen's height. Two of them are `scrollbar`'s steppers.
 pub const BAR_CELLS: u64 = AH as u64;
 
-/// How many rows the content holds. §9's own screen.
+/// How many rows the content holds. The screen.
 pub const ROWS: u64 = 1_000_000;
 /// One row in this many is taller than one cell. C05's own mix, kept so the two prototypes'
 /// numbers stay comparable.
@@ -773,7 +773,7 @@ pub fn at_the_end(content: &Content, unit: Unit) -> Shape {
     frame_at(content, unit, i32::MAX)
 }
 
-/// **Which of §20's counters separate the two builds at a common offset. It is the empty list.**
+/// **Which of the counters separate the two builds at a common offset. It is the empty list.**
 ///
 /// [`crate::listing::counters_that_separate_them`]'s shape, and it is the sharper half of this
 /// scene: the reachability differs and *nothing a frame counts does*. `marked` is not in the walk
@@ -856,25 +856,25 @@ fn drift_at(content: &Content, offset: i32) -> u16 {
     at(content.extent_cells()).abs_diff(at(content.extent_rows()))
 }
 
-/// §9's remembered drift: **up to 7 cells of 69**.
+/// The remembered drift: **up to 7 cells of 69**.
 pub const REMEMBERED_DRIFT: u16 = 7;
 /// **The drift this screen measures at the end of the reachable range.** See the module header for
 /// why it is not [`REMEMBERED_DRIFT`], and `examples/area_numbers.rs` for both columns.
 pub const THUMB_DRIFT: u16 = 14;
-/// **Where §9's seven cells actually sit on the range**: a little short of the halfway mark, at
+/// **Where the seven cells actually sit on the range**: a little short of the halfway mark, at
 /// **45.6%** of the offsets the defective build can reach. Gated to a hundredth either side rather
 /// than exactly, because it is a crossing between two floors and not a property of the mechanism.
 pub const DRIFT_REACHES_SEVEN_AT: f64 = 0.456;
 
 // ── the shipped frame, which is components ticket 19's own table ─────────────────────────────────
 
-/// **How many rows the shape change removes.** §9's own figure, and `4 × 87 381` exactly, which is
+/// **How many rows the shape change removes.** The figure, and `4 × 87 381` exactly, which is
 /// what makes it reproduce digit for digit rather than approximately.
 pub const REMOVED: usize = 349_524;
 
 /// **One frame of the shipped `scroll_area` at 300×80 with both axes**, and what it cost.
 ///
-/// §9's frame table, measured on the component rather than on a prototype. The body **virtualises**
+/// The frame table, measured on the component rather than on a prototype. The body **virtualises**
 /// — it reads the window the scope published and iterates that — which is what makes the second row
 /// of that table (*1k → 1M, 1.00×*) a statement about the component and not about the content.
 ///
@@ -1011,7 +1011,7 @@ pub const H: u16 = scroll::H;
 /// Each area's width. **Symmetric on purpose**: the total is then exactly twice one area's, which
 /// makes the figure a property of *an area whose body draws under its bar* rather than of a layout.
 pub const AREA_W: u16 = 120;
-/// **How far apart the two areas are, in columns.** The word in §21's row is *far apart*, and this
+/// **How far apart the two areas are, in columns.** The word in the row is *far apart*, and this
 /// is what it is spelled as: sixty columns of screen that neither area touches. It is also the term
 /// the span model's factor grows with, which is why it is a named constant rather than a
 /// subtraction — see [`Damage`].
@@ -1019,8 +1019,8 @@ pub const GAP: u16 = W - 2 * AREA_W;
 
 /// The sticky header each area carries, in rows. **One**, because `sticky` has to be on this screen
 /// for [`crate::scenes::scenes_for`] to answer for it, and because a scroll area with a pinned
-/// header is the shape §9 describes. What this screen does **not** measure is §9's band-drawn-by-
-/// arithmetic figure — that is components ticket 19's own criterion, and a second copy of a number
+/// header is the shape §9 describes. What this screen does **not** measure is the band-drawn-by-
+/// arithmetic figure — that is the criterion, and a second copy of a number
 /// is a second thing to keep in step.
 pub const BAND_H: u16 = 1;
 
@@ -1038,10 +1038,10 @@ pub const OVERLAY_REDAMAGE: u64 = 2 * (H as u64 + AREA_W as u64 - 1);
 /// **What the reserved twin re-damages: nothing.**
 pub const RESERVED_REDAMAGE: u64 = 0;
 
-/// §9's and ADR 0029's remembered figure, which this screen does not reproduce and which the module
+/// The remembered figure, which this screen does not reproduce and which the module
 /// header explains: **3 535 is `~423 × 8.36`, the span model's picture of the double write.**
 pub const REMEMBERED_REDAMAGE: u64 = 3_535;
-/// ADR 0029's own count of the cells the span figure was taken over: **~423**. [`OVERLAY_REDAMAGE`]
+/// The count of the cells the span figure was taken over: **~423**. [`OVERLAY_REDAMAGE`]
 /// is this screen's, and the two agree to within six per cent on two rectangles that are not the
 /// same two rectangles.
 pub const ADR_CONTESTED: u64 = 423;
@@ -1065,8 +1065,8 @@ impl Damage {
     /// **The amplification factor: what the span model charges for what the bitset charges once.**
     ///
     /// `1.00` for the bitset against itself, by construction. On this screen the span model is far
-    /// above ADR 0029's ×8.4, and that is the ADR's own sentence rather than a contradiction of it:
-    /// *the factor grows with how far apart the areas are*, and [`GAP`] is sixty columns.
+    /// above the ×8.4, and that is the ADR's own sentence rather than a contradiction of it:
+    /// *The factor grows with how far apart the areas are*, and [`GAP`] is sixty columns.
     pub fn amplification(self) -> f64 {
         if self.cells == 0 {
             return 1.0;
@@ -1093,7 +1093,7 @@ pub fn right() -> Rect {
 /// `crate::frame`'s private `draw` and its reason. The subject changed the shape of the
 /// comparison rather than the comparison: **the reserved arm is
 /// [`crate::scroll::scroll_area`] and the overlay arm cannot be, because the component has no
-/// overlay option and ticket 19's first criterion is that it never will.** So what stands here is
+/// overlay option and the first criterion is that it never will.** So what stands here is
 /// the shipped component against the spelling ADR 0029 refuses, and the refusal is visible in the
 /// fact that the second arm had to be written out by hand.
 ///
@@ -1110,7 +1110,7 @@ pub fn area_into<I: Ink>(ink: &mut I, cx: &mut Ctx<'_, '_>, rect: Rect, bars: Ba
 /// **The reserved arm: the shipped [`crate::scroll::scroll_area`], with a sticky header.**
 ///
 /// `Hide::Never` because the content is a million rows and four hundred columns: both bars stand
-/// whichever way the decision is taken, and the decision is scene 17's subject rather than this
+/// whichever way the decision is taken, and the decision is the subject rather than this
 /// one's. What this arm demonstrates is the partition — the band, the body, the two bars and the
 /// corner tile the rectangle exactly, so a steady frame re-damages **nothing**.
 fn reserved_into<I: Ink>(ink: &mut I, cx: &mut Ctx<'_, '_>, rect: Rect) {
@@ -1310,7 +1310,7 @@ impl Pairing {
 
 /// The volume §9 prices the wrong pairing at.
 pub const PAIRING_ROWS: u64 = 100_000;
-/// §9's remembered cost for it: **7 907 µs — seventy-nine budgets.** A report, never a gate.
+/// The remembered cost for it: **7 907 µs — seventy-nine budgets.** A report, never a gate.
 pub const REMEMBERED_PAIRING_US: f64 = 7_907.0;
 
 /// **One frame of the wrong pairing, as a shape.** Uniform rows, so the row count and `Σ h` agree
@@ -1943,12 +1943,12 @@ mod tests {
 
     /// **The amplification factor, reported as whatever the shipped damage structure gives.**
     ///
-    /// §21's row for this scene says *damage is one span per row: ×8.4 amplification (owed)*, and
+    /// The row for this scene says *damage is one span per row: ×8.4 amplification (owed)*, and
     /// the engine measured that model and rejected it. The bitset is **1.00× by construction** —
     /// `crates/vitui-engine/src/damage.rs`: *exact by construction, it can never report a cell the
     /// frame did not change* — so the number the row asks for cannot be measured on the engine that
     /// ships, and what is reported instead is what the span model *would* have charged on this
-    /// screen. It is far above ×8.4, which is ADR 0029's own sentence rather than a contradiction of
+    /// screen. It is far above ×8.4, which is the sentence rather than a contradiction of
     /// it: *the factor grows with how far apart the areas are*, and [`GAP`] is sixty columns.
     #[test]
     fn the_amplification_is_one_under_the_structure_that_ships() {
@@ -2035,7 +2035,7 @@ mod tests {
     /// **Criterion 7: the wrong pairing, as a count rather than as a microsecond figure.**
     ///
     /// A `scroll_area` iterates its content and a virtualised `collection` iterates its window, and
-    /// **the two frames draw the same cells** — the engine reports a fully clipped verb as zero
+    /// **The two frames draw the same cells** — the engine reports a fully clipped verb as zero
     /// columns, so `writes` is identical and only the walk moves. That is
     /// [`crate::listing`]'s finding arriving on the other component of the pair, and it is why the
     /// gate here is `iterated` rather than `writes`.

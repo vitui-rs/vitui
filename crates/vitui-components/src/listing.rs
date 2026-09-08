@@ -11,7 +11,7 @@
 //! | a scrolled collection | the inverted scroll sign: it draws nothing, at a fifth of the cost, and **every counter approves** |
 //! | a collection shorter than its viewport | the stale tail: **71 of 80 rows**, the defective build 2.3x faster marking 226x less |
 //! | twenty wheel clicks | the unconditional `scroll_into_view`, and it lives in [`crate::wheel`] now |
-//! | a narrow collection | truncation, and §16's one-cell ellipsis inside a row |
+//! | a narrow collection | truncation, and the one-cell ellipsis inside a row |
 //! | 1k / 100k / 1M rows | one store, one window: **identical writes and identical regions** |
 //!
 //! # Two instruments, because one instrument cannot ask both questions
@@ -20,10 +20,10 @@
 //! coordinate system rather than a preference.
 //!
 //! 1. **The equality scenes go through [`crate::runner`]**, over a [`Fixture`] whose own `offset`
-//!    field is the scroll. That is components ticket 04's instrument and it is reused rather than
+//!    field is the scroll. That is the instrument and it is reused rather than
 //!    rebuilt: [`stale`] is `71 of 80 rows` and `2 840` cells because
 //!    `runner::tests::the_runner_catches_a_stale_tail_after_content_shrinks_inside_a_rectangle_that_
-//!    does_not_move` already reproduced §21's own figure exactly, and a second reproduction of a
+//!    does_not_move` already reproduced the figure exactly, and a second reproduction of a
 //!    number is a second thing to keep in step.
 //! 2. **The volume scene goes through a real [`Ctx::scroll_scope`] and [`Ctx::visible_rows`]**,
 //!    measured with a [`Tally`] and the frame's own hit index. It cannot go through [`Pen`]: a
@@ -52,13 +52,13 @@
 //! The four **equality** scenes and the volume scene were red because `collection` did not exist.
 //! [`standing`] is a [`Verdict`] over one subject, [`subjects_declared`] opens the file the freeze
 //! homes it in, and [`owed_message`] is the sentence that separates *waiting for its subject* from
-//! *the code is wrong* — ticket 09's criterion 7, inherited whole. Components **12** inverted them,
+//! *The code is wrong* — criterion 7, inherited whole. Components **12** inverted them,
 //! and the wheel scene stayed red for eight more tickets, which is exactly why a single
 //! `inverted_by` on all five would have erased something.
 //!
 //! # What the volume scene found, and why criterion 6 asks for **regions**
 //!
-//! §21's register carries *writes flat 1k -> 1M* as row 4. **That row is green on a build that
+//! The register carries *writes flat 1k -> 1M* as row 4. **That row is green on a build that
 //! declares a million hit entries**, and this screen is where that is watched happening: the engine
 //! reports a fully clipped verb as **zero columns**, so a listing that iterates its whole content
 //! and lets the clip reject the rest writes exactly what the windowed one writes — [`WRITES`], at
@@ -89,7 +89,7 @@ use vitui_runtime::Rect;
 
 // ── the screen ───────────────────────────────────────────────────────────────────────────────────
 
-/// The viewport's width. **Forty**, because §21's stale tail is *71 of 80 rows* and components
+/// The viewport's width. **Forty**, because the stale tail is *71 of 80 rows* and components
 /// ticket 04 reproduced it at 2 840 cells — `71 x 40`. Measuring the same defect at a second width
 /// would report a second number for one finding.
 pub const W: u16 = 40;
@@ -104,13 +104,13 @@ pub const NARROW: u16 = 16;
 
 /// **What a row says. Static, and that is deliberate.**
 ///
-/// Thirty-three columns: longer than [`NARROW`] and shorter than [`W`], which is what puts §16's
+/// Thirty-three columns: longer than [`NARROW`] and shorter than [`W`], which is what puts
 /// one-cell ellipsis rule on the screen at the narrow size and off it at the wide one. A row whose
 /// length varied with its index would move the write count for a reason that is not the
 /// construction — [`crate::dense::widgets`] makes the same choice for the same reason.
 pub const ROW: &str = "listing row, ready, nothing wrong";
 
-/// The three volumes §21's scene 3 states.
+/// The three volumes the scene 3 states.
 pub const VOLUMES: [u64; 3] = [1_000, 100_000, 1_000_000];
 
 /// **How many rows the shrink starts from. Two hundred**, and it is a constant because
@@ -145,7 +145,7 @@ pub const STOPS: usize = 1;
 /// [`Ctx::text`]: vitui_runtime::Ctx::text
 pub const VERBS: u64 = H as u64;
 
-/// How far the listing is scrolled for the scrolled scene. Components ticket 04's own offset.
+/// How far the listing is scrolled for the scrolled scene. The offset.
 pub const SCROLLED_TO: usize = 60;
 
 /// **Rows the scrolled equality reports different. Seventy-five of eighty, and not seventy-nine.**
@@ -172,7 +172,7 @@ pub const SCROLLED_ALIASED: usize = H as usize - SCROLLED_ROWS;
 /// How many rows are left when the content shrinks inside a rectangle that does not move.
 pub const SHRUNK_TO: usize = 9;
 
-/// **Rows that differ after the shrink. §21's own number.**
+/// **Rows that differ after the shrink. The number.**
 pub const STALE_ROWS: usize = 71;
 
 /// [`STALE_ROWS`] as cells — `71 x 40`, which is what components ticket 04 measured.
@@ -369,7 +369,7 @@ pub fn volume_over(kind: Volume, rows: u64, frames: u32) -> (Shape, Duration) {
 
 /// **What the frame costs a component**, drawn through [`Direct`] rather than through a [`Tally`].
 ///
-/// The one number on this page that is comparable with §21's own 63.87 µs, and it is separate from
+/// The one number on this page that is comparable with the original's 63.87 µs, and it is separate from
 /// [`volume_over`]'s for a reason worth the second function: a `Tally` keeps a `BTreeSet` of every
 /// cell it sees, so a figure taken with one in the loop is **a report about the instrument**. The
 /// two run the identical [`draw_into`], which is [`crate::ink`]'s whole argument — a gate written
@@ -419,7 +419,7 @@ pub fn content(rows: usize) -> Fixture {
 ///
 /// [`crate::runner::Fixture::lines`] at [`W`] by [`H`]: no two rows share a column, so a wrong row
 /// costs exactly forty cells and *n cells over m rows* reads as `m * 40`. **That is the property
-/// §21's 71-of-80 is stated in**, and changing the fixture changes the number without changing the
+/// the 71-of-80 is stated in**, and changing the fixture changes the number without changing the
 /// defect.
 pub fn lines(rows: usize) -> Fixture {
     Fixture::lines(W, H, rows)
@@ -429,7 +429,7 @@ pub fn lines(rows: usize) -> Fixture {
 ///
 /// Not a count: the inverted sign draws nothing and **every counter approves of it**, which is
 /// [`counters_approve`]'s half of the same scene. The equality is the only detector, and it is
-/// components ticket 04's `reference` — one cell at a time, no runs, no offset it did not compute
+/// the `reference` — one cell at a time, no runs, no offset it did not compute
 /// itself.
 pub fn scrolled() -> Diff {
     let fx = lines(VOLUMES[0] as usize).scrolled_to(SCROLLED_TO);
@@ -458,7 +458,7 @@ pub fn counters_approve(correct: Allocations, defective: Allocations) -> (Counte
     )
 }
 
-/// **Which of §20's nine counters tell the two arms of [`scrolled`] apart. None of them.**
+/// **Which of the nine counters tell the two arms of [`scrolled`] apart. None of them.**
 ///
 /// Criterion 2's argument as a list rather than as a sentence: an empty answer means *the equality
 /// against a reference render is the only detector there is*, and a non-empty one would mean a
@@ -483,7 +483,7 @@ pub fn counters_that_separate_them(correct: Allocations, defective: Allocations)
 
 /// **The collection shorter than its viewport, asserted on the rendered surface.** Criterion 3.
 ///
-/// §21's own spelling of the shrink axis — *content shrinking inside a rectangle that does not
+/// The spelling of the shrink axis — *content shrinking inside a rectangle that does not
 /// move* — and the rectangle is [`W`] by [`H`] on both steps. The version written against a terminal
 /// resize passes on all twelve panels, because a fresh `Surface` has nowhere for the residue to
 /// survive; [`stale_by_resize`] is that spelling, kept beside this one so the difference is a number.
@@ -508,7 +508,7 @@ pub fn stale_by_resize() -> Diff {
 /// **The narrow collection: every row truncates, and the marker is one cell.** Criterion 1's fourth
 /// axis column.
 ///
-/// Green at [`W`] and red at [`NARROW`], which is the shape §13's overlap has and the one register
+/// Green at [`W`] and red at [`NARROW`], which is the shape the overlap has and the one register
 /// row 43 gates. The two painters below are the arms.
 pub fn narrow(width: u16) -> Diff {
     let fx = content(H as usize).resized(width, H);
@@ -517,7 +517,7 @@ pub fn narrow(width: u16) -> Diff {
 
 /// **The correct arm: every row goes through [`crate::text::fit`].**
 ///
-/// `fit` is where truncation is decided, so it is where §16's one-cell rule holds: `elide` reserves
+/// `fit` is where truncation is decided, so it is where the one-cell rule holds: `elide` reserves
 /// exactly one cell for the marker and `Theme::glyph` guarantees every spelling of it is one cell
 /// wide.
 pub fn narrowed(pen: &mut Pen, cx: &mut Ctx<'_, '_>, fx: &Fixture) {
@@ -679,7 +679,7 @@ mod tests {
     ///
     /// The equality is over the whole [`Shape`] except the one field that is *allowed* to move —
     /// there is none — because a gate that compared writes alone would be green on the arm below.
-    /// The timing is taken and thrown away here; `examples/listing_numbers.rs` prints it, and §20's
+    /// The timing is taken and thrown away here; `examples/listing_numbers.rs` prints it, and
     /// rule is why: **a timing is a report**.
     #[test]
     fn the_listing_writes_and_declares_the_same_at_a_thousand_rows_and_at_a_million() {
@@ -707,7 +707,7 @@ mod tests {
     /// **The other direction, and it is where criterion 6's `regions` earns its place.**
     ///
     /// A listing that iterates its whole content writes **exactly what the windowed one writes** —
-    /// the engine reports a fully clipped verb as zero columns — so §21's register row 4, *writes
+    /// the engine reports a fully clipped verb as zero columns — so the register row 4, *writes
     /// flat 1k -> 1M*, is green on it. What is not green is the hit index: `Ctx::declare` does not
     /// clip, so a row declared off screen is a real entry, and the count is the content's.
     #[test]
@@ -745,7 +745,7 @@ mod tests {
     /// **Criterion 2: the scrolled collection is caught by an equality and by nothing else.**
     ///
     /// Both halves, because the contrast is the scene's entire argument. The equality refuses —
-    /// **seventy-five of eighty rows** carry a different row — and **not one of §20's nine counters
+    /// **seventy-five of eighty rows** carry a different row — and **not one of the nine counters
     /// separates the arms**: the defective build makes the same number of calls, writes the same
     /// number of columns and touches the same cells, so there is no counting gate anywhere in the
     /// stack that could have been on the wrong side of it. The one that would have caught it is
@@ -800,8 +800,8 @@ mod tests {
 
     /// **Criterion 3: the stale tail is 71 of 80 rows, asserted on the rendered surface.**
     ///
-    /// Components ticket 04's number, reached through components ticket 04's instrument. The resize
-    /// spelling beside it scores the same painter clean, which is §21's own reason for refusing to
+    /// The number, reached through the instrument. The resize
+    /// spelling beside it scores the same painter clean, which is the reason for refusing to
     /// bank that gate.
     #[test]
     fn the_stale_tail_is_seventy_one_of_eighty_rows_and_the_resize_spelling_misses_it() {
@@ -829,7 +829,7 @@ mod tests {
     /// **Criterion 1's fourth axis column: the narrow listing, green wide and red narrow.**
     ///
     /// The narrow size is a different construction and not a clipped one, and the cell it differs in
-    /// is the last of every row: `fit` puts §16's one-cell marker there and the arm that writes its
+    /// is the last of every row: `fit` puts the one-cell marker there and the arm that writes its
     /// row whole puts a letter there.
     #[test]
     fn a_listing_row_narrows_through_fit_and_the_ellipsis_is_one_cell() {

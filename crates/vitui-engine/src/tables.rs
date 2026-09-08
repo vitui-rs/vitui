@@ -30,7 +30,7 @@ pub(crate) struct Tables {
     pub(crate) links: Links,
     /// Whether a hyperlink is part of an extended style's **identity**.
     ///
-    /// **False on a terminal with no OSC 8, and that is spec §10's one narrow exception to
+    /// **False on a terminal with no OSC 8, and that is the one narrow exception to
     /// *degrade at serialise time*:**
     ///
     /// > A channel the terminal **cannot express at all** is dropped from the intern *key* on the
@@ -80,7 +80,7 @@ impl Tables {
         self.links_in_key = yes;
     }
 
-    /// Keep the hyperlink in the key on a terminal that has no OSC 8: **spec §7's rejected
+    /// Keep the hyperlink in the key on a terminal that has no OSC 8: **the rejected
     /// placement**, which is where the same degradation happens at serialise time only.
     ///
     /// It exists so the claim *the collapse is worth eight entries against ninety-six and not one

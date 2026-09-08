@@ -1,4 +1,4 @@
-//! **One screen, drawn three ways**, which is what turns spec §2's rule from a paragraph into a
+//! **One screen, drawn three ways**, which is what turns the rule from a paragraph into a
 //! number.
 //!
 //! Components ticket 06 owes three measurements and none of them can be taken on a helper in
@@ -25,12 +25,12 @@
 //!   write counts differ at all: a form whose every interior row is written covers 24 000 cells at
 //!   both densities and the comparison says nothing.
 //!
-//!   **Row 7 is green since components 40 and this tail is the named exception, not a hole.** §21's
+//!   **Row 7 is green since components 40 and this tail is the named exception, not a hole.**
 //!   own third refinement is *name the exception; do not loosen the gate*, and the exception is that
 //!   this form is a **fixture** rather than a component: the two helpers it is built from each write
 //!   a partition of the rectangle they were handed and `block` *returns* the interior it did not
 //!   write, which is the rule working. What does not write the tail is the screen — this file — and
-//!   it is what buys two of ticket 06's three measurements. A gate run over every screen in this
+//!   it is what buys two of the three measurements. A gate run over every screen in this
 //!   crate would have to delete them to go green, which is the trade the refinement exists to
 //!   refuse. The rule is checked where it is a rule: per component in `tests/golden.rs` over the
 //!   thirty-three constructions, and over the assembled gallery in `crate::gallery`.
@@ -43,13 +43,13 @@
 //! | [`by_hand`] | the same order, with `fit`'s truncation, justification and padding **written out** |
 //! | [`naive`] | a screen clear, a panel fill under every interior, and a face filled under every label |
 //!
-//! `by_hand` keeps `block` and open-codes only `fit`, because that is the claim spec §3's table
+//! `by_hand` keeps `block` and open-codes only `fit`, because that is the claim the table
 //! makes: *`fit` against the same order written by hand*. Its truncation is `layout::text::truncate`
 //! and a `Glyph::Ellipsis` written out at the call site rather than [`crate::glyphs::elide`], so the
 //! equality is between two implementations and not between one implementation and itself.
 //!
 //! **`naive` is kept and never deleted.** It is the reference the correct build is proved cheaper
-//! than, and deleting it deletes the argument — §21's own rule, arriving here for the third time.
+//! than, and deleting it deletes the argument — the rule, arriving here for the third time.
 
 use vitui_runtime::layout::text as measure;
 use vitui_runtime::{Ctx, Density, Glyph, Id, Interest, Paint, Role};
@@ -100,7 +100,7 @@ pub const SCREEN: u64 = W as u64 * H as u64;
 pub const COMPACT_WRITES: u64 = 18_912;
 /// Rect the form writes at [`Density::Cosy`]. **Spec §3 remembers 20 992.**
 ///
-/// It is *more* than [`COMPACT_WRITES`] and fewer widgets are standing, which is the shape of §3's
+/// It is *more* than [`COMPACT_WRITES`] and fewer widgets are standing, which is the shape of
 /// own pair and is not a paradox: a `Cosy` ring is two cells thicker on every side of every panel,
 /// and the rows the lost widgets would have written were never written by anybody — they are part
 /// of the third panel's unwritten tail either way.
@@ -109,7 +109,7 @@ pub const COSY_WRITES: u64 = 19_206;
 pub const COMPACT_REGIONS: usize = 171;
 /// Interactive regions at `Cosy`. **Spec §3 remembers 263** — four fewer, exactly as here.
 pub const COSY_REGIONS: usize = 167;
-/// **How many widgets fall off the bottom when the padding grows.** Spec §3's *four widgets*.
+/// **How many widgets fall off the bottom when the padding grows.** *four widgets*.
 ///
 /// Two panels overflow and each loses two rows, so the number is `2 × (pad_y(Cosy) − pad_y(Compact))
 /// × 2` and not a figure that was aimed at.
@@ -135,7 +135,7 @@ pub const COMPACT_CLEARING_EXCESS: u64 = 16_224;
 pub const COSY_CLEARING_EXCESS: u64 = 15_510;
 /// Rect the three `block` calls hand over at `Compact`.
 ///
-/// **ADR 0026's 22 200-cell figure is this quantity**: a `block` that cleared what it hands over
+/// **The 22 200-cell figure is this quantity**: a `block` that cleared what it hands over
 /// would re-damage exactly this many cells on every frame, moving or not.
 pub const COMPACT_HANDED_OVER: u64 = 21_312;
 /// The same at `Cosy`.
@@ -211,7 +211,7 @@ pub fn clearing(pen: &mut Pen, cx: &mut Ctx<'_, '_>, _fx: &Fixture) {
 
 /// **A clear, a fill under every panel, and a face filled under every label.**
 ///
-/// Three of ADR 0026's five instances at once, and every counter but the pair moves the wrong way:
+/// Three of the five instances at once, and every counter but the pair moves the wrong way:
 /// it is not slower to *write*, it marks more, and it looks like an ordinary screen.
 pub fn naive(pen: &mut Pen, cx: &mut Ctx<'_, '_>, _fx: &Fixture) {
     draw(pen, cx, Style::Naive);
@@ -458,7 +458,7 @@ mod tests {
 
     /// **Criterion 3: routing through `fit` costs nothing against the discipline.**
     ///
-    /// The measurement spec §3's helper table owed. One screen, rendered once through
+    /// The measurement the helper table owed. One screen, rendered once through
     /// [`crate::text::fit`] and once with `fit`'s truncation, justification and padding written out
     /// at the call site, compared **cell for cell** — and the write counts compared beside it,
     /// because a build that merely drew less would score zero differing cells by drawing nothing,
@@ -542,7 +542,7 @@ mod tests {
     /// A gate nobody has watched fail is not a gate, and *both* directions matter here — the naive
     /// arm exists so the correct arm's `0` means something. Every counter but this one moves the
     /// wrong way: the naive screen touches **more** cells (24 000 of 24 000 against 18 912), which
-    /// is register row 7's own metric looking *healthier* on the defective build.
+    /// is the metric looking *healthier* on the defective build.
     #[test]
     fn the_naive_arm_writes_forty_thousand_cells_it_had_already_written() {
         for (density, excess) in [
@@ -715,7 +715,7 @@ mod tests {
         }
     }
 
-    /// **No two widgets on this screen share an id** — ADR 0027's free detector, on the first
+    /// **No two widgets on this screen share an id** — the free detector, on the first
     /// screen this crate has drawn.
     ///
     /// 110 of 338 widgets were inert on the first screen written for components ticket 01 and the

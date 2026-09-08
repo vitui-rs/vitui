@@ -328,7 +328,7 @@ impl Style {
     ///
     /// A `u32` handle always fits in the 52 bits available, which is asserted below rather than
     /// argued: the table would have to hold 4.3 billion distinct extended styles to reach the
-    /// edge, and ticket 08's sweep exists because it will not get near it.
+    /// edge, and the sweep exists because it will not get near it.
     pub(crate) const fn extended(attrs: u64, handle: u32) -> Style {
         Style::from_bits(EXTENDED | (attrs & ATTR_MASK) | handle as u64)
     }

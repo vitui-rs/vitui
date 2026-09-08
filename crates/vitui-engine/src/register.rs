@@ -1,4 +1,4 @@
-//! Spec §14's register: twenty-seven properties, each one either wired or pinned red — and four
+//! The register: twenty-seven properties, each one either wired or pinned red — and four
 //! more that §14 could not have had.
 //!
 //! > **A gate is a count, a ratio, an equality or a compile outcome. A timing is a report, and is a
@@ -35,14 +35,14 @@
 //! ticket that lights it (`.scratch/vitui-engine-impl/issues/`). The two are different numbering
 //! schemes and confusing them sends a reader to the wrong document.
 //!
-//! # Entries 28 to 31, and why the list is no longer exactly §14's
+//! # Entries 28 to 31, and why the list is no longer exactly
 //!
-//! Entries 1–27 are §14's table. **Entry 28 is not**, and it is here rather than in a document
+//! Entries 1–27 are the table. **Entry 28 is not**, and it is here rather than in a document
 //! because of what it is about: §14 could enumerate twenty-seven properties of the engine and had
 //! no entry for *whether the engine's bytes mean to a real terminal what they mean to the engine's
 //! model of one*. Architecture ticket 20 is where that gap was noticed, from the inside:
 //!
-//! > Every gate stays green with §3's pairing invariant **false**, because the serializer and the
+//! > Every gate stays green with the pairing invariant **false**, because the serializer and the
 //! > terminal model are wrong in the same direction.
 //!
 //! A register whose whole purpose is that *a property which quietly never arrives is
@@ -50,8 +50,8 @@
 //! twenty-seven. The count test below therefore asserts the split rather than the total, so an
 //! entry arriving later has to say which side of the line it is on.
 //!
-//! **Entry 29 is the second, and it arrived the same way.** §14's twenty-seven are properties of a
-//! *frame* — what is damaged, what is packed, what reaches the wire. Production ticket 07's subject
+//! **Entry 29 is the second, and it arrived the same way.** The twenty-seven are properties of a
+//! *frame* — what is damaged, what is packed, what reaches the wire. Production the subject
 //! is a property of the **session**: what the terminal is left in during the stretches when this
 //! process is not drawing on it, which is every one of Ctrl-Z, an editor in the same window, a
 //! dropped connection and a terminal that was replaced. No entry above can be false while a shell
@@ -90,7 +90,7 @@ impl Kind {
     }
 }
 
-/// Whether something on §14's register runs today — an entry of the gate list, or a scene of the
+/// Whether something on the register runs today — an entry of the gate list, or a scene of the
 /// normative list the gates are driven over.
 ///
 /// One type for both, because it is one statement: this runs **here**, or it does not run and
@@ -106,7 +106,7 @@ pub enum State {
     /// It does not run, and the implementation ticket that makes it possible is named.
     ///
     /// **Nothing constructs this any more, and impl 26 is where that became true**: entry #27, the
-    /// comparative suite, was the last red row on §14's register, and the suite has now been run.
+    /// comparative suite, was the last red row on the register, and the suite has now been run.
     /// All twenty-seven are wired.
     ///
     /// `expect(dead_code)` rather than deletion, and the reason is the whole design of this file.
@@ -151,12 +151,12 @@ impl State {
     }
 }
 
-/// One property of spec §14's register.
+/// One property of the register.
 #[derive(Clone, Copy, Debug)]
 pub struct Entry {
-    /// Its number in §14's table, which is how everything else refers to it.
+    /// Its number in the table, which is how everything else refers to it.
     pub number: u8,
-    /// The property, in §14's own words.
+    /// The property, in the words.
     pub property: &'static str,
     /// Gate, test or report.
     pub kind: Kind,
@@ -168,7 +168,7 @@ pub struct Entry {
     pub state: State,
 }
 
-/// Spec §14's register, entry for entry.
+/// The register, entry for entry.
 pub const REGISTER: [Entry; 31] = [
     Entry {
         number: 1,
@@ -765,10 +765,10 @@ pub fn table() -> String {
 mod tests {
     use super::*;
 
-    /// §14's "the gate list has twenty-seven entries and nothing to run them against" stops being
+    /// The "the gate list has twenty-seven entries and nothing to run them against" stops being
     /// true here, and this is what keeps it from becoming true again.
     ///
-    /// **The assertion is the split, not the total.** Entries 1–27 are §14's table and 28 is the one
+    /// **The assertion is the split, not the total.** Entries 1–27 are the table and 28 is the one
     /// production ticket 04 added for a property §14 had no way to state — see the module docs. A
     /// bare length check would let a twenty-ninth entry arrive without anyone deciding which of
     /// those two things it is.
@@ -861,7 +861,7 @@ mod tests {
         }
     }
 
-    /// A report may never be load-bearing for a gate (§14's second refinement), so the entries
+    /// A report may never be load-bearing for a gate (the second refinement), so the entries
     /// that are reports say so in their own kind rather than in a comment.
     #[test]
     fn the_reports_are_marked_as_reports() {

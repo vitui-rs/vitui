@@ -20,7 +20,7 @@
 //!
 //! # What is given back, and why it is more than the alt screen
 //!
-//! §9's restoration **includes input state**: pop the keyboard enhancement flags, disable mouse
+//! The restoration **includes input state**: pop the keyboard enhancement flags, disable mouse
 //! tracking, focus reporting and bracketed paste, restore auto-wrap and leave the alt screen. The
 //! screen is the half a user can see is broken. **The input state is the half that breaks their
 //! shell** — a crashed process that leaves kitty flags pushed goes on eating keystrokes in the shell
@@ -303,7 +303,7 @@ mod tests {
         String::from_utf8_lossy(&r.bytes).replace('\x1b', "^[")
     }
 
-    /// **Spec §7's assertion, in its own words**: eight threads race it and exactly one performs the
+    /// **The assertion, in its own words**: eight threads race it and exactly one performs the
     /// restoration.
     ///
     /// Two counts rather than one, and the second is the one that matters: seven threads answering

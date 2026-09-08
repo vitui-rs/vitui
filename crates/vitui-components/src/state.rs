@@ -1,7 +1,7 @@
 //! **`press` — the face a widget draws and the face it asks to be awarded, collapsed into one
 //! value.**
 //!
-//! Spec §3's table gives it one job — *the face drawn **and** the face awarded* — and one shape:
+//! The table gives it one job — *the face drawn **and** the face awarded* — and one shape:
 //! **one role, so the two cannot disagree.**
 //!
 //! # It exists for a disagreement, not for a state machine
@@ -75,12 +75,12 @@ use crate::text::{FitOpts, Justify, fit_into};
 use vitui_runtime::Rect;
 
 /// The components homed in this module. **None**, and it is not an oversight: [`press`] is a
-/// helper, and spec §17's freeze homes `button`, `chip` and `switch` in F6 and F1.
+/// helper, and the freeze homes `button`, `chip` and `switch` in F6 and F1.
 pub const MEMBERS: &[&str] = &[];
 
 /// **The faces a widget wears, as one value.**
 ///
-/// Four roles and not four arguments, for spec §1's rule 3 — *options are a `Default` struct, never
+/// Four roles and not four arguments, for rule 3 — *options are a `Default` struct, never
 /// a required builder* — and because the four have to be handed over **together**: [`press`]'s
 /// whole claim is that the face drawn and the face awarded come out of one value, and four
 /// positional arguments are four places a caller can pass a different one.
@@ -265,10 +265,10 @@ pub mod defective {
     /// in its resting face, and the award restyles it to the hover face at `end`, so the screen
     /// shows a hovered chip on every frame including the first. Nothing about it looks wrong,
     /// nothing is slower, and `writes == distinct` holds — this arm writes each of its eight cells
-    /// exactly once, so components ticket 06's whole gate is green on it.
+    /// exactly once, so the whole gate is green on it.
     ///
     /// What it costs is [`super::HAND_STEADY`] cells re-damaged on every frame the pointer rests,
-    /// for ever. This is ADR 0026's *a restyle used to replace the branch never can* be free, at
+    /// for ever. This is *a restyle used to replace the branch never can* be free, at
     /// the smallest size it comes in.
     pub fn chip_by_hand<I: Ink>(ink: &mut I, cx: &mut Ctx<'_, '_>) {
         let cells = chip();
@@ -314,7 +314,7 @@ pub struct Resting {
 ///
 /// # What is counted, and why it is not `marked`
 ///
-/// Spec §20's `marked` is [`crate::counters::Reading::Unreachable`] and stays that way:
+/// `marked` is [`crate::counters::Reading::Unreachable`] and stays that way:
 /// `crates/vitui-engine/src/damage.rs` is `pub(crate)` from top to bottom and `Presented` carries
 /// no count, so no crate above the engine can read the engine's damage — components ticket 03
 /// established it and [`crate::counters::Counters::marked`] panics rather than answering `0`.
@@ -538,7 +538,7 @@ mod tests {
 
     /// **The defective arm is green on every other gate**, which is why the ticket needed a new one.
     ///
-    /// It writes each of its eight cells exactly once — components ticket 06's `writes == distinct`
+    /// It writes each of its eight cells exactly once — the `writes == distinct`
     /// passes — it draws the same number of cells with the same number of verbs, and the screen it
     /// produces is a correctly hovered chip on every frame. *A gate nobody has watched fail is not
     /// a gate*, and this is the other direction of that: a defect nobody has watched pass the
@@ -772,7 +772,7 @@ mod tests {
 
     /// **The three helpers carry no `Style` literal and name no `GlyphSet`** — criterion 7.
     ///
-    /// `Style` is `vitui_engine::Style` and this crate cannot name it at all (§19's C6), so the
+    /// `Style` is `vitui_engine::Style` and this crate cannot name it at all (C6), so the
     /// half that bites is the other one: a helper that reaches a repertoire is a helper that has
     /// started branching on the glyph axis, which is the twenty-four repertoire-qualified
     /// occurrences across four component crates that ADR 0032 exists because of — the literal is

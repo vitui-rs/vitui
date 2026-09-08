@@ -1,42 +1,42 @@
 //! **F6 input**, ~110 entries — the largest family — expressed by `field`, `button`, `chip`,
 //! `select`, `collection` and `slider`.
 //!
-//! # `slider` is the row §17 froze at Tier 3, and this file is where the column stops lying
+//! # `slider` is frozen at Tier 3, and this file is where the column stops lying
 //!
-//! §14 measured drag capture over the video player's seek bar and concluded *`slider` leaves
+//! Drag capture was measured over the video player's seek bar, and the conclusion was *`slider` leaves
 //! Tier 3* — so `INVENTORY`'s `built` column read `true` and `MEMBERS` listed the name for two
 //! tickets before anything here declared a `slider`. **Nothing could see it**: the `MEMBERS`
 //! join compares the module's list against the `families` column and never against the source,
-//! and the tier/built gate accepts any row that appears in `MOVED`. Components ticket 33 ships
+//! and the tier/built gate accepts any row that appears in `MOVED`. This file ships
 //! the component *and* the join that would have caught it —
 //! `inventory::tests::every_built_row_is_declared_in_the_module_that_homes_it`.
 //!
-//! The reductions are R1, R2 and R3. §11's one flag absorbs sixteen named input
-//! variants including `textarea`; §5's `Mode` absorbs the radio set and the segmented control;
+//! The reductions are R1, R2 and R3. The one flag absorbs sixteen named input
+//! variants including `textarea`; the `Mode` absorbs the radio set and the segmented control;
 //! a `Role` absorbs every button variant. The colour wheel, the dial and the font picker are R4 —
 //! sub-cell rasterisation, one rasteriser and a different mapping.
 //!
-//! **~~Two entries are open rather than reduced~~ — closed by runtime ticket 10.** It read:
+//! **~~Two entries are open rather than reduced~~ — since closed.** It read:
 //! *ctrl-click and shift-click, because `rt::Input` carries no modifier byte on a pointer event.
 //! The keyboard half of multi-select is complete; the pointer half is inexpressible, and that is
 //! the runtime map's to change.* `Response` carries `mods: Mods` — one byte on a sixteen-byte
-//! hit entry — `crate::collect::from_click` reads it, and components ticket 38 declares the three
+//! hit entry — `crate::collect::from_click` reads it, and the three
 //! modified clicks as bindings like any other (`crate::contract`). The engine had been reporting
 //! modifiers on every pointer event all along; dropping them was a runtime omission and not a
 //! terminal limit.
 
-//! # `button` is spec §1's own example, and the shape is the rule with one substitution
+//! # `button` is the example, and the shape is the rule with one substitution
 //!
-//! §1 writes it out: `pub fn button(cx: &mut Ctx, area: Rect, label: &str) -> Response`. When this
+//! The shape is `pub fn button(cx: &mut Ctx, area: Rect, label: &str) -> Response`. When this
 //! module was written **`Rect` could not be named from this package** — it is `vitui_engine::Rect`,
 //! `reachable_as: None`, and C6 says the dependency table is `vitui-runtime` and nothing else — so
 //! what ships takes [`Rect`], this crate's own rectangle in the `Ctx`'s coordinates, swept operator
 //! for operator against `vitui_runtime::layout::rect`. See [`vitui_runtime::layout::rect`] for the four candidates
 //! and why this was the one; the rule is obeyed with `Rect` in `Rect`'s place, not set aside.
 //!
-//! **Runtime architecture issue 22 has since made `Rect` nameable here** (`vitui_runtime::Rect`),
-//! which removes the reason and not the code. Whether the signature goes back to §1's own spelling
-//! is components architecture issue 17, and it is not decided in this file.
+//! **`Rect` is nameable here now** (`vitui_runtime::Rect`),
+//! which removes the reason and not the code. Whether the signature goes back to the spelling
+//! is decided elsewhere, and not in this file.
 
 use vitui_runtime::focus::ScopeKind;
 use vitui_runtime::keys::{Code, Edge, Pressed};
@@ -65,11 +65,11 @@ pub const MEMBERS: &[&str] = &[
 
 /// [`button`]'s options.
 ///
-/// Spec §1's rule 3: a `Default` struct, never a required builder.
+/// A `Default` struct, never a required builder.
 ///
 /// # It is [`ChipOpts`] under another name today, and that is a finding rather than an oversight
 ///
-/// Spec §17 gives `button` and `chip` `constructions: 1` apiece, and *one construction* is exactly
+/// `button` and `chip` have `constructions: 1` apiece, and *one construction* is exactly
 /// what this is: a face out of [`crate::state::press`] with a label written into it. The two entries
 /// are two components in the freeze — two demands, two vocabularies, two places in the tree — and
 /// **they are not two drawings.** The drawing is one function, `crate::text`'s `face_and_label`,
@@ -79,7 +79,7 @@ pub const MEMBERS: &[&str] = &[
 /// What was expected to be the difference — *a button's label is [`Role::Title`] and a chip's is
 /// [`Role::Dim`]* — turned out to be a **defect in both**. See [`ChipOpts`]: a label wearing a role
 /// its face does not is repainted by the hover award every frame the pointer rests, for ever. So
-/// there is no `label` field here either, and the reason is one sentence of ADR 0026 rather than a
+/// there is no `label` field here either, and the reason is one rule rather than a
 /// simplification.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub struct ButtonOpts {
@@ -106,7 +106,7 @@ impl Default for ButtonOpts {
     }
 }
 
-/// **A label on a face that reacts, and a tab stop.** Spec §1's own signature, with `Rect` for
+/// **A label on a face that reacts, and a tab stop.** The signature, with `Rect` for
 /// `Rect`.
 ///
 /// **Hostile axes:** none.
@@ -163,7 +163,7 @@ pub fn button_into<I: Ink>(
 ///
 /// The same door [`chip_drawn`] is, and for the second of its two reasons: a container that already
 /// holds an id has no other way in. The first reason — *the pointer cannot be driven from this
-/// crate* — **lifted with runtime architecture issue 22**, which made `Mouse` and the types needed
+/// crate* — **since lifted**, because `Mouse` and the types needed
 /// to build one reachable.
 pub fn button_drawn<I: Ink>(
     ink: &mut I,
@@ -206,7 +206,7 @@ mod tests {
     /// **Criterion 2: `button` writes each cell of its rectangle exactly once, and writes every
     /// one.**
     ///
-    /// §2's two equalities on the component. Swept over the widths where the arithmetic runs out: a
+    /// The two equalities on the component. Swept over the widths where the arithmetic runs out: a
     /// rectangle narrower than its label, one exactly as wide, one a single cell, and one three rows
     /// tall — where the label takes the middle row and the two either side are face.
     #[test]
@@ -264,7 +264,7 @@ mod tests {
     /// `Ctx::id` mints from `Location::caller()`, so a component without the attribute reports **its
     /// own** line for every call in the application: the second button merges into the first, gets
     /// an inert `Response`, no hit entry and no tab stop, and **the screen still renders pixel for
-    /// pixel correctly**. That is ADR 0027's 110-of-338 defect, and this is the two-line version of
+    /// pixel correctly**. That is the 110-of-338 defect, and this is the two-line version of
     /// it.
     #[test]
     fn two_buttons_at_two_call_sites_are_two_widgets() {
@@ -311,7 +311,7 @@ mod tests {
 
 /// [`field`]'s options.
 ///
-/// Spec §1's rule 3: a `Default` struct, never a required builder.
+/// A `Default` struct, never a required builder.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub struct FieldOpts {
     /// The four faces. The body is drawn on [`Faces::rest`] and on [`Faces::focus`] where the
@@ -349,7 +349,7 @@ impl Default for FieldOpts {
     }
 }
 
-/// **The API §11 deletes, kept deleted by a pair.**
+/// **The API that was deleted, kept deleted by a pair.**
 ///
 /// > **There is no such thing as "put the caret at byte N."**
 ///
@@ -361,7 +361,7 @@ impl Default for FieldOpts {
 ///
 /// [`Caret`](crate::edit::Caret)'s fields are private and there is no `Text::set_caret`. What
 /// exists instead is [`Text::set_pos`](crate::edit::Text::set_pos), which takes a `Caret` — a value
-/// only a gesture makes — and is what undo restores. §11 prices the difference at **0.0007 µs
+/// only a gesture makes — and is what undo restores. The difference is **0.0007 µs
 /// against 6 109** on a 1 MB line, and the reason is the same one: `set_pos` restores a column and
 /// `set_caret` would have to segment a megabyte to find one.
 ///
@@ -447,12 +447,12 @@ pub struct WhyThereIsNoWayToPutTheCaretAtByteN;
 #[cfg(doc)]
 pub struct WhyBlockSelectionIsNotBuilt;
 
-/// **A text field: one component, one flag.** Spec §11.
+/// **A text field: one component, one flag.**
 ///
 /// **Hostile axes:** `scrolled`, `shrunk`, `wheeled`, `narrow`.
 ///
 /// All four, and it is the only Tier 1 row that declares all four for its own reasons rather than by
-/// inheritance. Scene 13 is the narrow one — the wrap memo at 300 and at 120, 625 rows drawn where
+/// inheritance. The narrow scene is the wrap memo at 300 and at 120, 625 rows drawn where
 /// 875 are needed; the other three are the caret's, the document's and the offset's.
 ///
 /// `input` and `textarea` are not two functions with two states — they are one machine under two
@@ -524,10 +524,10 @@ pub fn field_into<I: Ink>(
 /// know the answer **before** it draws, because the key that moves the cursor is handed back by the
 /// focused field and arrives at the scope's after-the-body moment, one row too late to be the row it
 /// names. So the ids are the container's arithmetic: `Id::keyed(form_id, row)`, minted here and
-/// hung under the form's own id, which is ADR 0027's rule and [`crate::collect::Cell::id`]'s answer
-/// one component over — spec §4's *every workaround that looks like a hack is the id being opaque*.
+/// hung under the form's own id, which is the rule and [`crate::collect::Cell::id`]'s answer
+/// one component over — *every workaround that looks like a hack is the id being opaque*.
 ///
-/// Crate-private, because an id is not part of spec §1's component shape: a public one would let an
+/// Crate-private, because an id is not part of the component shape: a public one would let an
 /// application spell a field's identity, and identity comes from the call site and may never be
 /// persisted.
 #[track_caller]
@@ -545,8 +545,8 @@ pub(crate) fn field_keyed<I: Ink>(
 /// **The three axes `field` can be false on that are not on [`FieldOpts`]**, threaded here so the
 /// shipped build and every refused one are one function with one value between them.
 ///
-/// It was one argument and one axis until production ticket 05, which needed the other two:
-/// [`defective::Window`] is the window arithmetic — §17's `scrolled` and `shrunk` axes, whose two
+/// It was one argument and one axis until the hostile-axis scenes needed the other two:
+/// [`defective::Window`] is the window arithmetic — `scrolled` and `shrunk` axes, whose two
 /// refusals are the *inverted sign* and *stopping at the last content row* — and
 /// [`defective::CaretRow`] is where the caret's row is measured from. They arrive as a
 /// [`defective::Refused`] rather than as three parameters because they are three
@@ -919,7 +919,7 @@ fn floor_boundary(s: &str, at: usize) -> usize {
     at
 }
 
-/// **§11's refused region count, built so a gate can watch it.** One entry per visible cluster.
+/// **The refused region count, built so a gate can watch it.** One entry per visible cluster.
 fn declare_per_cluster(cx: &mut Ctx<'_, '_>, st: &Text, area: Rect, opts: &FieldOpts) {
     let mut key = 0u64;
     for r in 0..area.h {
@@ -954,9 +954,9 @@ fn declare_per_cluster(cx: &mut Ctx<'_, '_>, st: &Text, area: Rect, opts: &Field
 
 /// **What the owner owns and the body never writes.**
 ///
-/// §12's first half of *two structs, one writer each*: this is written only by `select`, from its own
+/// The first half of *two structs, one writer each*: this is written only by `select`, from its own
 /// input and from the inbox, and [`PopupState`] is written only by the body. Nothing has two writers,
-/// which is §7's goal reached one family over.
+/// which is the goal reached one family over.
 ///
 /// **It is `Copy` and [`PopupState`] is not**, and the asymmetry is the mechanism: this crosses the
 /// base pass by value, and the body's state crosses the *frame* by `&'f mut`. See
@@ -974,7 +974,7 @@ pub struct SelectState {
     /// that knows an opening has begun**: [`SelectState::open`] clears it, and an application calling
     /// that verb directly gets the same clearing as a keystroke does.
     ///
-    /// Derived from what the body reports and written only here, so §12's one-writer rule is
+    /// Derived from what the body reports and written only here, so the one-writer rule is
     /// untouched: the body says *the focus is inside me* and the owner remembers that it once did.
     seated: bool,
 }
@@ -1037,7 +1037,7 @@ impl SelectState {
     }
 }
 
-/// **Where a popup's size comes from. Three spellings, and two of them are §12's.**
+/// **Where a popup's size comes from. Three spellings, two of them refused.**
 ///
 /// One field rather than a boolean in a signature, so a reviewer's diff between the shipped build
 /// and either refused one is a single line — [`crate::disclose`]'s arrangement one family over.
@@ -1047,13 +1047,13 @@ pub enum Sizing {
     /// capped and the body's [`gutter`](crate::overlay::gutter) turns *off the bottom* into *scrollable*.
     #[default]
     ToTheRoom,
-    /// **The defect §12 prices at one unreachable row of four.** Sized to the content, uncapped.
+    /// **The defect that costs one unreachable row of four.** Sized to the content, uncapped.
     /// [`place`](vitui_runtime::overlay::place) clamps a position and never a size, so a popup taller
     /// than the screen hangs off the bottom edge at its stated size, [`gutter`](crate::overlay::gutter) sees as many rows as
     /// it has content and says *no bar*, and the rows past the edge are drawn, clipped, and reachable
     /// by nothing.
     ToTheContent,
-    /// **The defect §12 leads with.** Sized from the drawn extent the body reported last time it
+    /// **The first defect.** Sized from the drawn extent the body reported last time it
     /// ran. A popup has no frame before the one it opens on, so the extent is zero, so it is granted
     /// zero rows, so it draws nothing, so the extent is zero: granted
     /// [`SPEC_GRANTED_FROM_EXTENT`](crate::overlay::SPEC_GRANTED_FROM_EXTENT) against
@@ -1079,7 +1079,7 @@ impl Sizing {
     }
 }
 
-/// [`select`]'s options. Spec §1's rule 3: a `Default` struct, never a required builder.
+/// [`select`]'s options. rule 3: a `Default` struct, never a required builder.
 ///
 /// **`Copy`, and that is load-bearing**: the popup body captures the options *by value*, so a
 /// `&'f Self` would be a second `'f` borrow at every call site for no reason.
@@ -1181,8 +1181,8 @@ pub struct WhyThePopupIsRequestedLast;
 /// owns. The other two are not this component's: the shut face elides at every width through the
 /// one elision drawing this crate has, and the popup's extent is a fixpoint rather than a residue.
 ///
-/// Spec §1's shape, with the one cost §1 records: **an overlay costs two lifetime annotations**, and
-/// this is the component §1 measured them on. `popup` and `options` are `'f` because the body
+/// The shape, with the one recorded cost: **an overlay costs two lifetime annotations**, and
+/// this is the component they were measured on. `popup` and `options` are `'f` because the body
 /// captures them and a body is `+ 'f`.
 ///
 /// # The three parties of the rectangle
@@ -1330,8 +1330,8 @@ pub(crate) struct SelectShape {
     /// **What the popup's own list refuses**, which is `collection`'s vocabulary and not a second
     /// one.
     ///
-    /// Production 08, and it is [`crate::collect::TableShape`]'s `coll` field one family over and
-    /// for its reason: spec §12 states the popup's list as *§5's collection over the option list*,
+    /// It is [`crate::collect::TableShape`]'s `coll` field one family over and
+    /// for its reason: the popup's list is *the collection over the option list*,
     /// so the three axes a windowed list can be wrong on are `collection`'s, reached by calling it.
     /// A second vocabulary here would be a second answer to *what is a stale tail*.
     ///
@@ -1368,7 +1368,7 @@ pub enum Fill {
 /// **How many hit entries a popup's list declares.**
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
 pub enum PopupRegions {
-    /// **The rule**, and it is §5's: one entry for the collection, however many rows it has.
+    /// **The rule**, and it is the collection's: one entry for it, however many rows it has.
     #[default]
     Collection,
     /// **The defect.** One entry and one tab stop a row —
@@ -1380,7 +1380,7 @@ pub enum PopupRegions {
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
 pub enum Closed {
     /// **The rule.** [`overlay`](crate::overlay::overlay) returns inert on an empty rectangle and the
-    /// body is never reached, so nothing is declared: §8's *closed content is not drawn*, one family
+    /// body is never reached, so nothing is declared: *closed content is not drawn*, one family
     /// over.
     #[default]
     Skip,
@@ -1638,7 +1638,7 @@ fn select_shaped<'f, I: Ink>(
     resp
 }
 
-/// **The popup's body: the shell, then §5's collection over the option list.**
+/// **The popup's body: the shell, then the collection over the option list.**
 ///
 /// The one function every arm of the family goes through, so a gate playing a refused spelling is
 /// playing the shipped drawing path with one field of [`SelectShape`] changed.
@@ -1881,7 +1881,7 @@ pub(crate) fn popup_body<I: Ink>(
 
 /// **Which of the three toggles a call is**, and the whole difference between them.
 ///
-/// §17 freezes three rows and the impl backlog gives all three one sentence — *[`crate::state::press`]
+/// The freeze has three rows here and all three get one sentence — *[`crate::state::press`]
 /// plus a [`Glyph`] pair plus a [`Role`]* — so this is [`crate::disclose::Collapses`]'s arrangement
 /// and [`crate::overlay::FAMILY`]'s: **one machine and three configurations**, with a table beside it
 /// that a test iterates rather than a paragraph a reader is trusted with. Three arms and three rows,
@@ -1902,7 +1902,7 @@ pub enum Toggle {
     Check,
     /// **A standalone radio button.** [`Glyph::Bullet`] when on, a blank cell when off.
     ///
-    /// **A radio *set* is not this**, and §5 is where that is decided: a set is
+    /// **A radio *set* is not this**: a set is
     /// [`crate::collect::collection`] at [`Mode::Options`] — *exactly one, and it can never become
     /// zero* — which is why `crate::INVENTORY`'s `radio` row carries no composition edge. The row is
     /// the widget and the set is a different call, and `tests::a_radio_set_is_a_collection_and_not_a_second_store`
@@ -1945,9 +1945,9 @@ impl Toggle {
 
 /// The three toggles' options.
 ///
-/// Spec §1's rule 3: a `Default` struct, never a required builder.
+/// A `Default` struct, never a required builder.
 ///
-/// # There is no `label` role here, and that is ADR 0026 rather than a simplification
+/// # There is no `label` role here, and that is the partition rule rather than a simplification
 ///
 /// [`ChipOpts`] carries the finding: *a label wearing a role its face does not is repainted by the
 /// hover award every frame the pointer rests, for ever.* The label, the mark and the padding are one
@@ -1967,7 +1967,7 @@ pub struct ToggleOpts {
     ///
     /// # The one row of the three with no glyph is the one whose state always survives
     ///
-    /// §16's whole subject is what a distinction costs at a lower rung: a checkbox and a radio carry
+    /// The whole subject is what a distinction costs at a lower rung: a checkbox and a radio carry
     /// theirs on the **glyph** axis, which is exactly what `GlyphSet::Ascii` narrows — `✓` becomes
     /// `x` and `•` becomes `*`, both still present, both still one cell. A switch carries its state
     /// on **three** axes and only one of them is the palette: the two words, the side the knob sits
@@ -1976,7 +1976,7 @@ pub struct ToggleOpts {
     pub words: (&'static str, &'static str),
     /// What it declares.
     ///
-    /// `Interest::SCROLL` is not in it, for components ticket 20's reason: a widget that declares the
+    /// `Interest::SCROLL` is not in it, and the reason is: a widget that declares the
     /// wheel and consumes nothing is worse than one that declares nothing at all, because it is the
     /// topmost region over its rectangle and an enclosing `crate::scroll::scroll_area` never sees the
     /// notch either.
@@ -2016,9 +2016,9 @@ impl Default for ToggleOpts {
 /// **Hostile axes:** none.
 ///
 /// Its whole cross-frame fact is the caller's `&mut bool`. The mark is one cell out of the theme's
-/// table and the label elides through [`crate::text::fit`], which is `text`'s flag and scene 28's.
+/// table and the label elides through [`crate::text::fit`], which is `text`'s own flag.
 ///
-/// Spec §1 writes this signature out by name — `fn(&mut Ctx, Rect, &str, &mut bool) -> Response` —
+/// The signature is written out by name — `fn(&mut Ctx, Rect, &str, &mut bool) -> Response` —
 /// and rule 2 is what the `&mut bool` is: *the widget's own value, never application data*.
 ///
 /// ```
@@ -2119,7 +2119,7 @@ pub fn switch(cx: &mut Ctx<'_, '_>, area: Rect, label: &str, on: &mut bool) -> R
     )
 }
 
-/// The three, with the options spelled out. Spec §1's rule 3 sibling for all of them at once.
+/// The three, with the options spelled out: one options sibling for all of them at once.
 #[track_caller]
 pub fn toggle_with(
     cx: &mut Ctx<'_, '_>,
@@ -2298,7 +2298,7 @@ pub const SLIDER_PAGE: u32 = 10;
 
 /// [`slider`]'s options.
 ///
-/// Spec §1's rule 3: a `Default` struct, never a required builder.
+/// A `Default` struct, never a required builder.
 ///
 /// # `orient` is the one field whose default is not the shared enum's
 ///
@@ -2313,7 +2313,7 @@ pub struct SliderOpts {
     pub orient: Orient,
     /// The thumb's four faces, handed to [`crate::state::press`] whole.
     ///
-    /// **The award is over the thumb and not over the track**, which is ADR 0026's relation rather
+    /// **The award is over the thumb and not over the track**, which is the relation rather
     /// than a decoration: a restyle is free only where the component's own next draw already
     /// produces what the restyle produced, and a hover face laid over the whole rectangle would
     /// wipe the [`SliderOpts::done`]/[`SliderOpts::rest`] distinction one frame and redraw it the
@@ -2341,8 +2341,8 @@ pub struct SliderOpts {
     /// What it declares.
     ///
     /// **`Interest::SCROLL` is not in it, and its absence is a decision rather than an omission.**
-    /// §17's row reads *a slider's value is not an offset and no wheel event moves it*; components
-    /// ticket 20's finding is the other half — a widget that declares the wheel and consumes
+    /// The row reads *a slider's value is not an offset and no wheel event moves it*; components
+    /// the other half is a widget that declares the wheel and consumes
     /// nothing is worse than one that declares nothing at all, because it is the topmost region
     /// over its rectangle and an enclosing `scroll_area` never sees the notch either.
     pub interest: Interest,
@@ -2373,7 +2373,7 @@ impl Default for SliderOpts {
 /// # It is [`media::player::scrub`](crate::media::player::scrub) with an axis, and the two are gated
 /// equal
 ///
-/// Components ticket 30 measured drag capture over the video player's seek bar and wrote the
+/// Drag capture was measured over the video player's seek bar, and it wrote the
 /// sentence this component exists to wrap: **the value is `Response::local` divided by
 /// `Response::rect`**, with no press origin, no stored anchor and no *was I dragging last frame*.
 /// That function reads `local.0` against `rect.w` and has no second axis, because a seek bar has no
@@ -2398,7 +2398,7 @@ impl Default for SliderOpts {
 ///
 /// resp.pressed = true;
 /// resp.local = Some((20, 0));
-/// // A press jumps to where it landed. §14's own fraction.
+/// // A press jumps to where it landed, at the measured fraction.
 /// assert_eq!(grab(&resp, Orient::Horizontal), Some(20.0 / 299.0));
 /// ```
 #[must_use]
@@ -2434,7 +2434,7 @@ fn on_grid(value: f32, steps: u32) -> u32 {
 ///
 /// The guard is not defensive tidiness: `f32::NAN.clamp(0.0, 1.0)` is `NAN`, `NAN != NAN`, and
 /// [`Response::changed`] is an inequality — so a caller who once handed in a `NaN` would own a
-/// slider that reports a change on **every** frame for ever, which is the one thing spec §20's
+/// slider that reports a change on **every** frame for ever, which is the one thing
 /// *zero marked on a steady frame* cannot survive.
 fn fraction(value: f32) -> f32 {
     if value.is_finite() {
@@ -2454,7 +2454,7 @@ fn fraction(value: f32) -> f32 {
 /// codes — `Up`, `Down`, `PageUp`, `PageDown` — and agree at `Left`, `Right`, `Home` and `End`,
 /// which `tests::the_slider_s_pairing_is_not_a_list_s_and_the_disagreement_is_four_codes` counts.
 ///
-/// It is components ticket 17's finding on the other side: there, a container could not read `←`
+/// It is the same boundary from the other side: there, a container could not read `←`
 /// and `→` through `nav::step` because that helper reads them *as* `↑`/`↓`. Here the same pairing
 /// is right for a list and wrong for a value.
 ///
@@ -2491,7 +2491,7 @@ pub fn stepped(k: &Pressed, value: f32, opts: &SliderOpts) -> Option<f32> {
     Some(moved as f32 / steps as f32)
 }
 
-/// **A value on a track, dragged from where the pointer is and stepped by the keyboard.** §17's
+/// **A value on a track, dragged from where the pointer is and stepped by the keyboard.**
 /// Tier 3 row, and the mechanism under it is [`grab`].
 ///
 /// **Hostile axes:** none.
@@ -2500,7 +2500,7 @@ pub fn stepped(k: &Pressed, value: f32, opts: &SliderOpts) -> Option<f32> {
 /// is a window onto content larger than what it was handed, and the grab is
 /// [`vitui_runtime::Response::local`] over [`vitui_runtime::Response::rect`] and nothing else.
 ///
-/// `value` is a fraction of the track, `0.0..=1.0`. **It is not a range**, and that is spec §9's
+/// `value` is a fraction of the track, `0.0..=1.0`. **It is not a range**, and that is
 /// unit rule rather than a simplification: a component that owned a minimum and a maximum would own
 /// a *unit*, and the one thing no layer of this library does for its caller is decide what a number
 /// means. A slider over `0..=11` is `*v = f * 11.0` at the call site, in the caller's own unit.
@@ -2622,7 +2622,7 @@ fn slider_shaped<I: Ink>(
 /// # Thumb first, and it is [`crate::scroll::bar`]'s rule reached rather than restated
 ///
 /// The verbs are [`crate::scroll::stripe`]'s — the same helper the scrollbar draws through — and the
-/// order is the same order, which spec §3 gives that helper one job for: *the bar every scrollable
+/// order is the same order, which is why that helper has one job: *the bar every scrollable
 /// draws*, thumb before track. Everybody writes the groove and then the thumb on it; that reads
 /// correctly, costs one verb fewer, and writes every cell of the thumb **twice**.
 ///
@@ -2633,7 +2633,7 @@ fn slider_shaped<I: Ink>(
 /// [`SliderOpts::rest`] ahead of it — so the shipped `bar` cannot express the picture at all. The
 /// second half of the reason is the unit: a [`Span`](crate::scroll::Span) is three counts of
 /// **content cells**, and a slider has no content and therefore no extent. Reaching `bar` would
-/// mean inventing one out of the track's own width, which is the shape §9's unit rule exists to
+/// mean inventing one out of the track's own width, which is the shape the unit rule exists to
 /// refuse.
 ///
 /// What *is* shared is the arithmetic's answer, and it is gated rather than asserted:
@@ -2716,7 +2716,7 @@ fn thumb_cell(value: f32, length: u16) -> u16 {
 /// which is the runtime's, read back with [`Ctx::is_focused`](vitui_runtime::Ctx::is_focused) during
 /// the draw; and there is no selection, no per-row slot and no geometry.
 /// `tests::a_form_adds_nothing_to_what_nav_cursor_already_needs` is that as a `size_of`, which is
-/// what turns §18's *no new mechanism* from a claim into a number.
+/// what turns *no new mechanism* from a claim into a number.
 #[derive(Clone, PartialEq, Eq, Debug, Default)]
 pub struct FormState {
     /// The type-ahead buffer and the one deadline it owes. [`crate::nav::TypeAhead`], because a
@@ -2733,7 +2733,7 @@ impl FormState {
 
 /// [`form`]'s options.
 ///
-/// Spec §1's rule 3: a `Default` struct, never a required builder.
+/// A `Default` struct, never a required builder.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub struct FormOpts {
     /// The role a label is drawn in.
@@ -2743,14 +2743,14 @@ pub struct FormOpts {
     pub label_w: u16,
     /// How many cells sit between a label and its field.
     pub gap: u16,
-    /// How many rows one entry takes. One is an `input`; more is a `textarea` — §11's one flag, and
+    /// How many rows one entry takes. One is an `input`; more is a `textarea` — the one flag, and
     /// the form does not have a second opinion about it.
     pub rows: u16,
     /// The role the gap, the label column's padding and the tail below the last entry are drawn in.
     pub pad: Role,
     /// **Whether the form is one tab stop.**
     ///
-    /// `true` by default, which is spec §3's placement decision rather than this component's taste:
+    /// `true` by default, which is the placement decision rather than this component's taste:
     /// *`nav::cursor`'s placement is the decision, not its contents* — a `Group` collapses the walk
     /// onto the first entry and the rest stay in the ring, so `Tab` reaches the form and the arrows
     /// move inside it.
@@ -2783,7 +2783,7 @@ impl Default for FormOpts {
 /// **What a form is made of, as a value**, so that *no new mechanism* is enumerable rather than
 /// asserted.
 ///
-/// Three names, one per clause of §18's R3 sentence — *`form` is `field` + `nav::cursor` + the focus
+/// Three names, one per clause of R3 sentence — *`form` is `field` + `nav::cursor` + the focus
 /// ring the draw builds* — and `tests::a_form_is_the_three_things_r3_says_it_is` reads them out of
 /// this file. A fourth entry here would be a fourth clause in the spec.
 pub const FORM_IS: [&str; 3] = ["field", "nav::cursor", "the focus ring"];
@@ -2795,7 +2795,7 @@ pub const FORM_IS: [&str; 3] = ["field", "nav::cursor", "the focus ring"];
 /// The fields are [`field`]s and each carries its own four. What is left over is a column of
 /// rectangles and one tab stop, and neither is a function of the width or a window onto anything.
 ///
-/// Spec §18's R3 in its own words: *a composition of shipped components with no new mechanism.* The
+/// R3 in its own words: *a composition of shipped components with no new mechanism.* The
 /// fields are [`field`], the navigation is [`crate::nav::cursor`], and what says where the keyboard
 /// is is the focus ring the draw builds — [`FormState`] is one type-ahead buffer and nothing else.
 ///
@@ -2832,7 +2832,7 @@ pub const FORM_IS: [&str; 3] = ["field", "nav::cursor", "the focus ring"];
 /// });
 /// let frame = driver.inspect();
 /// // Three fields, three hit entries, three ring entries — and **one** tab stop, because a form is
-/// // a `Group` and that is what `nav::cursor` is for (spec §3).
+/// // a `Group` and that is what `nav::cursor` is for.
 /// assert_eq!(frame.hits().len(), 3);
 /// assert_eq!(frame.ring().len(), 3);
 /// assert_eq!(frame.stop_count(), 1);
@@ -2974,14 +2974,14 @@ pub fn form_into<I: Ink>(
 
 /// **A form's row id, derived from the form's own.**
 ///
-/// `Id::keyed(form, row)`, which is ADR 0027's rule — a component's children hang from its own id —
-/// and it is **public** because an application has a use for it that nothing else does: spec §8's
-/// *nothing holds the focus until an application says so* (architecture issue 25). A program that
+/// `Id::keyed(form, row)`, which is the rule — a component's children hang from its own id —
+/// and it is **public** because an application has a use for it that nothing else does:
+/// *nothing holds the focus until an application says so*. A program that
 /// opens on a form and wants the keyboard in its first field has to name that field, and
 /// [`Ctx::id`](vitui_runtime::Ctx::id) mints from `Location::caller()` — there is no other way to
 /// ask.
 ///
-/// It does not weaken ADR 0013's *identity comes from the call site and may never be persisted*: the
+/// It does not weaken *identity comes from the call site and may never be persisted*: the
 /// `form` argument is a [`Response::id`] read back from the frame that just drew, so the identity is
 /// still the call site's and this is arithmetic over it.
 ///
@@ -3022,7 +3022,7 @@ fn focused_row(cx: &Ctx<'_, '_>, id: Id, shown: usize) -> usize {
 pub mod defective {
     /// **How many regions the widget declares.**
     ///
-    /// §11: *a text widget declares 79 regions against 621 for one per visible cluster*. Both arms
+    /// *A text widget declares 79 regions against 621 for one per visible cluster.* Both arms
     /// draw exactly the same cells — the per-cluster arm declares and paints nothing extra — which
     /// is why the count is the gate and the surface is not.
     #[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
@@ -3079,23 +3079,23 @@ pub mod defective {
         }
     }
 
-    /// **How the window over the content is computed**, which is §17's `scrolled` and `shrunk` axes
+    /// **How the window over the content is computed**, which is `scrolled` and `shrunk` axes
     /// in one enum.
     ///
     /// One enum for the two because both refusals are one expression of the shipped loop and
     /// because the pair is the finding: they are the two directions a window can be wrong, one of
-    /// them *drawing the wrong content* and the other *drawing none* — and every counter of §20's
+    /// them *drawing the wrong content* and the other *drawing none* — and every counter of
     /// nine approves of both.
     #[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
     pub enum Window {
         /// **The rule.** `offset + r`, over every row of the rectangle.
         #[default]
         Offset,
-        /// **The `scrolled` defect.** `offset - r`, which is §17's inverted sign — *12.21 µs /
+        /// **The `scrolled` defect.** `offset - r`, which is the inverted sign — *12.21 µs /
         /// 3 058 writes against 62.96 / 20 418, and faster.* Found three times independently.
         Inverted,
         /// **The `shrunk` defect.** Stop at the last content row instead of clearing the rest of
-        /// the rectangle, so what stays on screen is the previous frame: §17's stale tail, *71 of
+        /// the rectangle, so what stays on screen is the previous frame: the stale tail, *71 of
         /// 80 rows* one component over, and the arm that is **cheaper on every counter**.
         ContentRowsOnly,
     }
@@ -3133,7 +3133,7 @@ pub mod defective {
 
     /// **A `select` whose popup is sized from something other than the room the screen has.**
     ///
-    /// One argument, three arms, and the two that are not [`Sizing::ToTheRoom`](super::Sizing::ToTheRoom) are §12's:
+    /// One argument, three arms, and the two that are not [`Sizing::ToTheRoom`](super::Sizing::ToTheRoom) are refusals:
     /// [`Sizing::ToTheContent`](super::Sizing::ToTheContent) leaves
     /// [`SPEC_UNREACHABLE`](crate::overlay::SPEC_UNREACHABLE) of
     /// [`SHORT_OPTIONS`](crate::overlay::SHORT_OPTIONS) rows reachable by nothing, and
@@ -3172,7 +3172,7 @@ pub mod defective {
 
     /// **A `select` whose body holds its list position in a `Copy` of the offset.**
     ///
-    /// §7's literal `Copy`-only body, one family over: [`crate::popup::WHEEL_CLICKS`] notches move
+    /// The literal `Copy`-only body, one family over: [`crate::popup::WHEEL_CLICKS`] notches move
     /// the offset **0**, the screen is identical while it happens, and every counter agrees.
     #[expect(
         clippy::too_many_arguments,
@@ -3204,11 +3204,11 @@ pub mod defective {
         )
     }
 
-    /// **A `select` whose popup asks to be brought into view on every frame.** §17's `wheeled` axis
+    /// **A `select` whose popup asks to be brought into view on every frame.** The `wheeled` axis
     /// on this component, and the arm `CONTEXT.md` forbids by name.
     ///
     /// The **second** wheel defect this component can make and the first that is not its own:
-    /// [`a_copy_of_the_offset`] is §7's `Copy`-only body, where the notch lands and the write dies;
+    /// [`a_copy_of_the_offset`] is `Copy`-only body, where the notch lands and the write dies;
     /// this one is `collection`'s unconditional reveal, where the notch lands, the write survives
     /// and the pull undoes it before anything draws. Both move the offset **0** in twenty clicks
     /// and both leave the screen identical, and a gate that plays one has not played the other.
@@ -3357,7 +3357,7 @@ pub mod defective {
 
     /// **A `select` whose popup declares one hit entry and one tab stop a row.**
     ///
-    /// §5's *one hit entry per collection* from the other side:
+    /// *one hit entry per collection* from the other side:
     /// [`crate::popup::PER_ROW_ENTRIES`] of each where the rule spends one, over cells that are
     /// identical.
     #[expect(
@@ -3392,7 +3392,7 @@ pub mod defective {
 
     /// **A `select` whose popup declares before it looks at what it was granted.**
     ///
-    /// Paired with [`Sizing::FromTheDrawnExtent`](super::Sizing::FromTheDrawnExtent) this is §12's
+    /// Paired with [`Sizing::FromTheDrawnExtent`](super::Sizing::FromTheDrawnExtent) this is
     /// closed-popup case: `h = 0`, eighty rows of screen identical either way, and
     /// [`crate::popup::CLOSED_DECLARES`] spent on entries nobody can reach.
     #[expect(
@@ -3505,7 +3505,7 @@ pub mod defective {
 
     /// **What one arrow adds to a slider.**
     ///
-    /// One argument, two arms, and the second is §14's arithmetic defect rather than §14's prose.
+    /// One argument, two arms, and the second is the arithmetic defect rather than the prose.
     #[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
     pub enum Stepping {
         /// **The rule.** An integer index on a grid of [`SliderOpts::steps`](super::SliderOpts::steps),
@@ -3572,14 +3572,14 @@ pub mod defective {
     ///
     /// Ticket criterion 4 is *a range slider works on the same mechanism, or is explicitly not
     /// shipped with the reason recorded*. It is not shipped, and the reason is that **it is the one
-    /// construction on this map that needs the fact §14 measured the absence of.**
+    /// construction here that needs the fact whose absence was measured.**
     ///
     /// [`grab`](super::grab) is `Response::local` over `Response::rect` and nothing else. Two thumbs
     /// on one track need a third answer that neither field carries: *which* thumb. Every way to get
     /// it is one of two:
     ///
     /// 1. **Remember which one the press landed nearer** — a press origin, which is exactly the
-    ///    fifth cross-frame fact §14's headline is that drag capture does not need. It works, and it
+    ///    fifth cross-frame fact the headline is that drag capture does not need. It works, and it
     ///    makes the range slider a component with a mechanism no other component here has.
     /// 2. **Derive the boundary from the two values**, so nothing is stored. This is [`Range`], and
     ///    it does not work: because the boundary moves with the values it separates, **one
@@ -3674,7 +3674,7 @@ mod field_tests {
     /// `field` is `#[track_caller]`, so a test that wrote the call twice would draw **two**
     /// widgets: the second frame mints a different id, the id the first frame focused did not draw,
     /// and the vanish rule clears the focus — a caret that is simply absent, on a screen that looks
-    /// right. ADR 0027's own defect, arriving inside the gate for it.
+    /// right. The defect, arriving inside the gate for it.
     fn one_field(
         driver: &mut Driver,
         area: Rect,
@@ -3814,7 +3814,7 @@ mod field_tests {
     }
 
     /// **A focused field inside a scrolled form still places its caret**, which is runtime
-    /// architecture issue 36 asked of the caller the ticket names rather than of `Ctx::caret` on
+    /// it was asked of the caller rather than of `Ctx::caret` on
     /// its own.
     ///
     /// `Ctx::caret_with` bounds-checks against `Ctx::area`, and inside a [`Ctx::scroll_scope`] that
@@ -3882,7 +3882,7 @@ mod field_tests {
     }
 
     /// **A field writes a partition of its whole rectangle**, at every size the arithmetic runs out
-    /// at. §2's two equalities on the component.
+    /// at. The two equalities on the component.
     #[test]
     fn a_field_writes_each_cell_of_its_rectangle_exactly_once() {
         for (w, h) in [(1, 1), (5, 1), (20, 1), (20, 4), (7, 9), (60, 8)] {
@@ -3922,7 +3922,7 @@ mod field_tests {
     /// each.**
     ///
     /// The selected path is the only place `field` writes a row as more than one verb — three at
-    /// most, split at the selection's two edges — so it is the only place the §2 equalities can
+    /// most, split at the selection's two edges — so it is the only place the partition equalities can
     /// come apart, and nothing else in this file reaches it. Swept over every selection a caret can
     /// make from every position, at widths where the arithmetic runs out.
     #[test]
@@ -4037,7 +4037,7 @@ mod field_tests {
     ///
     /// A field declares `Interest::SCROLL` and owns its offset, so a notch it did not consume
     /// is worse than one it never declared: it is the topmost region over its rectangle, so an
-    /// enclosing `scroll_area` would never see the notch either. Components ticket 20's defect
+    /// enclosing `scroll_area` would never see the notch either. That defect
     /// class, played through a posted notch over the previous frame's hit index rather than through
     /// a delta added to the offset.
     #[test]
@@ -4104,9 +4104,9 @@ mod field_tests {
 
     /// **Criterion 6: the frame does not pay for the ring.**
     ///
-    /// §11's *at cap (256 entries, 25 600 B) 160.67 µs / 0 allocs, emptied 160.71 µs / 0 allocs,
+    /// *at cap (256 entries, 25 600 B) 160.67 µs / 0 allocs, emptied 160.71 µs / 0 allocs,
     /// same document, same screen*. The timing is the report; what is gated is that **every one of
-    /// §20's readable counters is the same number** on the two arms, which is the sentence *the
+    /// the readable counters is the same number** on the two arms, which is the sentence *the
     /// frame does not pay* without a clock in it.
     #[test]
     fn the_ring_at_cap_and_the_ring_emptied_are_the_same_frame() {
@@ -4152,7 +4152,7 @@ mod field_tests {
 
     /// **Criterion 11: the frame is flat at 100 kB and at 1 MB.**
     ///
-    /// §11 prices it at *82.4 µs / 0 marked / 19 634 writes / 631 verbs / 79 regions / 0 merges /
+    /// It is priced at *82.4 µs / 0 marked / 19 634 writes / 631 verbs / 79 regions / 0 merges /
     /// 0 allocations, flat at 100 kB and 1 MB*. The magnitudes are a screen this ticket does not
     /// own — `examples/field_numbers.rs` prints this one's — and **flat** is the claim that is a
     /// gate: ten times the document is the same frame, because a field costs its visible window.
@@ -4293,7 +4293,7 @@ mod field_tests {
 
     /// **`field` is `#[track_caller]`, so two fields at two call sites are two widgets.**
     ///
-    /// ADR 0027's 110-of-338 defect, at an amplitude of two: without the attribute the second field
+    /// The 110-of-338 defect, at an amplitude of two: without the attribute the second field
     /// merges into the first, gets an inert `Response`, no hit entry and no tab stop — and **the
     /// screen still renders correctly**.
     #[test]
@@ -4355,7 +4355,7 @@ mod slider_tests {
     use vitui_runtime::keys::Pressed;
     use vitui_runtime::{Button, Buttons, Id, Mods, Mouse, MouseKind, Notch};
 
-    /// **The screen the drag is played on: `300` wide**, so the span is **299** and §14's two
+    /// **The screen the drag is played on: `300` wide**, so the span is **299** and the two
     /// fractions are the fractions it wrote down.
     const W: u16 = 300;
 
@@ -4410,7 +4410,7 @@ mod slider_tests {
 
     /// **Criterion 1: three spellings, one function, and rule 4 comes back from all of them.**
     ///
-    /// The shape is spec §1's four rules, and the half a test can reach is that `slider`,
+    /// The shape is the four rules, and the half a test can reach is that `slider`,
     /// `slider_with` and `slider_into` are the *same* draw: the options struct is a `Default` and
     /// never a required builder, so the ninety-per-cent spelling has to be reachable without naming
     /// one — and the `_into` seam has to draw the same cells, or every gate below is measuring a
@@ -4546,7 +4546,7 @@ mod slider_tests {
     /// **Criterion 3: press `20/299`, move `60/299`, release unchanged — through the shipped
     /// component, from a posted pointer.**
     ///
-    /// §14's own three fractions, and the cadence had to be written around exactly as
+    /// The three fractions, and the cadence had to be written around exactly as
     /// `crate::media::player`'s did: `Response::pressed` is `frame.grab == id` and the grab is
     /// awarded at `end` from the index that has just drawn, so the frame that *delivers* the `Down`
     /// reads `false`. A gate playing one frame a phase would have measured the cadence and called
@@ -4597,7 +4597,7 @@ mod slider_tests {
 
     /// **The grab is the chrome's own on the axis the chrome has**, swept rather than transcribed.
     ///
-    /// [`crate::media::player::scrub`] is where §14 measured drag capture, and it has one axis
+    /// [`crate::media::player::scrub`] is where drag capture was measured, and it has one axis
     /// because a seek bar has one. This component's [`grab`] takes the axis, and the horizontal arm
     /// must be that function — checked over every width a track can have and every local position
     /// including both overruns, because a transcription that agreed at `20/299` and disagreed at the
@@ -4657,7 +4657,7 @@ mod slider_tests {
     /// **Criterion 5: `writes == distinct == every cell`, at both orientations and every shape the
     /// arithmetic runs out on.**
     ///
-    /// Spec §2's two equalities. The values are chosen to put the thumb against both ends and in the
+    /// The two equalities. The values are chosen to put the thumb against both ends and in the
     /// middle, because the two stretches either side of it are what a `0` count in [`crate::scroll::stripe`]
     /// makes disappear.
     #[test]
@@ -4705,7 +4705,7 @@ mod slider_tests {
     /// warm-up is two frames rather than one, because the hover arrives a frame after the pointer.**
     ///
     /// `marked` is the engine's own counter and is unreachable from this crate
-    /// ([`crate::counters::Counters::marked`]), so the reachable form is register row 48's: carry the
+    /// ([`crate::counters::Counters::marked`]), so the reachable form is: carry the
     /// surface across frames with [`Pen::over`] and count the cells whose *value* changed.
     ///
     /// # The warming discipline, on the hover axis
@@ -4717,12 +4717,12 @@ mod slider_tests {
     /// changes once, and then nothing changes ever again.
     ///
     /// Written as a single total over 59 frames this read **1** and looked like a defect. It is
-    /// components ticket 22's warming discipline — *every allocation window in this workspace warms
+    /// the warming discipline — *every allocation window in this workspace warms
     /// with two identical frames* — arriving on a counter rather than on an allocator, and the honest
     /// shape is the sequence: a gate that averaged it away would also hide a thumb that really did
     /// re-paint once a frame.
     ///
-    /// What the 0 after it is evidence *of* is ADR 0026's relation — *a restyle is free only where
+    /// What the 0 after it is evidence *of* is the relation — *a restyle is free only where
     /// the component's own next draw already produces the value the restyle produced* — and it is why
     /// [`SliderOpts::faces`] awards over the thumb and not over the track. Awarded over the whole
     /// rectangle the award paints 40 cells the next draw immediately contradicts, and the steady
@@ -4868,7 +4868,7 @@ mod slider_tests {
     /// [`crate::nav::step`] pairs `Up` with `Left`, because it moves an index into a list and a
     /// list's index grows downward. A slider's value grows *upward*. So the two agree at `Left`,
     /// `Right`, `Home` and `End` and disagree at `Up`, `Down`, `PageUp` and `PageDown` — which is
-    /// components ticket 17's finding from the other side, where a container could not read `←` and
+    /// the same boundary from the other side, where a container could not read `←` and
     /// `→` through that helper because it reads them *as* `↑` and `↓`.
     ///
     /// The count is the assertion. A slider that called `nav::step` would be right for four keys and
@@ -4905,7 +4905,7 @@ mod slider_tests {
 
     /// **A chord moves a slider nothing, and a release is not a step.**
     ///
-    /// §21's *a chord types nothing*, on a component that reads the keyboard without a key map. The
+    /// *a chord types nothing*, on a component that reads the keyboard without a key map. The
     /// two refusals are `crate::keys::is_chord` and `Edge::Release`, and they are the two
     /// [`crate::nav::step`] exists for — restated here rather than inherited, because the helper that
     /// states them is the one this component cannot call.
@@ -4956,7 +4956,7 @@ mod slider_tests {
     ///
     /// **`NaN` is the case that makes it load-bearing rather than tidy.** `f32::NAN.clamp(0.0, 1.0)`
     /// is `NaN` and `NaN != NaN`, so a component that kept a non-finite value would report a change
-    /// on **every** frame for ever — which is the one thing spec §20's *zero marked on a steady
+    /// on **every** frame for ever — which is the one thing *zero marked on a steady
     /// frame* cannot survive. `fraction` reads a non-finite value as zero, and the zero is written
     /// back.
     #[test]
@@ -4983,7 +4983,7 @@ mod slider_tests {
     /// **The keyboard reaches the component, and it reaches it through the focus a press awards.**
     ///
     /// `Ctx::next_key` answers only the focused id, and nothing seats a focus until something asks
-    /// (architecture issue 25) — so the arrows are dead until either the caller focuses the slider
+    /// — so the arrows are dead until either the caller focuses the slider
     /// or a press does. The press is the one this component relies on: a region that declared
     /// `Interest::FOCUS` is *awarded* the focus by the runtime at `end`, so there is no `cx.focus`
     /// call here to be a second producer of it.
@@ -5043,8 +5043,8 @@ mod slider_tests {
 
     /// **A slider declares no wheel, and a notch over it is not consumed.**
     ///
-    /// §17's row reads *a slider's value is not an offset and no wheel event moves it*, and
-    /// components ticket 20's finding is why that has to be a declaration rather than a missing
+    /// The row reads *a slider's value is not an offset and no wheel event moves it*, and
+    /// That finding is why this has to be a declaration rather than a missing
     /// branch: a widget that declares `Interest::SCROLL` and consumes nothing is **worse** than one
     /// that declares nothing at all, because it is the topmost region over its rectangle and an
     /// enclosing `scroll_area` never sees the notch either.
@@ -5242,7 +5242,7 @@ mod toggle_tests {
 
     /// **Criterion 1: three spellings, one machine, and rule 4 comes back from all of them.**
     ///
-    /// Spec §1 writes `checkbox`'s signature out by name, so the half a test can reach is that the
+    /// `checkbox`'s signature is written out by name, so the half a test can reach is that the
     /// named spelling, the `_with` sibling and the `_into` seam are the *same* draw — or every gate
     /// below is measuring a second implementation.
     #[test]
@@ -5332,7 +5332,7 @@ mod toggle_tests {
 
     /// **Criterion 7: every one of the three writes a partition of its whole rectangle.**
     ///
-    /// §2's two equalities, swept where the arithmetic runs out — a one-cell rectangle, a rectangle
+    /// The two equalities, swept where the arithmetic runs out — a one-cell rectangle, a rectangle
     /// narrower than the mark field, a label wider than the room it has, and a rectangle three rows
     /// tall so that the rows either side of the label's are somebody's too.
     #[test]
@@ -5417,11 +5417,11 @@ mod toggle_tests {
         assert!(Toggle::Switch.mark().is_none());
     }
 
-    /// **§16 on three components at once: which of them still states itself with no glyph and no
+    /// **Three components at once: which of them still states itself with no glyph and no
     /// colour.**
     ///
     /// A checkbox and a radio carry their state on the **glyph** axis — `✓` becomes `x`, `•` becomes
-    /// `*`, both still one cell and both still present, which is what §16's *no spelling blank*
+    /// `*`, both still one cell and both still present, which is what *no spelling blank*
     /// buys. A switch carries its on three axes and only one of them is the palette: the two words,
     /// the side the knob sits on, and the face.
     ///
@@ -5483,7 +5483,7 @@ mod toggle_tests {
     ///
     /// The click is two frames, because the runtime sets `Response::clicked` on the release and the
     /// award is resolved from the index that has just drawn — `crate::media::player`'s cadence, met
-    /// again. The chord is §21's *a chord types nothing* on a component whose key map is two codes.
+    /// again. The chord is *a chord types nothing* on a component whose key map is two codes.
     #[test]
     fn a_click_flips_it_and_space_flips_it_and_a_chord_flips_nothing() {
         let mut driver = Driver::headless(12, 1).expect("a sink attaches");
@@ -5540,9 +5540,9 @@ mod toggle_tests {
     /// **Criterion 6: a radio *set* is `collection` at `Mode::Options`, not a second selection
     /// store.**
     ///
-    /// The backlog spells the mode `Mode::Radio` and §5 shipped it as [`Mode::Options`] — *exactly
+    /// An earlier draft spelled the mode `Mode::Radio`; it shipped as [`Mode::Options`] — *exactly
     /// one, and it can never become zero*, which is the whole difference from [`Mode::Single`]. The
-    /// name is recorded rather than changed: a mode called `Radio` would be §5's thirteen match arms
+    /// name is recorded rather than changed: a mode called `Radio` would be the thirteen match arms
     /// wearing one component's name.
     ///
     /// Two halves, because either alone is satisfiable by the wrong thing: the **set** really does
@@ -5586,7 +5586,7 @@ mod toggle_tests {
     /// **Criterion 7, the steady half: a toggle nobody touches changes 0 cells a frame.**
     ///
     /// `marked` is the engine's own counter and unreachable from this crate, so the reachable form
-    /// is register row 48's: carry the surface across frames with [`Pen::over`] and count the cells
+    /// is: carry the surface across frames with [`Pen::over`] and count the cells
     /// whose value changed.
     ///
     /// The sequence is `[n, 0, 0, …]` and there is **no hover frame in it**, because the pointer is
@@ -5646,7 +5646,7 @@ mod form_tests {
     ///
     /// `form` is `#[track_caller]`, so a test that wrote the call twice would draw **two** forms:
     /// the second frame mints a different id, every row's id is keyed from it, and the id the first
-    /// frame focused would not have drawn. ADR 0027's own defect, and components ticket 33 met it
+    /// frame focused would not have drawn. The defect, met
     /// with a slider.
     fn frame(
         driver: &mut Driver,
@@ -5660,7 +5660,7 @@ mod form_tests {
         id.expect("a frame ran")
     }
 
-    /// **§2 over a container: every cell of the rectangle, exactly once**, at every size, at both
+    /// **The partition rule over a container: every cell of the rectangle, exactly once**, at every size, at both
     /// scope arms, and at every entry height.
     ///
     /// The interesting sizes are the ones where the entries do **not** divide the height: what is
@@ -5719,8 +5719,8 @@ mod form_tests {
     /// **A field declines a cursor key it could not act on**, which is what makes a container above
     /// it able to hear one at all.
     ///
-    /// The defect components ticket 35 found in code that was already green, and it is components
-    /// ticket 20's *declared and consumed nothing* on the keyboard axis. §11's one flag makes
+    /// The defect found in code that was already green, and it is the
+    /// *declared and consumed nothing* shape on the keyboard axis. The one flag makes
     /// `input` and `textarea` one component, so `field` reads `Up`/`Down` as a caret row step — and
     /// a one-row `input` has no row to step to. It consumed the key anyway, and what that cost is
     /// invisible on the field: a `form` is a `Group` whose `nav::cursor` **never saw an arrow**, on
@@ -5801,7 +5801,7 @@ mod form_tests {
         assert_eq!(FormState::new(), FormState::default());
     }
 
-    /// **Criterion 4, the other half: the three names §18's R3 gives, read out of the source.**
+    /// **Criterion 4, the other half: the three names R3 gives, read out of the source.**
     ///
     /// A scan for absences alone goes green when the section is deleted, so both halves run — the
     /// three calls that must be there and the mechanisms that must not. The needles are the ones
@@ -5846,7 +5846,7 @@ mod form_tests {
     /// **A form is one tab stop and its fields are every ring entry — and ungrouped it is the other
     /// way round, with the arrows dead.**
     ///
-    /// Spec §3: *`nav::cursor`'s placement is the decision, not its contents.* Both arms are
+    /// *`nav::cursor`'s placement is the decision, not its contents.* Both arms are
     /// measured because the difference is not cosmetic: a container receives the keys its children
     /// hand back **only** through a scope's after-the-body moment, and `ScopeKind` has three arms of
     /// which the other two are a modal and a code editor. So *no group* is not *a form without a
@@ -5912,10 +5912,10 @@ mod form_tests {
     }
 
     /// **Criterion 5: the walk repeats no id, and reaches every stop unless a trap is standing** —
-    /// §21's refinement 3, run over a form, which is what ticket 35 asks for.
+    /// the third refinement, run over a form.
     ///
     /// The existing instrument (`tests/gates.rs`) runs it over a fixture of bare `interact` calls.
-    /// This one runs it over the component §18 names as R3's own example, which is the population
+    /// This one runs it over the component named as that reduction's own example, which is the population
     /// the obligation is about — and the ungrouped arm is the one that makes it say something, since
     /// a grouped form is one stop and *reaches every stop* is nearly free at one.
     #[test]
@@ -5980,7 +5980,7 @@ mod form_tests {
 
     /// **Criterion 6: a chord pressed into every focusable in a form types nothing.**
     ///
-    /// §21's row 5, over a real form rather than over the seven **sinks** `crate::keys` stands it on
+    /// The row 5, over a real form rather than over the seven **sinks** `crate::keys` stands it on
     /// — which is what that module's own note says it is waiting for: *none of the seven exists in
     /// this crate*, and one of the seven is `form`. Every field is focused in turn, `Ctrl+S` is
     /// pressed into it, and the two halves are one statement: nothing lands in the buffer **and** the
@@ -6076,7 +6076,7 @@ mod form_tests {
         assert_eq!(compact - cosy, 2, "two rows of padding is two fields");
     }
 
-    /// **Two forms on one screen are two sets of ids and merge nothing** — ADR 0027, on a component
+    /// **Two forms on one screen are two sets of ids and merge nothing**, on a component
     /// whose children's ids are its own arithmetic.
     ///
     /// This is the half `field_keyed` makes possible and dangerous in the same move: every row's id

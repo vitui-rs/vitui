@@ -3,11 +3,11 @@
 //! > **The compiler cannot stop the app thread from being slow. It can stop anything else from being
 //! > the app thread.**
 //!
-//! Four of §11's five rungs are elsewhere and cost nothing: `Screen` and `View` are `!Send` by a
+//! Four of the five rungs are elsewhere and cost nothing: `Screen` and `View` are `!Send` by a
 //! private `PhantomData<*const ()>`, there is no blocking primitive on the app-thread side at all
 //! ([`crate::slot`]), and the lint fragment belongs to the application author
 //! (`examples/app-template/`). **This file is the two that cost something**, and the offence they
-//! answer to is spec §11's rather than Android's:
+//! answer to is this crate's rather than Android's:
 //!
 //! > a **frame-budget overrun by the app thread's iteration, whatever caused it** — not a blocking
 //! > syscall.
@@ -34,7 +34,7 @@
 //! | in-loop | the app thread itself, at `present` | debug: **panic** on the first overrun. Release: **warn once**, into a sink the caller supplies |
 //! | observer | another thread, at a poll | **restore the terminal, print, abort** — in debug only |
 //!
-//! A panic is safe *by construction* rather than by luck: impl 22's restoration is idempotent,
+//! A panic is safe *by construction* rather than by luck: the restoration is idempotent,
 //! guarded by one atomic, callable from any thread, and runs before the default hook prints. So the
 //! in-loop sanction needs no `catch_unwind` and no cooperation.
 //!
@@ -270,7 +270,7 @@ fn stall_report(inside: Duration, reason: Option<&str>) -> String {
 ///
 /// # It is not merely unforgettable, it is uncallable
 ///
-/// ADR 0003's split handles are **internal** after the seam ticket: `attach` spawns the threads and
+/// The split handles are **internal** after the seam ticket: `attach` spawns the threads and
 /// `present` owns the sequence, so `Parker`, `Producer` and `Consumer` are not public names and
 /// [`Perf::enter`] and [`Perf::leave`] are reachable from exactly two places —
 /// [`Screen::wait`](crate::Screen::wait) and [`Screen::present`](crate::Screen::present). A runtime
@@ -594,7 +594,7 @@ impl Perf {
 ///
 /// So the guard holds an `Rc<Perf>` and has **no lifetime parameter at all**. `Screen` keeps the
 /// detector behind the same `Rc`, `permit_slow` bumps a refcount, and a permitted region borrows the
-/// screen for exactly as long as the call takes. §12's signature is amended here rather than in a
+/// screen for exactly as long as the call takes. The signature is amended here rather than in a
 /// document, and the compiler is the reason.
 ///
 /// # `!Send`, and by the `Rc` rather than by a marker
@@ -680,7 +680,7 @@ pub(crate) struct Watch {
     /// How long an iteration may be inside before it is a stall.
     limit: AtomicU64,
     /// The innermost live permit's reason. A `Mutex` rather than two atomics holding a pointer and a
-    /// length: reassembling a `&'static str` out of a pair that can tear needs `unsafe`, and §12's
+    /// length: reassembling a `&'static str` out of a pair that can tear needs `unsafe`, and
     /// refusal 12 is that there is none in this crate.
     reason: Mutex<Option<&'static str>>,
     /// Whether the session is over.
@@ -1055,7 +1055,7 @@ mod tests {
         assert_eq!(report.text(), "");
     }
 
-    /// **Debug: panic on the first overrun.** Safe by construction — impl 22's restoration is
+    /// **Debug: panic on the first overrun.** Safe by construction — the restoration is
     /// idempotent, guarded by one atomic and runs before the default hook prints.
     #[test]
     #[should_panic(expected = "a frame was dropped")]

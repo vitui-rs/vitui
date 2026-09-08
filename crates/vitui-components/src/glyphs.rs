@@ -1,4 +1,4 @@
-//! Spec §16's catalogue as a value: **six families over twenty entries, nine distinctions, and the
+//! The catalogue as a value: **six families over twenty entries, nine distinctions, and the
 //! nine-cell matrix as a count rather than as nine screenshots.**
 //!
 //! > A distinction survives the whole matrix iff it is carried on both axes.
@@ -47,12 +47,12 @@ use crate::{Component, INVENTORY};
 /// box-drawing characters and are two families, because `│` and `├` spell `|` and `+` at ASCII and
 /// the difference is one a `tree` acts on.
 ///
-/// **Spelled `GlyphFamily` and not `Family`**, because [`crate::Family`] is §18's fifteen component
+/// **Spelled `GlyphFamily` and not `Family`**, because [`crate::Family`] is the fifteen component
 /// families and is a different thing. *Two types with one name across a module boundary* is the
 /// review finding `GlyphSet` itself carries one crate down.
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug, Hash)]
 pub enum GlyphFamily {
-    /// The four arrow ends. §9's steppers and §7's disclosure markers are **one family**, and
+    /// The four arrow ends. The steppers and the disclosure markers are **one family**, and
     /// entering them twice under two names would be a collapse rather than two entries.
     Arrow,
     /// The two rules, `│` and `─`.
@@ -120,7 +120,7 @@ pub const fn family(g: Glyph) -> GlyphFamily {
 
 // ── the table joined to a drawer, which is the half components architecture 20 found missing ──────
 
-/// **How an entry of §16's twenty reaches a cell.**
+/// **How an entry of the twenty reaches a cell.**
 ///
 /// Every draw in this crate goes through [`Theme::glyph`], so *is this entry drawn* is a
 /// question about that call and about nothing else. Two shapes exist and the second is why this is
@@ -155,7 +155,7 @@ pub struct Drawer {
     pub reach: Reach,
 }
 
-/// **Fifteen of §16's twenty, and the line each is drawn on.**
+/// **Fifteen of the twenty, and the line each is drawn on.**
 ///
 /// The freeze's `glyphs` column says which component *demands* an entry; it never said which line
 /// *draws* one, and `the_glyph_table_is_twenty_entries_and_every_one_of_them_has_a_demander` joins a
@@ -249,9 +249,9 @@ pub const DRAWERS: &[Drawer] = &[
     },
 ];
 
-/// **An entry of §16's twenty that a row of the freeze demands and nothing in this crate draws.**
+/// **An entry of the twenty that a row of the freeze demands and nothing in this crate draws.**
 ///
-/// Held as a table rather than as prose for ADR 0033's reason — *a table holds a disagreement that
+/// Held as a table rather than as prose for the reason — *a table holds a disagreement that
 /// prose cannot* — and it is a disagreement rather than a defect: no picture is wrong, because an
 /// entry nothing draws cannot collapse onto anything on a screen. What is wrong is a reader of the
 /// freeze being told a component draws it.
@@ -300,7 +300,7 @@ pub const UNDRAWN: &[Undrawn] = &[
 
 /// **An entry a component's *caller* must be able to spell, and the component that hands it over.**
 ///
-/// Architecture issue 25's answer, and it exists because the freeze's `glyphs` column turned out to
+/// The answer, and it exists because the freeze's `glyphs` column turned out to
 /// be answering two questions with one list. Issue 20 settled the column's verb — it is **draws** —
 /// and then five entries were left demanded by `table` and drawn by nothing, which read as the same
 /// false claim one row over. It is not the same claim, and the difference is §6:
@@ -342,7 +342,7 @@ pub struct Delegated {
 
 /// The eleven entries [`crate::INVENTORY`] hands to a caller rather than drawing. See [`Delegated`].
 ///
-/// All of them are `table`'s and they are §16's `rule` family, its four corners and its five
+/// All of them are `table`'s and they are the `rule` family, its four corners and its five
 /// junctions — the whole vocabulary of a box drawn around and between a table's columns.
 pub const DELEGATED: &[Delegated] = &[
     Delegated {
@@ -543,7 +543,7 @@ pub fn drawing_region(file: &str, source: &str) -> String {
     out
 }
 
-/// One cell of §16's repertoire × tier matrix, as four counts.
+/// One cell of the repertoire × tier matrix, as four counts.
 ///
 /// **A count, not a screenshot.** §16 is explicit that nine screens is not the instrument: what a
 /// component acts on is the last field, and it is far smaller than the pair count — because most
@@ -553,7 +553,7 @@ pub struct Census {
     /// Indistinguishable role pairs, of [`ROLE_PAIRS`].
     pub roles: usize,
     /// Indistinguishable glyph pairs, of [`GLYPH_PAIRS`]. **Independent of the tier**: a glyph is a
-    /// cluster and a cluster does not quantise, which is why §16's glyph column repeats itself
+    /// cluster and a cluster does not quantise, which is why the glyph column repeats itself
     /// across each row.
     pub glyphs: usize,
     /// Indistinguishable **signal** pairs, of [`SIGNAL_PAIRS`]. A signal is `(Option<Glyph>, Role)`
@@ -694,7 +694,7 @@ pub fn signal_collapses(theme: &Theme) -> usize {
 
 /// The distinctions this theme no longer shows, of ten.
 ///
-/// **The number a component acts on**, and §16's point is that it is far smaller than the pair
+/// **The number a component acts on**, and the point is that it is far smaller than the pair
 /// count — 2 of 9 against 13 of 78 — because most role pairs are never asked to be told apart.
 pub fn distinctions_lost(theme: &Theme) -> Vec<Distinction> {
     Distinction::ALL
@@ -722,7 +722,7 @@ pub fn census(theme: &Theme) -> Census {
 ///
 /// The three uncarried distinctions — `Hover`, `Fade`, `Status` — never appear here, because they
 /// have no glyph halves to draw. That is not an omission: a component depends on those through its
-/// **roles**, and §17's freeze does not carry a role column.
+/// **roles**, and the freeze does not carry a role column.
 pub fn distinctions_of(c: &Component) -> Vec<Distinction> {
     Distinction::ALL
         .into_iter()
@@ -878,8 +878,8 @@ mod tests {
 
     /// **Every component's demand set is drawn from the table and names nothing twice.**
     ///
-    /// The type makes the first half true; the second is the one that bites, because §9's steppers
-    /// and §7's disclosure markers are one family and a row that entered `ArrowDown` twice under two
+    /// The type makes the first half true; the second is the one that bites, because the steppers
+    /// and the disclosure markers are one family and a row that entered `ArrowDown` twice under two
     /// readings would look like two demands.
     #[test]
     fn the_demand_column_is_filled_and_joined_against_the_table() {
@@ -974,7 +974,7 @@ mod tests {
 
     /// **The detector fires, on the exact defect it exists for.**
     ///
-    /// A gate nobody has watched fail is not a gate — §21's three-for-three finding, and the shape
+    /// A gate nobody has watched fail is not a gate — the three-for-three finding, and the shape
     /// [`crate::obligations`] is built around. The fixture is C09's: a component that draws both
     /// `Ellipsis` and `ArrowRight` under a table that spells them alike.
     ///
@@ -1110,7 +1110,7 @@ mod tests {
         out
     }
 
-    /// **§16's twenty, partitioned into what this crate draws and what it does not — and the first
+    /// **The twenty, partitioned into what this crate draws and what it does not — and the first
     /// half joined to a line rather than to another declaration.**
     ///
     /// The freeze's own tripwire asks *does some row demand this entry*, and a row demanding an
@@ -1282,7 +1282,7 @@ mod tests {
     }
 
     /// **`tree`'s own body draws the chevrons and names no guide, and `select`'s names no
-    /// stepper** — components architecture 20's decision, where it is falsifiable.
+    /// stepper** — the decision, where it is falsifiable.
     ///
     /// [`DRAWERS`] is crate-wide and cannot see this: `VLine` is drawn, by `frame`, and `ArrowUp` is
     /// drawn, by `scrollbar`. What was false was that *these two components* draw them, and the
@@ -1373,7 +1373,7 @@ mod tests {
     /// **The marker is one cell, and the three-cell form moves the surface without moving a
     /// counter.**
     ///
-    /// §16's rule, and the reason it is enforceable only on the table: `writes`, `verbs` and
+    /// The rule, and the reason it is enforceable only on the table: `writes`, `verbs` and
     /// `marked` are identical either way, so nothing but the rendered cells disagrees.
     #[test]
     fn the_elision_marker_is_one_cell_and_the_three_cell_form_moves_the_surface() {
@@ -1443,7 +1443,7 @@ mod tests {
         );
     }
 
-    /// **The gutter is 598 glyph cells over 200 rows**, which is scene 21's content.
+    /// **The gutter is 598 glyph cells over 200 rows**, which is the content.
     #[test]
     fn the_memoised_gutter_is_five_hundred_and_ninety_eight_cells() {
         let theme = declared();

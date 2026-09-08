@@ -496,7 +496,7 @@ mod rodata {
     const AUX_BYTES: usize = 8_208;
     const WIDTH_BYTES: usize = 4_956;
 
-    /// §3's budget for all three properties: 20–30 KiB of static `.rodata`.
+    /// The budget for all three properties: 20–30 KiB of static `.rodata`.
     const BUDGET: usize = 30 * 1024;
 
     fn break_bytes() -> usize {

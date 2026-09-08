@@ -453,7 +453,7 @@ pub fn the_parallel_compositing_ruling() -> &'static str {
 /// descheduled for 22 ms on a runner that serves every repository on the machine from six slots.
 ///
 /// The sanction was `crate::perf::Perf::sanction`, which is `cfg(debug_assertions)` and therefore
-/// armed in every `cargo test` run. So §14's rule — *a gate is a count, a ratio, an equality or a
+/// armed in every `cargo test` run. So the rule — *a gate is a count, a ratio, an equality or a
 /// compile outcome; a timing is a report* — was bypassed by a mechanism that is **not a gate at
 /// all**, and a report acquired a timing failure mode it neither chose nor stated.
 ///
@@ -657,7 +657,7 @@ mod tests {
 
     /// **The ledger says whether a timing report can fail, and it names both of the ones that could.**
     ///
-    /// Production ticket 11's own criterion, made into something that costs an edit rather than
+    /// Production the criterion, made into something that costs an edit rather than
     /// staying advice: *whether a timing report can fail is exactly the kind of thing that becomes a
     /// claim if nobody writes it down.* The assertion is on the three things the statement owes a
     /// reader — a verdict, both reports by name, and the mechanism that makes the verdict true —

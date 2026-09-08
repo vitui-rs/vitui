@@ -134,7 +134,7 @@ pub const SHARED: &[Shared] = &[
     },
 ];
 
-/// **The spellings of `id` its home module declares**, in spec §1's order.
+/// **The spellings of `id` its home module declares**, in the order.
 ///
 /// The needle is the name and the boundary is either delimiter — components 33's rule, met here for
 /// the sixth time on this map. `pub fn file_picker<'f, T>(` and `pub fn file_preview_pane<T, F>(`

@@ -1,12 +1,12 @@
-//! **Axes, and spec §9's layout loop in a second place — where it oscillates.**
+//! **Axes, and the layout loop in a second place — where it oscillates.**
 //!
-//! Components ticket 28, spec §13. The loop is real and it is short: the y-axis gutter takes columns
+//! The loop is real and it is short: the y-axis gutter takes columns
 //! from the plotting area; the plotting area's width decides how much of a live series is on screen;
 //! what is on screen decides the auto-scaled range; the range decides the tick values; the tick
 //! values decide the widest label; the widest label is the gutter.
 //!
-//! §9's precondition becomes *a narrower plotting area may not produce a wider label*, and unlike
-//! §9's it is **false for ordinary data**: dropping the older, larger samples out of the window can
+//! The precondition becomes *a narrower plotting area may not produce a wider label*, and unlike
+//! and it is **false for ordinary data**: dropping the older, larger samples out of the window can
 //! leave a range whose nice ticks are `-0.05 … 0.05`, and `-0.05` is five columns where `900` was
 //! three.
 //!
@@ -29,7 +29,7 @@ use super::raster::Domain;
 ///
 /// Fewer ticks do not give a subset of the labels. Five ticks over 0…10 are `0 2.5 5 7.5 10`; three
 /// are `0 5 10`. The five-tick set contains a label one column wider than anything in the three-tick
-/// set, and **neither set contains the other** — which is §9's precondition, *a narrower plotting
+/// set, and **neither set contains the other** — which is the precondition, *a narrower plotting
 /// area may not produce a wider label*, failing for ordinary data.
 pub fn nice_step(span: f32, target: u16) -> f32 {
     let target = f32::from(target.max(1));
@@ -108,7 +108,7 @@ pub fn gutter(dom: Domain, plot_h: u16) -> u16 {
 pub enum Sizing {
     /// The naive one: recompute from the window the current gutter produces, and feed it back.
     Fixpoint,
-    /// **§9's hysteresis form**: compute from *last frame's* plotting width. Never loops, and
+    /// **The hysteresis form**: compute from *last frame's* plotting width. Never loops, and
     /// settles on a gutter that is not a fixed point of its own rule.
     LastFrame,
     /// **The decision.** The gutter comes from the whole series' range, which is data — so it does
@@ -261,11 +261,11 @@ pub const AXIS_W: std::ops::RangeInclusive<u16> = 12..=300;
 /// The shortest viewport the sweep visits.
 pub const AXIS_H: std::ops::RangeInclusive<u16> = 5..=80;
 
-/// **How many viewport x dataset pairs the sweep visits. 175 712** — `8 * 289 * 76`, and §21 states
+/// **How many viewport x dataset pairs the sweep visits. 175 712** — `8 * 289 * 76`, and the rule is
 /// the product rather than the factors.
 pub const AXIS_PAIRS: u64 = AXIS_DATASETS as u64 * 289 * 76;
 
-/// What the sweep found, in the three columns §9 named.
+/// What the sweep found, in three columns.
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
 pub struct AxisTally {
     /// How many pairs were visited.
@@ -279,7 +279,7 @@ pub struct AxisTally {
     /// Converging pairs the hysteresis form disagrees with the fixpoint about.
     pub hysteresis_wrong: u64,
     /// **Oscillating pairs the hysteresis form silently stabilises** — no loop, and a gutter that is
-    /// not a fixed point of its own rule. §9's outcome, in this second place.
+    /// not a fixed point of its own rule. The outcome, in this second place.
     pub hysteresis_settled_off: u64,
     /// How many pairs the whole-domain form visited.
     pub whole_pairs: u64,

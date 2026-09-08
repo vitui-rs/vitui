@@ -1,6 +1,6 @@
 //! Routing: which events one frame consumes, and the one queue every key is drained from.
 //!
-//! Spec §7; [ADR 0016](../../../docs/adr/). Two things live here and they are the two halves of
+//! Two things live here and they are the two halves of
 //! the same rule:
 //!
 //! - [`edge_of`] classifies one event, and [`batch_len`] turns that classification into *how many
@@ -15,7 +15,7 @@
 //! frames — and it does not protect the case that needs protecting, because two edges in one batch
 //! are misrouted whether or not the rest of the batch went with them.
 //!
-//! ADR 0008 already says which events may **collapse**: moves, wheel clicks and ordinary keys. What
+//! The input model already says which events may **collapse**: moves, wheel clicks and ordinary keys. What
 //! costs a frame is a *routing edge* — an event whose effect the frame **reads**.
 //!
 //! # Which end of the batch an edge may sit at
@@ -28,7 +28,7 @@
 //!   ever be the *first* event a frame consumes.
 //!
 //! **Every routing edge that ships today is a closing edge.** `Down`/`Up` resolve in `Frame::end`;
-//! `Tab` resolved in `begin` would have been the mirror image, and runtime ticket 08 overturned
+//! `Tab` resolved in `begin` would have been the mirror image, and that was overturned
 //! exactly that by declaring the focus ring during the draw at 1.000×–1.009× of the frame — its own
 //! noise floor. So `[Key(a), Tab]` is one frame and nothing about focus crosses a frame.
 //!
@@ -168,7 +168,7 @@ pub fn batch_len_with(batch: &[Event], classify: impl Fn(&Event) -> Option<Edge>
 ///
 /// Bubbling, accelerators and *unhandled reaches the application* are this one structure. The
 /// literal per-id version costs **1.17×** routing and at least one allocation a frame against zero,
-/// and its pointer targets come from last frame's index — the stale answer ADR 0015 exists to
+/// and its pointer targets come from last frame's index — the stale answer this design exists to
 /// remove.
 ///
 /// # Draining is where the quadratic hides

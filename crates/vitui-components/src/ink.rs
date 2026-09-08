@@ -1,6 +1,6 @@
 //! **The seam that lets a gate measure the shipped drawing path instead of a copy of it.**
 //!
-//! Spec §2's first equality is `writes == distinct cells touched`, and the two things it compares
+//! The first equality is `writes == distinct cells touched`, and the two things it compares
 //! come from two different places: `writes` is the engine's own report — the `cells` field of what
 //! `Ctx::text` returns — and `distinct` is [`crate::counters::Tally`]'s union over the spans those
 //! verbs reported. That only works if the tally **sees the verbs**. A component's shape is
@@ -10,7 +10,7 @@
 //! The alternative that was not taken is a second implementation of `fit` and `block` written
 //! against `Tally` for the gate to run over. That is the shape §21 spent three refinements on:
 //! **a gate written against a copy of the code tests the copy.** Twelve prototypes each computed
-//! §20's counters their own way inside their own binary, and `crate::counters` exists because of it.
+//! the counters their own way inside their own binary, and `crate::counters` exists because of it.
 //!
 //! What ships instead is one trait with two methods and three implementations. `fit` and `block`
 //! are written once, generic over it; [`Direct`] is what a component gets and allocates nothing;

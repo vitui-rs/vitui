@@ -797,9 +797,9 @@ fn two_text_verbs_with_a_one_column_gap_do_not_take_the_scroll_path() {
 
 /// The same list, with content past the label that the label-only idiom leaves in place.
 ///
-/// **This is §8's *label only* arm and the reason it is refused**: the tail belongs to the screen row
+/// **This is *label only* arm and the reason it is refused**: the tail belongs to the screen row
 /// rather than to the item, so what the frame wants on row `y` is not what the mirror holds on row
-/// `y + 1`, and obligation 1 says so. §14's own `scrolling-list-label-only` is blank past its label
+/// `y + 1`, and obligation 1 says so. The `scrolling-list-label-only` is blank past its label
 /// and therefore *is* scrollable — see `crate::gates::the_scroll_region_over_spec_8s_two_arms`.
 #[test]
 fn a_list_whose_tail_does_not_scroll_with_its_labels_is_refused() {
@@ -1044,7 +1044,7 @@ fn a_band_narrower_than_the_screen_sets_the_region_and_puts_it_back() {
 ///
 /// It was invisible to the whole suite for one reason worth keeping in view: impl 17 also made
 /// `Scene::overrides` pin **truecolor**, which is the arm where narrowing is the identity. That was
-/// the right default — it preserves every byte count on §14's register — and it moved the twelve
+/// the right default — it preserves every byte count on the register — and it moved the twelve
 /// scenes off the only depth that could see this. So the gate is here, at the depth, and it is a
 /// **relation between arms** rather than a count: a scroll taken at truecolor must still be taken
 /// when the terminal has less colour, because narrowing is about what a cell *looks like* and a

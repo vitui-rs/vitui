@@ -93,7 +93,7 @@
 //! ```
 //!
 //! On `Clock::Manual` both halves run on the calling thread, in that order, before `present`
-//! returns — same mailbox, same packet, same bytes. That is spec §14's deterministic mode and it is
+//! returns — same mailbox, same packet, same bytes. That is the deterministic mode and it is
 //! public API rather than test scaffolding.
 //!
 //! **The engine does not own the loop.** It hands out the verbs and `present`, and the runtime

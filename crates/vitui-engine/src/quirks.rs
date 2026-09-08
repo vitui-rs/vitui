@@ -1,6 +1,6 @@
 //! The layer for terminals that answer the query correctly and then misbehave.
 //!
-//! Level 5 of spec §10's precedence, and the whole reason it sits **after** detection: a terminal
+//! Level 5 of the precedence, and the whole reason it sits **after** detection: a terminal
 //! that reports a capability it then mis-renders is not a detection failure, and asking again more
 //! carefully cannot fix it. Detection says what the other end claims; this says what it does.
 //!
@@ -53,7 +53,7 @@
 //! **The first three, the sixth and the seventh are not recognised by a query, and that is not an oversight**: they are
 //! recognised the way libvaxis recognises them, because the misbehaviour is not something the
 //! terminal will admit to. This is the one place `$TERM_PROGRAM`-shaped evidence is legitimate, and
-//! it is legitimate precisely because it is not being used to *detect a capability* — spec §10's
+//! it is legitimate precisely because it is not being used to *detect a capability* —
 //! refusal of terminfo is a refusal to infer capabilities from a name, and an entry here overrides
 //! a capability that was measured.
 //!
@@ -169,7 +169,7 @@
 //! is a configuration this engine cannot see and §10 would not read terminfo to find.
 //!
 //! Ghostty renders SGR 53 (the first row of that table), so the loss is tmux's and the terminfo that
-//! omits `Smol` describes a terminal that has it. That is spec §10's refusal of terminfo, arriving
+//! omits `Smol` describes a terminal that has it. That is the refusal of terminfo, arriving
 //! as field evidence from a direction nothing planned for.
 //!
 //! # The fifth entry, and its evidence is not a screen dump
@@ -338,7 +338,7 @@ impl Underlines {
 /// a force-flush is a *rendering* event, and nothing a process inside the terminal can ask reports
 /// whether the terminal painted. Only a screen capture can, and this repository's capture is an
 /// AppleScript round trip that four runs on 2026-08-23 put between **136 ms and 623 ms** — the same
-/// order as Alacritty's entire 150 ms limit, and confirming ticket 04's prediction rather than
+/// order as Alacritty's entire 150 ms limit, and confirming the prediction rather than
 /// discovering it. Every run prints its own figure into `conform/REPORT-ghostty.md`, so the reason is
 /// a measurement with a spread and not an assertion. The number here therefore has the same
 /// provenance as the three above it: the implementation, read. That is what `quirks.rs` can honestly
@@ -371,7 +371,7 @@ impl Underlines {
 /// parses the `h`, and the scene's clock starts when it wrote one.
 ///
 /// **No entry sets this field, and nothing reads it.** The engine's own block is opened and closed
-/// inside one `write` (§8's twenty bytes of fixed framing), so a frame cannot approach the smallest
+/// inside one `write` (the twenty bytes of fixed framing), so a frame cannot approach the smallest
 /// of these limits; they bind only on a block spanning two writes, which nothing does. The numbers
 /// are the headroom, written down where a future block that *does* span writes will look for them.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -406,7 +406,7 @@ pub(crate) struct Quirks {
     /// turns `double` into `none`, so an underline style a terminal does not render is not a fact this
     /// field can hold. A terminal that has one needs a new axis, not a wider mask.
     ///
-    /// Read on the wire by [`crate::quant::Quantiser::attrs`], which is what makes §10's *dropped
+    /// Read on the wire by [`crate::quant::Quantiser::attrs`], which is what makes *dropped
     /// silently at serialise time* true — production ticket 10, filed by the ticket that populated
     /// this field and found nothing reading it.
     pub(crate) attrs_dropped: u64,

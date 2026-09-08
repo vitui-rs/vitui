@@ -21,7 +21,7 @@
 //! hand-written row loop and with **the click's delta handed to the arithmetic `Response::scrolled`
 //! would have delivered it to** — because `Driver::post_mouse` takes a `vitui_engine::Mouse`, and a
 //! `Mouse` needs a `Buttons` and a `MouseKind`, and *neither of those was in `ENGINE_NAMES` at all*.
-//! Runtime architecture issue 22 lifted that barrier. So this module is ticket 11's instrument with
+//! Runtime architecture issue 22 lifted that barrier. So this module is the instrument with
 //! the two substitutions taken out, and both removals were load-bearing:
 //!
 //! 1. **The click is posted.** [`Driver::post_mouse`] with a real [`Notch`], routed through the
@@ -36,11 +36,11 @@
 //!
 //! # Five subjects, run separately, because the blindness is per axis
 //!
-//! Ticket 20's fourth criterion: *the same gate runs over `scroll_area` and over a virtualised
+//! The fourth criterion: *the same gate runs over `scroll_area` and over a virtualised
 //! `collection` separately, because the watermark's blindness is per axis — a body dead downward and
 //! alive sideways must be distinguishable.*
 //!
-//! **The third is production 06's and it is a different kind of question.** [`Subject::Table`] owns
+//! **The third is the original's and it is a different kind of question.** [`Subject::Table`] owns
 //! one offset in rows, like a collection, and every number it reports is a collection's — which is
 //! the point: spec §6 opens by claiming that a table's *row axis, wheel, keyboard, type-ahead and
 //! reveal are all `collection`'s, reached by calling it*, and until this ticket nothing had asked it
@@ -49,7 +49,7 @@
 //! trusted: the assertions are *`table` equals `collection`, arm for arm*, not three constants
 //! written twice.
 //!
-//! **The fourth is production 09's and the fifth production 07's, and both are the third's shape on
+//! **The fourth is the original's and the fifth production 07's, and both are the third's shape on
 //! another component.** [`Subject::Pane`] reaches its offset through `scroll_area` and
 //! [`Subject::Tree`] reaches its through `collection`, so the assertions on both are *equal to the
 //! component it calls, arm for arm* rather than constants written twice. Three instances make it a
@@ -107,7 +107,7 @@ pub const W: u16 = crate::listing::W;
 /// The viewport's height. [`crate::listing::H`]'s eighty.
 pub const H: u16 = crate::listing::H;
 
-/// How many rows the collection holds. A million, which is §21's own scene 6.
+/// How many rows the collection holds. A million, which is the scene 6.
 pub const ROWS: u64 = 1_000_000;
 
 /// **The area's content, in cells and on both axes.**
@@ -117,7 +117,7 @@ pub const ROWS: u64 = 1_000_000;
 /// clamp rather than a wheel.
 pub const EXTENT: (u32, u32) = (1_000, 1_000_000);
 
-/// **How many wheel clicks the gate plays. Twenty**, which is §21's own gesture.
+/// **How many wheel clicks the gate plays. Twenty**, which is the gesture.
 pub const CLICKS: u32 = 20;
 
 /// **How far twenty clicks move the offset when the reveal is conditional. Twenty.**
@@ -131,7 +131,7 @@ pub const MOVED: i32 = CLICKS as i32;
 /// **How far twenty clicks move the offset when the reveal fires every frame. Zero.**
 ///
 /// The pinned failing set the gate was red on for nine tickets. See [`wheeled`] for why the number
-/// one frame earlier is `1` and not `0`, and why that one is ADR 0015's documented residue rather
+/// one frame earlier is `1` and not `0`, and why that one is the documented residue rather
 /// than a softened defect.
 pub const DRAGGED_BACK: i32 = 0;
 
@@ -180,7 +180,7 @@ fn decode(id: u64, _cancel: &Cancel) -> Doc {
 ///
 /// Three arms and not two, because a **one-directional** gate goes green the moment somebody deletes
 /// the call entirely — which loses the keyboard behaviour instead of fixing the pointer one. That is
-/// ticket 20's third criterion, and [`Reveal::Never`] is the arm it is written against.
+/// the third criterion, and [`Reveal::Never`] is the arm it is written against.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Reveal {
     /// **The rule.** The reveal is requested only when something asked for it — a keyboard cursor
@@ -205,7 +205,7 @@ impl Reveal {
     }
 }
 
-/// **Which shipped component the gate is playing over.** Ticket 20's criterion 4.
+/// **Which shipped component the gate is playing over.** criterion 4.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Subject {
     /// A virtualised [`crate::collect::collection`]: one offset, in rows, and the reveal is the
@@ -222,7 +222,7 @@ pub enum Subject {
     /// *`table` is `collection`* is the claim; a gate that plays the wheel over `collection` and
     /// takes the claim on trust is a gate that would stay green if the column split ever grew a
     /// second offset, a second store or a reveal of its own. Production 06 asked it directly, and
-    /// what it costs is one `match` arm — which is the measure of how much of §6's sentence is
+    /// what it costs is one `match` arm — which is the measure of how much of the sentence is
     /// true.
     Table,
     /// A [`crate::files::file_preview_pane`]: **two offsets, in content cells, and they are
@@ -234,7 +234,7 @@ pub enum Subject {
     /// component is `scroll::scroll_area_into` with a virtualising body in front of it — so the
     /// wheel, the reveal and both clamps are reached by calling it, and nothing had ever asked. The
     /// assertions are therefore *`file_preview_pane` equals `scroll_area`, arm for arm* rather than
-    /// six constants written twice, which is production 06's own arrangement and its reason.
+    /// six constants written twice, which is the arrangement and its reason.
     ///
     /// # The extent is a field of the answer, so the run has to land one first
     ///
@@ -253,7 +253,7 @@ pub enum Subject {
     /// second scan cursor, no second [`Mode`], **no second offset** and no second press edge* — so
     /// the assertions here are *`tree` equals `collection`, arm for arm* rather than three
     /// constants written twice. What it costs is one `match` arm and two
-    /// [`crate::collect::defective`] entries, which is the measure of how much of §7's sentence is
+    /// [`crate::collect::defective`] entries, which is the measure of how much of the sentence is
     /// true.
     ///
     /// **The index is nested and that is deliberate rather than decorative.** `crate::forest`'s own
@@ -663,7 +663,7 @@ pub struct Tapped {
 
 /// The driver, the state and the offset, so that both subjects are played by one loop.
 ///
-/// **A second loop is what the two substitutions were**: ticket 11's arithmetic click and its
+/// **A second loop is what the two substitutions were**: the arithmetic click and its
 /// hand-written row body were each a copy of something, and both copies were where the defect is
 /// not.
 struct Run {
@@ -683,7 +683,7 @@ struct Run {
     /// **The tree's state and the flatten index it reads.** Both inert on every other arm.
     ///
     /// The index is built in [`Run::new`] and not inside a frame, which is `crate::forest`'s own
-    /// rule and spec §10's price for the other spelling: materialising a million rows is
+    /// rule and the price for the other spelling: materialising a million rows is
     /// proportional to the data by construction, and doing it in a frame costs 211 frame budgets.
     tree: TreeState,
     index: Order,
@@ -1059,7 +1059,7 @@ fn area_frame(cx: &mut Ctx<'_, '_>, st: &mut AreaState, play: Play, once: &mut b
 /// [`area_frame`]'s shape, one family over, and the reveal is the **body's** for the same reason:
 /// `file_preview_pane` hands its rectangle to `scroll_area`, which applies a delta and never asks
 /// for one. So this arm needs no `crate::files::defective` entry at all — the three arms are three
-/// bodies, which is the measure of how much of §15's *a scroll area over a document* is true.
+/// bodies, which is the measure of how much of *a scroll area over a document* is true.
 ///
 /// The offset is read **inside the body**, out of the coordinate system the component put it in.
 /// See this module's `Run` for why the reading is inside the body rather than off a getter.
@@ -1341,7 +1341,7 @@ mod tests {
         assert!(leaves_no_request(play, scrolled));
     }
 
-    /// **Production 06: the same gate over the shipped `table`, and §6's sentence is checked
+    /// **Production 06: the same gate over the shipped `table`, and the sentence is checked
     /// rather than trusted.**
     ///
     /// > There is no second selection store, no second scan cursor and no second `Mode`. The row
@@ -1427,7 +1427,7 @@ mod tests {
         }
     }
 
-    /// **Production 07: the same gate over the shipped `tree`, and §7's sentence is checked rather
+    /// **Production 07: the same gate over the shipped `tree`, and the sentence is checked rather
     /// than trusted.**
     ///
     /// > There is **no second selection store**, **no second scan cursor** — the row's `Face`
@@ -1443,7 +1443,7 @@ mod tests {
     /// request cost the row axis nothing**, and a build where they did would show up here as one of
     /// these arms disagreeing with its twin one component down.
     ///
-    /// # It is production 06's arrangement and the third instance of it
+    /// # It is the arrangement and the third instance of it
     ///
     /// `table`/`collection` was the first and `file_preview_pane`/`scroll_area` the second, so the
     /// shape is now a rule: **a component whose spec says *reached by calling it* is compared
@@ -1532,7 +1532,7 @@ mod tests {
         }
     }
 
-    /// **Production 09: the same gate over the shipped `file_preview_pane`, and §15's sentence is
+    /// **Production 09: the same gate over the shipped `file_preview_pane`, and the sentence is
     /// checked rather than trusted.**
     ///
     /// > The file preview pane: **a scroll area over a document that arrives from another thread**.
@@ -1548,7 +1548,7 @@ mod tests {
     ///
     /// # Written as a comparison and not as constants repeated
     ///
-    /// Production 06's arrangement on the pair `table`/`collection`, and its reason: *the claim is
+    /// The arrangement on the pair `table`/`collection`, and its reason: *the claim is
     /// `the pane's offset is the area's` and a constant repeated on both sides cannot say whether
     /// the two components reached it.* What it cost is one `match` arm in [`Run::play`], one
     /// [`Subject`] variant and **no** `crate::files::defective` entry at all — the three reveal arms

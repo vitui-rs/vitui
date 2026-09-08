@@ -1,6 +1,6 @@
 //! The frame: [`Ctx`], [`Frame`], [`Env`], and a sequence that cannot be skipped.
 //!
-//! Spec §1, §3 and §6; ADR 0012 (what the runtime keeps between frames). **The runtime's tracer
+//! **The runtime's tracer
 //! bullet**: a component function draws through a `Ctx` into a layer and `present()` puts it on
 //! screen. Everything after this ticket adds a service to this context or a structure to this frame;
 //! nothing after it invents a new sequence.
@@ -31,13 +31,12 @@
 //! ├─ overlay pass  each request in (z, seq) order, bounded at 16 rounds
 //! ├─ end           award the press · resolve Tab · release the focus with the grab · settle hover ·
 //! │                sweep three of the four id-keyed facts · resolve scroll-into-view · read the
-//! │                ONE deadline sink (ticket 06 folded the repaint flag into it)
+//! │                ONE deadline sink, which the repaint flag is folded into
 //! ├─ settle        set_mouse(tracking) · set_cursor(caret) · request_wake_at(earliest)
 //! └─ present()
 //! ```
 //!
-//! **Several of those steps are named no-ops here**, and that is the ticket's own arrangement: the
-//! press award is ticket 10's, Tab is 12's, the sweep is 09's, scroll-into-view is 14's. They exist
+//! Some of those steps arrived as named no-ops: they exist
 //! as steps in the right order with nothing in them, so that adding one is filling a hole rather
 //! than inventing a place to put it. `Frame::end` says which is which.
 //!
@@ -93,8 +92,8 @@ use crate::theme::{Paint, Repaint, Theme};
 
 /// The engine's capabilities, re-exported and not redefined.
 ///
-/// Spec §9 states the mapping this document had left implicit. Same rule as `GlyphSet` and
-/// `CursorShape`: **two types with one name across the seam is the failure being avoided.**
+/// Same rule as `GlyphSet` and `CursorShape`: **two types with one name across the seam is the
+/// failure being avoided.**
 pub type Caps = Capabilities;
 
 /// What a widget asks the frame to track for it.
@@ -185,8 +184,8 @@ pub struct Hit {
 
 /// What a widget learns about the pointer and the keyboard.
 ///
-/// **Ticket 10 fills this in.** Ticket 08 ships the type, and a `Response` from this ticket carries
-/// the id, the rect and nothing else true — every interaction field is `false` because the press
+/// **The interaction fields arrived later than the type.** An early `Response` carried
+/// the id, the rect and nothing else true — every interaction field was `false` because the press
 /// award is a named no-op. That is deliberate: a component written against this compiles and draws,
 /// and starts responding when 10 lands, without a signature moving.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -319,7 +318,7 @@ pub struct Frame {
     /// 1. The hit index, in draw order. A reverse scan gives the innermost.
     hits: Vec<Hit>,
     /// 2. The focus ring: the tab stops declared during the draw, this frame's scopes over them, and
-    ///    **the previous frame's copy of both** — one more swapped buffer, which is the whole
+    ///    **The previous frame's copy of both** — one more swapped buffer, which is the whole
     ///    storage cost of the vanish rule. See [`crate::focus`].
     ring: crate::focus::Ring,
     /// 3. The overlay request queue, ordered `(z, seq)` by the pass that drains it.
@@ -419,9 +418,9 @@ pub struct Frame {
 
     // ── scrolling (ticket 14) ──────────────────────────────────────────────────────────────────
     /// **The scroll areas this frame declared**, in draw order, and a *sixth* frame-local structure
-    /// where spec §1 says five. It is cleared in `begin` and read once, in `end`, by the step that
-    /// resolves scroll-into-view — nothing in it survives the frame, so it is a finding against §1's
-    /// sentence and not against ADR 0012's decision, which is that nothing is *retained*.
+    /// where the design says five. It is cleared in `begin` and read once, in `end`, by the step
+    /// that resolves scroll-into-view — nothing in it survives the frame, so it bends the count and
+    /// not the decision, which is that nothing is *retained*.
     scroll_areas: Vec<Area>,
     /// Which of them is open right now, as an index. **On the frame and not on `Ctx`**, because
     /// `scroll_scope` brackets its body: it saves this, replaces it and restores it, which is the
@@ -475,7 +474,7 @@ pub struct Frame {
     ///
     /// **Off by default and it must stay off by default.** A scroll area over content whose size it
     /// does not know reads the extent one frame late, and that is the one legitimate reason to turn
-    /// it on — at the price ticket 15 measured: a display-width walk per verb, 7% of the frame
+    /// it on — at a measured price: a display-width walk per verb, 7% of the frame
     /// budget, *for a field that is off by default*. While it is on, `Ctx::interact` and
     /// `Ctx::next_key` also populate [`Frame::consulted`], where nothing reads it in a real frame;
     /// harmless, and named here rather than discovered.
@@ -541,7 +540,7 @@ struct Awarded {
 
 /// A layer this driver is keeping alive for an owner, and what it currently is.
 ///
-/// **The lifecycle is keyed by the owner id and the census is not §5's identity sweep**, which is a
+/// **The lifecycle is keyed by the owner id and the census is not the identity sweep**, which is a
 /// distinction with a case behind it: an owner whose dropdown is *closed* is still drawing, so the
 /// sweep sees a live id and would keep a layer nothing asked for. The census asks a different
 /// question — *was this layer requested this frame* — and `seen` is where the answer is kept.
@@ -667,7 +666,7 @@ impl Frame {
     /// skipped — see the module comment.
     ///
     /// The batch arrives whole and in arrival order, keys and pointer events interleaved, because
-    /// **the split is over the interleaving**: a `Down` between two keys ends the batch there, and
+    /// **The split is over the interleaving**: a `Down` between two keys ends the batch there, and
     /// two separate per-kind queues could not have said so.
     fn begin(&mut self, batch: &[vitui_engine::Event]) {
         // **The guess, resolved from the PREVIOUS frame's index before it is cleared.** This is the
@@ -936,8 +935,8 @@ impl Frame {
     /// | anything at all | the click |
     ///
     /// That is a button that lights up when it is let go and fires on the keystroke after, and it
-    /// was true of every pointer gesture in the crate. It is the same defect runtime architecture 33
-    /// fixed for a reveal and the same fix — the ask belongs where the decision is made, not where
+    /// was true of every pointer gesture in the crate. It is the same defect a scroll-into-view had
+    /// and the same fix — the ask belongs where the decision is made, not where
     /// it is read — and it is stated over two producers rather than one:
     ///
     /// - **the pointer award**, when it carries a press, a release, a click or a cancelled drag;
@@ -1195,7 +1194,7 @@ impl Frame {
     /// This is the step that makes it *one* frame rather than two: the ring is this frame's, the
     /// focus has already moved, and the request is on the frame before the next draw reads it.
     ///
-    /// It needs the ring to carry a **content-coordinate rectangle**, which overturns §8's *the ring
+    /// It needs the ring to carry a **content-coordinate rectangle**, which overturns *the ring
     /// carries no geometry* and nothing beside it — the rule was never "no geometry" but *geometry is
     /// needed inside a frame and never across one*, and this rect is read **here**,
     /// exactly where the press award already is. What crosses the boundary is [`IntoView`]: sixteen
@@ -1212,7 +1211,7 @@ impl Frame {
     /// # And the frame that reads it is asked for here
     ///
     /// A reveal is a two-frame gesture — this frame resolves it and the offset's owner applies it
-    /// through [`Ctx::take_into_view`] on the next one — and until issue 33 **nothing asked for the
+    /// through [`Ctx::take_into_view`] on the next one — and **nothing used to ask for the
     /// second frame**. The loop every application in this workspace writes parks in `Driver::wait`,
     /// so `End` drew, requested, and parked: the list moved on the *next* keystroke. Four
     /// components reveal and all four carried it, and no gate could see it because a gate draws its
@@ -1239,9 +1238,8 @@ impl Frame {
     /// documented as *a second of one* — but it is also not the fault the detector is usually
     /// consulted about, and **the census cannot tell the two apart**: the ask carries no `who`, and
     /// `#[track_caller]` stops here, so every reveal in the process folds into this one line.
-    /// Attribution is a design question and not a defect in this line; it is recorded at the end of
-    /// runtime architecture issue 33 rather than guessed at here, because the keyboard producer is
-    /// the ring and has no caller to name at all.
+    /// Attribution is a design question and not a defect in this line, and it is left open rather
+    /// than guessed at here: the keyboard producer is the ring, which has no caller to name at all.
     fn resolve_into_view(&mut self, now: Instant) {
         let keyboard = self.tab_moved.then(|| self.keyboard_into_view()).flatten();
         // An explicit `request_into_view` wins: the component named a rectangle, which is more than
@@ -1272,7 +1270,7 @@ impl Frame {
             .map(|&(_, r, role)| (r, role))
     }
 
-    /// The hit index, for the gates and for ticket 10.
+    /// The hit index, for the gates and for the press award.
     pub fn hits(&self) -> &[Hit] {
         &self.hits
     }
@@ -1295,7 +1293,7 @@ impl Frame {
 
     /// The drawn extent, and **`None` unless something asked this frame to maintain one**.
     ///
-    /// A real frame never does: see the field, and spec §12 for what it would cost.
+    /// A real frame never does: see the field for what it would cost.
     pub fn extent(&self) -> Option<Extent> {
         self.extent
     }
@@ -1334,7 +1332,7 @@ impl Frame {
     ///
     /// # The positive twin, naming the protected items by path
     ///
-    /// Ticket 19's refinement 3: **a lone `compile_fail` also passes when the protected item has
+    /// **A lone `compile_fail` also passes when the protected item has
     /// been renamed**, because `E0599` for *the method you meant is now spelled differently* and
     /// `E0599` for *the method you must not have was never built* are the same diagnostic. This pair
     /// was the one case in the corpus written without a twin, so both halves below would have gone
@@ -1462,8 +1460,8 @@ impl Frame {
 
     /// **How many slots the vanish rule touched this frame. Zero on a quiet one.**
     ///
-    /// A count and not a stopwatch, for the reason §20 gives: the defect this detects is a slope,
-    /// and a ratio of timings is a report.
+    /// A count and not a stopwatch: the defect this detects is a slope, and a ratio of timings is a
+    /// report.
     pub fn vanish_probes(&self) -> u64 {
         self.ring.probes()
     }
@@ -1501,7 +1499,7 @@ impl Frame {
     /// The frame's whole overlay cost is `n + 1` for `n` bodies — one `Box` a body plus the one `Vec`
     /// that holds them — and **0 for a frame with no overlay**, because an empty `Vec` allocates
     /// nothing. The queue cannot keep its capacity across frames, because a body is `+ 'f`; see
-    /// [`crate::overlay`] and spec §19.
+    /// [`crate::overlay`].
     pub fn overlay_bodies_boxed(&self) -> u32 {
         self.overlay_bodies
     }
@@ -1534,9 +1532,8 @@ impl Frame {
         self.tracking
     }
 
-    /// Plant an id-keyed fact, for the gates. **Tickets 10 and 12 own the real writers** — the press
-    /// award and the focus resolution — and this is how ticket 09 tests the sweep without inventing
-    /// either of them early.
+    /// Plant an id-keyed fact, for the gates. **The real writers are the press award and the focus
+    /// resolution**, and this is how the sweep is tested without driving either of them.
     pub fn plant_facts(&mut self, grab: Option<Id>, focus: Option<Id>, click: Option<Id>) {
         self.grab = grab;
         self.press_origin = grab.map(|id| (id, (0, 0)));
@@ -1562,8 +1559,8 @@ impl Frame {
     /// **What nobody took**, in arrival order.
     ///
     /// The focus ring reads this: a `Tab` no scope claimed is what moves the focus, and a `Tab` an
-    /// isolated scope *did* claim must not. Ticket 12 is the caller; the door is here because the
-    /// queue is.
+    /// isolated scope *did* claim must not. The focus ring is the caller; the door is here because
+    /// the queue is.
     pub fn undrained_keys(&self) -> &[vitui_engine::Key] {
         self.keys.undrained()
     }
@@ -1575,7 +1572,7 @@ impl Frame {
 
     /// **How many key slots the queue has touched since the driver was made.**
     ///
-    /// The growth-ratio gate's number, and it is a count for the reason §20 gives: a ratio of
+    /// The growth-ratio gate's number, and it is a count rather than a timing: a ratio of
     /// timings is a report. One slot a key is linear; the `Vec::remove(0)` form touches the whole
     /// tail and is 16× at 4× the keys.
     pub fn key_touches(&self) -> u64 {
@@ -1750,8 +1747,7 @@ pub struct Ctx<'f, 'v> {
     /// translation it applies.
     ///
     /// **A translation and not an offset**, which is the word [`Ctx::scrolled`] already insists on:
-    /// an offset is the application's scroll *position*, the two are one negation apart, and
-    /// architecture issue 26 turns on exactly that distinction.
+    /// an offset is the application's scroll *position*, and the two are one negation apart.
     translation: (i32, i32),
     /// **The frame call's overlay body queue**, shared by every context in the frame rather than
     /// owned by one — the same reasoning as [`Frame::layer_z`], one level further out: *where a body
@@ -1785,7 +1781,7 @@ impl<'f, 'v> Ctx<'f, 'v> {
     /// verbs that read it, [`Ctx::clear`] and [`Ctx::caret_with`], are why the distinction is a
     /// field rather than a comment: they filled and bounds-checked content rows `0..h` while the
     /// window sat at `offset..offset + h`, so past the first screenful a clear painted nothing and
-    /// a caret at a visible row was dropped. Runtime architecture issue 36.
+    /// a caret at a visible row was dropped.
     pub fn area(&self) -> Rect {
         Rect::new(
             -self.translation.0,
@@ -1853,7 +1849,7 @@ impl<'f, 'v> Ctx<'f, 'v> {
     /// coordinate system: inside a scroll scope that is the content's, so the rectangle named
     /// content rows `0..h` while the window was at the offset, and past the first screenful the
     /// intersection was empty. At offset zero it is the identity, which is why every caller on this
-    /// map survived it. Runtime architecture issue 31.
+    /// map survived it.
     ///
     /// `View::scrolled(0, 0)` is the engine's identity reborrow — clip, origin and size all carried
     /// through — and is the one spelling available from outside that crate.
@@ -1920,13 +1916,13 @@ impl<'f, 'v> Ctx<'f, 'v> {
     /// component draws on — sees the coordinates a verb was *called* with and nothing else. That is
     /// exact for a component drawing straight into the frame and wrong for every one that narrows:
     /// two bands of one scroll area both write their first cell at `x == 0`, land in different
-    /// columns, and collide on the recorded surface. Components ticket 19 met it on a screen with
-    /// two scroll areas sixty columns apart whose bands recorded as one, and components ticket 15
-    /// met the same fact from the other side — *a translated band makes `distinct` meaningless*.
+    /// columns, and collide on the recorded surface. It shows up as two scroll areas sixty columns
+    /// apart whose bands record as one, and from the other side as *a translated band makes
+    /// `distinct` meaningless*.
     ///
     /// It is additive and it decides nothing: the runtime already maps to root coordinates in three
     /// places ([`Ctx::hover_style`], [`Ctx::overlay`]'s anchor and [`Ctx::caret`]) and this is the
-    /// same arithmetic with a name. Runtime architecture issue 32.
+    /// same arithmetic with a name.
     pub fn origin(&self) -> (i32, i32) {
         self.origin
     }
@@ -1945,8 +1941,8 @@ impl<'f, 'v> Ctx<'f, 'v> {
     /// Note how far a verb reached, in the coordinates of the frame's root.
     ///
     /// **`None` in a real frame and a not-taken branch there**, which is the whole of what makes the
-    /// drawn extent affordable: the alternative is a grapheme walk per verb, and spec §12 prices
-    /// that at 7% of the frame budget.
+    /// drawn extent affordable: the alternative is a grapheme walk per verb, measured at 7% of the
+    /// frame budget.
     #[inline]
     fn note(&mut self, r: Rect) {
         let origin = self.origin;
@@ -2210,7 +2206,7 @@ impl<'f, 'v> Ctx<'f, 'v> {
     ///
     /// # It scopes no identity, and it declares no region
     ///
-    /// **No identity**, for §5's reason and the same one [`Ctx::scope`] has: a container that takes a
+    /// **No identity**, for the same reason [`Ctx::scope`] has none: a container that takes a
     /// closure renames its children, except the two that exist to wrap something already on screen.
     /// A scroll area appearing around a form would otherwise rename every field in it.
     ///
@@ -2382,7 +2378,7 @@ impl<'f, 'v> Ctx<'f, 'v> {
 
     /// Declare an interactive region.
     ///
-    /// **Ticket 10 fills the response in.** What is here is 08's half and it is not nothing: the entry
+    /// **The response is filled in at `end`.** What happens here is not nothing: the entry
     /// is appended to the hit index in draw order, and the declared interest is folded into the
     /// tracking level `settle` hands to `set_mouse`.
     #[track_caller]
@@ -2572,7 +2568,7 @@ impl<'f, 'v> Ctx<'f, 'v> {
     /// **One value per call, holding no borrow**, which is the second deviation: an iterator borrows
     /// the queue and every interactive component reads its keys inside the scope where it draws, so
     /// the iterator would be live across the drawing verbs. And there is **no upper bound on how many
-    /// arrive**, which is what ADR 0008 requires of input.
+    /// arrive**, because intent is never dropped.
     ///
     /// # There is one queue, and no per-id inbox
     ///
@@ -2674,8 +2670,8 @@ impl<'f, 'v> Ctx<'f, 'v> {
     /// the conditional form takes the keyboard **back** every frame the user has tabbed away, so
     /// `Tab` appears to do nothing. *Which widget starts with the keyboard* is a statement about the
     /// first frame; asking whether **anything** holds the focus is what makes that statement
-    /// writable inside the draw, and until architecture issue 25 it was not askable at all — so this
-    /// obligation used to require a flag the application kept outside the frame.
+    /// writable inside the draw, and it used not to be askable at all — so seating the focus used to
+    /// require a flag the application kept outside the frame.
     ///
     /// **The runtime still focuses nothing on its own, and that is now a decision rather than an
     /// omission**. Auto-focusing the first stop would be an opinion about which widget is
@@ -2692,7 +2688,7 @@ impl<'f, 'v> Ctx<'f, 'v> {
 
     /// **Who holds the focus, if anyone** — and the question [`Ctx::focus`]'s obligation needs.
     ///
-    /// Architecture issue 25. `is_focused(id)` asks about one id and there was **no way to ask
+    /// `is_focused(id)` asks about one id and there was **no way to ask
     /// whether anything at all holds the focus**: `Frame::focused` exists and is reachable only
     /// through `Driver::inspect()`, which is between frames, where the `Ctx` is gone. So the
     /// obligation [`Ctx::focus`] documents — *focus something on the first frame* — could be
@@ -2719,8 +2715,8 @@ impl<'f, 'v> Ctx<'f, 'v> {
     /// after a move sees the value that was current when its frame began, which is the same value
     /// `route_to` was taken from and therefore the one that decides who `next_key` answers.
     ///
-    /// **The runtime still focuses nothing on its own**, and issue 25 refused two candidates that
-    /// would have: a runtime that focuses the first stop is a runtime with an opinion about which
+    /// **The runtime focuses nothing on its own**, and two candidates that would have were refused:
+    /// a runtime that focuses the first stop is a runtime with an opinion about which
     /// widget is primary, on a design whose whole shape is that it has no scene tree and no such
     /// opinion — and *first* would mean first in **draw order**, a layout accident. A `Driver` flag
     /// only moves the argument, because its default is still the decision.
@@ -2793,7 +2789,7 @@ impl<'f, 'v> Ctx<'f, 'v> {
     /// Queue an overlay: **request during the draw, satisfy after it, answer next frame.**
     ///
     /// A component cannot open a layer mid-draw — `LayerStack::view` holds `&mut` of the stack for
-    /// the life of the view, so a second one is `E0499` (engine architecture ticket 14 R2). The body
+    /// the life of the view, so a second one is `E0499`. The body
     /// therefore runs in the second pass, after every base-pass draw context has been dropped, and
     /// anything it produces reaches its owner on the frame after through whatever the owner is
     /// already reading — a press it declared, a key it took, its own `&mut` state.
@@ -2865,8 +2861,8 @@ impl<'f, 'v> Ctx<'f, 'v> {
     /// `help:` line for the shape suggests a borrow that compiles here, so following the compiler's
     /// advice produces a build that works and a frame that has quietly lost a variable.
     ///
-    /// Components ticket 10 owed this note and could not write it: the crate that meets the mistake
-    /// cannot edit the item it belongs on, and the item is this one — a note on the *caller's* side
+    /// The crate that meets this mistake cannot edit the item it belongs on, and the item is this
+    /// one — a note on the *caller's* side
     /// would have to be repeated at every call site, which is where a rule goes to rot.
     pub fn overlay<F>(&mut self, owner: Id, anchor: Rect, opts: OverlayOpts, body: F)
     where
@@ -2995,8 +2991,8 @@ impl<'f, 'v> Ctx<'f, 'v> {
     ///
     /// The second of those two numbers is the one that decides it. A dry run measures the *clip*, so
     /// a 1M-row list under an 80-row clip reports 80, and the honest question — 65 535 rows, all
-    /// `u16` can express — is 5.81 ms against 0.96 ns. Spec §12 and ADR 0014 hold the rest of the
-    /// argument, [`crate::sizing`] holds the contract, and [`crate::sizing::check`] is the one call
+    /// `u16` can express — is 5.81 ms against 0.96 ns. [`crate::sizing`] holds the contract, and
+    /// [`crate::sizing::check`] is the one call
     /// a component author needs.
     ///
     /// # It gets its own [`Frame`], which is what bounds what it may be asked
@@ -3168,7 +3164,7 @@ pub struct Driver {
     /// Whether the frame clock is pinned rather than sampled. See [`Driver::pin_clock`].
     pinned: bool,
     /// **The overlay layers, keyed by owner id and kept across frames.** The only structure in this
-    /// crate that outlives a frame on purpose and is not one of ADR 0012's four id-keyed facts —
+    /// crate that outlives a frame on purpose and is not one of the four id-keyed facts —
     /// because it is not a fact about a widget, it is a resource the engine is holding on one's
     /// behalf, and dropping it every frame would rebuild every surface every frame.
     ///
@@ -3237,8 +3233,8 @@ impl Driver {
         )
     }
 
-    /// **Park until something happens.** The loop's only blocking call, and the first line of spec
-    /// §1's sequence.
+    /// **Park until something happens.** The loop's only blocking call, and the first line of a
+    /// frame.
     ///
     /// It is the engine's `Screen::wait` forwarded unchanged, which is the whole of what it should
     /// be: the pacing, the coalescing and the indefinite park all belong to the frame clock, and a
@@ -3250,13 +3246,13 @@ impl Driver {
     ///
     /// # Why this did not exist until now, and what its absence cost
     ///
-    /// Spec §21 leaves the loop unowned — *whether the runtime ships an application shell or only
-    /// the pieces* — and that is still open; this is not a shell. What was not a decision was that
+    /// Whether this crate ships an application shell or only the pieces is still open, and this is
+    /// not a shell. What was not a decision was that
     /// **no loop could be written at all**: `wait` lives on `Screen`, `Driver` owns its `Screen`
     /// privately, and no path led to either. An application on this crate could only spin, and a
     /// spin turns the one budget that is not a timing — *a genuinely idle application costs zero
     /// wakeups* — into a claim about a layer nobody could reach. Adding a forward is the smallest
-    /// thing that makes §21's question a real choice rather than a description of a wall.
+    /// thing that makes that a real choice rather than a description of a wall.
     ///
     /// # It does not drain
     ///
@@ -3284,15 +3280,15 @@ impl Driver {
     /// **A handle a worker is hired with**, cloned from the one `attach` was given.
     ///
     /// [`Worker::hire`](crate::work::Worker::hire) takes one of these and there was no way to
-    /// obtain one: `attach` dropped it. So spec §17's whole module — the resident thread, the
+    /// obtain one: `attach` dropped it. So the whole handoff — the resident thread, the
     /// one-slot inbox, the generation that says which question an answer answers — was reachable
     /// from a test that built its own engine and from nothing else. **`Worker::queueing` is not the
     /// answer to that**: it runs jobs inline on demand and exists so a gate can be a straight-line
     /// program, which is the opposite of the thing an application wants.
     ///
     /// Clone it once per worker. The handle is `Send`, and it is the only piece of the app thread's
-    /// half that is — see spec §17's compile-outcome gate, which stands unchanged: what crosses is
-    /// a `Slot` and a post, never a `Ctx` and never a `Frame`.
+    /// half that is — see the compile-outcome gate over the handoff: what crosses is a `Slot` and a
+    /// post, never a `Ctx` and never a `Frame`.
     pub fn wake(&self) -> WakeHandle {
         self.wake.clone()
     }
@@ -3303,7 +3299,7 @@ impl Driver {
     /// message names two repairs: *move the work to another thread and post a wake, or declare it
     /// with `Screen::permit_slow`*. The first is reachable from an application — that is what
     /// [`Driver::wake`] and [`Worker::hire`](crate::work::Worker::hire) are for. **The second was
-    /// not**, and by exactly the shape runtime architecture issue 22 is about: `permit_slow` is an
+    /// not**, and by a familiar shape: `permit_slow` is an
     /// inherent method on `vitui_engine::Screen`, `Driver` owns its `Screen` privately, and a crate
     /// that may not name the engine had no second spelling.
     ///
@@ -3316,7 +3312,7 @@ impl Driver {
     ///
     /// The [`Permit`] is a guard: the exemption lasts exactly as long as the value, so a permit
     /// taken for one expensive frame does not silence the detector for the run. Declaring the whole
-    /// loop would turn the one instrument spec §11 has for *the app thread is the interface* into a
+    /// loop would turn the one instrument there is for *the app thread is the interface* into a
     /// no-op, which is why this returns a guard rather than setting a flag.
     pub fn permit_slow(&self, reason: &'static str) -> Permit {
         self.screen.permit_slow(reason)
@@ -3332,8 +3328,8 @@ impl Driver {
     ///
     /// # Why this had to be added rather than being there already
     ///
-    /// Engine production ticket 07 built the pair, and **nothing above the engine could reach
-    /// either half** — `Driver` owns its `Screen` privately. That is the third instance of one
+    /// The engine has the pair, and **nothing above it could reach either half** — `Driver` owns
+    /// its `Screen` privately. That is the third instance of one
     /// shape this backlog has now settled three times: [`Driver::wait`] was the first,
     /// [`Driver::permit_slow`] the second, and both had the same consequence, which is
     /// that the only crate in this workspace with a binary in it could not use a verb the engine's
@@ -3342,7 +3338,7 @@ impl Driver {
     /// Two things were unreachable because of it, and neither is exotic:
     ///
     /// - **`Ctrl+Z`.** Raw mode is `cfmakeraw`, which clears `ISIG`, so `Ctrl+Z` arrives at an
-    ///   application as an ordinary key event and not as a signal (engine spec §7, measured). What
+    ///   application as an ordinary key event and not as a signal, measured rather than assumed. What
     ///   an application does about it is three lines — suspend, stop the process, resume — and it
     ///   could write neither the first nor the third.
     /// - **Running something else in the same terminal**: `$EDITOR`, a pager, `git commit`. The
@@ -3760,7 +3756,7 @@ impl Driver {
 
     /// Remove the layers nothing asked for this frame.
     ///
-    /// **The census is not §5's identity sweep and cannot be.** The sweep asks *did this id draw*;
+    /// **The census is not the identity sweep and cannot be.** The sweep asks *did this id draw*;
     /// an owner whose dropdown is closed is still drawing, so the sweep would keep a layer nothing
     /// wants. This asks *was this layer requested*, which is a different question about a different
     /// thing, and the two cannot share a pass.
@@ -3889,9 +3885,8 @@ impl Driver {
         self.frame.undrained_keys()
     }
 
-    /// Plant the id-keyed facts, for the gates. **Tickets 10 and 12 own the real writers** — the
-    /// press award and the focus resolution — and this is how ticket 09 tests the sweep without
-    /// inventing either of them early.
+    /// Plant the id-keyed facts, for the gates. **The real writers are the press award and the
+    /// focus resolution**, and this is how the sweep is tested without driving either of them.
     pub fn plant(&mut self, grab: Option<Id>, focus: Option<Id>, click: Option<Id>) {
         self.frame.plant_facts(grab, focus, click);
     }
@@ -3899,7 +3894,7 @@ impl Driver {
 
 #[cfg(test)]
 mod routing_tests {
-    //! Ticket 11's gates: **one queue, and a frame that consumes at most one routing edge.**
+    //! **One queue, and a frame that consumes at most one routing edge.**
     //!
     //! The classification and the splitter have their own unit tests in [`crate::route`], including
     //! the negative case that keeps the two-ended rule honest. What is here is the half that needs a
@@ -3953,7 +3948,7 @@ mod routing_tests {
     /// **`next_key` answers nobody but the focused id.**
     ///
     /// Not *the innermost*, not *the one under the pointer*, and not *whoever asks first*. That one
-    /// rule is also ticket 12's `Trap` in its entirety: a scope that has taken the focus has taken
+    /// rule is also `Trap` in its entirety: a scope that has taken the focus has taken
     /// the keyboard, and there is no second mechanism to keep consistent with this one.
     #[test]
     fn next_key_answers_nobody_but_the_focused_id() {
@@ -4129,7 +4124,7 @@ mod routing_tests {
     }
 
     /// **A modal bounds the pointer only.** A focused widget behind one keeps receiving keys, which
-    /// is the floor ticket 12's `Trap` is built on: trapping the keyboard is a *scope* decision and
+    /// is the floor `Trap` is built on: trapping the keyboard is a *scope* decision and
     /// not something modality does for free.
     #[test]
     fn a_modal_withholds_the_pointer_and_not_the_keyboard() {
@@ -4558,7 +4553,7 @@ mod tests {
         assert_eq!(d.inspect().overlays_requested(), 0);
     }
 
-    /// **The four id-keyed facts exist and are four**, which is ADR 0012's closed list.
+    /// **The four id-keyed facts exist and are four**, and the list is closed.
     #[test]
     fn there_are_four_id_keyed_facts() {
         let d = driver();
@@ -4635,7 +4630,7 @@ mod tests {
 
     /// **A context knows where it is, and its origin is where a verb called on it lands.**
     ///
-    /// Runtime architecture issue 32, and the assertion is the one an instrument needs: writing at
+    /// The assertion is the one an instrument needs: writing at
     /// `(x, y)` on a narrowed, scrolled context reaches the surface at `origin + (x, y)`.
     ///
     /// **The ruler is the clip, and the arithmetic may not be done twice on the same side.** Adding
@@ -4704,7 +4699,7 @@ mod tests {
     /// **A scroll scope's offset is a position and `Ctx::scrolled`'s is a translation**, and the one
     /// negation between them is inside `scroll_scope`.
     ///
-    /// Components ticket 12's finding, as a regression test on both halves of the same call: the
+    /// A regression test on both halves of the same call: the
     /// window `visible_rows()` answers, and whether a verb at a content row inside it actually
     /// lands. Written unnegated, the first read `-5..3` and the second wrote **0 cells** — and the
     /// `Area` the same call pushes carried the positive offset all along, so the two halves of one
@@ -4908,7 +4903,7 @@ mod tests {
         });
     }
 
-    /// **An identity verb narrows identity and never the view**, which is the whole of issue 31.
+    /// **An identity verb narrows identity and never the view.**
     ///
     /// `with_id` built its inner context with `view: self.view.child(self.area())`, and `area()` is
     /// `Rect::new(0, 0, w, h)` in the **current** coordinate system. Inside a scroll scope that
@@ -4968,13 +4963,12 @@ mod tests {
         }
     }
 
-    /// **A scroll scope moves the area it hands its body, and a clip does not**, which is the whole
-    /// of issue 36.
+    /// **A scroll scope moves the area it hands its body, and a clip does not.**
     ///
     /// `Ctx::area` was `Rect::new(0, 0, w, h)` in the **current** coordinate system, and inside a
     /// [`Ctx::scroll_scope`] that system is the content's: the rectangle named content rows `0..h`
     /// while the window the caller can reach sat at `offset..offset + h`. The two verbs that *read*
-    /// it were left behind by issue 31, which fixed the two that childed at it — [`Ctx::clear`]
+    /// it were left behind by the fix for the two that childed at it — [`Ctx::clear`]
     /// fills it, so past the first screenful it filled rows nothing could see, and
     /// [`Ctx::caret_with`] bounds-checks against it, so a caret at a visible content row was
     /// silently dropped. `field` is that caller, and a form inside a scroll area is the shape
@@ -4988,8 +4982,7 @@ mod tests {
     /// half-off child and the second is a child **inside** the scope, whose own coordinates start at
     /// its own top-left however far the content has been scrolled.
     ///
-    /// Both axes and two offsets, as issue 31's gate is written, and the caret arm is the one with a
-    /// number in it.
+    /// Both axes and two offsets, and the caret arm is the one with a number in it.
     #[test]
     fn a_scroll_scope_moves_the_area_and_a_clip_does_not() {
         let id = Id::named("page");
@@ -5294,7 +5287,7 @@ mod tests {
 
 #[cfg(test)]
 mod pointer_tests {
-    //! Ticket 10's gates: the index that carries no geometry, and everything awarded at `end`.
+    //! The index that carries no geometry, and everything awarded at `end`.
 
     use super::*;
     use crate::id::Id;
@@ -5626,8 +5619,7 @@ mod pointer_tests {
     /// `pressed` is the grab — true on every frame from the press until the release — and
     /// `press_began` is `Awarded::pressed`, which is set once, in the `Down` arm. A component that
     /// wants *the frame the button went down* had to keep a copy of last frame's level and compare;
-    /// `crate::collect::CollState` carried a private `pressing` bool for exactly that. See runtime
-    /// architecture issue 29.
+    /// `crate::collect::CollState` carried a private `pressing` bool for exactly that.
     ///
     /// **The level is not a substitute**, and a plain click hides it: applying a gesture on the
     /// level runs it once a frame for as long as the button is held, which is idempotent for a
@@ -6023,7 +6015,7 @@ mod pointer_tests {
     }
 
     /// **A hover style two containers deep lands where the widget is**, which it did not before
-    /// ticket 15 gave `Ctx` an origin: the transform added this context's `rect`, and `rect` is a
+    /// `Ctx` had an origin: the transform added this context's `rect`, and `rect` is a
     /// rectangle in its *parent's* coordinates. One level down that is the same number; two levels
     /// down it is the inner container's offset with the outer one missing.
     #[test]
@@ -6044,9 +6036,9 @@ mod pointer_tests {
         );
     }
 
-    /// **A press inside a scroll scope lands on the content row under the pointer**, and this is
-    /// runtime architecture issue 26's third question — the one it declined to answer, because
-    /// *that is not measured here and should not be assumed from the arithmetic*.
+    /// **A press inside a scroll scope lands on the content row under the pointer**, which was for
+    /// a while the one question left open, because *that is not measured here and should not be
+    /// assumed from the arithmetic*.
     ///
     /// It lands. `Ctx::scrolled` takes the translation on `pointer` with the sign **opposite** to
     /// the one it takes on `view` and `origin`, which is what makes the three of them one map
@@ -6057,7 +6049,7 @@ mod pointer_tests {
     /// answering `None` and leaving the direction of the error unstated. Both ends of the window
     /// are pressed, because an error proportional to the offset and an error of one row are the
     /// same assertion at a single position. The click is carried all the way to its award, since a
-    /// hit that is right during the draw and wrong at `end` is exactly the split ticket 10 exists
+    /// hit that is right during the draw and wrong at `end` is exactly the split this gate exists
     /// to catch.
     #[test]
     fn a_press_inside_a_scroll_scope_lands_on_the_row_under_the_pointer() {
@@ -6137,8 +6129,8 @@ mod pointer_tests {
 
 #[cfg(test)]
 mod focus_tests {
-    //! Ticket 12's gates: **a sixth interest bit, three scope answers, and a vanish rule that was
-    //! 32% of the budget written the obvious way.**
+    //! **A sixth interest bit, three scope answers, and a vanish rule that was 32% of the budget
+    //! written the obvious way.**
     //!
     //! The walk, the group collapse and the vanish rule's own arithmetic have unit tests in
     //! [`crate::focus`]. What is here is the half that needs a whole frame: the tracking delta, the
@@ -6401,9 +6393,9 @@ mod focus_tests {
     /// **A scope is a frame-local range, and it cannot become a cross-frame fact.**
     ///
     /// The behavioural half: the scopes are gone on the next frame, and the id-keyed facts are
-    /// still the four ADR 0012 closed the list at. **The compile outcome is on [`Frame::scopes`]**,
+    /// still the four the list is closed at. **The compile outcome is on [`Frame::scopes`]**,
     /// with its positive twin — a `compile_fail` inside a private test module is collected by
-    /// nobody, which is the defect ticket 19 exists to stop shipping.
+    /// nobody, which is a defect worth not shipping.
     #[test]
     fn a_scope_is_a_frame_local_range_and_not_a_cross_frame_fact() {
         let mut d = driver();
@@ -6632,8 +6624,8 @@ mod focus_tests {
     ///
     /// Two counts and a ratio. The shipped form is a lazily filled stamped table: one pass over this
     /// frame's ring plus about one probe a candidate. The obvious form is written out beside it, so
-    /// the detector is asserted to be detecting something rather than assumed to be — the shape
-    /// ticket 11's `Vec::remove(0)` twin has.
+    /// the detector is asserted to be detecting something rather than assumed to be — the shape the
+    /// `Vec::remove(0)` twin has.
     #[test]
     fn the_vanish_rule_is_bounded_by_the_ring_and_not_by_the_ring_squared() {
         let search = Id::named("search");
@@ -6808,7 +6800,7 @@ mod focus_tests {
 
     /// **The two seating forms differ, and the wrong one is a `Tab` that appears to do nothing.**
     ///
-    /// Architecture issue 25's whole point as a gate. `if cx.focused().is_none()` and
+    /// The whole point, as a gate. `if cx.focused().is_none()` and
     /// `if !cx.is_focused(sink)` read alike and are not the same program, so both arms are driven
     /// over the same four frames and the difference is asserted rather than described.
     ///
@@ -7090,8 +7082,8 @@ mod focus_tests {
 
 #[cfg(test)]
 mod overlay_tests {
-    //! Ticket 13's gates: **request during the draw, satisfy after it, answer next frame** — the
-    //! half that needs a whole frame.
+    //! **Request during the draw, satisfy after it, answer next frame** — the half that needs a
+    //! whole frame.
     //!
     //! Placement, the arena's drop thunk and the z bands have unit tests in [`crate::overlay`], and
     //! the paired compile outcome on the `'f` bound is on [`Ctx`] itself, where it shipped four
@@ -7290,7 +7282,7 @@ mod overlay_tests {
         );
     }
 
-    /// **The layer census is not §5's identity sweep and cannot be**: an owner with a closed dropdown
+    /// **The layer census is not the identity sweep and cannot be**: an owner with a closed dropdown
     /// is still drawing.
     ///
     /// The owner declares an interactive region on every frame, so the sweep sees a live id
@@ -7391,7 +7383,7 @@ mod overlay_tests {
     /// **The barrier stops the pointer and only the pointer.** A barrier with no trap around it lets
     /// `Tab` walk straight out of the modal.
     ///
-    /// The keyboard half is ticket 12's [`ScopeKind::Trap`], and this is the gate that keeps the two
+    /// The keyboard half is [`ScopeKind::Trap`], and this is the gate that keeps the two
     /// from being quietly merged into one mechanism: the same frame, with a trap, keeps the focus
     /// inside.
     #[test]
@@ -7738,11 +7730,11 @@ mod overlay_tests {
     /// kind brought it. The mechanism named was the overlay pass; **the mechanism was the award**.
     /// A click is decided at `end` from the index that has just drawn and delivered by the next
     /// `begin`, and nothing asked for that frame — see
-    /// [`Frame::resolve_award`] and register entry 50 — so the frame that *opened* the menu was
+    /// [`Frame::resolve_award`] — so the frame that *opened* the menu was
     /// the one the next keystroke brought, and the overlay was on screen the instant it ran.
     ///
     /// **The proof is the bytes**, and `Presented::submitted` is not it: damage is marked by the
-    /// verbs and never derived by diffing (ADR 0002's neighbour), so a frame that repaints an
+    /// verbs and never derived by diffing, so a frame that repaints an
     /// identical base submits, and an assertion on that boolean is a gate that cannot fail. What
     /// separates the two arms is what reaches the **sink** — the serializer runs against its
     /// mirror, so an unchanged repaint costs almost nothing and the overlay's cells are the
@@ -7818,7 +7810,7 @@ mod overlay_tests {
 
 #[cfg(test)]
 mod loop_tests {
-    //! **The loop, as far as this crate owns one.** Spec §21 leaves *who owns the loop* open and
+    //! **The loop, as far as this crate owns one.** *Who owns the loop* is still open and
     //! these do not close it; what they close is that no loop could be written at all, because
     //! `Screen::wait` and the `WakeHandle` were both behind a private field.
     //!
@@ -7850,7 +7842,7 @@ mod loop_tests {
         assert_eq!(driver.wait(), Wake::Quit);
     }
 
-    /// **The §17 handoff, reachable from a `Driver` for the first time.**
+    /// **The worker handoff, reachable from a `Driver`.**
     ///
     /// `Worker::hire` takes a `WakeHandle` and until `Driver::wake` existed there was no way to
     /// obtain one — so the resident thread, the one-slot inbox and the generation beside the answer
@@ -7877,8 +7869,8 @@ mod loop_tests {
 
     /// **A handle outlives the frame it was taken before, and it is `Send`.**
     ///
-    /// The one piece of the app thread's half that crosses, and spec §17's compile-outcome gate is
-    /// unchanged by this ticket: what goes to a thread is a `Slot` and a post, never a `Ctx` and
+    /// The one piece of the app thread's half that crosses, and the compile-outcome gate over the
+    /// handoff is unchanged by it: what goes to a thread is a `Slot` and a post, never a `Ctx` and
     /// never a `Frame`. Here that is asserted positively — the negative half is `work`'s.
     #[test]
     fn the_handle_is_send_and_survives_a_frame() {
@@ -7893,8 +7885,7 @@ mod loop_tests {
         joined.join().expect("the worker thread ran");
         assert_eq!(driver.wait(), Wake::Quit);
     }
-    /// **The terminal can be given away and taken back from this side of the seam**, which is the
-    /// whole of runtime architecture issue 35.
+    /// **The terminal can be given away and taken back from this side of the seam.**
     ///
     /// Three arms, and the middle one is the reason this is a gate rather than a compile check: a
     /// pair of forwards that did nothing at all would pass an arm that only draws before and after.

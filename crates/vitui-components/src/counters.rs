@@ -1,4 +1,4 @@
-//! Spec §21's nine per-frame counters, **as a value that says which of them this crate can read**.
+//! The nine per-frame counters, **as a value that says which of them this crate can read**.
 //!
 //! §20 prices every screen on this map in the same nine columns — `writes`, `distinct cells
 //! touched`, `verbs`, `marked`, `regions`, `tab stops`, `merges`, `content layers`, `allocations` —
@@ -8,7 +8,7 @@
 //!
 //! # Eight of the nine are reachable and one is not, and the one is a result rather than a gap
 //!
-//! `vitui-components` depends on `vitui-runtime` **and nothing else** — spec §19's constraint C6,
+//! `vitui-components` depends on `vitui-runtime` **and nothing else** — the constraint C6,
 //! enforced by cargo and by `deny.toml`'s `{ name = "vitui-engine", wrappers = ["vitui-runtime",
 //! "vitui"] }`. So a counter is available here only if the runtime hands it over, and one does not:
 //!
@@ -44,7 +44,7 @@
 //! field is **how many columns were actually written** after clipping. [`Tally::text`] folds that in.
 //! The union in [`Tally::distinct`] is built by this crate from the same spans. So *writes ==
 //! distinct* compares a number the engine produced against a set we produced, and it separates when
-//! two verbs overlap — which is §2's first half, *no cell twice*.
+//! two verbs overlap — which is the first half, *no cell twice*.
 //!
 //! **`Ctx::fill`, `Ctx::clear` and `Ctx::restyle` return `()`**, so for those there is no engine
 //! report to fold and both sides of the pair would be ours. [`Tally::filled`] therefore takes the
@@ -62,7 +62,7 @@ use std::collections::BTreeSet;
 use vitui_runtime::ctx::Driver;
 use vitui_runtime::{Ctx, Paint};
 
-/// One of spec §20's nine per-frame columns.
+/// One of the nine per-frame columns.
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug)]
 pub enum Counter {
     /// Columns written, as the engine reported them.
@@ -86,7 +86,7 @@ pub enum Counter {
 }
 
 impl Counter {
-    /// All nine, in spec §20's column order.
+    /// All nine, in the column order.
     pub const ALL: [Counter; 9] = [
         Counter::Writes,
         Counter::Distinct,
@@ -211,22 +211,22 @@ impl Allocations {
 
 /// **The draw-side counters, accumulated by the caller because nothing else can accumulate them.**
 ///
-/// A `Tally` is an instrument and not a component-facing API: spec §1's shape for a component is
+/// A `Tally` is an instrument and not a component-facing API: the shape for a component is
 /// `fn button(cx: &mut Ctx, area: Rect, label: &str) -> Response`, and nothing on this map has
 /// decided that a component draws through a wrapper. What it is for is the three counters the
 /// runtime does not keep — `writes`, `distinct cells touched` and `verbs` — which no frame structure
 /// holds because the engine clears its damage inside `present` and the runtime keeps no drawing log.
 ///
-/// # It counts one context's coordinates, and that is spec §2's scope anyway
+/// # It counts one context's coordinates, and that is the scope anyway
 ///
 /// The spans it unions are in the coordinates of the `Ctx` the verbs were called on. Two sibling
 /// `Ctx::child` contexts can hand out the same local `(x, y)` for two different screen cells, so a
-/// `Tally` is a probe over **one rectangle** — which is exactly the rectangle §2's partition rule is
+/// `Tally` is a probe over **one rectangle** — which is exactly the rectangle the partition rule is
 /// about: *every component and every helper writes a partition of its rectangle*.
 ///
 /// # The one place the union is a model rather than a report
 ///
-/// A verb starting left of the clip consumes clusters that are discarded (ADR 0022's
+/// A verb starting left of the clip consumes clusters that are discarded (
 /// clamp-and-discard), so `x + cells` is not where the write landed in that case and the union is
 /// wrong by the discarded prefix. [`Tally::text`] is honest for a fixture that draws inside its
 /// context, which is what §2 requires of a component in the first place, and a fixture that draws
@@ -395,10 +395,10 @@ pub struct Counters {
     pub merges: Reading,
     /// Overlay layers alive. `Driver::layers_live()`.
     ///
-    /// **The census's number, and §12's column counts one thing differently**: its table reads 3 for
+    /// **The census's number, and the column counts one thing differently**: its table reads 3 for
     /// a modal with its scrim, where `layers_live` counts the owner and folds the scrim into it. The
     /// discrepancy is stated rather than corrected, because the runtime's number is the one a gate
-    /// can read and §12's is a prototype's.
+    /// can read and the other is a prototype's.
     pub content_layers: Reading,
     /// Allocations, **as a total**. See [`Allocations`].
     pub allocations: Reading,
@@ -461,7 +461,7 @@ impl Counters {
 ///
 /// > `distinct cells touched == area.w * area.h` (no cell never)
 ///
-/// This is the second half of §2's partition rule, and the half that **had no counter on either
+/// This is the second half of the partition rule, and the half that **had no counter on either
 /// map** — a cell nobody writes keeps what was already there, and what was already there is almost
 /// always right. Components ticket 40 inverted it; what follows is why it is a reading of a
 /// [`crate::runner::Canvas`] rather than the surface probe spec §2 prescribes.
@@ -494,7 +494,7 @@ impl Counters {
 /// # It is a count and it fails loudly by being non-zero
 ///
 /// Returning `0` where nothing could be counted would satisfy *no cell never* on every screen for
-/// ever, which is §21's own first refinement — *a threshold on the wrong side of the question is not
+/// ever, which is the first refinement — *a threshold on the wrong side of the question is not
 /// a weak gate, it is a green one*. There is nothing to fake now: the count comes from the surface
 /// the frame was recorded on, and its gates are `crate::gallery`'s assembled sweep and the
 /// per-construction sweep in `tests/golden.rs`.
@@ -582,7 +582,7 @@ mod tests {
     }
 
     /// **`writes == distinct` separates when two verbs overlap, and the two sides come from two
-    /// places.** §2's first half, and the only form of it this crate can run.
+    /// places.** The first half, and the only form of it this crate can run.
     ///
     /// The left-hand side is the engine's — `Ctx::text` returns how many columns it wrote — and the
     /// right-hand side is this crate's union over the same spans. A gate over one source could not
@@ -620,7 +620,7 @@ mod tests {
 
     /// **The clip is visible as `asked - reported`, and the engine is the one reporting it.**
     ///
-    /// A component whose content leaves its rectangle is §2's other failure, and this is the number
+    /// A component whose content leaves its rectangle is the other failure, and this is the number
     /// that shows it without a cell readback.
     #[test]
     fn a_verb_that_runs_off_its_context_is_reported_short_by_the_engine() {
@@ -635,7 +635,7 @@ mod tests {
         assert_eq!(tally.distinct(), 4);
     }
 
-    /// **`verbs <= writes`, and never an equality across sizes.** §21's C08 row, as a relation.
+    /// **`verbs <= writes`, and never an equality across sizes.** C08 row, as a relation.
     ///
     /// The relation and not the equality, because a verb that writes nothing is legitimate — a label
     /// clipped entirely out of its context is one — so `verbs == writes` is a number belonging to
@@ -689,7 +689,7 @@ mod tests {
         let _ = Allocations::over(0, 0);
     }
 
-    /// **A mean cannot see anything below `n`; a total can see one.** §21's refinement 2, as
+    /// **A mean cannot see anything below `n`; a total can see one.** The refinement 2, as
     /// arithmetic rather than as a sentence.
     ///
     /// This is the number the map actually met: `player::chrome` allocated on **40 of 40** frames
@@ -711,7 +711,7 @@ mod tests {
         assert_eq!((seen.total(), seen.frames()), (1, 40));
     }
 
-    /// **`merges` is free, already computed, and this is the wiring.** §21's C01 row.
+    /// **`merges` is free, already computed, and this is the wiring.** C01 row.
     ///
     /// Both directions in one test: three lanes drawn from **one call site** are one id and two
     /// merges — `Ctx::id()` is `#[track_caller]` — and the keyed loop beside it is what a container

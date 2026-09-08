@@ -106,7 +106,7 @@ pub(crate) struct TermModel {
     autowrap: bool,
     /// Whether a synchronised-output block is open, and how many have closed.
     ///
-    /// §8's *the frame is never split on purpose*: a frame is one block, so an open inside an open
+    /// *The frame is never split on purpose*: a frame is one block, so an open inside an open
     /// is a defect and is counted.
     sync_open: bool,
     sync_blocks: usize,
@@ -181,7 +181,7 @@ impl TermModel {
 
     /// The same terminal, measuring clusters the `wcwidth` way.
     ///
-    /// Spec §15's owed measurement, as an instrument: what the `CHA`-after-non-ASCII rule buys is
+    /// The owed measurement, as an instrument: what the `CHA`-after-non-ASCII rule buys is
     /// only visible against a terminal that disagrees about width, and no real tier-1 terminal does.
     #[cfg(test)]
     pub(crate) fn disagreeing_about_width(width: u16, height: u16) -> TermModel {

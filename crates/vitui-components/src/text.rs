@@ -1,6 +1,6 @@
 //! **F1 text**, ~48 entries, expressed by `text`, `chip`, `field` and the [`fit`] helper.
 //!
-//! The reduction is R1 and R5: markdown needs its own wrap pass and is §22's, and there
+//! The reduction is R1 and R5: markdown needs its own wrap pass and is out of scope, and there
 //! is no bidi — a stated non-goal with the engine's tables named as the reason.
 //!
 //! `field` declares this family and is **not** homed here: its first family is F6, which is where
@@ -9,14 +9,14 @@
 //!
 //! # `fit` is the partition primitive
 //!
-//! Spec §3's table gives it one job — *truncation, alignment, padding* — and one shape: **text, then
+//! The table gives it one job — *truncation, alignment, padding* — and one shape: **text, then
 //! the remainder; there is no verb on it that fills first.** That sentence is the whole helper. A
 //! label centred in a rectangle is three writes that touch every cell of its row exactly once — the
 //! lead, the text, the trail — and never a fill followed by a draw, which is R07's original defect
 //! and 26 of 48 cells on a steady dropdown frame.
 //!
 //! **Routing through it costs nothing against the discipline**, and that is the measurement spec
-//! §3's table owed rather than a claim about ergonomics: `crate::form` renders one screen twice, once
+//! the table owed rather than a claim about ergonomics: `crate::form` renders one screen twice, once
 //! through `fit` and once with the same order written out by hand, and compares them cell for cell.
 //! The helper is not a convenience over hand-written correctness — it is the only form of it anybody
 //! keeps.
@@ -55,7 +55,7 @@ pub enum Justify {
 
 /// [`fit`]'s options.
 ///
-/// Spec §1's rule 3: **options are a `Default` struct, never a required builder**, and every helper
+/// **Options are a `Default` struct, never a required builder**, and every helper
 /// `f` has a sibling `f_with` that takes one.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub struct FitOpts {
@@ -123,7 +123,7 @@ pub fn fit_with(cx: &mut Ctx<'_, '_>, area: Rect, s: &str, opts: &FitOpts) -> Re
 ///
 /// # The one-cell ellipsis is enforced here
 ///
-/// `fit` is where truncation is decided, so it is where §16's rule has to hold: [`elide`] reserves
+/// `fit` is where truncation is decided, so it is where the rule has to hold: [`elide`] reserves
 /// **one** cell for the marker and `Theme::glyph` guarantees every spelling is one cell wide.
 /// A three-cell `...` where one was reserved has `writes`, `verbs` and `marked` identical either
 /// way — the defect has no signature at any counter and only the surface disagrees — which is why
@@ -204,7 +204,7 @@ pub fn fit_into<I: Ink>(
 
 /// [`text`]'s options.
 ///
-/// Spec §1's rule 3: a `Default` struct, never a required builder.
+/// A `Default` struct, never a required builder.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub struct TextOpts {
     /// Where the line sits in its row.
@@ -234,11 +234,11 @@ impl Default for TextOpts {
     }
 }
 
-/// **One line of text, filling the rectangle it was handed.** Spec §1's pure drawer.
+/// **One line of text, filling the rectangle it was handed.** The pure drawer.
 ///
 /// **Hostile axes:** `narrow`.
 ///
-/// Scene 28. §16's one-cell marker rule only fires at a width where the label truncates: a
+/// The one-cell marker rule only fires at a width where the label truncates: a
 /// three-cell `...` where one cell was reserved moves **468 cells over 78 rows** with writes, verbs
 /// and marked identical at 23 402 / 2 163 / 0 either way.
 ///
@@ -310,13 +310,13 @@ pub fn text_into<I: Ink>(
 
 /// [`chip`]'s options.
 ///
-/// Spec §1's rule 3, and [`Faces`] is inside it rather than beside it for [`crate::state::press`]'s
+/// The options struct, and [`Faces`] is inside it rather than beside it for [`crate::state::press`]'s
 /// reason: the face drawn and the face awarded have to come out of **one** value.
 /// # There is no `label` role here, and its absence cost two cells a frame to find
 ///
-/// The obvious third field is *the role the label is painted in*, and ticket 09's stand-in screen
+/// The obvious third field is *the role the label is painted in*, and a stand-in screen
 /// used one: `Role::Dim` on the chip, `Role::Title` on the button. **It is a defect, and it is
-/// ADR 0026's own rule firing:**
+/// the rule firing:**
 ///
 /// > A restyle is free only when the component's own next draw already produces the value the
 /// > restyle produced.
@@ -361,7 +361,7 @@ impl Default for ChipOpts {
 ///
 /// **Hostile axes:** `narrow`.
 ///
-/// Scene 28, and §2 names the defect in the axis's own word: *a chip that does not narrow, whose
+/// The partition rule names the defect in the axis's own word: *a chip that does not narrow, whose
 /// label runs into its sibling's rectangle* — **432 cells re-damaged every steady frame**.
 ///
 /// ```
@@ -407,7 +407,7 @@ pub fn chip_into<I: Ink>(
 ///
 /// # This is public because the pointer could not be driven from this crate at all
 ///
-/// **Runtime architecture issue 22 lifted the barrier this section rests on** — `Mouse` and the
+/// **The barrier this section rests on is lifted** — `Mouse` and the
 /// three types needed to build one are reachable now. The reasoning is kept because it is why this
 /// door is public; the door is not withdrawn, because a container that already holds an id still
 /// needs it.
@@ -415,7 +415,7 @@ pub fn chip_into<I: Ink>(
 /// As written: `Driver::post_mouse` takes a `vitui_engine::Mouse`, and
 /// `crates/vitui-runtime/src/line.rs` filed it `EngineName { name: "Mouse", reachable_as: None }`;
 /// `Ctx::interact` reads `hovered` off
-/// `frame.hover_guess`, which nothing here can set. So *the frame one chip is hovered* — spec §2's
+/// `frame.hover_guess`, which nothing here can set. So *the frame one chip is hovered* —
 /// **8 cells against 6 662, 833×** — has no gesture to play, and the only way to stand it up is to
 /// hand the component the `Response` the runtime would have handed it.
 ///
@@ -442,7 +442,7 @@ pub fn chip_drawn<I: Ink>(
 /// **The one order a chip is written in: the label's row through [`fit`], the rest as face.**
 ///
 /// Shared by [`chip`] and by [`crate::input::button`], because they are the same construction with
-/// different defaults — spec §17's freeze gives each of them `constructions: 1`, and that is what
+/// different defaults — the freeze gives each of them `constructions: 1`, and that is what
 /// *one construction* means. **There is no fill here**: the face is the padding role handed to
 /// `fit`, which is why [`FitOpts`] carries two roles and not one.
 pub(crate) fn face_and_label<I: Ink>(
@@ -487,7 +487,7 @@ pub(crate) fn pad_rows<I: Ink>(ink: &mut I, cx: &mut Ctx<'_, '_>, cells: Rect, s
     }
 }
 
-/// **The two components written the way ADR 0026 prices, kept because a gate nobody has watched
+/// **The two components written the priced way, kept because a gate nobody has watched
 /// fail is not a gate.**
 ///
 /// `pub` for the reason [`crate::frame::defective`] and [`crate::state::defective`] are: an
@@ -524,7 +524,7 @@ pub mod defective {
         resp
     }
 
-    /// **A `chip` that does not narrow.** ADR 0026's third instance: 54 chips of 222 overrun six
+    /// **A `chip` that does not narrow.** The third instance: 54 chips of 222 overrun six
     /// columns each into the column beside them, and the neighbour writes them back every frame —
     /// `54 × 6 = 324` on [`crate::dense`]'s screen.
     pub fn chip_that_does_not_narrow<I: Ink>(
@@ -611,7 +611,7 @@ mod tests {
         tally
     }
 
-    /// **`fit` writes its row exactly once and nothing else** — spec §2's first equality, on the
+    /// **`fit` writes its row exactly once and nothing else** — the first equality, on the
     /// helper it is stated about, and the second equality restricted to the band.
     ///
     /// Swept over every width and every justification, because the interesting cases are the ones
@@ -712,7 +712,7 @@ mod tests {
 
     /// **The one-cell ellipsis, enforced where truncation is decided** — criterion 8.
     ///
-    /// Two claims, and the second is the one ticket 05 could not make from `glyphs` alone: the
+    /// Two claims, and the second cannot be made from `glyphs` alone: the
     /// marker is one cell, *and* the head plus the marker never exceed the row. A three-cell marker
     /// would leave `writes`, `verbs` and `distinct` unmoved inside a narrowed context and only the
     /// surface would disagree.
@@ -785,7 +785,7 @@ mod tests {
     /// **Criterion 2, behavioural half: `text` writes each cell of its rectangle exactly once, and
     /// writes every one of them.**
     ///
-    /// §2's two equalities, on the component rather than on the helper: `writes == distinct` (no
+    /// The two equalities, on the component rather than on the helper: `writes == distinct` (no
     /// cell twice) and `distinct == w × h` (no cell never). The second is the one [`fit`] cannot
     /// make — it returns the rows it did not write, because it is a helper — and it is why `text`
     /// pads them.
@@ -964,8 +964,8 @@ mod tests {
     /// > |---|---|---|
     /// > | C01, the frame one chip is hovered | **6 662 damaged** | **8** — 833× |
     ///
-    /// **The 8 reproduces exactly, because the number *is* the chip's width** — spec §3 and ADR 0026
-    /// both state it that way, ticket 07 reproduced it at [`crate::state::CHIP`], and this is the
+    /// **The 8 reproduces exactly, because the number *is* the chip's width** — two documents
+    /// both state it that way, it is reproduced at [`crate::state::CHIP`], and this is the
     /// same eight cells measured through the component instead of through its construction.
     ///
     /// # The pointer is fabricated, and that is named rather than hidden
@@ -974,11 +974,11 @@ mod tests {
     /// files it `reachable_as: None`, so **no gesture can be played from this crate**. What is
     /// supplied instead is the `Response` the runtime would have supplied — [`chip_drawn`]'s whole
     /// reason for being public — and [`Pen::end_frame`] applies the award where `Driver::frame`
-    /// applies it. The same two substitutions ticket 07 made, one layer up.
+    /// applies it. The same two substitutions, one layer up.
     ///
     /// # What the other column would be on this map
     ///
-    /// §2's 6 662 is C01's prototype screen clearing every frame. On [`crate::dense`]'s screen the
+    /// The 6 662 is C01's prototype screen clearing every frame. On [`crate::dense`]'s screen the
     /// same spelling is [`crate::dense::CLEARED_EVERY_FRAME`] — **9 024** — so the ratio here is
     /// 1 128× rather than 833×. The magnitude is the screen's and the direction is the rule's; both
     /// columns are printed by `examples/primitive_numbers.rs` rather than reconciled.

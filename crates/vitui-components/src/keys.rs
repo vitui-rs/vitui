@@ -1,4 +1,4 @@
-//! Spec §3's `keys::text`: **a chord is not text, and a capital is not a chord.**
+//! `keys::text`: **a chord is not text, and a capital is not a chord.**
 //!
 //! One line of arithmetic, and it is the components-side half of R12's registry. R12's
 //! [`INTENT`](vitui_runtime::keys::INTENT) is `SHIFT | ALT | CTRL | SUPER | HYPER | META` and is
@@ -128,7 +128,7 @@ pub fn is_chord(k: &Pressed) -> bool {
     BITS.iter().any(|b| held.contains(b.mods))
 }
 
-/// **Spec §3's `keys::text`.** Append what this key types to `out`, and answer whether it typed.
+/// **`keys::text`.** Append what this key types to `out`, and answer whether it typed.
 ///
 /// `false` is not *nothing happened* — it is **not this widget's key**, and the caller owes it a
 /// `Ctx::decline` so the level above gets its turn. The two halves are one statement on purpose: a
@@ -272,7 +272,7 @@ pub fn press_with(code: Code, mods: Mods) -> Pressed {
 /// Which reading of a key a text sink uses. See [`ARMS`].
 pub type Arm = fn(&Pressed, &mut String) -> bool;
 
-/// The three readings, in the order spec §3's sentence names them.
+/// The three readings, in the order the sentence names them.
 ///
 /// Iterated by the gates and by `examples/keys_numbers.rs`, so that the measurement is *one loop
 /// over three arms* rather than three transcriptions of the same drive loop — which is how two of
@@ -397,7 +397,7 @@ pub const TEXT_BEARING: [&str; 7] = [
 // ledger rule (`crates/vitui-runtime/src/ledger.rs`), inherited by `crate::state` and `crate::form`.
 // Every figure is a count over a deterministic drive, so none carries a machine.
 
-/// What a field holds before anything is typed into it. **Spec §3's own fixture**, quoted rather
+/// What a field holds before anything is typed into it. **the fixture**, quoted rather
 /// than chosen: the sentence being reproduced is `"value 0shi"` against `"value 0hi"`, and a
 /// different starting string would make both numbers unrecognisable.
 pub const START: &str = "value 0";
@@ -551,7 +551,7 @@ mod tests {
 
     /// **Acceptance criterion 2: the three-way measurement is a test, not a note.**
     ///
-    /// Spec §3's sentence, run: `Ctrl+S, h, i` through a focused field gives `"value 0shi"` matching
+    /// The sentence, run: `Ctrl+S, h, i` through a focused field gives `"value 0shi"` matching
     /// on `code` alone and `"value 0hi"` declining chords; and *declining on `intent()` instead
     /// gives `"i"` where `"Hi"` is right* — which is a **different input**, because on `Ctrl+S, h,
     /// i` the `INTENT` reading is indistinguishable from the right answer. Both inputs are here for
@@ -615,7 +615,7 @@ mod tests {
 
     /// **The `textarea` arithmetic: 2 bytes and 0 keys against 1 and 1.**
     ///
-    /// Spec §3's second number, and the input is `Ctrl+S, h` — one chord and one letter, which is
+    /// The second number, and the input is `Ctrl+S, h` — one chord and one letter, which is
     /// what makes the difference exactly one byte and exactly one key. Read off `Driver::unhandled`,
     /// which is the outermost level of the one queue.
     #[test]

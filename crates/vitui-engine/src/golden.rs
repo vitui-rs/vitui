@@ -17,9 +17,9 @@
 //! - **The header line is part of the assertion.** A golden taken at the wrong tier is a golden
 //!   that passes for the wrong reason.
 //!
-//! # The one place this format departs from §14's example
+//! # The one place this format departs from the example
 //!
-//! §14's example prints a blank cell as `.` while also saying *ASCII renders as itself*, and the two
+//! The example prints a blank cell as `.` while also saying *ASCII renders as itself*, and the two
 //! sentences cannot both hold: a `.` in the content would then be indistinguishable from a space.
 //! **Every reserved marker here is non-ASCII**, so the rule holds literally — `.` is a full stop and
 //! nothing else, and a blank is [`BLANK`]. That is not pedantry: a space rendered as a space puts
@@ -28,7 +28,7 @@
 //!
 //! # Two things the format did not have until it was diffed in anger
 //!
-//! §15's third owed measurement — *the format has never been diffed in anger* — was paid by
+//! The third owed measurement — *the format has never been diffed in anger* — was paid by
 //! introducing one-cell defects into a blessed scene and reading the diff. Both halves of the format
 //! below came out of that and neither was reasoned in advance:
 //!
@@ -47,7 +47,7 @@
 //!
 //! # The legend is assigned in first-appearance order, and that is a trade
 //!
-//! Row-major first appearance is what §14's own example shows (`a` is `default`, and `default` is
+//! Row-major first appearance is what the example shows (`a` is `default`, and `default` is
 //! what the top-left cell holds). The cost is that a change which introduces a *new* style before an
 //! existing one shifts every letter after it, and the whole plane diffs. The alternative — sorting
 //! by style bits — has the same failure for the same reason and makes the letters mean nothing, so
@@ -102,7 +102,7 @@ const GLYPH_KEYS: &[char] = &[
 const GUTTER: usize = 4;
 
 /// The style plane's legend characters. ASCII is free here — the style plane has no
-/// renders-as-itself rule — which is why §14's example reads `aaaa…`.
+/// renders-as-itself rule — which is why the example reads `aaaa…`.
 const STYLE_KEYS: &[u8] = b"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
 
 /// The tier the header records: the two axes a frame's *content* can depend on.
@@ -734,7 +734,7 @@ mod tests {
     /// the wide cluster measured as one column shifts everything to its right one column left.
     ///
     /// The defective row is built by hand because no verb can produce it — which is the point. Spec
-    /// §3's pairing invariant is asserted over both a surface and the composited frame
+    /// the pairing invariant is asserted over both a surface and the composited frame
     /// ([`crate::testing::assert_pairing_holds`]); this is what the *format* contributes, and it is
     /// the half that survives the invariant being wrong.
     #[test]
@@ -767,7 +767,7 @@ mod tests {
         );
     }
 
-    /// Every style channel a cell can carry, spelled the way §14's example spells it.
+    /// Every style channel a cell can carry, spelled the way the example spells it.
     #[test]
     fn the_legend_spells_every_channel_a_cell_can_carry() {
         let mut s = Surface::new(5, 1);
@@ -910,7 +910,7 @@ mod tests {
         );
     }
 
-    /// The first finding of §15's owed measurement, as a test.
+    /// The first finding of the owed measurement, as a test.
     ///
     /// A plane of identical rows lets a line-based diff pair any row with any other, and it does: a
     /// one-cell defect on `caret-blink`'s eighty identical blank glyph rows was reported as an insert
@@ -983,7 +983,7 @@ mod scene_goldens {
     /// names. A golden nobody drives and a test whose file nobody registered are the same defect from
     /// two sides, and each of the two tests catches one of them.
     ///
-    /// Three of spec §14's twelve, not all, and the choice is the ticket's: **caret-blink** is the
+    /// Three of the twelve, not all, and the choice is the ticket's: **caret-blink** is the
     /// forty-layer stack with one cell toggling, which is the shape a two-plane format exists for;
     /// **three-dialogs-apart** is the picture a per-row damage model got 2.53x wrong; and
     /// **sparse-chart-400-points** is the scene that has decided three tickets. The other nine are
@@ -991,7 +991,7 @@ mod scene_goldens {
     /// review belongs — `every-cell-a-distinct-style` has 24 000 distinct styles and no legend can
     /// hold them.
     ///
-    /// The fourth is not one of §14's twelve, and is here because **none of the twelve draws a wide
+    /// The fourth is not one of the twelve, and is here because **none of the twelve draws a wide
     /// cluster**: without it the [`CONTINUATION`] marker is tested over a six-column surface and
     /// appears in no artefact anybody reviews. See [`the_cjk_frame`].
     ///
@@ -1037,7 +1037,7 @@ mod scene_goldens {
     ///
     /// One test rather than one per golden, because the list is the assertion: an entry dropped from
     /// it is a picture nobody checks, and a `#[test]` per golden makes that a deletion nobody
-    /// notices. A name that is neither one of §14's twelve nor [`CJK`] fails here rather than being
+    /// notices. A name that is neither one of the twelve nor [`CJK`] fails here rather than being
     /// skipped.
     #[test]
     fn every_golden_on_the_list_matches_its_file() {

@@ -1,14 +1,14 @@
 //! **F4 disclosure**, 21 entries, expressed by `collapsible` alone.
 //!
-//! The reduction is R1, and **the family exists in order to say so**: spec §18's own sentence is
+//! The reduction is R1, and **the family exists in order to say so**: the sentence is
 //! *every one of these is the same state machine*, which is the shape of claim that has to be
-//! measured rather than asserted. §8 measured it; components ticket 22 built it.
+//! measured rather than asserted.
 //!
 //! # One machine, and the split is not between the four components
 //!
 //! Accordion, tree node, code folding and inplace edit are one machine. What separates them is
 //! **what their collapsed content is**, and that is [`SPLIT`] — a value the tests iterate rather
-//! than a table in a comment, because §17's own rule is that every obligation stated as a sentence
+//! than a table in a comment, because the rule is that every obligation stated as a sentence
 //! has been broken by someone who had read it.
 //!
 //! | the collapsed content is | who collapses it | example |
@@ -20,12 +20,12 @@
 //! [`Collapses`] is that column as a configuration, and it is the **only** thing that differs
 //! between the four: one [`Collapse`], one [`Collapse::set`], one draw. `Collapses::OnRequest`
 //! leaves the state untouched and reports the gesture; `Collapses::OnTheFrame` applies it before it
-//! draws. **A component may not perform an edit; a collapse of a region is not one** — §8's rule,
+//! draws. **A component may not perform an edit; a collapse of a region is not one** — the rule,
 //! narrowed by C05's two forced reasons (`Vec::splice` allocates, and `&mut` while the draw holds
 //! the index shared is `E0502`), both of which belong to the index and neither of which a region
 //! has.
 //!
-//! **The index row already ships, one family over.** [`crate::collect::tree`] is §8's first row
+//! **The index row already ships, one family over.** [`crate::collect::tree`] is the first row
 //! expressed through the collection lineage: a fold leaves `order::Ask::Collapse` in a one-slot
 //! request and the caller splices after the draw. What `Collapses::OnRequest` is for is
 //! the same configuration reached from *this* side — a section **header** over rows in a
@@ -50,16 +50,16 @@
 //! splice is an edit a frame may not perform. **A fold steps; a region animates.** See
 //! [`Collapses::OnRequest`].
 //!
-//! # The height is an argument, and the watermark is §9's finding on the other axis
+//! # The height is an argument, and the watermark is the finding on the other axis
 //!
 //! The runtime has no measure pass, so a section's open height comes from a **sizing
 //! function beside the body** — [`sizing::check`]'s own `FnMut(u16) -> u16`, which is the shape the
 //! runtime already gates a component against.
 //!
 //! [`Height::Watermark`] is the spelling a reader writes instead: hand the body a rectangle and read
-//! how far it reached. §8 prices it at *83 cells, 8 rows wrong, settled in 3 frames* against the
+//! how far it reached. It is priced at *83 cells, 8 rows wrong, settled in 3 frames* against the
 //! sizing function's *22, 0, 2*, and **those three figures are a prototype's body and do not
-//! reproduce here** — see [`SPEC_WATERMARK_ROWS_WRONG`]. What reproduces is stronger, and it is §9's own
+//! reproduce here** — see [`SPEC_WATERMARK_ROWS_WRONG`]. What reproduces is stronger, and it is the original's
 //! sentence one axis over:
 //!
 //! > A measured extent is taken **inside the rectangle the decision produced**.
@@ -68,7 +68,7 @@
 //! *is* — the watermark **latches at the first rectangle it ever saw and never comes down**:
 //! [`WATERMARK_LATCHED_ROWS`] rows where [`CONTENT_ROWS`] are right, permanently, on a screen that
 //! looks correct. Over a body that draws only its content the two arms are indistinguishable, which
-//! is what makes the rule unconditional rather than a preference — the identical shape §9 states for
+//! is what makes the rule unconditional rather than a preference — the identical shape stated for
 //! a hideable reserved bar.
 //!
 //! It is **off by default** for that reason and for its price: one dry run through
@@ -81,18 +81,18 @@
 //! focus lands on the *next surviving entry*, one section too far, while the section the user acted
 //! on is still on screen one row above.
 //!
-//! Following §8's own parenthesis to the end is this module's finding. **All three self-close
+//! Following the parenthesis to the end is this module's finding. **All three self-close
 //! gestures leave the focus off the body before the vanish rule looks**, each for a different
 //! reason: a click on a focusable header is awarded the focus; a click on a header that is *not* a
 //! tab stop **defocuses**, because a press that lands on nothing interested is read as intent; and
 //! `Enter` needs the header to hold the focus already. So the zero is the gate and the figure beside
 //! it ([`SPEC_VANISH_PROBES`]) is **not reachable from a header gesture at all** — the arm that pays
 //! it is a section closed by something that is not one, which is exclusive mode, and
-//! [`crate::accordion`] runs it at §8's own scale.
+//! [`crate::accordion`] runs it at the scale.
 //!
 //! What [`Focus::Header`] buys is measured rather than argued, and it is not the probe count: on a
 //! header that is not a tab stop the runtime's answer is `None`, so **the click loses the keyboard
-//! entirely** — architecture issue 25's own finding one component over — and the rule is what puts
+//! entirely** — the same finding one component over — and the rule is what puts
 //! it somewhere.
 //!
 //! **`Stash` does not generalise to a region, and [`Drop`](Focus::Drop) is this component's
@@ -123,7 +123,7 @@ pub const MEMBERS: &[&str] = &["collapsible"];
 // §8's three-row split, as a value
 // ═════════════════════════════════════════════════════════════════════════════════════════════════
 
-/// **Who performs the collapse.** §8's middle column.
+/// **Who performs the collapse.** The middle column.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Who {
     /// The caller, on request. The component asks and the caller drains the ask after the draw.
@@ -144,7 +144,7 @@ impl Who {
         }
     }
 
-    /// **The configuration this row of the split is expressed by.** The join that makes §8's table
+    /// **The configuration this row of the split is expressed by.** The join that makes the table
     /// checkable: three rows, three arms, and no fourth on either side.
     pub const fn collapses(self) -> Collapses {
         match self {
@@ -155,7 +155,7 @@ impl Who {
     }
 }
 
-/// One row of §8's split.
+/// One row of the split.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub struct Split {
     /// What the collapsed content is.
@@ -166,7 +166,7 @@ pub struct Split {
     pub examples: &'static [&'static str],
 }
 
-/// **§8's three-row table, as a value.** Criterion 1: *the three-row table above as its documented
+/// **The three-row table, as a value.** Criterion 1: *the three-row table above as its documented
 /// split*, and a documented split a test can iterate is the only kind that survives a ticket.
 pub const SPLIT: [Split; 3] = [
     Split {
@@ -193,7 +193,7 @@ pub const SPLIT: [Split; 3] = [
 /// **Everything a section keeps across frames: whether it is open, how tall it is drawn, and an
 /// optional tween.**
 ///
-/// Per section, and **never per row of content** — §8's own words, and the half that matters is the
+/// Per section, and **never per row of content** — the words, and the half that matters is the
 /// second. A fold set is a `Vec<u32>` of line numbers beside the caller's document
 /// ([`crate::accordion::Folds`]); what is per section is this.
 ///
@@ -235,7 +235,7 @@ pub struct Collapse {
     h: u16,
     /// The tween, while one runs. `None` is a steady section, open or shut.
     ///
-    /// **The slot is not free when it is empty**, which is the one place §8's byte pair cannot both
+    /// **The slot is not free when it is empty**, which is the one place the byte pair cannot both
     /// be true — see [`COLLAPSE_BYTES`].
     tween: Option<Tween<u16>>,
 }
@@ -300,7 +300,7 @@ impl Collapse {
     /// asks for a wake without asking this is a spin ([`Tween::done`]).
     ///
     /// The interpolation is done here rather than by `Tween::value` because the runtime ships that
-    /// method for `f32` and `i32` and **not** for `u16`, which is the width §8 names. A height is a
+    /// method for `f32` and `i32` and **not** for `u16`, which is the width in question. A height is a
     /// row count and `Rect::h` is a `u16`, so the type is right and the arithmetic is three lines:
     /// [`Tween::phase`], [`Tween::from`], [`Tween::to`].
     pub fn advance(&mut self, now: Instant) -> Option<Instant> {
@@ -324,7 +324,7 @@ impl Collapse {
 
 /// **What a [`Collapse`] costs. Live state, and the slot beside it.**
 ///
-/// §8 states *5 B of live state, 72 B with a tween slot* and **neither number reproduces**, for two
+/// The recorded figures are *5 B of live state, 72 B with a tween slot* and **neither reproduces**, for two
 /// different reasons, both of which are recorded rather than engineered away:
 ///
 /// - The live half is `open: bool` and `h: u16` — **three bytes of field and four of struct**. Five
@@ -336,7 +336,7 @@ impl Collapse {
 ///
 /// **And the pair cannot both be a `size_of` of one type at all**, which is the part worth keeping.
 /// `Option<Tween<u16>>` is a field, so it costs its forty bytes whether or not it holds one: a
-/// `Collapse` with no tween running is [`COLLAPSE_BYTES`] and not [`LIVE_BYTES`]. Reading §8's pair
+/// `Collapse` with no tween running is [`COLLAPSE_BYTES`] and not [`LIVE_BYTES`]. Reading the pair
 /// as two sizes of one record is reading it as *a record whose tween lives somewhere else*, and
 /// nothing on this map has anywhere else to put one.
 pub const COLLAPSE_BYTES: usize = size_of::<Collapse>();
@@ -354,15 +354,15 @@ struct Live {
     h: u16,
 }
 
-/// The live half's size. **Four**, against §8's five. See [`COLLAPSE_BYTES`].
+/// The live half's size. **Four**, against the five. See [`COLLAPSE_BYTES`].
 pub const LIVE_BYTES: usize = size_of::<Live>();
 
 /// What the tween slot costs, empty or full. **Forty.**
 pub const TWEEN_BYTES: usize = size_of::<Option<Tween<u16>>>();
 
-/// §8's live figure. A **disagreement**, asserted as one: see [`COLLAPSE_BYTES`].
+/// The live figure. A **disagreement**, asserted as one: see [`COLLAPSE_BYTES`].
 pub const SPEC_LIVE_BYTES: usize = 5;
-/// §8's with-a-tween figure. A disagreement, asserted as one.
+/// The with-a-tween figure. A disagreement, asserted as one.
 pub const SPEC_TWEEN_BYTES: usize = 72;
 
 // ═════════════════════════════════════════════════════════════════════════════════════════════════
@@ -502,7 +502,7 @@ impl Focus {
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub struct WhyThereIsNoRegionStash;
 
-/// [`collapsible`]'s options. Spec §1's rule 3: a `Default` struct, never a required builder.
+/// [`collapsible`]'s options. rule 3: a `Default` struct, never a required builder.
 ///
 /// **The title is not here** — it is the section's data, and rule 2 puts data in the argument list.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -553,7 +553,7 @@ pub struct Toggle {
 /// **What [`collapsible`] answers: what happened to the header, what it handed over, and how much of
 /// its rectangle it used.**
 ///
-/// Three fields because §1's rule 4 and §2's *the cells it does not write are named in its return
+/// Three fields because rule 4 and *the cells it does not write are named in its return
 /// value* are two obligations and a container owes both — and a section owes the second **twice**:
 /// the body it handed over, and every row of `rect` below [`Disclosure::used`], which belongs to
 /// whoever stacked the sections.
@@ -581,13 +581,13 @@ pub struct Disclosure {
 ///
 /// **Hostile axes:** `shrunk`.
 ///
-/// Scene 11, and it is the axis whose defect **no golden-cell gate can see**: a closed body drawn into
+/// The axis whose defect **no golden-cell gate can see**: a closed body drawn into
 /// an `h = 0` rectangle instead of skipped declares **408 more hit entries and 408 more ring entries**
 /// on a surface that is 0 cells over 0 rows apart.
 ///
 /// `size` is the sizing function: given the body's width it answers the body's height in rows, which
 /// is the shape [`sizing::check`](vitui_runtime::sizing::check) sweeps a component against. `body`
-/// is called **only when the section has height**, which is the whole of §8's *closed content is not
+/// is called **only when the section has height**, which is the whole of *closed content is not
 /// drawn*:
 ///
 /// > A body is handed a rectangle and draws inside it.
@@ -704,7 +704,7 @@ where
 ///
 /// One field and not a boolean in a signature, so a reviewer's diff between the shipped build and
 /// the refused one is a single line — [`crate::collect`]'s `TreeShape` arrangement one family over.
-/// The other two — [`Height::Watermark`] and [`Focus::Drop`] — are *on* the options, because §8
+/// The other two — [`Height::Watermark`] and [`Focus::Drop`] — are *on* the options, because the design
 /// states each of them as a spelling a caller may ask for and be priced for rather than as a defect
 /// only a gate may build.
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
@@ -906,7 +906,7 @@ fn split_head(rect: Rect) -> (Rect, Rect) {
     )
 }
 
-/// **What height an open body should be drawn at**, by whichever of §8's two spellings the options
+/// **What height an open body should be drawn at**, by whichever of the two spellings the options
 /// name.
 ///
 /// [`Height::Sized`] asks the sizing function and is done. [`Height::Watermark`] runs the body
@@ -918,7 +918,7 @@ fn split_head(rect: Rect) -> (Rect, Rect) {
 ///
 /// A discard surface is its own world, so nothing the dry run writes reaches the screen — but a
 /// [`Tally`](crate::counters::Tally) counts the *call*, so the watermark arm's verb and write counts
-/// carry the probe. That is exactly the price §8 puts at **+11.5% of the frame**, in this crate's own
+/// carry the probe. That is exactly the **+11.5% of the frame** it was priced at, in this crate's own
 /// currency rather than in a clock's, and it is what makes the two spellings separable by a counter
 /// instead of by a stopwatch.
 fn open_height<I, S, B>(
@@ -974,7 +974,7 @@ fn header_key(cx: &mut Ctx<'_, '_>, id: Id) -> bool {
 // the spellings that are refused, kept because a gate nobody has watched fail is not a gate
 // ═════════════════════════════════════════════════════════════════════════════════════════════════
 
-/// **§8's `h = 0` spelling, kept where the register can point at it.**
+/// **The `h = 0` spelling, kept where the register can point at it.**
 ///
 /// `pub` for [`crate::frame::defective`]'s reason: the correct arm and this one are **one function
 /// with one field between them**, so the diff a reviewer would have to catch is the diff the
@@ -986,7 +986,7 @@ pub mod defective {
     ///
     /// Every write is rejected by the clip, so the surface is **identical** — 0 cells over 0 rows at
     /// 300×80 — and every declaration the body makes is kept: **408 hit entries and 408 ring entries
-    /// nobody can reach** on §8's own accordion. `Ctx::interact` appends to both indexes in one call,
+    /// nobody can reach** on the accordion. `Ctx::interact` appends to both indexes in one call,
     /// before either looks at the rectangle, which is why the subtraction is the same number twice.
     #[track_caller]
     #[expect(
@@ -1030,7 +1030,7 @@ pub mod defective {
 
 /// **One open detail row, and the map between a content row and a data row.**
 ///
-/// §8's *inplace needs no prefix sum*: with **one** row open the map is two comparisons and a
+/// *inplace needs no prefix sum*: with **one** row open the map is two comparisons and a
 /// subtraction, and C05's `ytop` — the prefix sum a variable-height collection needs — is the answer
 /// when *many* rows are tall rather than when one is. [`Inplace::many`] is the many case and it is
 /// `O(log k)` over a sorted store with a running sum, still flat in the million.
@@ -1098,7 +1098,7 @@ impl Inplace {
     /// **The data row a content row belongs to, or `None` because it is inside a detail region.**
     ///
     /// The two comparisons and the subtraction. With one entry the `partition_point` is one step,
-    /// which is why §8 can call it two comparisons without a store being a different answer.
+    /// which is why it is two comparisons without a store being a different answer.
     pub fn data_row(&self, content: usize) -> Option<usize> {
         // The last entry whose own content row is at or before `content`.
         let at = self.open.partition_point(|e| e.0 + e.2 as usize <= content);
@@ -1136,24 +1136,24 @@ pub const CONTENT_ROWS: u16 = 4;
 /// [`H`] less the header row, which is the rectangle the section was handed on the frame it opened
 /// and therefore the rectangle every measurement after it is taken inside.
 ///
-/// §9's own sentence on the other axis, and the number is the whole of it: nineteen rows where
+/// The sentence on the other axis, and the number is the whole of it: nineteen rows where
 /// [`CONTENT_ROWS`] are right, permanently, on a screen that looks correct.
 pub const WATERMARK_LATCHED_ROWS: u16 = H - 1;
-/// §8's *cells wrong* for the sizing function. A figure of a prototype's body — see this module's
+/// *cells wrong* for the sizing function. A figure of a prototype's body — see this module's
 /// header.
 pub const SPEC_SIZED_CELLS: u32 = 22;
-/// §8's *cells wrong* for the drawn extent. A prototype's body.
+/// *cells wrong* for the drawn extent. A prototype's body.
 pub const SPEC_WATERMARK_CELLS: u32 = 83;
-/// §8's *rows wrong* for the drawn extent. A prototype's body.
+/// *rows wrong* for the drawn extent. A prototype's body.
 pub const SPEC_WATERMARK_ROWS_WRONG: u16 = 8;
-/// §8's price for the watermark, as a fraction of the frame. A **report**, and this crate reads it as
+/// The price for the watermark, as a fraction of the frame. A **report**, and this crate reads it as
 /// a verb count instead — see
 /// `tests::the_watermark_pays_for_a_second_pass_over_the_body_and_the_sizing_function_pays_for_none`.
 pub const SPEC_WATERMARK_OVERHEAD: f64 = 0.115;
-/// §8's ring probes for the arm that lets the vanish rule fire. A figure of a prototype's ring; what
+/// The ring probes for the arm that lets the vanish rule fire. A figure of a prototype's ring; what
 /// is gated is the zero beside it.
 pub const SPEC_VANISH_PROBES: u64 = 405;
-/// §8's frames to quiet for a two-hundred-millisecond collapse, at a cadence it does not state. See
+/// The frames to quiet for a two-hundred-millisecond collapse, at a cadence it does not state. See
 /// `tests::open_is_never_ambiguous_over_every_frame_of_a_two_hundred_millisecond_collapse`.
 pub const SPEC_FRAMES_TO_QUIET: u32 = 14;
 
@@ -1162,7 +1162,7 @@ pub const SPEC_FRAMES_TO_QUIET: u32 = 14;
 /// Exactly the rows a closed section vacated — `W × CONTENT_ROWS` — and **the header is not among
 /// them**, which is what makes the figure a residue rather than a picture of two different frames:
 /// both arms are compared with the focus seated on the header and no pointer anywhere, so the chevron
-/// and the face are the same on each. Spec §9's seam sentence on the height axis — *the component
+/// and the face are the same on each. The seam sentence on the height axis — *the component
 /// that owns the rectangle must write it* — and this is what it costs when nobody does.
 pub const RESIDUE_CELLS: usize = W as usize * CONTENT_ROWS as usize;
 /// How many rows the residue spans: exactly the [`CONTENT_ROWS`] the body had.
@@ -1176,7 +1176,7 @@ pub const RESIDUE_ROWS: usize = CONTENT_ROWS as usize;
 // there is no third state, and the gate is a scan
 // ═════════════════════════════════════════════════════════════════════════════════════════════════
 
-/// The words a stored transition state would be spelled with. §8: *no third state*, and the two
+/// The words a stored transition state would be spelled with: *no third state*, and the two
 /// names it forbids.
 ///
 /// **They are assembled rather than written**, and that is not decoration: the scan below reads
@@ -1222,7 +1222,7 @@ mod tests {
 
     /// How many rows of content the body has. [`CONTENT_ROWS`], read from the ledger.
     const CONTENT: u16 = CONTENT_ROWS;
-    /// How long the region's collapse takes. §8's own two hundred milliseconds.
+    /// How long the region's collapse takes. The two hundred milliseconds.
     const DUR: Duration = Duration::from_millis(200);
     /// The cadence the collapse is driven at. **Sixty hertz**, which is the steady-state budget's own
     /// rate (`scripts/steady-report.sh`) and the only cadence on this map that is not this test's
@@ -1234,7 +1234,7 @@ mod tests {
     /// `fills` is the precondition [`Height::Watermark`] stands or falls on, and it is what a padding
     /// ring *is*: a body that writes a background over every row of `cx.area()` reaches the bottom of
     /// whatever it was given, so a measurement taken inside the rectangle the last decision produced
-    /// can never come back down. §9 states the identical precondition for a hideable reserved bar —
+    /// can never come back down. The identical precondition holds for a hideable reserved bar —
     /// *a smaller viewport may not produce a smaller extent*.
     struct Fixture {
         driver: Driver,
@@ -1448,7 +1448,7 @@ mod tests {
     /// **The button is drawn unconditionally and the content rows cull**, which is what makes the
     /// `h = 0` spelling measurable at all: a body that culled *everything* declares nothing at
     /// `h = 0` and the defect has no amplitude. `crate::accordion` is where the two culling
-    /// spellings are separated properly, at §8's own scale.
+    /// spellings are separated properly, at the scale.
     fn body<I: Ink>(ink: &mut I, cx: &mut Ctx<'_, '_>, fills: bool, inner: &mut Option<Id>) {
         let area = cx.area();
         let paint = cx.theme().paint(Role::Body);
@@ -1473,9 +1473,9 @@ mod tests {
 
     // ── criterion 1: one machine, and the three-row table is its documented split ────────────────
 
-    /// **§8's split is three rows, and each row is exactly one configuration of one machine.**
+    /// **The split is three rows, and each row is exactly one configuration of one machine.**
     ///
-    /// Criterion 1. The table is a value rather than a paragraph for §17's reason — every obligation
+    /// Criterion 1. The table is a value rather than a paragraph for the reason — every obligation
     /// this map has stated as a sentence has been broken by someone who had read it — and what makes
     /// it a *split* rather than a list is the bijection: three rows, three arms, and no fourth on
     /// either side.
@@ -1526,11 +1526,11 @@ mod tests {
 
     // ── criterion 2: what it costs, and neither of §8's two numbers ──────────────────────────────
 
-    /// **A `Collapse` is four bytes live and forty-eight with the slot, and §8's `5 / 72` is
+    /// **A `Collapse` is four bytes live and forty-eight with the slot, and `5 / 72` is
     /// neither.**
     ///
-    /// Criterion 2, asserted as a **disagreement** rather than bent to fit — components ticket 17's
-    /// standing one family over, where §7's stated widths were the number that was wrong. The live
+    /// Criterion 2, asserted as a **disagreement** rather than bent to fit — the
+    /// standing one family over, where the stated widths were the number that was wrong. The live
     /// half is `open: bool` and a `u16`; five is what a third `u16` would cost and there is no third,
     /// because `Tween::to` is the target while a tween runs and the height is it afterwards.
     ///
@@ -1605,7 +1605,7 @@ mod tests {
     ///
     /// **The frame count is arithmetic and not a measurement**: sixty hertz over two hundred
     /// milliseconds is `⌈200 / 16.667⌉`, which is **12**, and the twelfth frame is the one that
-    /// lands. §8 states [`SPEC_FRAMES_TO_QUIET`] at a cadence it does not state; the relation — *the
+    /// lands. [`SPEC_FRAMES_TO_QUIET`] is stated at a cadence that is not; the relation — *the
     /// tween is quiet exactly when `now` reaches `start + dur`, and the screen sleeps after* — is
     /// the gate, because a frame count is a cadence wearing a count's clothes.
     #[test]
@@ -1769,16 +1769,16 @@ mod tests {
     /// **The sizing function is right on every frame; the watermark latches at the first rectangle it
     /// ever saw.**
     ///
-    /// Criterion 7, and §8's three figures for it — *22 cells, 0 rows wrong, 2 frames* against *83,
+    /// Criterion 7, and the three figures for it — *22 cells, 0 rows wrong, 2 frames* against *83,
     /// 8, 3* — are a prototype's body and are not reproduced. What is reproduced is stronger and it
-    /// is §9's own sentence one axis over: **a measured extent is taken inside the rectangle the
+    /// is the sentence one axis over: **a measured extent is taken inside the rectangle the
     /// decision produced.** Over a body that fills what it is handed the watermark never comes down —
     /// [`WATERMARK_LATCHED_ROWS`] where [`CONTENT`] are right, permanently, on a screen that looks
     /// correct.
     ///
     /// Over a body that draws only its content the two arms are **indistinguishable**, which is what
     /// makes the rule unconditional rather than a preference: *fills its rectangle* is not a property
-    /// any component can guarantee of its body, which is §9's word for word.
+    /// any component can guarantee of its body, which is the word for word.
     #[test]
     fn the_sizing_function_is_right_on_every_frame_and_a_measured_extent_latches() {
         let mut ink = Direct;
@@ -1844,7 +1844,7 @@ mod tests {
 
     /// **What the watermark costs, in this crate's own currency rather than a clock's.**
     ///
-    /// §8 prices it at **+11.5% of the frame** and a timing is a report (§21, R15). The dry run
+    /// It is priced at **+11.5% of the frame**, and a timing is a report. The dry run
     /// happens through the caller's ink, so a `Tally` carries it: the watermark arm makes the body's
     /// verbs **twice** and the sizing arm makes them once. That is a count, it is the same fact, and
     /// it is why the spelling is off by default.
@@ -1881,9 +1881,9 @@ mod tests {
     /// **A closed body is not called, and the `h = 0` spelling keeps every declaration it would have
     /// made.**
     ///
-    /// Criterion 8 at one section; [`crate::accordion`] is the same pair at §8's own scale, where the
+    /// Criterion 8 at one section; [`crate::accordion`] is the same pair at the scale, where the
     /// excess is 408 on the hit index and on the ring at once. Here the amplitude is one button and
-    /// the point is that the **cells** are equal and the **declarations** are not — which is §8's *no
+    /// the point is that the **cells** are equal and the **declarations** are not — which is *no
     /// golden-cell gate can see it* at the smallest amplitude it has.
     #[test]
     fn a_closed_body_is_not_called_and_the_zero_rect_spelling_declares_what_it_would_have() {
@@ -1990,27 +1990,27 @@ mod tests {
     /// **No gesture that closes a section from its own header can reach the vanish rule at all**, and
     /// that is the finding rather than criterion 9 restated.
     ///
-    /// §8 states the pair as *0 ring probes against 405* and says out loud why the left half is free:
+    /// The pair is *0 ring probes against 405*, and why the left half is free is worth saying out loud:
     /// *which is what a focusable widget does on a click anyway.* Following that sentence to the end,
     /// **all three self-close gestures leave the focus off the body before the vanish rule looks**,
     /// each for a different reason, and every one of them is measured here:
     ///
     /// | the gesture | why the vanish rule is not reached |
     /// |---|---|
-    /// | a click on a focusable header | the press award focuses it. Architecture issue 25's *the click is an accidental repair* |
+    /// | a click on a focusable header | the press award focuses it — *the click is an accidental repair* |
     /// | a click on a header that is not a tab stop | the press award **defocuses**: *a press landed on nothing interested and the user meant to defocus, so there is no id left to have vanished* |
     /// | `Enter` | the header already holds the focus, so nothing inside the body did |
     ///
     /// So the zero is the gate and the 405 is **not reachable from a header gesture**. The arm that
     /// pays it is a section closed by something that is *not* one — exclusive mode, or a collapse-all
     /// — and [`Focus::Header`] is no answer there either, because there was no header to have been
-    /// acted on. `crate::accordion` runs that arm at §8's own scale, which is where its number
+    /// acted on. `crate::accordion` runs that arm at the scale, which is where its number
     /// belongs.
     ///
     /// # What [`Focus::Header`] *does* buy, and it is measured rather than argued
     ///
     /// On a header that is not a tab stop the runtime's answer is `None`: the click **loses the
-    /// keyboard entirely**, which is architecture issue 25's own finding one component over. The rule
+    /// keyboard entirely**, which is the same finding one component over. The rule
     /// is what puts it somewhere, and that is the difference the two arms actually have.
     #[test]
     fn no_self_close_gesture_reaches_the_vanish_rule_and_the_rule_is_what_keeps_the_keyboard() {
@@ -2085,8 +2085,8 @@ mod tests {
     /// a pen built per frame has nothing to relate to. A collapse that left the vacated rows behind
     /// would be a screen that looks correct and a diff that is not clean.
     ///
-    /// **This is not register row 21.** That row asks for the equality between two *composited*
-    /// surfaces and ADR 0023 hands over no cell; this is the crate's own model of what it drew, which
+    /// **This is not the composited-surface equality.** That asks for two *composited*
+    /// surfaces and no cell is readable from outside the engine; this is the crate's own model of what it drew, which
     /// is row 41's standing to row 2's. It sees residue in the cells **this crate wrote** and nothing
     /// else, and that is stated rather than implied.
     #[test]
@@ -2110,14 +2110,14 @@ mod tests {
     /// [`RESIDUE_CELLS`] over [`RESIDUE_ROWS`] is what it costs when it does not.**
     ///
     /// Criterion 14, and it is the *same* instrument as the equality above with one field flipped.
-    /// Spec §9 assigns the line by name — *`[extent, offset + viewport)` is inside the rectangle, and
+    /// The line is assigned by name — *`[extent, offset + viewport)` is inside the rectangle, and
     /// the component that owns the rectangle must write it* — and this is that sentence on the height
     /// axis: the rows a closed section vacated are inside the caller's rectangle and no section owns
     /// them, so a caller writing its tail from the height it had **before** the collapse keeps the old
     /// body on the screen under a correct header. Nothing throws and the screen is plausible.
     ///
     /// **What is *not* decided here is whether a collapsible inside a scroll area may learn its
-    /// content height one frame late under the extent shape.** That is §22's fog, it is not this
+    /// content height one frame late under the extent shape.** That is the fog, it is not this
     /// ticket's, and this test does not answer it: the rectangle here is the section's own and no
     /// scroll area is involved.
     #[test]
@@ -2156,7 +2156,7 @@ mod tests {
 
     /// **The inplace map round-trips, and one open row needs no prefix sum.**
     ///
-    /// Criterion 12's neighbour and register row 24. §8: *one open detail row maps a content row to a
+    /// Criterion 12's neighbour: *one open detail row maps a content row to a
     /// data row in two comparisons and a subtraction; C05's `ytop` is the answer when many rows are
     /// tall, not when one is.* The round trip is the equality — every data row maps to a content row
     /// and back — and the **many** arm is the same equality over a sorted store with a running sum,

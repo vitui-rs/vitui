@@ -1,4 +1,4 @@
-//! Spec §20's register: fifteen gates as a table, and the thirty-five more the backlog wrote.
+//! The register: fifteen gates as a table, and the thirty-five more the backlog wrote.
 //!
 //! > **A gate is a count, a ratio, an equality or a compile outcome. A timing is a report, and a
 //! > gate only at cliff granularity, with the headroom written next to the number.**
@@ -16,12 +16,12 @@
 //!
 //! # The three refinements, which were defects first
 //!
-//! Spec §20 is engine ticket 13's split with three corrections the runtime had to make, and each of
+//! Spec §20 is the split with three corrections the runtime had to make, and each of
 //! them is enforced by a test at the bottom of this file rather than left as folklore:
 //!
 //! 1. **A gate is an equality only when the number is a property of the mechanism.**
 //!    `walk.len() == 43` is legitimate — 43 is a property of the dense screen and the scene list is
-//!    normative. `t_true == 1` is not: 1 was a property of ticket 01's stub palette, and ticket 05
+//!    normative. `t_true == 1` is not: 1 was a property of the stub palette, and ticket 05
 //!    replaced the palette. A number that belongs to the *data* must be a relation, or it becomes
 //!    **a gate that is edited rather than fixed**. [`Entry::qualifier`] is where a row says which it
 //!    is, and [`tests::an_equality_gate_names_the_mechanism_its_number_belongs_to`] is the check.
@@ -53,7 +53,7 @@
 //! `source` names the **implementation** ticket the gate was written by
 //! (`.scratch/vitui-runtime-impl/issues/`); `inverted_by` on a red row names the implementation
 //! ticket that will light it. The architecture map (`.scratch/vitui-runtime-architecture/`) is a
-//! third scheme and is not used here — spec §20's table names implementation tickets as `R NN`, and
+//! third scheme and is not used here — the table names implementation tickets as `R NN`, and
 //! that is the spelling every row uses.
 
 use std::path::PathBuf;
@@ -156,7 +156,7 @@ impl Instrument {
     }
 }
 
-/// Whether something on §20's register runs today.
+/// Whether something on the register runs today.
 ///
 /// One type for both the gate list and the scene list (`crate::scenes`), because it is one
 /// statement: this runs on **these instruments**, or it does not run and **that implementation
@@ -201,17 +201,17 @@ pub enum State {
     },
 }
 
-/// One property of spec §20's register.
+/// One property of the register.
 #[derive(Clone, Copy, Debug)]
 pub struct Entry {
     /// Its number here, which is how everything else refers to it.
     pub number: u8,
-    /// Whether it is a row of spec §20's fifteen-row table, or one the backlog wrote beside it.
+    /// Whether it is a row of the fifteen-row table, or one the backlog wrote beside it.
     ///
     /// The count test asserts **the split** rather than the total, so a fortieth entry has to
     /// say which side of the line it is on — the engine's arrangement, and for its reason.
     pub on_spec_table: bool,
-    /// The property, in §20's own words where §20 has words for it.
+    /// The property, in the words where §20 has words for it.
     pub property: &'static str,
     /// Gate, test or report.
     pub kind: Kind,
@@ -226,17 +226,17 @@ pub struct Entry {
     pub state: State,
 }
 
-/// How many rows of [`REGISTER`] are spec §20's table.
+/// How many rows of [`REGISTER`] are the table.
 ///
 /// Fifteen, and the table is closed: a sixteenth would be a spec change.
 pub const SPEC_ROWS: usize = 15;
 
-/// Spec §20's register, entry for entry, and the backlog's gates beside it.
+/// The register, entry for entry, and the backlog's gates beside it.
 ///
 /// **The count is 41 where the ticket's estimate was "roughly twice the register".** That estimate
 /// is left in the ticket rather than corrected into it, because it was an estimate: the backlog's
 /// eighteen tickets declare sixty-nine gate bullets between them, many of which are the same gate
-/// stated from two sides, and twenty-four survive deduplication against §20's fifteen. A row is
+/// stated from two sides, and twenty-four survive deduplication against the fifteen. A row is
 /// here when it is a gate somebody can break; a bullet that restates a neighbour is not a second
 /// row.
 pub const REGISTER: [Entry; 50] = [
@@ -1874,7 +1874,7 @@ mod tests {
     ///
     /// **Fifty since the applications**, and the last two rows are the first here whose source is
     /// neither a ticket nor an architecture issue but *somebody pressing a key*. Both are the
-    /// same shape as issue 33's and could not have been written any other way for the same
+    /// same shape as the original's and could not have been written any other way for the same
     /// reason — an instrument that drives its own second frame supplies the thing under test, and
     /// an instrument that posts its own key posts the spelling its author typed. **49** is the
     /// keystroke counted twice: kitty flag 2 reports both edges, and a release routed like a press
@@ -1906,9 +1906,9 @@ mod tests {
 
     /// **The split, not the total.**
     ///
-    /// Spec §20's table is fifteen rows and it is closed; everything else is a gate the backlog
+    /// The table is fifteen rows and it is closed; everything else is a gate the backlog
     /// wrote beside it. Asserting the split rather than the sum is what makes a fortieth entry
-    /// say which side of the line it is on — and a sixteenth row claiming to be §20's is a spec
+    /// say which side of the line it is on — and a sixteenth row claiming to be one of them is a spec
     /// change, which should not be able to arrive as a one-line diff in this file.
     #[test]
     fn fifteen_rows_are_the_specs_and_the_rest_are_the_backlogs() {

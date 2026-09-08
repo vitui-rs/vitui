@@ -1,7 +1,7 @@
 //! Theme: a component names a **role**, and can never construct a **paint**.
 //!
-//! Spec §3 and §10; ADR 0018 (a component names no colour), ADR 0021 (the runtime does not edit a
-//! declared interest), ADR 0010 (the glyph ladder is declared, never probed).
+//! A component names a role and never a colour; a declared interest is never rewritten; the glyph
+//! ladder is declared and never probed.
 //!
 //! ```
 //! use vitui_engine::ColorDepth;
@@ -30,7 +30,7 @@
 //!
 //! The thing worth knowing is what the type does *not* forbid. `Theme::custom` mints a paint from two
 //! arbitrary colours, and that is deliberate: read literally, *no route to an arbitrary paint* makes a
-//! chart's fifth series, a photograph's pixel and a sentinel probe inexpressible. **What ADR 0018
+//! chart's fifth series, a photograph's pixel and a sentinel probe inexpressible. **What the rule
 //! protects is a component minting a palette**, and the narrower invariant that actually holds is
 //! *a paint cannot exist without a live `&Theme`* — which is why `custom` takes `&self` and why a
 //! theme swap cannot be bypassed.
@@ -420,7 +420,7 @@ const fn is_spent(spent: &[u8; 16], n: usize, idx: u8) -> bool {
 /// The first candidate the quantiser can still separate from everything already spent, or a colour
 /// **derived** from the scheme's own two ends when it can separate none of them.
 ///
-/// The derivation is what ADR 0007 forbids the engine and permits here: the engine may never
+/// The derivation is forbidden to the engine and permitted here: the engine may never
 /// synthesise a colour, because it would be lying about what the terminal holds, and an offline
 /// import mixing two of the scheme's own colours is doing once, at compile time, what the author
 /// would have done with a fourth slot. Six per cent at a time is the smallest step that moves a
@@ -533,7 +533,7 @@ impl Density {
 /// repertoire. That is the whole point: branching on the axes is what produced twenty-four
 /// `GlyphSet::` occurrences across four component crates and nine divergent private fallback tables.
 ///
-/// # Ten, and the split is ADR 0032's sentence rather than a taxonomy
+/// # Ten, and the split is a rule rather than a taxonomy
 ///
 /// > **A distinction survives the whole matrix iff it is carried on both axes.**
 ///
@@ -552,7 +552,7 @@ impl Density {
 /// **A tree used to ask one more and no longer asks anything here.** `Distinction::Guide` was
 /// `VLine` against `TeeLeft`, which crosses a family and survives — and components architecture 20
 /// then established that no component draws an indent guide at all, because a guide column at depth
-/// *d* is a fact about *d* ancestors and the components spec's §7 refuses every route to it. A
+/// *d* is a fact about *d* ancestors and every route to it is refused. A
 /// distinction is a claim about a screen somebody draws; components architecture 25 struck it.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Distinction {
@@ -568,7 +568,7 @@ pub enum Distinction {
     /// steppers, and **entering it twice under two names would be the collapse the pair gate
     /// catches**.
     Disclosure,
-    /// A rule across is not a rule down (spec §3's `frame::block`, §6's column rectangles).
+    /// A rule across is not a rule down.
     Separator,
     /// A scrollbar's thumb is distinguishable from its track.
     Thumb,
@@ -584,13 +584,13 @@ pub enum Distinction {
 }
 
 impl Distinction {
-    /// Every distinction. **Nine**, which is the denominator spec §16's matrix reports against.
+    /// Every distinction. **Nine**, which is the denominator the distinction matrix reports against.
     ///
     /// **It was ten until components architecture 25** (2026-09-05). `Distinction::Guide` was *a
     /// tree's indent guide says this row has a sibling below rather than merely there is depth
     /// here*, carried by `(VLine, TeeLeft)` — and components architecture 20 established that this
     /// library **does not draw an indent guide and cannot**: a guide column at depth *d* is a fact
-    /// about *d* ancestors, and spec §7 refuses all four routes to it. A distinction is a claim
+    /// about *d* ancestors, and all four routes to it are refused. A distinction is a claim
     /// about what a narrowed repertoire can still tell apart on a screen somebody draws; a bit
     /// whose drawing does not exist is not one. `TeeLeft` reaching no screen was the symptom, and
     /// the components-side gate that would have caught it was passing vacuously because it read
@@ -639,8 +639,8 @@ pub use crate::ctx::Interest;
 
 /// The glyphs a theme spells for a component, so that no component owns a fallback table.
 ///
-/// **Twenty entries**, grown from seven by components ticket 05, which declares the demand set (spec
-/// §16, ADR 0032). **The theme owns the table because there was nowhere else to put one** — nine
+/// **Twenty entries**, grown from seven when the demand set became a value.
+/// **The theme owns the table because there was nowhere else to put one** — nine
 /// crates of twelve grew a private `mod missing` with six glyph literals and a `match` on
 /// `GlyphSet`, byte-identical in all nine.
 ///
@@ -656,12 +656,12 @@ pub use crate::ctx::Interest;
 /// | cut | [`Glyph::Ellipsis`] | `~` |
 ///
 /// **The nine box-drawing entries all spell `+` at ASCII on purpose**, which is exactly the 36 of
-/// 190 glyph pairs §16 measures collapsing there — `9 × 8 / 2`, and every one of them inside one
+/// 190 glyph pairs measured collapsing there — `9 × 8 / 2`, and every one of them inside one
 /// family. A corner collapsing onto a corner loses nothing; a corner collapsing onto an arrow would
 /// be C09's defect, and that is why the gate the component crate keeps is **cross-family** collapse
 /// and not the pairwise version.
 ///
-/// **The arrows are one family serving two mechanisms.** §9's scrollbar steppers and §7's disclosure
+/// **The arrows are one family serving two mechanisms.** Scrollbar steppers and disclosure
 /// markers are the same four ends, and entering them twice under two names would be a collapse the
 /// pair gate catches rather than two useful entries.
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Hash)]
@@ -802,7 +802,7 @@ impl Glyph {
 /// A restyle written over **roles**, which is the only kind a component can write.
 ///
 /// The engine's own `Restyle` cannot be passed through: its fields are `Option<Color>`, and a `Color`
-/// is exactly what ADR 0018 forbids a component to name. The attribute masks are the engine's `u16`
+/// is exactly what a component may not name. The attribute masks are the engine's `u16`
 /// unchanged, mirrored as constants here so a component never names `Restyle` either.
 ///
 /// **A component names a role and nothing else**, which is where the third compile outcome lives.
@@ -860,7 +860,7 @@ pub struct Repaint<'a> {
     /// [`Link::None`] clears it and `None` leaves it alone. **The URI is the datum**, which is what
     /// gives this descriptor its lifetime: the engine interns it at the verb, so a component names
     /// the address it already has instead of a handle it would have had to get from somewhere it
-    /// cannot reach. See engine architecture ticket 21, and the note where `Ctx::link` used to be
+    /// cannot reach. See the note where `Ctx::link` used to be
     /// explained why it could not exist.
     pub link: Option<Link<'a>>,
 }
@@ -965,7 +965,7 @@ pub struct Theme {
     tier: ColorDepth,
     /// Whether [`Theme::resolve`] has been called.
     ///
-    /// **Not derivable from `tier`**, and components ticket 05 is where that stopped being an
+    /// **Not derivable from `tier`**, and that stopped being an
     /// implementation detail. `ColorDepth::None` is both *nobody has said* and *a terminal with no
     /// colour*, and while every distinction was carried on the colour axis the two answered the
     /// same — an unresolved theme claimed nothing, and so did a monochrome one. Seven of the ten
@@ -980,9 +980,9 @@ pub struct Theme {
 /// Catppuccin Mocha, as base16. The default palette, and **data rather than a decision** — no gate
 /// here reads a literal from it.
 ///
-/// **Components ticket 05 was expected to replace it and deliberately did not.** It grew the glyph
+/// **The work that grew the glyph table deliberately left it alone.** It grew the glyph
 /// table and the distinction set, and the only reason to have swapped the palette as well would have
-/// been to make spec §16's `1 / 2 / 13 of 78` reproduce — which is tuning the data until the report
+/// been to make an old `1 / 2 / 13 of 78` reproduce — which is tuning the data until the report
 /// prints the remembered number. The pair count is gated as a **relation** for exactly that reason,
 /// and what the shipped palette actually measures (`0 / 0 / 18`) is recorded beside the expectation
 /// in `crates/vitui-components/examples/glyph_numbers.rs` rather than engineered away.
@@ -1048,7 +1048,7 @@ impl Theme {
     /// Declare a glyph repertoire. **Declared, never probed**.
     ///
     /// It re-narrows the [`Distinction`] bits, because six of the nine are carried by a glyph pair
-    /// and the repertoire is half of what ADR 0032's *both axes* names. **Order is therefore not
+    /// and the repertoire is half of what *both axes* names. **Order is therefore not
     /// load-bearing**: `with_glyphs(..).resolve(..)` and `resolve(..).with_glyphs(..)` reach the same
     /// theme, which the version that narrowed only inside `resolve` did not.
     pub fn with_glyphs(mut self, set: GlyphSet) -> Theme {
@@ -1061,7 +1061,7 @@ impl Theme {
     /// Every [`Distinction`] bit, from the palette as it arrives at the terminal and the repertoire
     /// as it was declared.
     ///
-    /// ADR 0032's sentence as arithmetic: a distinction with a glyph carrier is set when the declared
+    /// The rule as arithmetic: a distinction with a glyph carrier is set when the declared
     /// repertoire spells its two glyphs differently, and one without a carrier is set by the rule
     /// over the quantised roles. **An unresolved theme is zero**, which is the conservative answer:
     /// a theme nobody has told about the terminal must not promise a component anything.
@@ -1139,7 +1139,7 @@ impl Theme {
     /// **The verb that discharges it is [`Theme::colours_differ_on_wire`]**, and it is here because
     /// this sentence stood for four tickets with nothing to answer it: the one question the surface
     /// had about the wire was over the thirteen **roles**, and a `custom` cell is outside them by
-    /// construction. Runtime architecture issue 34.
+    /// construction.
     ///
     /// **It is a per-call cost and not a lookup.** [`Theme::paint`] reads an array; this builds a
     /// style. A component that calls it per cell is paying per cell, so a component that calls it at
@@ -1243,10 +1243,10 @@ impl Theme {
     /// because the one caller [`Theme::custom`]'s obligation is addressed to is the one caller the
     /// role-pair question cannot serve: **a paint made from two `Rgb` is outside the thirteen roles
     /// by construction**, so the branch `custom` says the component owes had nothing to branch on.
-    /// Runtime architecture issue 34, found by the first screen in the workspace whose every cell is
+    /// Found by the first screen in this workspace whose every cell is
     /// `custom`.
     ///
-    /// # It publishes no index, which is what keeps ADR 0007 intact
+    /// # It publishes no index, and that is what keeps the honesty rule intact
     ///
     /// *Do these two look the same* is a fact a component may act on. *Which index this landed on*
     /// is not — nothing in this process may read the sixteen colours the terminal is configured
@@ -1282,7 +1282,7 @@ impl Theme {
         }
     }
 
-    /// Whether the page is dark. Ticket 13's scrim reads this and nothing else mints it.
+    /// Whether the page is dark. An overlay scrim reads this and nothing else mints it.
     pub const fn is_dark(&self) -> bool {
         self.dark
     }
@@ -1396,7 +1396,7 @@ impl Theme {
 ///
 /// Both of these read the wire arithmetic a role landed on rather than whether two roles agree, and
 /// that is a different kind of answer: `roles_differ_on_wire` is a fact a component may act on, an
-/// index is a fact ADR 0007 says nothing in this process may act on. They exist so that the
+/// index is a fact nothing in this process may act on. They exist so that the
 /// operator-palette gate in [`registry`] can merge two buckets and re-take the count, which is the
 /// only way *a sixteen-colour count is a lower bound* becomes mechanical instead of a caveat.
 #[cfg(test)]
@@ -1587,7 +1587,7 @@ mod tests {
     }
 
     /// **The pair count is a relation, not an equality**, because the number belongs to the palette
-    /// and components ticket 05 replaces the palette.
+    /// and a later palette replaces this one.
     ///
     /// What is gated is the shape: narrowing never *adds* a distinction, and no colour at all
     /// collapses everything a colour could have carried.
@@ -1693,13 +1693,13 @@ mod tests {
     /// the palette does not require it to be.**
     ///
     /// [`Theme::resolve`] sets `Fade` when the hover pair differs **and** the tier is truecolor, so
-    /// the bit is false below truecolor by construction. Spec §15 describes something narrower —
+    /// the bit is false below truecolor by construction. An earlier sketch was narrower —
     /// *338 themes can show a hover state at C256 and **165** can show the animation into it* — which
     /// is a statement about palettes, and no palette can reach it through a rule that names the tier.
     /// Over the shipped fourteen the split is therefore 14 / 0 at 256 colours rather than a
     /// proportion.
     ///
-    /// It is measured here and **not changed here**, because the rule is ticket 04's, is shipped,
+    /// It is measured here and **not changed here**, because the rule is shipped,
     /// documented and gated, and this backlog does not reopen a decision inside another ticket. What
     /// this test pins is the size of the gap, so that whoever does reopen it starts from a number:
     /// the default palette's two face backgrounds are two steps of the grey ramp apart, and the ramp
@@ -1879,15 +1879,15 @@ mod tests {
     }
 
     /// **The table is twenty entries and the distinction set is nine**, which are the two
-    /// denominators spec §16's matrix reports against.
+    /// denominators the distinction matrix reports against.
     ///
-    /// A count rather than a sentence, because the whole of components ticket 05 is that the demand
-    /// set is a value: the day an entry is added without §16 moving, the number a report divides by
+    /// A count rather than a sentence, because the demand set is a value: the day an entry is added
+    /// without the matrix moving, the number a report divides by
     /// stops being the number it prints.
     ///
-    /// **The distinction set was ten until components architecture 25**, which struck
+    /// **The distinction set was ten until a later decision** struck
     /// `Distinction::Guide`. The **table** did not move with it: the five box junctions stay,
-    /// because they are what a table's caller spells to draw the separators §6 gives it, and an
+    /// because they are what a table's caller spells to draw its separators, and an
     /// entry a caller needs in order to degrade with the theme is not a claim about what any
     /// component draws. The two counts moving apart is the point — they answer different questions.
     #[test]
@@ -1917,7 +1917,7 @@ mod tests {
     /// `(VLine, TeeLeft)` and whose drawing — a tree's indent guide — components architecture 20
     /// established this library does not make.
     ///
-    /// ADR 0032's sentence as a count. The gate is the *partition*, not the membership: a
+    /// The rule as a count. The gate is the *partition*, not the membership: a
     /// distinction quietly losing its carrier would go on reading as carried on both axes while
     /// being carried on one.
     #[test]
@@ -2140,9 +2140,9 @@ mod seam {
     ///
     /// What is asserted is therefore the part that is a property of the mechanism: **a traffic light
     /// loses at least one of its two distinctions**, and it had both at truecolor. Which pair goes is
-    /// palette data, and spec §20's own rule is that a number belonging to the data must be a relation
+    /// palette data, and a number belonging to the data must be a relation
     /// rather than an equality — so asserting `(Danger, Warn)` here would be a gate that gets edited
-    /// when components ticket 05 replaces the palette, rather than one that gets fixed.
+    /// when a later palette replaces this one, rather than one that gets fixed.
     #[test]
     fn a_traffic_light_loses_a_distinction_at_sixteen_colours() {
         use super::{ColorDepth, Role, Theme};
@@ -2168,7 +2168,7 @@ mod seam {
 
     /// **The colour-pair question agrees with the role-pair question wherever both can be asked.**
     ///
-    /// Runtime architecture issue 34. `roles_differ_on_wire` compares three cached keys minted at
+    /// `roles_differ_on_wire` compares three cached keys minted at
     /// `resolve`; `colours_differ_on_wire` mints one live. Two derivations of one fact, and the join
     /// is the pairs of roles that share a ground and an attribute set — over those, the two verbs
     /// must never disagree, which is what catches the arm that forgets `self.tier` and asks
@@ -2177,7 +2177,7 @@ mod seam {
     /// **Sixty-nine of the hundred and sixty-nine role pairs qualify** on the shipped default —
     /// the rest carry a different ground or a different attribute set — so the join is a real
     /// fraction of the matrix rather than a corner, and the floor below is a relation because which
-    /// pairs qualify is palette data (spec §20's own rule).
+    /// pairs qualify is palette data.
     #[test]
     fn the_colour_pair_question_agrees_with_the_role_pair_question() {
         use super::{ColorDepth, Role, Theme};

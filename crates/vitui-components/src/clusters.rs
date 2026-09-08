@@ -15,7 +15,7 @@
 //!
 //! # `graphemes()` is unreachable from this crate, and that is a finding rather than an obstacle
 //!
-//! Spec §11's mechanism is a caret *moved in cluster steps*, and a cluster step needs segmentation.
+//! The mechanism is a caret *moved in cluster steps*, and a cluster step needs segmentation.
 //! `vitui_engine::graphemes` is the engine's own forward iterator, and what
 //! `vitui-runtime` re-exports of it is **nothing**: `vitui_runtime::layout::text` ships [`width`],
 //! `wrap`, `wrap_height` and [`truncate`], and `crate::line::ENGINE_NAMES` is a list of *types* —
@@ -66,7 +66,7 @@
 //! whole cycles that is 166. **Padding to 166 was refused**: a corpus with a hand-added cluster on
 //! the end is a corpus tuned to a remembered number, which is the move this repository forbids by
 //! name. See [`crate::document::CORPUS_CLUSTERS`] for the rest of the arithmetic, including the one
-//! part of §11's figure that reproduces exactly and is not a measurement at all.
+//! part of the figure that reproduces exactly and is not a measurement at all.
 
 use vitui_runtime::layout::text::{truncate, width};
 
@@ -240,7 +240,7 @@ pub const ROTA: [Word; 8] = [
 /// **How many whole turns of [`ROTA`] the corpus is. Seven.**
 ///
 /// Chosen because seven turns is the smallest whole number of them that puts the cluster count
-/// within two of §11's 166, and a *partial* turn is a sampled corpus — the one thing the ticket says
+/// within two of the 166, and a *partial* turn is a sampled corpus — the one thing the ticket says
 /// the corpus may not be. The exact count is [`Corpus::len`] and the difference is written down
 /// rather than closed.
 pub const CYCLES: usize = 7;
@@ -322,7 +322,7 @@ impl Corpus {
     }
 
     /// **Whether `byte` is a cluster boundary**, answered from the construction and not from the
-    /// tables. Spec §11's first gate, as a question.
+    /// tables. The first gate, as a question.
     pub fn is_boundary(&self, byte: usize) -> bool {
         self.boundaries.binary_search(&byte).is_ok()
     }
@@ -435,9 +435,9 @@ pub fn next_cluster(rest: &str) -> Option<&str> {
 
 /// **Every boundary of `s`, walked forward from byte 0 with [`next_cluster`].** Derivation 2.
 ///
-/// O(clusters) probes and O(bytes) work, which is what §11's *segmenting forward from one already
+/// O(clusters) probes and O(bytes) work, which is what *segmenting forward from one already
 /// known* costs when the one already known is the start of the string. That it has to start
-/// somewhere is the whole of §11's index argument.
+/// somewhere is the whole of the index argument.
 pub fn boundaries_by_probe(s: &str) -> Vec<usize> {
     let mut out = vec![0usize];
     let mut at = 0usize;
@@ -572,7 +572,7 @@ mod tests {
         assert_eq!(built[built.len() - 1], corpus.text().len());
     }
 
-    /// **The column of every boundary is the engine's tables over the prefix.** §11's second gate,
+    /// **The column of every boundary is the engine's tables over the prefix.** The second gate,
     /// checked over the corpus that is the corpus rather than over a sample.
     #[test]
     fn every_boundary_column_is_the_engines_tables_over_the_prefix() {
@@ -588,7 +588,7 @@ mod tests {
 
     /// **`inside == chars − clusters` is arithmetic, and it reproduces exactly.**
     ///
-    /// §11's *51 of 217* reads as a third measurement beside *166*. It is not one: it holds for
+    /// *51 of 217* reads as a third measurement beside *166*. It is not one: it holds for
     /// every string, and the case below is a two-cluster string with the answer worked out by hand.
     #[test]
     fn the_inside_landings_are_arithmetic_over_the_other_two_figures() {

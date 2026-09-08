@@ -1,22 +1,22 @@
 //! **F11 media**, 16 entries, expressed by a picture as `Solid`/`Half`, QR, barcode, the audio
 //! three, and six parts of a video player's chrome — and **no v1 component**.
 //!
-//! The reduction is R4 with §14's one correction, which is the correction that matters: **a
+//! The reduction is R4 with the one correction, which is the correction that matters: **a
 //! picture's ladder is a colour ladder, not a glyph ladder**, so the image, the gallery, the
 //! lightbox and the avatar degrade along a different axis and reach a floor of *nothing* rather
 //! than a floor of *worse*.
 //!
 //! Terminal-native fidelity, video and camera preview are the residue and the engine map owns them:
-//! the engine emits no out-of-band bytes, and §14 splits the reason in two — **a preview pane's
+//! the engine emits no out-of-band bytes, and the reason splits in two — **a preview pane's
 //! picture fails for fidelity and a video's for bandwidth**, 24.6 MB/s at truecolor as a lower
 //! bound.
 //!
-//! `file_preview_pane` declares this family — §18's F12 row says picture fidelity inherits F11 —
+//! `file_preview_pane` declares this family — F12 row says picture fidelity inherits F11 —
 //! and is homed under F12.
 //!
 //! # Nothing here is a row of the freeze, and that is why [`MEMBERS`] is empty
 //!
-//! [`crate::INVENTORY`] has **no media row at all**, which is §14's own *no v1 component* as a
+//! [`crate::INVENTORY`] has **no media row at all**, which is the original's *no v1 component* as a
 //! value: F11's sixteen survey entries reduce to constructions rather than to components, and
 //! `file_preview_pane` — the one row that names this family — is homed under F12. So this module
 //! ships the family and [`MEMBERS`] stays empty, and
@@ -26,11 +26,11 @@
 //! # The census is the component's own obligation, and it is why every `_into` takes one
 //!
 //! [`Theme::custom`] asks in as many words for *a component that calls it at all to publish its own
-//! call census*, and §14 makes that census what the family is legible as a count by: a picture
+//! call census*, and that census is what the family is legible as a count by: a picture
 //! spends one a cell, a QR spends [`QR_CUSTOMS`], a barcode [`BARCODE_CUSTOMS`], and the audio three
 //! spend **zero**, because their colours are roles. A [`Census`] is threaded through the `_into`
 //! forms for the same reason an [`Ink`] is — *a number a gate cannot read is a number nobody is
-//! keeping* — and the four figures are one gate rather than four, because what §14 states is the
+//! keeping* — and the four figures are one gate rather than four, because what is stated is the
 //! **contrast**.
 //!
 //! # None of these declares an interactive region except the chrome
@@ -59,7 +59,7 @@ pub mod player;
 
 /// **How many colours a cell carries, whatever glyph it holds. Two.**
 ///
-/// The whole of why §13's ladder does not apply. A plot puts one *bit* per sub-cell and spells the
+/// The whole of why the ladder does not apply. A plot puts one *bit* per sub-cell and spells the
 /// bitmask with a glyph, so a rung that buys more sub-cells buys more resolution; a picture puts a
 /// *colour* in every sub-cell, and a cell is a foreground and a background and nothing else. So the
 /// sub-cells a rung offers are a **ceiling this number is below** at every rung above the first.
@@ -72,7 +72,7 @@ pub const COLOURS_PER_CELL: u8 = 2;
 /// [`crate::gates::REGISTER`]'s row 26 is *`GlyphSet::` in `vitui-components` == 0*, with exactly
 /// one named exception — [`crate::chart::raster::geom`], held to three lines. A picture needs the
 /// same fact that exception already carries, and taking it from there rather than writing a second
-/// `match` is what keeps the exception at one. §21's refinement 3 is *name the exception, do not
+/// `match` is what keeps the exception at one. The refinement 3 is *name the exception, do not
 /// loosen the gate*; a second file would have been a second exception argued from the first one's
 /// argument.
 ///
@@ -105,7 +105,7 @@ pub fn picture_geom(set: GlyphSet) -> Geom {
     }
 }
 
-/// **How many constructions a picture is. Three**, and §17's `constructions: 1..=3` holds.
+/// **How many constructions a picture is. Three**, and `constructions: 1..=3` holds.
 ///
 /// They are reached along **two different axes**, which is why the number is not simply the ladder's
 /// length:
@@ -207,7 +207,7 @@ pub enum Palette {
     Roles,
 }
 
-/// [`picture`]'s options. Spec §1's rule 3: a `Default` struct, never a required builder.
+/// [`picture`]'s options. rule 3: a `Default` struct, never a required builder.
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
 pub struct PictureOpts {
     /// Where the cells take their paint from.
@@ -237,7 +237,7 @@ pub const ROLE_RAMP: [Role; 13] = [
 /// **The one line in this crate's media family that calls [`Theme::custom`].**
 ///
 /// `crate::chart`'s `the_series_palette_is_six_customs_and_the_crate_holds_no_style_literal` counts
-/// the *calling lines*, because §16 asks for one palette decided in one place and a second line is
+/// the *calling lines*, because one palette is decided in one place and a second line is
 /// a second palette. This family has three constructions whose colours are outside the theme — a
 /// picture's pixels, a QR's two and a barcode's two — and **not one of them is a palette**: the
 /// first is data and the other two are specifications. So they share one line, and a fourth
@@ -251,7 +251,7 @@ fn luma(v: Rgb) -> u32 {
     (2 * u32::from(v.r) + 4 * u32::from(v.g) + 3 * u32::from(v.b)) / 9
 }
 
-/// **A picture, filling the rectangle it was handed.** Spec §1's pure drawer, and the one component
+/// **A picture, filling the rectangle it was handed.** The pure drawer, and the one component
 /// on this map whose every cell is outside the theme.
 ///
 /// ```
@@ -399,7 +399,7 @@ pub const QR_CUSTOMS: u64 = 4;
 /// two of a QR's four states are unreachable. It is [`COLOURS_PER_CELL`] read from the other end.
 pub const BARCODE_CUSTOMS: u64 = 2;
 
-/// The four paints a QR spends. §14: *not because it has too many distinctions but because it has
+/// The four paints a QR spends: *not because it has too many distinctions but because it has
 /// exactly two and they must be those two, which no theme can promise.*
 #[derive(Clone, Copy, Debug)]
 pub struct QrPaints {
@@ -680,9 +680,9 @@ pub fn barcode_into<I: Ink>(
 
 /// **The bar ladder a bottom-anchored column climbs: 1 / 8 / 8.**
 ///
-/// [`crate::chart::raster::geom`] verbatim, which is §14's *the audio half adds no mechanism and no
+/// [`crate::chart::raster::geom`] verbatim, which is *the audio half adds no mechanism and no
 /// construction* as a call rather than as a sentence. A waveform, a spectrum and a VU meter are all
-/// prefixes of a column, so §13's ladder applies with nothing added.
+/// prefixes of a column, so the ladder applies with nothing added.
 fn bar_rows(set: GlyphSet) -> u8 {
     geom(Kind::Bars, set).sy
 }
@@ -827,7 +827,7 @@ pub fn spectrum_into<I: Ink>(
 /// Three roles and **zero customs**: [`Role::Ok`] below the warning line, [`Role::Warn`] above it,
 /// [`Role::Danger`] above the clip line. The peak is the caller's — a meter that held its own peak
 /// would need a clock, which is the mechanism `crate::media::player::Needs::Clock` names and
-/// components ticket 42 owns.
+/// the indicator family owns.
 #[track_caller]
 pub fn vu_meter(cx: &mut Ctx<'_, '_>, area: Rect, levels: &[f32]) -> Response {
     vu_meter_with(cx, area, levels, &mut Census::default())
@@ -1014,7 +1014,7 @@ pub mod defective {
 
 /// **Why there is no wallpaper here, and why the reason is not the engine's.**
 ///
-/// The survey's boldest ✅ in this family is a background image, and §14 agrees with it about the
+/// The survey's boldest ✅ in this family is a background image, and the design agrees about the
 /// engine and disagrees about the seam. **No engine change is needed**: `LayerKind::Content
 /// { opaque }` and the `EMPTY`-skipping blit already exist, and built on the engine's own
 /// `composite` the still-screen damage is the application's own, unchanged, and the frame is
@@ -1037,7 +1037,7 @@ pub mod defective {
 ///
 /// First in the base pass is the only place a component can put a wallpaper, and there the wallpaper
 /// and the UI overwrite each other's cells every frame: a **still** screen re-damages **24 000 cells
-/// against 1 076** and costs **407 µs against 14**. That is §2's partition rule in a form
+/// against 1 076** and costs **407 µs against 14**. That is the partition rule in a form
 /// **reordering cannot fix**, because a wallpaper must be drawn first by definition.
 ///
 /// And the number the survey's ✅ is really a claim about: an application shows **20 093 of 24 000
@@ -1081,11 +1081,11 @@ mod tests {
         (tally, census)
     }
 
-    /// **§14's census as a contrast, which is what makes it a gate rather than four numbers.**
+    /// **The census as a contrast, which is what makes it a gate rather than four numbers.**
     ///
     /// A picture spends one [`Theme::custom`] a cell, a QR spends four however many modules it has,
     /// a barcode spends two, and the audio three spend **none at all**. The four are asserted
-    /// together because what §14 states is the *split in the family*, and any one of them alone is
+    /// together because what is stated is the *split in the family*, and any one of them alone is
     /// a number with nothing to be surprising against.
     #[test]
     fn the_custom_census_is_one_a_cell_then_four_then_two_then_none() {
@@ -1153,7 +1153,7 @@ mod tests {
         }
     }
 
-    /// **The audio three take §13's ladder verbatim**, which is `1 / 8 / 8` and not a second table.
+    /// **The audio three take the ladder verbatim**, which is `1 / 8 / 8` and not a second table.
     #[test]
     fn the_audio_half_climbs_the_bar_ladder_and_adds_no_rung_of_its_own() {
         assert_eq!(
@@ -1174,7 +1174,7 @@ mod tests {
     /// **Every drawer here writes a partition of its rectangle**, at four sizes, including the two
     /// where the subject is smaller than the rectangle it was handed.
     ///
-    /// §2, and the two interesting arms are the symbols: a QR at two modules a cell fills eleven of
+    /// The partition rule, and the two interesting arms are the symbols: a QR at two modules a cell fills eleven of
     /// twenty-one rows and a barcode's pattern is shorter than its band, so both have a remainder —
     /// and for a QR that remainder is the **quiet zone the specification asks for**, which is the
     /// one place on this map where the partition rule and the subject's own standard are the same
@@ -1249,7 +1249,7 @@ mod tests {
     ///    read one pixel each, so it is **one** construction and not two — which is what turns
     ///    `2 x 2` into `2 + 1`.
     ///
-    /// §17's `constructions: 1..=3` therefore holds with nothing to spare, and a fourth spelling is
+    /// The `constructions: 1..=3` therefore holds with nothing to spare, and a fourth spelling is
     /// a visible edit rather than a quiet one.
     #[test]
     fn a_picture_is_three_constructions_because_the_two_axes_are_not_independent() {

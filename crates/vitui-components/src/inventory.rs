@@ -1,4 +1,4 @@
-//! Spec §17's v1 freeze as a value: twenty-nine components in three tiers, eleven columns each.
+//! The v1 freeze as a value: twenty-nine components in three tiers, eleven columns each.
 //!
 //! > **Every obligation this map has stated as a sentence has been broken by someone who had read
 //! > it.**
@@ -26,7 +26,7 @@
 //!
 //! - [`MOVED`] — the exception list the `built` column is gated against. §17: *nothing is `built`
 //!   at a tier that says otherwise **without the row saying so***, and this is the row saying so.
-//! - [`COMPOSITIONS`] — the edges of the L0..L5 graph. A `layer` column alone makes the DAG
+//! - [`COMPOSITIONS`] — the edges of L0..L5 graph. A `layer` column alone makes the DAG
 //!   *sayable* and not *checkable*: a gate needs edges to refuse, and the spec states them one
 //!   section at a time (`table` = `collection` + column rectangles, `chart` over `plot`, `form` =
 //!   `field` + a cursor). Only stated edges are here; inventing one to make the gate look busier is
@@ -40,7 +40,7 @@ use vitui_runtime::Glyph;
 
 use crate::Family;
 
-/// Which of §17's three tiers a component was frozen at.
+/// Which of the three tiers a component was frozen at.
 ///
 /// **The tier is part of the freeze** (C10, C11) and a product call can move the boundary; it
 /// cannot move the column. See [`Component::built`] for what happens when a later ticket disagrees
@@ -60,11 +60,11 @@ pub enum Tier {
     Three,
 }
 
-/// One of `COMPONENT-HIERARCHY.md` §4's six layers.
+/// One of `COMPONENT-HIERARCHY.md` the six layers.
 ///
 /// > **A component is one of six layers and may depend only on lower ones**.
 ///
-/// Read strictly, that sentence refuses spec §6's own `table` = `collection` + column rectangles —
+/// Read strictly, that sentence refuses the `table` = `collection` + column rectangles —
 /// `architecture.md` puts both at L2 and §6 states the edge. So the gate implements this ticket's
 /// wording instead, which is the wording that survives contact with the spec's own compositions:
 /// **an edge from a lower layer to a higher one is refused**, same-layer edges are allowed, and
@@ -107,7 +107,7 @@ pub enum Axis {
     /// **Shrunk.** The stale tail: **71 of 80 rows** left on screen, the defective build **2.3x
     /// faster marking 226x less**.
     ///
-    /// Spelled *content shrinking inside a rectangle that does not move*, which is §21's own
+    /// Spelled *content shrinking inside a rectangle that does not move*, which is the original's
     /// correction: the version written against a terminal resize passes on all twelve panels
     /// because `Gallery::resize` allocates a new `Surface` and the residue has nowhere to survive.
     /// **That spelling tests the resize path and not the defect.**
@@ -115,7 +115,7 @@ pub enum Axis {
     /// **Wheeled.** The unconditional scroll-into-view: **twenty wheel clicks move the offset 0
     /// against 16**, in four resolved tickets' code and in a rule `CONTEXT.md` already carried.
     Wheeled,
-    /// **Narrow.** §13's overlap is **green at 300x80 and red at 60x20** — the one axis on which a
+    /// **Narrow.** The overlap is **green at 300x80 and red at 60x20** — the one axis on which a
     /// component's construction changes rather than its contents.
     Narrow,
 }
@@ -135,9 +135,9 @@ impl Axis {
     }
 }
 
-/// One row of spec §17's freeze.
+/// One row of the freeze.
 ///
-/// The eleven columns are §17's, in §17's order. Three facts that would otherwise want a twelfth
+/// The eleven columns are §17's, in the order. Three facts that would otherwise want a twelfth
 /// live beside the list instead — see this module's header.
 #[derive(Clone, Copy, Debug)]
 pub struct Component {
@@ -155,7 +155,7 @@ pub struct Component {
     /// disagreement is an assertion with both names in it rather than a contradiction between two
     /// documents.
     pub built: bool,
-    /// Its rung in the L0..L5 dependency graph. See [`Layer`] and [`COMPOSITIONS`].
+    /// Its rung in L0..L5 dependency graph. See [`Layer`] and [`COMPOSITIONS`].
     pub layer: Layer,
     /// Every family it expresses. **The first is its home**, and the module tree joins on it.
     pub families: &'static [Family],
@@ -183,7 +183,7 @@ pub struct Component {
     /// `tree` needed no new entry of its own: its chevron pair *is* `ArrowDown`/`ArrowRight`.
     ///
     /// **The column is what a component draws, and components architecture 20 is where that stopped
-    /// being an assumption.** It had also carried §16's *allocation* — which row owns which entry of
+    /// being an assumption.** It had also carried *allocation* — which row owns which entry of
     /// the table — and the two readings are the same sentence only while every allocated entry has
     /// a drawer. Four did not: `tree`'s three indent guides and `select`'s stepper `ArrowUp`, struck
     /// there. [`crate::glyphs::UNDRAWN`] is the disagreement that is left, held as a table rather
@@ -252,16 +252,16 @@ impl Component {
 pub struct Moved {
     /// The component's id.
     pub id: &'static str,
-    /// What moved, in §17's own words.
+    /// What moved, in the words.
     pub why: &'static str,
 }
 
 /// The rows §17 records as built at a tier that says otherwise.
 ///
-/// **Three of them are Tier 3's and two mechanisms**, which is why §17's sentence reads *two of the
+/// **Three of them are Tier 3's and two mechanisms**, which is why the sentence reads *two of the
 /// four have since moved*: drag capture is one mechanism and C16's pair is the other. What remains
 /// genuinely at risk is `spinner`, whose mechanism is *a component that owns a clock* — prototyped
-/// nowhere on the map, still §22's, and ticket 42's to build.
+/// nowhere on the map, still §22's, and the original's to build.
 ///
 /// # The other six are Tier 2's, and they are here because the gate's vocabulary has no other word
 ///
@@ -272,10 +272,10 @@ pub struct Moved {
 /// definition is *composed of proved mechanisms* and says nothing about whether anybody has written
 /// it yet.
 ///
-/// So building a Tier 2 row is an ordinary event in §17's vocabulary and an exception in the gate's,
+/// So building a Tier 2 row is an ordinary event in the vocabulary and an exception in the gate's,
 /// and ticket 35 will make it nine of nine — at which point this list is *every row that is not
 /// Tier 1 and is built*, which is what the column already says. **Recorded rather than bent**: the
-/// alternative is promoting six rows into Tier 1, and §17's freeze table is a value a test counts.
+/// alternative is promoting six rows into Tier 1, and the freeze table is a value a test counts.
 pub const MOVED: &[Moved] = &[
     Moved {
         id: "slider",
@@ -354,7 +354,7 @@ pub const MOVED: &[Moved] = &[
     },
 ];
 
-/// One stated edge of the L0..L5 graph: `of` is built on `on`.
+/// One stated edge of L0..L5 graph: `of` is built on `on`.
 ///
 /// `source` is the section that states it. **Only stated edges are here.** A component's real call
 /// graph is larger — every Tier 2 row is *composed of proved mechanisms* — but a mechanism is not a
@@ -447,11 +447,11 @@ pub const COMPOSITIONS: &[Composition] = &[
     },
 ];
 
-/// Spec §17's v1 freeze: **twenty-nine components in three tiers**, sixteen, nine and four.
+/// The v1 freeze: **twenty-nine components in three tiers**, sixteen, nine and four.
 ///
 /// # Six collapses are folded in, five measured and one a judgement
 ///
-/// A collapse under §18's R1 — *it is one of the twenty-nine under another name* — is only
+/// A collapse under R1 — *it is one of the twenty-nine under another name* — is only
 /// legitimate when a ticket measured it. §17 records six:
 ///
 /// | collapse | where it was measured |
@@ -479,10 +479,10 @@ pub const COMPOSITIONS: &[Composition] = &[
 ///
 /// # The columns, and where each came from
 ///
-/// - `tier`, `built` — §17's freeze table and its three moved rows ([`MOVED`]).
-/// - `layer` — `COMPONENT-HIERARCHY.md` §4 through spec §1, with `architecture.md` §4's per-item
+/// - `tier`, `built` — the freeze table and its three moved rows ([`MOVED`]).
+/// - `layer` — `COMPONENT-HIERARCHY.md` §4 through spec §1, with `architecture.md` the per-item
 ///   assignments where it made them (`plot` an L0 leaf, `collection` L2, `scroll_area` L3).
-/// - `families` — §18's family-by-family table. The first is the home; see [`crate::Family`].
+/// - `families` — the family-by-family table. The first is the home; see [`crate::Family`].
 /// - `glyphs` — the nameable part of each demand set. Ticket 05 owns the size (see
 ///   [`Component::glyphs`]).
 /// - `constructions` — `CONTEXT.md`'s three rungs (see [`Component::constructions`]).
@@ -1120,7 +1120,7 @@ mod tests {
     /// **Twenty-nine rows: sixteen, nine and four.**
     ///
     /// The split is asserted and not only the total, which is the engine's arrangement and for its
-    /// reason: a thirtieth row has to say which side of a line it is on. §17's own arithmetic is
+    /// reason: a thirtieth row has to say which side of a line it is on. The arithmetic is
     /// what makes the count worth gating — the inherited set was *32, not 33*, a sum presented as a
     /// union and repeated in four documents, and `scrollbar` was in both halves of it.
     #[test]
@@ -1140,10 +1140,10 @@ mod tests {
         );
     }
 
-    /// **The freeze, row for row, against §17's table.**
+    /// **The freeze, row for row, against the table.**
     ///
     /// A count alone would pass on twenty-nine rows all named `text`. This is the membership, in
-    /// §17's own order and spelling.
+    /// The order and spelling.
     #[test]
     fn every_row_of_the_freeze_is_one_of_the_names_seventeen_froze() {
         const TIER_ONE: [&str; 16] = [
@@ -1194,10 +1194,10 @@ mod tests {
     /// **`built` is gated against the tier, and the exception is named rather than the gate
     /// loosened.**
     ///
-    /// §21's third refinement, applied to a column instead of a threshold. The rule is *nothing is
+    /// The third refinement, applied to a column instead of a threshold. The rule is *nothing is
     /// `built` at a tier that says otherwise **without the row saying so***, so this is not *built
     /// implies Tier 1*: it is *built implies Tier 1 or a row of [`MOVED`]*, and [`MOVED`] carries
-    /// what moved in §17's own words. Three rows use the exception and one Tier 3 row does not —
+    /// what moved in the words. Three rows use the exception and one Tier 3 row does not —
     /// `spinner`, which is the point of keeping the tier when the column disagrees with it.
     #[test]
     fn nothing_is_built_at_a_tier_that_says_otherwise_without_the_row_saying_so() {
@@ -1297,7 +1297,7 @@ mod tests {
     /// # The needle is the name and the boundary is either delimiter
     ///
     /// A join over twenty-nine rows cannot dictate nineteen signatures. `pub fn picture(` could
-    /// never have matched the shipped `pub fn picture<P: Pixels>(` — components ticket 30's finding,
+    /// never have matched the shipped `pub fn picture<P: Pixels>(` — the finding,
     /// met for the fourth time by ticket 32 — so what this looks for is `pub fn <id>` followed by
     /// **`(` or `<`**, and both spellings are watched being accepted. Anything narrower is a gate
     /// that a type parameter deletes.
@@ -1459,7 +1459,7 @@ mod tests {
     /// The three are the criterion: `chart` 2, `meter` 2, `plot` 3. All three are derived from
     /// `CONTEXT.md`'s rungs — *ASCII only*, *Unicode with box drawing and block elements*,
     /// *everything including braille and emoji* — and from no table in the runtime. §22 records
-    /// `theme::subrows` as putting the eighth blocks at the wrong rung; runtime ticket 17's module
+    /// `theme::subrows` as putting the eighth blocks at the wrong rung; the module
     /// map ships `theme` and `theme::registry` and names no `subrows` at all, so this column is not
     /// waiting on it in either direction.
     #[test]
@@ -1659,7 +1659,7 @@ mod tests {
     /// The criterion asks for a doc comment on [`INVENTORY`] and a doc comment is prose, which is
     /// the shape ADR 0033 exists to distrust. So the test opens this file and reads it: five
     /// collapses that a ticket measured, one that is an argument, and the word `judgement` beside
-    /// the sixth. §17's own sentence is *five measured and one a judgement*, and ticket 34 repeats
+    /// the sixth. The sentence is *five measured and one a judgement*, and ticket 34 repeats
     /// it so that the marking cannot be lost by an edit in one place.
     #[test]
     fn the_six_collapses_are_recorded_and_the_judgement_is_marked() {
@@ -1668,9 +1668,12 @@ mod tests {
             .split_once("pub const INVENTORY")
             .expect("the value is in this file")
             .0;
+        // The needle is the line the value's own doc comment opens with, assembled from halves so
+        // that this test is not itself a place the sentence occurs.
+        let opening = ["/// The v1 ", "freeze:"].concat();
         let doc = doc
-            .rsplit_once("/// Spec §17's v1 freeze")
-            .expect("the doc comment opens with §17's sentence")
+            .rsplit_once(opening.as_str())
+            .expect("the doc comment opens with the freeze's own sentence")
             .1;
 
         for collapse in [
@@ -1766,7 +1769,7 @@ mod tests {
     /// **Occurrences of the repertoire type's path in `vitui-components` == 0, and no private
     /// fallback module.**
     ///
-    /// §17's first glyph gate, green here and **pinned red on the register** — nine crates of
+    /// The first glyph gate, green here and **pinned red on the register** — nine crates of
     /// twelve grew a private fallback module with six glyph literals and a `match` on the
     /// repertoire, byte-identical in all nine. It runs from this ticket because it costs six lines
     /// and because a gate that starts green is the only kind that can catch the first violation
@@ -1783,7 +1786,7 @@ mod tests {
     ///
     /// `CONTEXT.md` says both halves of a collision in two adjacent paragraphs: **Repertoire** — *a
     /// component branches on it* — and **Glyph** — *the sub-cell ladders are the case … a component
-    /// names no repertoire*. [`crate::chart::raster::geom`] is that ladder, and §21's refinement 3
+    /// names no repertoire*. [`crate::chart::raster::geom`] is that ladder, and the refinement 3
     /// says what to do: **name the exception; do not loosen the gate.**
     ///
     /// The exception is argued in **one** place, `crate::gates`'s own scan, which asserts the exact

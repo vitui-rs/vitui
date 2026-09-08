@@ -3,14 +3,14 @@
 //! The reduction is R4 alone, and it is the cleanest of the six: **every warning mark in
 //! this family means one thing** — a shape that is not axis-aligned costs sub-cell rasterisation —
 //! so the donut, the pie, the radar, the violin, the sankey, the treemap and the globe are all the
-//! same rasteriser with a different mapping from data to sub-cells. §13 priced the ladder exactly:
+//! same rasteriser with a different mapping from data to sub-cells. The ladder is priced exactly:
 //! 2 / 16 / 256 states a cell for marks, 2 / 9 / 9 for prefixes.
 //!
-//! This is the family the `constructions` column exists for. §13 measured Unicode against Extended
+//! This is the family the `constructions` column exists for. Unicode was measured against Extended
 //! on the rendered surface: **0 cells differ in the chart pane and 882 in the plot pane**, so the
 //! third rung is `plot`'s alone.
 //!
-//! `meter` and `sparkline` declare this family and are homed under F5 — ticket 34 calls them
+//! `meter` and `sparkline` declare this family and are homed under F5 — they are
 //! `chart`'s prefix construction at two rungs and `chart` at a small rectangle with no axes.
 
 /// The components homed in this module. See [`crate::Family::members`].
@@ -68,7 +68,7 @@ impl Series {
 
     /// **Append one sample to every series, and bump the revision.** The *edit*.
     ///
-    /// This is the only mutating verb on the data, and it is where §13's second sentence lands: the
+    /// This is the only mutating verb on the data, and it is where the second sentence lands: the
     /// frame costs the rectangle and **the edit costs the data**. A push bumps
     /// [`Series::revision`], which misses both memos of the chain — the range because the extremes
     /// may have moved, and the raster because the range is in its key — so a live series pays one
@@ -130,7 +130,7 @@ pub struct Opts {
     pub threshold: Option<f32>,
     /// **Whether the threshold is carried on the glyph axis as well as on the paint axis.**
     ///
-    /// §16's *carried on both axes*, in the place a chart meets it: at sixteen colours `Danger`,
+    /// *carried on both axes*, in the place a chart meets it: at sixteen colours `Danger`,
     /// `Warn` and `Ok` need not differ on the wire, so a threshold carried by a paint alone is
     /// invisible and a rule drawn in `HLine` is not.
     pub threshold_glyph: bool,
@@ -235,10 +235,10 @@ pub fn series_paint(theme: &Theme, i: usize, role_series: bool) -> Paint {
 ///
 /// **Hostile axes:** `narrow`.
 ///
-/// Scene 15: §13's overlap is **green at 300x80 and red at 60x20**, which is the one axis on which a
+/// The overlap is **green at 300x80 and red at 60x20**, which is the one axis on which a
 /// component's construction changes rather than its contents.
 ///
-/// Spec §1's shape — `fn(&mut Ctx, Rect, …) -> Response` — with the data and the plot's own state
+/// The shape — `fn(&mut Ctx, Rect, …) -> Response` — with the data and the plot's own state
 /// in the argument list (rule 2) and an options struct that `Default`s (rule 3).
 ///
 /// A cell is a **prefix** of its column, so its states are ordered and the sub-column axis is
@@ -310,7 +310,7 @@ pub fn chart_into<I: Ink>(
 ///
 /// **Hostile axes:** `narrow`.
 ///
-/// Scene 15, the same screen as [`chart`]'s at 60x20, and the mark ladder is what changes under it.
+/// The same screen as [`chart`]'s at 60x20, and the mark ladder is what changes under it.
 ///
 /// A cell is a **set** of positions, so its states are a power set and both sub-axes are live. The
 /// ladder is **1x1 / 2x2 / 2x4** — 2, 16 and 256 states — and the third rung is `plot`'s alone,
@@ -545,7 +545,7 @@ fn draw<I: Ink>(
 /// threshold's row.
 ///
 /// A struct rather than eight parameters, and it exists because [`crate::indicate::sparkline`] is
-/// this loop with the chrome deleted. Ticket 34's claim about that component is *`chart` at a small
+/// this loop with the chrome deleted. The claim about that component is *`chart` at a small
 /// rectangle, no axes, no gutter, no axis loop* — and a sparkline that had its own copy of the loop
 /// would make the claim untestable, which is `crate::ink`'s argument one file over: a gate written
 /// against a copy of the code tests the copy.
@@ -622,7 +622,7 @@ impl Body {
 ///
 /// **A shared cell can carry only one colour**, which is the third rung's price: a braille cell has
 /// one `Paint` for all eight dots where a quadrant carries a foreground *and* a background. The
-/// per-cell quadrant fallback that would recover it is named in spec §22 and not built.
+/// per-cell quadrant fallback that would recover it is named and not built.
 fn paint_of(owner: u8, series: &[Paint; 6], dim: Paint, threshold: Paint) -> Paint {
     match owner {
         0 => dim,
@@ -694,7 +694,7 @@ mod tests {
 
     /// **The memo is a chain, and a resize invalidates the raster and not the range.**
     ///
-    /// Two memos and not one, which is the whole of §13's sentence as counts: the range is folded
+    /// Two memos and not one, which is the whole of the sentence as counts: the range is folded
     /// **once** over two rectangles, and the raster twice. Folding them together would make a resize
     /// re-read the data, which is the cost the split exists to avoid.
     #[test]
@@ -817,7 +817,7 @@ mod tests {
 
     /// **`chart` is two constructions and `plot` is three, from `CONTEXT.md`'s rungs.**
     ///
-    /// Not from a runtime table: spec §17's `constructions` column is derived from `CONTEXT.md`, and
+    /// Not from a runtime table: the `constructions` column is derived from `CONTEXT.md`, and
     /// the freeze does not wait on the runtime. The count is *distinct sub-cell geometries over the
     /// three rungs*, which is what a construction is here.
     #[test]
@@ -1030,7 +1030,7 @@ mod tests {
 
     /// **A threshold is carried on both axes, and a paint alone dies at sixteen colours.**
     ///
-    /// §16's rule in the place a chart meets it. At [`ColorDepth::Ansi16`] the shipped palette need
+    /// The rule in the place a chart meets it. At [`ColorDepth::Ansi16`] the shipped palette need
     /// not keep `Danger`, `Warn` and `Ok` apart on the wire, and a component reading `false` from
     /// `Theme::roles_differ_on_wire` owes a **second axis** — a rule the terminal can draw — and
     /// never a darker colour.

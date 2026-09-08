@@ -66,17 +66,17 @@ const STANDING: &[Standing] = &[
     },
     Standing {
         dir: "vitui-engine",
-        citations: 876,
+        citations: 339,
         examples: 1,
     },
     Standing {
         dir: "vitui-runtime",
-        citations: 312,
+        citations: 75,
         examples: 1,
     },
     Standing {
         dir: "vitui-components",
-        citations: 2683,
+        citations: 937,
         examples: 1,
     },
 ];
@@ -97,7 +97,6 @@ fn plain_needles() -> Vec<String> {
         needle("components arch", "itecture"),
         needle("runtime arch", "itecture"),
         needle("engine arch", "itecture"),
-        needle("obliga", "tion"),
         needle("\u{a7}", ""),
     ]
 }
@@ -110,6 +109,9 @@ fn numbered_needles() -> Vec<String> {
         needle("iss", "ue "),
         needle("sce", "ne "),
         needle("produc", "tion "),
+        // The word alone is ordinary English — "both halves of the obligation are met". What points
+        // at a document the reader does not have is the numbered one.
+        needle("obligation ", "o"),
     ]
 }
 

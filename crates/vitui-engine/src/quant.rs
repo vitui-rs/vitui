@@ -462,7 +462,7 @@ fn index_channels_fixed(i: u8) -> Rgb {
 /// terminal drops, and four channels resolved out of the handle tables and narrowed.
 ///
 /// **The shape a frame is compared against the terminal in, and it exists because quantisation
-/// makes raw cell equality the wrong question.** Ticket 03's round trip compared whole `Cell`s,
+/// makes raw cell equality the wrong question.** The round trip compared whole `Cell`s,
 /// which was exact while every colour the frame held reached the wire unchanged. It does not any
 /// more: a frame holds what the application asked for and the terminal holds what the depth could
 /// express, so the two disagree by construction on any terminal below truecolor and agreeing would
@@ -476,7 +476,7 @@ fn index_channels_fixed(i: u8) -> Rgb {
 /// opinion about it.
 ///
 /// **A dropped flag is narrowed on both sides and the other ten bits are not**, which is what keeps
-/// production ticket 10's degradation an assertion rather than an exemption: a terminal that lost
+/// production the degradation an assertion rather than an exemption: a terminal that lost
 /// *italic* on a frame that asked for overline fails here, and so does one that kept the overline the
 /// quirk table says it throws away.
 #[cfg(test)]

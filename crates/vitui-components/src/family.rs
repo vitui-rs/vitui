@@ -15,15 +15,15 @@
 //!
 //! # F15 has no module here, and that is the T2 test rather than an omission
 //!
-//! Spec §18's F15 row reads *not here — `vitui-runtime`*, by `COMPONENT-HIERARCHY.md`'s T2 test:
+//! F15 row reads *not here — `vitui-runtime`*, by `COMPONENT-HIERARCHY.md`'s T2 test:
 //! all twenty-three of its entries **emit no cells**. [`Family::module`] returns `None` for it, and
 //! the `None` is the statement — a family with an empty module directory would read as *not yet
 //! done*, which is exactly the confusion spec §18 says is never allowed to arise.
 
-/// One family of spec §18's union catalogue.
+/// One family of the union catalogue.
 ///
 /// The discriminants are the survey's own numbering, which is how every other document refers to
-/// them; [`Family::name`] carries the word §18's table uses.
+/// them; [`Family::name`] carries the word the table uses.
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug, Hash)]
 pub enum Family {
     /// F1 text — `text`, `chip`, `field`, `fit`. ~48 entries.
@@ -92,7 +92,7 @@ impl Family {
         self as u8 + 1
     }
 
-    /// The word spec §18's table uses.
+    /// The word the table uses.
     pub const fn name(self) -> &'static str {
         match self {
             Family::F1Text => "text",

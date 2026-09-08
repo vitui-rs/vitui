@@ -23,7 +23,7 @@
 //! > else can name: the crate root's re-export list, the fourteen modules it declares `pub mod`, and
 //! > the `pub` items inside them.
 //!
-//! `crates/vitui-components/tests/crate_line.rs` is that crate — components spec §0's constraint C6
+//! `crates/vitui-components/tests/crate_line.rs` is that crate — components the constraint C6
 //! is what makes it one — and it is where the *build* behind the count is. Two things are gated here
 //! that the build cannot see:
 //!
@@ -36,8 +36,8 @@
 //!
 //! # The row the map did not have
 //!
-//! The shipped crate declares **fifteen** modules where spec §4's map had fourteen rows plus a
-//! `debug` row that is fog: `route` is ticket 11's, spec §7 and ADR 0016 specify it, and §4's table
+//! The shipped crate declares **fifteen** modules where the map had fourteen rows plus a
+//! `debug` row that is fog: `route` is ticket 11's, spec §7 and ADR 0016 specify it, and the table
 //! never gained a line for it. [`MODULES`] carried it with `Origin::Added` beside it rather than
 //! quietly matching a shorter list, and the discrepancy was filed as architecture issue 21 — **a
 //! module is not deleted to make a table come out even.**
@@ -53,13 +53,13 @@
 /// Where a module row came from.
 ///
 /// Two arms and no third, which is `crate::screen`'s reason for asserting its own shape: a module
-/// that is neither in spec §4's map nor attributable to a ticket is drift, and drift with a name for
+/// that is neither in the map nor attributable to a ticket is drift, and drift with a name for
 /// itself stops being visible.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Origin {
-    /// A row of spec §4's module map.
+    /// A row of the module map.
     Spec4,
-    /// Not in §4's map. The implementation ticket that shipped it, and why.
+    /// Not in the map. The implementation ticket that shipped it, and why.
     ///
     /// **Nothing constructs this today**, and that is a statement about the map being current rather
     /// than about the arm being spare. `route` was the one row that carried it — for four tickets,
@@ -91,9 +91,9 @@ pub struct Module {
     pub origin: Origin,
 }
 
-/// The module map as shipped: spec §4's fourteen rows and the one it does not have.
+/// The module map as shipped: the fourteen rows and the one it does not have.
 ///
-/// `layout::text`, `theme::registry` and `keys::corpus` are rows of §4's table or of a ticket rather
+/// `layout::text`, `theme::registry` and `keys::corpus` are rows of the table or of a ticket rather
 /// than of `lib.rs` — the crate root declares their parents — so the gate over this value is against
 /// the **top-level** names, which is [`top_level`].
 pub const MODULES: [Module; 15] = [
@@ -181,7 +181,7 @@ pub const MODULES: [Module; 15] = [
 ];
 
 /// The names the ticket says must not exist, each because the map corrected the proposal that had
-/// them. Spec §4's three corrections plus the one deferral.
+/// them. The three corrections plus the one deferral.
 ///
 /// - `input` — there are no per-id inboxes, so it is not a module of its own.
 /// - `hit` — `ctx`'s.
@@ -202,7 +202,7 @@ pub struct EngineName {
 /// Every engine name the runtime's **public** surface names, with the component-facing path or the
 /// absence of one.
 ///
-/// **This is ticket 17's finding, as a value.** Components spec §0 states constraint C6 — the
+/// **This is the finding, as a value.** Components spec §0 states constraint C6 — the
 /// components crate depends on `vitui-runtime` and on nothing else — and components spec §1 writes
 /// `pub fn button(cx: &mut Ctx, area: Rect, …)`. Both cannot hold while `Rect` is reachable only
 /// through `vitui-engine`: a consumer can *hold* one, because `Ctx::area` hands it over and
@@ -560,7 +560,7 @@ mod tests {
 
     // ── the module map ───────────────────────────────────────────────────────────────────────────
 
-    /// **The map ships as written.** Spec §4's rows, in both directions: a module the crate root
+    /// **The map ships as written.** The rows, in both directions: a module the crate root
     /// declares and [`MODULES`] does not have is drift, and a row here that the root does not
     /// declare is a table describing a crate that does not exist.
     #[test]
@@ -576,7 +576,7 @@ mod tests {
     }
 
     /// **The two nested rows are inside the modules that own them**, which is what makes them rows
-    /// rather than crates: `layout::text` over ADR 0005's exports, `theme::registry` over the
+    /// rather than crates: `layout::text` over the exports, `theme::registry` over the
     /// shipped set.
     #[test]
     fn the_nested_rows_are_declared_by_their_parents() {
@@ -848,7 +848,7 @@ mod tests {
         assert_eq!(dependencies_of(&manifest), vec!["vitui-engine"]);
     }
 
-    /// **The components crate names the runtime and nothing else** — components spec §0's C6, which
+    /// **The components crate names the runtime and nothing else** — components C6, which
     /// is what makes `crates/vitui-components/tests/crate_line.rs` a component-facing consumer
     /// rather than one more test with the engine in scope.
     #[test]

@@ -15,14 +15,14 @@
 //!
 //! # Scope
 //!
-//! The whole of spec §12's `LayerStack` is here, the bottom-up composite of the damaged
+//! The whole of `LayerStack` is here, the bottom-up composite of the damaged
 //! runs with the wide-glyph corruption bug closed at its third and last edge, and the
 //! operator layer with the atomic-glyph rule.
 //!
 //! **What a `Mix` does to a style word is [`crate::mix`]'s, and where it lands is this file's.**
 //! That is the seam worth naming, because every defect in this area has been a placement defect: a
 //! shadow one column too wide is invisible, a modal dim one column too wide floods a column of the
-//! modal, and the prototype spec §5 records got the arithmetic right and deleted a hyperlink.
+//! modal, and the prototype this replaced got the arithmetic right and deleted a hyperlink.
 //!
 //! # A shadow, and why there is no region arithmetic in this file
 //!
@@ -58,11 +58,10 @@ pub struct LayerId(u32);
 
 /// One layer, as the reference compositor and the gates need to see it.
 ///
-/// Gated because spec §12's public surface names none of it: a caller cannot read back what is
-/// already on screen, and an oracle is not an exception to that — it is simply inside the
-/// crate. **The `cfg` is `any(test, feature = "fuzz")` since ticket 25**, which is where the
-/// reference compositor became the oracle for a fuzz target as well as for gate #1, and a fuzz
-/// target compiles this crate without `cfg(test)`.
+/// Gated because the public surface names none of it: a caller cannot read back what is already on
+/// screen, and an oracle is not an exception to that — it is simply inside the crate. The `cfg` is
+/// `any(test, feature = "fuzz")` because the reference compositor is the oracle for a fuzz target
+/// as well as for the damage gate, and a fuzz target compiles this crate without `cfg(test)`.
 #[cfg(any(test, feature = "fuzz"))]
 pub(crate) struct LayerRef<'a> {
     pub(crate) z: i32,
@@ -93,20 +92,20 @@ pub(crate) enum Paint<'a> {
 
 /// What a layer is made of: cells, or a transformation of whatever is already there.
 ///
-/// Not public, and spec §12 is where that is decided rather than here — its compositing section
-/// names `LayerId` and `Mix` and no `LayerKind`. A public `Content { surface: Surface }` would also
-/// be a door onto a layer's cells, which is the one ADR 0023 closes.
+/// Not public: the surface names `LayerId` and `Mix` and no `LayerKind`. A public
+/// `Content { surface: Surface }` would also be a door onto a layer's cells, and no cell is
+/// readable from outside this crate.
 ///
 /// **The surface is boxed**, and that is a decision about the dominant operation rather than a
-/// habit. §5 chose a contiguous `Vec` because *the dominant operation is an ordered traversal of the
-/// whole stack every frame*, and that argument is about bytes touched per layer. A `Surface`
+/// habit. The stack is a contiguous `Vec` because *the dominant operation is an ordered traversal
+/// of the whole stack every frame*, and that argument is about bytes touched per layer. A `Surface`
 /// carries three tables and two `Vec`s; inline, every `Layer` would be its own cache line and a
 /// scan of two hundred would be two hundred misses. Boxed, a `Layer` is forty bytes — asserted
 /// below, because the number is the whole reason — and the scan reads `z`, `rect` and a tag, and
 /// follows the pointer only for the layers a run actually touches.
 ///
 /// Measured on the shipped stack (`examples/budget.rs`): the full ordered scan is **19.6 ns at
-/// n = 20 and 205 ns at n = 200** — about one nanosecond a layer, and linear. §5's prototype was
+/// n = 20 and 205 ns at n = 200** — about one nanosecond a layer, and linear. The prototype was
 /// 5.05 and 59.3 ns, a quarter of a nanosecond a layer, and forty bytes is why: 1.6 layers to a
 /// cache line rather than the four a sixteen-byte record would give. It is not chased, because the
 /// whole scan at n = 200 is 0.2% of a 100 µs frame and the fix would be a parallel array of the hot
@@ -145,8 +144,8 @@ impl Layer {
 
     /// Whether this layer can change a composited cell at all.
     ///
-    /// False for an operator whose `Mix` is the identity, which is §5's rule that `amount == 0` is
-    /// skipped entirely: adding, moving and removing one damages nothing, because there is nothing
+    /// False for an operator whose `Mix` is the identity: `amount == 0` is
+    /// skipped entirely, so adding, moving and removing one damages nothing, because there is nothing
     /// it could have painted for the frame to have to undo.
     fn paints(&self) -> bool {
         match &self.kind {
@@ -171,12 +170,12 @@ impl Layer {
 
 /// The layers, in bottom-to-top order.
 ///
-/// There is no public constructor and no `Default`: spec §12 reaches the stack only through
+/// There is no public constructor and no `Default`: the stack is reached only through
 /// [`Screen::layers`](crate::Screen::layers), and a derived `Default` would be a second door.
 ///
 /// # The stack is the app thread's because it cannot be reached from anywhere else
 ///
-/// §12's threading table puts `LayerStack` on the app-thread side, and the mechanism is
+/// `LayerStack` belongs to the app thread, and the mechanism is
 /// reachability rather than a `!Send` marker: `LayerStack::new` is `pub(crate)`, so a worker
 /// has nothing to hold. This is the negative half of that row, and the twin is the door that does
 /// open:
@@ -198,7 +197,7 @@ impl Layer {
 /// assert!(LayerStack::is_empty(Screen::layers(&mut screen)));
 /// ```
 ///
-/// # Refusal 6 and ADR 0024, as compile outcomes
+/// # No alpha and no flattened cache, as compile outcomes
 ///
 /// **No alpha and no per-layer opacity.** A content layer is opaque or it is not, and there is no
 /// third argument to say how much of it shows: everything a fade, a dim, a tint or a shadow wants is
@@ -255,8 +254,8 @@ pub struct LayerStack {
     /// Sorted by `(z, seq)`. The dominant operation is an ordered traversal of the whole stack
     /// every frame, which is what a contiguous `Vec` is best at.
     layers: Vec<Layer>,
-    /// **The one handle space** every surface in this stack speaks (spec §3, ADR 0011 as amended by
-    /// architecture ticket 19): the grapheme interner, the extended-style table and the link table.
+    /// **The one handle space** every surface in this stack speaks: the grapheme interner, the
+    /// extended-style table and the link table.
     /// They live here rather than in a `Surface` because that is what keeps compositing a
     /// `copy_from_slice`: with one handle space there is nothing to translate on the way across,
     /// and the per-surface arm measured 4.9x on a realistic layer and 46x on a hostile one.
@@ -282,9 +281,9 @@ pub struct LayerStack {
 
 /// The table sizes at which [`crate::sweep`] runs — **a starting value, not a decision.**
 ///
-/// Spec §15 lists the sweep's high-water policy among the questions it deliberately leaves open:
-/// the *mechanism* is measured (58.88 µs for one screen, 1.17 ms for twenty layers) and **nothing
-/// measured discriminates between candidate policies.** Two times the live count at the last sweep,
+/// The sweep's high-water policy is deliberately still open: the *mechanism* is measured
+/// (58.88 µs for one screen, 1.17 ms for twenty layers) and **nothing measured discriminates
+/// between candidate policies.** Two times the live count at the last sweep,
 /// with a floor, is what ships. It is here rather than tuned so that a future session tuning it has
 /// a number to move rather than a mechanism to write.
 ///
@@ -299,10 +298,10 @@ struct Water {
 }
 
 impl Water {
-    /// **A starting value, not a decision** — spec §15 is where the question is still open.
+    /// **A starting value, not a decision** — nothing measured has chosen between the candidates.
     const FLOOR: usize = 256;
 
-    /// **A starting value, not a decision** — spec §15 is where the question is still open.
+    /// **A starting value, not a decision** — nothing measured has chosen between the candidates.
     const FACTOR: usize = 2;
 
     const fn floor() -> Water {
@@ -356,7 +355,7 @@ impl LayerStack {
     /// # The donated surface's handles are renumbered, once, here
     ///
     /// A `Surface` drawn through [`Surface::root`](Surface::root) interns into a table of its own,
-    /// because that door has no engine to reach through (spec §3, architecture ticket 19). Its
+    /// because that door has no engine to reach through. Its
     /// grapheme handles, its extended-style handles and the link ids **inside** those are therefore
     /// meaningless in this stack's handle space, and are rewritten here so that
     /// *every surface in a layer stack speaks that stack's handle space* holds by renumbering where
@@ -374,7 +373,7 @@ impl LayerStack {
     ///
     /// The donated surface is what there is to paint, so the layer covers `rect` intersected with
     /// it: a surface smaller than `rect` paints its own cells and no more, and one larger is
-    /// clipped. That is §5's rule for a layer that hangs off an edge, applied to the other way a
+    /// clipped. That is the rule for a layer that hangs off an edge, applied to the other way a
     /// rectangle and a grid can disagree.
     pub fn add_content_with(
         &mut self,
@@ -548,7 +547,7 @@ impl LayerStack {
 
     /// The topmost layer covering `(x, y)`, or `None` where there is none.
     ///
-    /// A plain reverse linear scan. §5 measured 13.5 ns at n = 20 and 81.0 ns at n = 200, and a
+    /// A plain reverse linear scan, measured at 13.5 ns for n = 20 and 81.0 ns for n = 200. A
     /// spatial index is warranted where n is thousands — there n is *widgets*, which is a runtime
     /// concept two orders of magnitude away from a stack of windows, popups, shadows and dims.
     /// The division of labour is the one `visible_rows` already established: **the engine owns the
@@ -560,8 +559,8 @@ impl LayerStack {
     /// The answer is about rectangles and never about cells. A non-opaque layer is hit anywhere
     /// inside its rectangle, `EMPTY` cells included: reading cells here would make the answer
     /// depend on what a component happened to draw, which is the runtime's business and not the
-    /// engine's — and **the query must return a layer and never a widget**, which is the door
-    /// ADR 0002 exists to keep shut.
+    /// engine's — and **the query must return a layer and never a widget**, which is the door that
+    /// keeps layout out of this crate.
     pub fn topmost_at(&self, x: i32, y: i32) -> Option<LayerId> {
         self.layers
             .iter()
@@ -583,7 +582,7 @@ impl LayerStack {
     /// 1.17 ms of a twenty-layer sweep out of a frame. It is two loads and two compares, so asking
     /// it on every door through which a topology change arrives costs nothing.
     ///
-    /// The link table is not among the two, because it is not swept (spec §3, [`crate::sweep`]).
+    /// The link table is not among the two, because it is not swept — see [`crate::sweep`].
     pub(crate) fn sweep_due(&self) -> bool {
         self.tables.exts.len() >= self.water.exts
             || self.tables.interner.len() >= self.water.clusters
@@ -814,7 +813,7 @@ impl LayerStack {
     ///
     /// # The wide-glyph hazard, at a layer edge
     ///
-    /// A content layer overwrites, so ticket 06's five repair rules move from write time to
+    /// A content layer overwrites, so the five repair rules move from write time to
     /// composite time. Every paint below is a contiguous span, and a span has exactly two
     /// seams — so the fixes are **four O(1) ones per row** rather than a scan: the copied content's
     /// own halves at each end, a wide head left orphaned outside the left edge, and a continuation
@@ -851,8 +850,8 @@ impl LayerStack {
     ///
     /// # The repair reaches outside the layer's rectangle
     ///
-    /// The prototype ticket 07 measured did the repair and marked damage only over the layer's own
-    /// columns, so the terminal kept showing the half that had just been blanked. That is why this
+    /// The prototype did the repair and marked damage only over the layer's own columns, so the
+    /// terminal kept showing the half that had just been blanked. That is why this
     /// answers with a `Run` rather than with `()`, and why a slop column is reported when — and only
     /// when — it changed: reporting it always would put two more cells on the wire for every run,
     /// which the sparse chart's four hundred of them would feel.
@@ -903,9 +902,9 @@ impl LayerStack {
     ///
     /// It used not to be. [`View::child`](crate::View::child) could not widen its clip, so
     /// a pair the clip bisected kept the half outside it and a layer surface could arrive here
-    /// already violating §3 — and then whether the orphan survived depended on where the *damaged
-    /// span* happened to end, which is one question answered both ways on alternate frames.
-    /// Architecture ticket 20 closed it at the source rather than here: the drawing verbs' repair is
+    /// already violating the pairing invariant — and then whether the orphan survived depended on
+    /// where the *damaged span* happened to end, which is one question answered both ways on
+    /// alternate frames. It is closed at the source rather than here: the drawing verbs' repair is
     /// bounded by the surface, so there is no longer a way to build such a surface. **This function
     /// is unchanged by that answer** — mending it here would have hidden the case rather than
     /// answered it — and its reasoning is sound for the first time.
@@ -1103,7 +1102,7 @@ impl LayerStack {
 
     /// Whether every surface in this stack speaks **this stack's** handle space.
     ///
-    /// §5's invariant is that *every surface in one layer stack belongs to one engine*, and it is
+    /// The invariant is that *every surface in one layer stack belongs to one engine*, and it is
     /// what replaces the per-cell remap the alternatives needed — 4.9x on a realistic layer and 46x
     /// on a hostile one. It holds by construction rather than by checking:
     /// [`add_content`](LayerStack::add_content) mints a surface whose own tables are empty, and
@@ -1126,8 +1125,8 @@ impl LayerStack {
     /// A layer's rectangle and its cells are its own and do not change with the screen. What becomes
     /// meaningless is the bookkeeping about *this* frame — the exposures, which are rectangles in a
     /// coordinate space that has just been replaced, and the per-layer damage, which a frame that
-    /// marks everything is about to subsume. **There is no cache to invalidate, because §5 refused
-    /// the only one there would have been.**
+    /// marks everything is about to subsume. **There is no cache to invalidate, because the only
+    /// one there would have been was refused.**
     pub(crate) fn forget_damage(&mut self) {
         self.exposed.clear();
         self.clear_damage();
@@ -1145,7 +1144,7 @@ impl LayerStack {
 
 /// What an untouched cell of a content layer holds.
 ///
-/// A non-opaque layer is born **`EMPTY`** rather than blank. The trap spec §5 names is a caller who
+/// A non-opaque layer is born **`EMPTY`** rather than blank. The trap is a caller who
 /// draws only a border into a popup and gets a rectangle of opaque spaces that erases the window
 /// underneath; being born blank is what would spring it.
 const fn ground(opaque: bool) -> Cell {
@@ -1275,7 +1274,7 @@ fn glyph_below(below: &[Layer], x: i32, y: i32) -> Option<GraphemeId> {
 /// (`mend`). Asking both halves is what makes this the *repaired* picture rather than the raw one,
 /// and it is what the reference compositor's whole-row `repair` produces by another route.
 ///
-/// # The frame's own edge is a boundary too, and ticket 25's fuzz target is what said so
+/// # The frame's own edge is a boundary too, and a fuzz target is what said so
 ///
 /// `width` is the frame's, and [`pair_survives`]'s two bounds tests are a **defect fix and not a
 /// tidy-up**. `glyph_below` asks the *layers*, which extend past the screen — a layer at `x = -1` is
@@ -1300,7 +1299,7 @@ fn glyph_below(below: &[Layer], x: i32, y: i32) -> Option<GraphemeId> {
 ///
 /// That makes five defects this differential has found in the operator's reach, and all five have
 /// one shape: **the reach is decided from a plane that is not the one the eye ends up seeing.**
-/// Ticket 12 found three by reading the row; these two read the layers and forgot the frame.
+/// Three were found by reading the row; these two read the layers and forgot the frame.
 fn is_head(below: &[Layer], x: i32, y: i32, width: i32) -> bool {
     pair_survives(below, x, y, width)
 }
@@ -1377,7 +1376,7 @@ fn fit(rect: Rect, size: (u16, u16)) -> Rect {
 
 /// The link id a donated one becomes.
 ///
-/// # The walk is total, and architecture ticket 21 is what made it so
+/// # The walk is total
 ///
 /// **Every `LinkId` in a donated surface's cells was minted by that surface's own table.** A
 /// descriptor names a hyperlink as a URI ([`Link`](crate::Link)) and the verb interns it into the
@@ -1388,8 +1387,8 @@ fn fit(rect: Rect, size: (u16, u16)) -> Rect {
 ///
 /// That is why the `None` arm is an [`Option::expect`] beside the grapheme walk's rather than a
 /// `debug_assert` and a pass-through. It **was** a pass-through, because clearing would have
-/// deleted a hyperlink silently — the failure spec §5's prototype shipped and `Style::with_fg_bg`
-/// was removed for — and because a stack-minted id landing in range of a non-empty donor table
+/// deleted a hyperlink silently — the failure the prototype shipped and `Style::with_fg_bg` was
+/// removed for — and because a stack-minted id landing in range of a non-empty donor table
 /// would have been silently rewritten to the *donor's* URI at that slot, which is the same class
 /// and harder to see. Neither is expressible now.
 /// What one of a donor's extended-style handles becomes in this stack's handle space.
@@ -2669,7 +2668,7 @@ mod tests {
     ///
     /// The content is mixed CJK because that is the only shape in which the rule is visible at all,
     /// and the operators are moved a column at a time because every edge then lands on the other
-    /// parity by the next frame — the same reason ticket 11's own gate moves its rectangles.
+    /// parity by the next frame — the same reason the composite gate moves its rectangles.
     ///
     /// # What it does **not** reach, and what does
     ///
@@ -2683,7 +2682,7 @@ mod tests {
     /// `a_pair_a_lower_layer_broke_is_two_glyphs_and_the_rule_treats_it_as_two`, each of which
     /// damages a narrow region **beside** an operator rather than the operator itself.
     ///
-    /// A moving stack hides that class of case for the same reason ticket 11's gate needed its
+    /// A moving stack hides that class of case for the same reason the composite gate needs its
     /// single walking marker beside the twelve movers, and the shape of the omission is the same:
     /// damage that is disjoint from the layer whose edge is being tested.
     #[test]
@@ -3206,7 +3205,7 @@ mod tests {
         assert_pairing_holds(h.screen.frame());
     }
 
-    /// The bug ticket 07 found in the prototype's `blit`, kept as a test rather than as a sentence.
+    /// The bug found in the prototype's `blit`, kept as a test rather than as a sentence.
     ///
     /// The repair was right and the damage was wrong: the blanked half lay one column outside the
     /// layer's rectangle, the damage covered the rectangle only, and the terminal went on showing
@@ -3355,7 +3354,7 @@ mod tests {
     ///
     /// The gap between them is one column, and the right-hand run widens into it to blank a head its
     /// own paint orphaned. Left as two runs it would cost a cursor move between adjacent cells and
-    /// break §14's gate #2, which reads *two runs that touch are one run*. They cannot **overlap**,
+    /// break the run gate, which reads *two runs that touch are one run*. They cannot **overlap**,
     /// and the reason is worth keeping: a run widens right only by blanking an orphaned
     /// `CONTINUATION` and left only by blanking an orphaned wide head, and one column cannot be
     /// both.
@@ -3400,8 +3399,8 @@ mod tests {
     ///
     /// This test used to say *a pair that arrives broken stays broken*: `View::child` could not
     /// widen its clip, so the layer's own surface held a bare `CONTINUATION` and the two
-    /// compositors had to take the same position on it or gate #1's equality would be false for a
-    /// program nobody had written yet. Architecture ticket 20 answered it: the drawing verbs' repair
+    /// compositors had to take the same position on it or the damage gate's equality would be false
+    /// for a program nobody had written yet. It is answered at the source: the drawing verbs' repair
     /// is bounded by the surface, so the continuation at column 4 is blanked by the verb and nothing
     /// broken ever reaches either compositor.
     ///
@@ -3511,10 +3510,10 @@ mod tests {
         assert_eq!(emitted, 180, "per-row spans would emit 280");
     }
 
-    /// Ticket 11's report: what a composite costs, by damaged area and by stack depth.
+    /// What a composite costs, by damaged area and by stack depth.
     ///
-    /// **A report, not a gate.** §14's rule is that a timing is a gate only at cliff granularity
-    /// with the headroom written next to the number, and none of these is near one — the budget is
+    /// **A report, not a gate.** A timing is a gate only at cliff granularity with the headroom
+    /// written next to the number, and none of these is near one — the budget is
     /// 1 ms for a full screen and 100 µs for a typical damage-tracked frame, and both are gated
     /// where they belong, in `examples/budget.rs` over the twelve scenes.
     ///
@@ -3523,18 +3522,18 @@ mod tests {
     ///
     /// # Two shapes, because depth means two different things
     ///
-    /// The matrix is spec §5's own arrangement — a full-screen opaque base under staggered 90x14
-    /// popups — and it is the shape in which depth costs anything: a popup covers part of a
+    /// The matrix is a full-screen opaque base under staggered 90x14
+    /// popups, and it is the shape in which depth costs anything: a popup covers part of a
     /// full-width run, so every layer is visited.
     ///
-    /// The four `stacked` cases are the shape §5's **content-layer column** was measured in, layers
+    /// The four `stacked` cases are the shape the **content-layer column** was measured in, layers
     /// that each cover the whole screen, and they are here because that column and this compositor
-    /// disagree by design. §5 recorded 6.28 / 20.2 / 133.5 / 372.3 µs at depths 1, 3, 20 and 50 —
+    /// disagree by design. It recorded 6.28 / 20.2 / 133.5 / 372.3 µs at depths 1, 3, 20 and 50 —
     /// linear, one full copy per layer. This one starts from the topmost **opaque layer that floors
     /// the run** and never looks below it, so fifty full-screen layers cost what one does. The
     /// column is not reproduced; it is the number the floor removed.
     ///
-    /// **The operator column is deliberately not here**, and it is not missing either: §5's
+    /// **The operator column is deliberately not here**, and it is not missing either: the
     /// 107.3 µs is the *popups with their shadows* figure and 78.2 µs of it is the operator layer,
     /// which is a different axis from area and depth. It is reported on its own, against a content
     /// layer at the same coverage, by `the_operator_layer_costs_what_spec_5_recorded` — and folding
@@ -3548,7 +3547,7 @@ mod tests {
         const W: u16 = 300;
         const H: u16 = 80;
         const DEPTHS: [usize; 4] = [1, 3, 20, 50];
-        /// One cell, one row, one popup, the whole screen — §5's four damaged areas.
+        /// One cell, one row, one popup, the whole screen — the four damaged areas.
         const AREAS: [(&str, u16, u16); 4] = [
             ("one-cell", 1, 1),
             ("one-row", W, 1),
@@ -3639,7 +3638,7 @@ mod tests {
         );
     }
 
-    /// Spec §5's three operator numbers, reported rather than gated.
+    /// The three operator numbers, reported rather than gated.
     ///
     /// **A report, by the backlog's own rule**: a timing is a gate only at cliff granularity, with
     /// the headroom written next to the number. What is *gated* about the operator is gated on the
@@ -3647,7 +3646,7 @@ mod tests {
     /// is a count and cannot drift by 10% on a busy runner, and
     /// `at_no_colour_an_operator_layer_is_skipped_outright` is an equality.
     ///
-    /// Three numbers, and §5 recorded all three:
+    /// Three numbers, all three recorded:
     ///
     /// | full-screen `Mix` | plain | realistic 1% | linked 100% |
     /// |---|---|---|---|

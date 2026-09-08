@@ -33,24 +33,24 @@
 //! - **Gates 1 and 2 are invisible in the strong sense.** The caret is the terminal's cursor and not
 //!   a cell, so a caret sitting inside a ZWJ family and a caret sitting on its boundary draw
 //!   *exactly the same screen*: [`SURFACE_BLIND`] cells apart, and every counter agrees.
-//! - **Gates 3 and 4 are invisible in §21's *other* sense** — the sense the whole scene list is
-//!   built on. They change the screen, and **no counter of §20's nine can tell**: the memo-key
+//! - **Gates 3 and 4 are invisible in *other* sense** — the sense the whole scene list is
+//!   built on. They change the screen, and **no counter of the nine can tell**: the memo-key
 //!   defect draws [`STALE_ROWS`] of eighty rows wrong while writing the same cells, making the same
 //!   verbs, declaring the same regions and running **faster**. Only an equality against a reference
 //!   render reports it, which is exactly what §21 says about three of the four collection axes.
 //!
 //! [`counters_that_separate`] is that claim as a list rather than as a sentence, run over all four,
-//! and register row 69 is where it is filed. **§11's own heading is true and the reading that makes
+//! and register row 69 is where it is filed. **the heading is true and the reading that makes
 //! it true is not the obvious one**, which is why this paragraph is here rather than a note.
 //!
 //! # `graphemes()` is unreachable from this crate
 //!
-//! §11's mechanism is a caret *moved in cluster steps*, and nothing above `vitui-runtime` can name
+//! The mechanism is a caret *moved in cluster steps*, and nothing above `vitui-runtime` can name
 //! `vitui_engine::graphemes`. [`crate::clusters::next_cluster`] reconstructs a forward step out of
 //! two `truncate` probes; that module has the whole finding, and register row 68 carries it as a
 //! [`Barrier`] pointing at the line in the runtime that imports what it does not re-export.
 //!
-//! **It is recorded, not decided.** The map is closed and this is components ticket 23's to report:
+//! **It is recorded, not decided.** The map is closed and this is the original's to report:
 //! whether the runtime grows a cluster step is components architecture's question and
 //! `.scratch/vitui-components-impl/issues/24` is the ticket that will have to ask it.
 //!
@@ -59,7 +59,7 @@
 //! `field` did not exist. [`standing`] is a [`crate::obligations::Verdict`] over one subject,
 //! [`subjects_declared`] opens the file the freeze homes it in — `input.rs`, F6 — and
 //! [`owed_message`] is the sentence that separates *waiting for its subject* from *the code is
-//! wrong*. Ticket 09's criterion 7, inherited whole.
+//! wrong*. criterion 7, inherited whole.
 //!
 //! **All three rows turned together**, which is what the ticket predicted: there was no second
 //! reason here the way the wheel gate is a second reason in [`crate::listing`]. What stood in for
@@ -86,44 +86,44 @@ use vitui_runtime::Rect;
 
 // ── the two screens ──────────────────────────────────────────────────────────────────────────────
 
-/// **The width the wrap memo was built at.** §21's own 300, which is also §20's screen width.
+/// **The width the wrap memo was built at.** The original's 300, which is also the screen width.
 pub const WIDE: u16 = 300;
 
-/// **The width after the resize.** §21's own 120.
+/// **The width after the resize.** The original's 120.
 pub const NARROW: u16 = 120;
 
 /// The viewport's height. Eighty, which is where *69 of 80* is counted.
 pub const H: u16 = 80;
 
-/// **How many fields stand on scene 12's screen. Twenty**, which is §21's own count.
+/// **How many fields stand on the screen. Twenty**, which is the count.
 ///
-/// Nineteen one-row inputs and one textarea, because §11's whole headline is that *`input` and
+/// Nineteen one-row inputs and one textarea, because the whole headline is that *`input` and
 /// `textarea` are one component* — a screen of twenty textareas would be a screen about one of the
 /// two spellings.
 pub const FIELDS: u16 = 20;
 
-/// **How many bytes are pasted into the textarea. §21's megabyte.**
+/// **How many bytes are pasted into the textarea. The megabyte.**
 pub const PASTED: usize = 1_048_576;
 
-/// **How many hard lines the document holds. Six hundred and twenty-five**, which is §21's *625 rows
+/// **How many hard lines the document holds. Six hundred and twenty-five**, which is *625 rows
 /// drawn*: at [`WIDE`] every line fits on one visual row.
 pub const LINES: usize = 625;
 
 /// **How many visual rows the document needs at [`NARROW`]. Eight hundred and seventy-five**, which
-/// is §21's *where 875 are needed*.
+/// is *where 875 are needed*.
 pub const WRAPPED: usize = 875;
 
 /// How many lines are longer than [`NARROW`] and no longer than [`WIDE`]. [`WRAPPED`] − [`LINES`].
 ///
 /// Each of them is one row at 300 columns and two at 120, which is the whole of the 625/875
 /// arithmetic and the reason the pair is a **construction** rather than a measurement. It is stated
-/// that way rather than measured and celebrated: §21's figures are the fixture's parameters here,
+/// that way rather than measured and celebrated: the figures are the fixture's parameters here,
 /// exactly as [`crate::listing`]'s forty columns are chosen so that *71 of 80 rows* is 2 840 cells.
 pub const LONG: usize = WRAPPED - LINES;
 
 /// **How many short lines stand before the first long one. Ten.**
 ///
-/// The one parameter chosen to reproduce §21's third figure, and it is stated as a parameter rather
+/// The one parameter chosen to reproduce the third figure, and it is stated as a parameter rather
 /// than reported as a measurement.
 ///
 /// The two arms agree on every row before the first line the two widths disagree about. They also
@@ -140,7 +140,7 @@ pub const LONG: usize = WRAPPED - LINES;
 /// sentence.
 pub const SHORT_HEAD: usize = 10;
 
-/// **Rows of eighty the two arms of the resize disagree about. Sixty-nine**, §21's own number.
+/// **Rows of eighty the two arms of the resize disagree about. Sixty-nine**, the number.
 pub const STALE_ROWS: usize = 69;
 
 /// Columns a short line occupies, at most. Half of [`NARROW`], so it never wraps at either width.
@@ -153,7 +153,7 @@ pub const SHORT_COLUMNS: u16 = 60;
 /// says *exactly* rather than *about*.
 pub const LONG_COLUMNS: u16 = 200;
 
-/// **How many splices the greedy-wrap scene runs. Five hundred**, because §11's figure is
+/// **How many splices the greedy-wrap scene runs. Five hundred**, because the figure is
 /// *499 times in 500* and running fewer is sampling the one population the ticket names.
 pub const SPLICES: usize = 500;
 
@@ -161,8 +161,8 @@ pub const SPLICES: usize = 500;
 ///
 /// The caret is the terminal's cursor and not a cell (`Ctx::caret` → `Screen::set_cursor`), so a
 /// caret in the wrong place draws the same screen as a caret in the right one. This is the strong
-/// reading of §11's *not visible on the rendered screen*, and it is a named constant because a gate
-/// asserting `0` without saying which zero it means is the shape §21's first refinement is about.
+/// reading of *not visible on the rendered screen*, and it is a named constant because a gate
+/// asserting `0` without saying which zero it means is the shape the first refinement is about.
 pub const SURFACE_BLIND: usize = 0;
 
 // ── the document ─────────────────────────────────────────────────────────────────────────────────
@@ -184,7 +184,7 @@ pub const SURFACE_BLIND: usize = 0;
 /// agree **entirely** — which is the sentence above holding for the unit it names and not for the
 /// one a reader of a scrolled screen is counting in.
 ///
-/// It is recorded rather than fixed: §21's own *625 rows drawn where 875 are needed* is a property
+/// It is recorded rather than fixed: the *625 rows drawn where 875 are needed* is a property
 /// of this generator, and a generator changed to sharpen a cell count would move a normative figure
 /// to win an argument. [`crate::window`] states its scenes in rows for this reason.
 pub fn lines() -> Vec<String> {
@@ -282,8 +282,8 @@ pub use crate::edit::{Caret, Index, Text, WrapKind, boundaries, step, step_left,
 
 /// **What one `Left` at the end of a pasted megabyte costs, both ways.**
 ///
-/// §21's scene 12 in one measurement: *the caret pair and the index — 9 655x on one `Left`*. The
-/// index is built **outside** the timing on both arms, because §11's argument is that a `textarea`
+/// The scene 12 in one measurement: *the caret pair and the index — 9 655x on one `Left`*. The
+/// index is built **outside** the timing on both arms, because the argument is that a `textarea`
 /// **has that index already** — timing its construction here would price the wrapping against the
 /// caret and answer a question nobody asked.
 ///
@@ -324,7 +324,7 @@ pub fn left_at_the_end(text: &str, index: &Index) -> (Duration, Duration, Caret)
 
 // ── the char caret, as a negative case ───────────────────────────────────────────────────────────
 
-/// **What a `char` caret does to the corpus.** §11's other failure, and it is *faster per step*.
+/// **What a `char` caret does to the corpus.** The other failure, and it is *faster per step*.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub struct CharWalk {
     /// How many steps a `char` caret takes to cross the corpus.
@@ -595,7 +595,7 @@ pub enum Seat {
     /// **The shipped verbs.** A caret is placed by a click's column, a cluster step, `Home` or
     /// `End`, and every one of those lands on a boundary by construction.
     Gesture,
-    /// **§11's deleted API, spelled through the one door that exists**:
+    /// **The deleted API, spelled through the one door that exists**:
     /// [`crate::edit::defective::at_byte`] handed to [`Text::set_pos`]. The caret it seats is a
     /// boundary only by luck.
     ///
@@ -631,7 +631,7 @@ pub enum Placed {
     /// same steps. What *can* fail here is gate 2, and it does: a `Text::edit` that seats a
     /// byte-addressed caret leaves 715 wrong columns and zero off-boundary carets.
     Walked,
-    /// **`Text::undo`**, which **restores** the pair rather than recomputing it — §11's `set_pos`
+    /// **`Text::undo`**, which **restores** the pair rather than recomputing it — `set_pos`
     /// at 0.0007 µs against `set_caret`'s 6 109.
     ///
     /// **This is where gate 1 has teeth across an edit.** A restored pair is only as good as the
@@ -832,13 +832,13 @@ pub fn edit_walk(seat: Seat) -> EditWalk {
 
 // ── the four defects, expressed ──────────────────────────────────────────────────────────────────
 
-/// **One of §11's four gates, violated on purpose.**
+/// **One of the four gates, violated on purpose.**
 ///
 /// Every arm is a build somebody would ship: each is simpler than the correct one, and three of the
 /// four are cheaper.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Defect {
-    /// **Gate 1.** The caret is placed at a byte offset that is not a cluster boundary — §11's
+    /// **Gate 1.** The caret is placed at a byte offset that is not a cluster boundary —
     /// *there is no such thing as "put the caret at byte N"*, written as the API that has one.
     CaretOffBoundary,
     /// **Gate 2.** The column is `chars().count()` over the prefix rather than the engine's tables:
@@ -852,7 +852,7 @@ pub enum Defect {
 }
 
 impl Defect {
-    /// Every defect, in §11's order.
+    /// Every defect, in the order.
     pub const ALL: [Defect; 4] = [
         Defect::CaretOffBoundary,
         Defect::CaretColumnByChars,
@@ -860,7 +860,7 @@ impl Defect {
         Defect::MemoKeyedOnRevision,
     ];
 
-    /// The gate it violates, in §11's own words.
+    /// The gate it violates, in the words.
     pub fn gate(self) -> &'static str {
         match self {
             Defect::CaretOffBoundary => "the caret is always on a cluster boundary",
@@ -876,7 +876,7 @@ impl Defect {
 
     /// **Whether the defect changes the rendered surface at all.**
     ///
-    /// Two of the four do not, and two do. See this module's header: §11's *none of them visible on
+    /// Two of the four do not, and two do. See this module's header: *none of them visible on
     /// the rendered screen* is true in two different senses and this is the field that separates
     /// them.
     pub fn changes_the_surface(self) -> bool {
@@ -958,10 +958,10 @@ pub struct Screen {
     pub w: u16,
     /// **How many one-row inputs stand above the textarea.**
     ///
-    /// Nineteen for §21's scene 12 — *twenty fields and a 1 MB pasted textarea* — and **zero** for
+    /// Nineteen for the scene 12 — *twenty fields and a 1 MB pasted textarea* — and **zero** for
     /// scene 13, which is one field: `Content::Fields { fields: 1, bytes: 1 048 576 }`. The two
     /// scenes are two screens and the difference is not decoration: nineteen inputs leave the
-    /// textarea sixty-one rows, and §21's *69 of 80* is counted over eighty.
+    /// textarea sixty-one rows, and *69 of 80* is counted over eighty.
     pub inputs: u16,
     /// **The textarea's state, which is [`crate::edit::Text`] and therefore the component's.**
     ///
@@ -1094,7 +1094,7 @@ pub fn screens(defect: Defect) -> (Screen, Screen) {
 /// # A textarea that does not seat the focus places no caret at all
 ///
 /// `Ctx::caret` is refused when nothing holds the keyboard — `settle_caret` clears it — so the two
-/// caret gates are unaskable until something is focused. This is architecture issue 25's finding
+/// caret gates are unaskable until something is focused. This is the finding
 /// arriving on `field`'s own screen: the seating is the component's, written as
 /// `if cx.focused().is_none()` rather than as `if !cx.is_focused(id)`, because the second drags the
 /// keyboard back the moment the user tabs away.
@@ -1186,10 +1186,10 @@ pub fn surface_diff(defect: Defect) -> Diff {
         .diff(play_field(&mut broken, inert).canvas())
 }
 
-/// **Which of §20's nine counters tell a defective build from a correct one. None of them, for all
+/// **Which of the nine counters tell a defective build from a correct one. None of them, for all
 /// four gates.**
 ///
-/// Components ticket 11's `counters_that_separate_them`, one component over and over four defects
+/// The `counters_that_separate_them`, one component over and over four defects
 /// rather than one. An empty answer means *the equality is the only detector there is*; a non-empty
 /// one would mean a cheaper gate exists and the scene is optional.
 ///
@@ -1216,14 +1216,14 @@ pub fn counters_that_separate(
         .collect()
 }
 
-/// **The resize, as an equality against the correct render.** §21's scene 13.
+/// **The resize, as an equality against the correct render.** The scene 13.
 ///
 /// *625 rows drawn where 875 are needed*, and on the surface [`STALE_ROWS`] of eighty rows.
 pub fn resized() -> Diff {
     surface_diff(Defect::MemoKeyedOnRevision)
 }
 
-/// **How many recomputes each memo key costs over the resize.** §21's *1 against 2*.
+/// **How many recomputes each memo key costs over the resize.** *1 against 2*.
 ///
 /// The defective key recomputes **once** — the revision did not move, so the resize is a cache hit —
 /// and the correct one recomputes **twice**, once per width. §21 states it as a reason the defect
@@ -1254,25 +1254,25 @@ pub fn recomputes_over_the_resize() -> (usize, usize) {
 
 /// **Clusters in the corpus. 167**, and §11 remembers 166. See [`crate::clusters`].
 pub const CORPUS_CLUSTERS: usize = 167;
-/// **Code points in the corpus, which is how many steps a `char` caret takes. 251**, against §11's
+/// **Code points in the corpus, which is how many steps a `char` caret takes. 251**, against
 /// 217.
 pub const CORPUS_CHARS: usize = 251;
-/// **Steps landing inside a cluster. 84**, against §11's 51 — and it is
-/// `CORPUS_CHARS − CORPUS_CLUSTERS` exactly, which is the half of §11's figure that reproduces.
+/// **Steps landing inside a cluster. 84**, against the 51 — and it is
+/// `CORPUS_CHARS − CORPUS_CLUSTERS` exactly, which is the half of the figure that reproduces.
 pub const CORPUS_INSIDE: usize = CORPUS_CHARS - CORPUS_CLUSTERS;
 
-/// §11's remembered cluster count.
+/// The remembered cluster count.
 pub const REMEMBERED_CLUSTERS: usize = 166;
-/// §11's remembered char-step count.
+/// The remembered char-step count.
 pub const REMEMBERED_STEPS: usize = 217;
-/// §11's remembered inside-landing count.
+/// The remembered inside-landing count.
 pub const REMEMBERED_INSIDE: usize = 51;
-/// §11's remembered count of insertions that change the width by something other than what was
+/// The remembered count of insertions that change the width by something other than what was
 /// typed.
 pub const REMEMBERED_SURPRISES: usize = 15;
-/// §11's remembered `Left` ratio at 1 MB: 3 161.68 µs against 0.327.
+/// The remembered `Left` ratio at 1 MB: 3 161.68 µs against 0.327.
 pub const REMEMBERED_LEFT_RATIO: f64 = 9_655.0;
-/// §11's remembered splice agreement: 499 of 500.
+/// The remembered splice agreement: 499 of 500.
 pub const REMEMBERED_SPLICE_AGREEMENTS: usize = 499;
 
 // ── the subject, and the scan that says whether it is here ───────────────────────────────────────
@@ -1372,7 +1372,7 @@ mod tests {
         Allocations::over(1, 0)
     }
 
-    /// **The document is 625 lines, 625 rows at 300 columns and 875 at 120.** §21's own pair.
+    /// **The document is 625 lines, 625 rows at 300 columns and 875 at 120.** The pair.
     #[test]
     fn the_document_is_six_hundred_and_twenty_five_rows_wide_and_eight_hundred_and_seventy_five_narrow()
      {
@@ -1413,7 +1413,7 @@ mod tests {
         assert_eq!(heads.len(), LINES);
     }
 
-    /// **The corpus figures, measured against §11's remembered ones.**
+    /// **The corpus figures, measured against the remembered ones.**
     ///
     /// Two of the three do not reproduce and the third is not a measurement at all. The
     /// constants are asserted so that a corpus edited without the report being re-read fails here
@@ -1434,7 +1434,7 @@ mod tests {
         );
     }
 
-    /// **A `char` caret is faster per step and it lands inside clusters.** §11's negative case.
+    /// **A `char` caret is faster per step and it lands inside clusters.** The negative case.
     #[test]
     fn a_char_caret_lands_inside_clusters_and_changes_widths_nobody_typed() {
         let corpus = clusters::corpus();
@@ -1499,11 +1499,11 @@ mod tests {
     }
 
     /// **Gate 1 and gate 2 at both ends of the buffer and across an edit**, which is the half of
-    /// §11's first two gates a construction-time walk cannot reach.
+    /// the first two gates a construction-time walk cannot reach.
     ///
     /// The two caret gates next door inspect a caret over a buffer that does not move: a forward
     /// `step_right` walk of the corpus, and the gestures. **An edit moves the buffer under the
-    /// caret** — and §11's own two caret defects arrived there. [`edit_walk`] plays a script at each
+    /// caret** — and the two caret defects arrived there. [`edit_walk`] plays a script at each
     /// of [`WALK_SEATS`] positions: both ends of the buffer, the seat, an insert of one cluster
     /// spelled as two `char`s, a backspace, a delete, and then **three** undos, which is the whole
     /// history back to the buffer the seat was made in.
@@ -1706,7 +1706,7 @@ mod tests {
         );
     }
 
-    /// **Five hundred splices, because §11's figure is 499 of 500 and running fewer samples it.**
+    /// **Five hundred splices, because the figure is 499 of 500 and running fewer samples it.**
     #[test]
     fn five_hundred_splices_separate_the_two_restart_points() {
         let sweep = splice_sweep();
@@ -1838,7 +1838,7 @@ mod tests {
         assert_eq!(stale.st.indexed().expect("built").rows(), LINES);
     }
 
-    /// **The resize on the surface: 69 of 80 rows.** §21's own figure, and criterion 5.
+    /// **The resize on the surface: 69 of 80 rows.** The figure, and criterion 5.
     #[test]
     fn the_resize_differs_on_sixty_nine_of_eighty_rows() {
         let diff = resized();
@@ -1862,7 +1862,7 @@ mod tests {
         );
     }
 
-    /// **`recomputes` points the wrong way: 1 against 2.** §21's own figure, and the reason the
+    /// **`recomputes` points the wrong way: 1 against 2.** The figure, and the reason the
     /// scene may not be gated on it.
     #[test]
     fn the_defective_memo_recomputes_once_and_the_correct_one_twice() {
@@ -1870,10 +1870,10 @@ mod tests {
         assert_eq!((defective, correct), (1, 2));
     }
 
-    /// **No counter of §20's nine separates a defective build from a correct one, for any of the
+    /// **No counter of the nine separates a defective build from a correct one, for any of the
     /// four gates.**
     ///
-    /// This is register row 69 and it is the ticket's headline finding: §11's *four gates, none of
+    /// This is register row 69 and it is the ticket's headline finding: *four gates, none of
     /// them visible on the rendered screen* is true, and for two of the four it is true in the sense
     /// the whole scene list is built on — the screen changes and **no counter can say so**.
     #[test]
@@ -1891,7 +1891,7 @@ mod tests {
 
     /// **Two of the four are invisible on the surface as well, and two are not.**
     ///
-    /// §11's heading reads as one claim and measures as two. This is the split, asserted.
+    /// The heading reads as one claim and measures as two. This is the split, asserted.
     #[test]
     fn the_two_caret_gates_change_no_cell_and_the_two_index_gates_change_many() {
         for defect in Defect::ALL {

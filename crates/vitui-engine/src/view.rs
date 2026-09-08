@@ -50,7 +50,7 @@ pub struct Written {
     ///
     /// It counts columns *written*, not columns *advanced over*: a verb starting left of the clip
     /// consumed clusters that were discarded, so `x + cells` is not the next free column in that
-    /// case. That is ADR 0022's clamp-and-discard showing through — the verb reports what it did,
+    /// case. That is clamp-and-discard showing through — the verb reports what it did,
     /// and a caller that needs to resume mid-string has [`bytes`](Written::bytes).
     pub cells: u16,
     /// How many bytes of the string were consumed.
@@ -79,8 +79,8 @@ impl Written {
 ///
 /// # Threading
 ///
-/// `View` is deliberately **not** [`Send`]. Ticket 05 claimed the borrow was enough — "a `View`
-/// borrows and therefore cannot be sent anywhere" — and ticket 18 refuted it by test: that holds
+/// `View` is deliberately **not** [`Send`]. The borrow alone is not enough — "a `View` borrows and
+/// therefore cannot be sent anywhere" is refuted by test: it holds
 /// only against `thread::spawn`, whose `'static` bound was doing the work, while `Surface: Send`
 /// implies `&mut Surface: Send` implies `View: Send`, and a `thread::scope` closure that draws
 /// through a `View` compiles. The fix is the private zero-sized field below, which is invisible to
@@ -161,11 +161,10 @@ impl Written {
 ///
 /// # Four refusals land on this type, and one of them was nearly lost
 ///
-/// This is the type a component holds, so it is the type every convenience is proposed for. §12's
-/// list is what each proposal was measured against, and the four below are gated as pairs on
-/// register #19's corpus rather than argued in this paragraph.
+/// This is the type a component holds, so it is the type every convenience is proposed for. The
+/// four below are gated as compile-fail pairs rather than argued in this paragraph.
 ///
-/// **No layout and no widget** (refusals 1 and 2, ADR 0002). Callers bring rectangles. There is no
+/// **No layout and no widget.** Callers bring rectangles. There is no
 /// `layout`, no constraint, no measure and no auto-size, and nothing can be registered to be drawn:
 ///
 /// ```compile_fail,E0599
@@ -174,9 +173,9 @@ impl Written {
 /// let _ = view.layout(vitui_engine::Rect::new(0, 0, 4, 2));
 /// ```
 ///
-/// **No clock and no scheduler** (refusal 9), and *this one was nearly lost*: `elapsed()` and
+/// **No clock and no scheduler**, and *this one was nearly lost*: `elapsed()` and
 /// `wake_in()` on this type were proposed, worked, and were refused. A clock and a scheduler on the
-/// drawing type is to time what ADR 0002 forbids for layout — the runtime samples `Instant::now()`
+/// drawing type is to time what layout is to space — the runtime samples `Instant::now()`
 /// once per frame, puts it in its own draw context, and flushes the deadlines its components asked
 /// for through [`Screen::request_wake_at`](crate::Screen::request_wake_at) once, after drawing. On
 /// inspection the engine needs *nothing*, because the runtime owns the loop:
@@ -233,7 +232,7 @@ pub struct View<'a> {
     clip: Rect,
     /// The rectangle this view was given, whether or not all of it is on the surface.
     ///
-    /// Separate from `clip` on purpose, and spec §4's struct comment lists both for that reason: a
+    /// Separate from `clip` on purpose: a
     /// child placed half off-screen is still the size it was given, so a component's own layout
     /// does not change when it scrolls partly out of view. What is *visible* is
     /// [`visible_rows`](View::visible_rows) and [`visible_cols`](View::visible_cols).
@@ -258,17 +257,17 @@ pub struct View<'a> {
 /// **The repair rules reach one column either side of what is being written, and that reach is
 /// bounded by the surface rather than by the clip.** A pair bisected by a clip edge therefore loses
 /// the half outside it, in the same blank-to-the-ground way it would lose it at a surface edge or a
-/// layer edge. That is architecture ticket 20's answer, and it is an answer from three terminals
-/// rather than from a sentence: kitty 0.48.2, Ghostty 1.3.1 and tmux 3.7c all blank the orphaned
+/// layer edge. That answer came from three terminals rather than from an argument: kitty 0.48.2,
+/// Ghostty 1.3.1 and tmux 3.7c all blank the orphaned
 /// half themselves, in both directions, and none of them has any notion of a clip to consult. A
 /// surface holding a wide head with no continuation is a surface **no terminal can be made to
 /// show** — so the mirror would believe a cell the screen does not have, damage tracking would
-/// never repaint it, and the artifact would stand until something else wrote there. That is exactly
-/// the corruption spec §3 names.
+/// never repaint it, and the artifact would stand until something else wrote there. That is the
+/// wide-glyph corruption this crate exists to make impossible.
 ///
-/// # What this does not hand a caller, which is spec §4's whole question
+/// # What this does not hand a caller
 ///
-/// §4 says a child cannot widen its clip, and the argument behind it is that *a seam defended by
+/// A child cannot widen its clip, and the argument behind it is that *a seam defended by
 /// convention is not defended*. That argument survives here, because the reach is not a write the
 /// caller can direct:
 ///
@@ -281,13 +280,13 @@ pub struct View<'a> {
 ///
 /// So the licence a one-column `child` buys is one cell of ground in a column the parent's glyph no
 /// longer occupies anyway. **The seam is defended by what the operation can express, not by
-/// convention** — which is §4's own standard, met. §4 keeps its sentence with a stated exception,
-/// and [`restyle`](View::restyle) is where that sentence still bites unchanged: restyling a pair
+/// convention**, which is the standard the rule was written to. The rule keeps its sentence with a
+/// stated exception, and [`restyle`](View::restyle) is where it still bites unchanged: restyling a pair
 /// whole *would* be a caller-directed write outside the clip, and no pairing invariant is at stake
 /// there, so [`whole_pairs`](Self::whole_pairs) still shrinks.
 ///
-/// This is also the answer §5 already gave one level up, where ticket 11 moved the same rules to
-/// composite time — see [`LayerStack::composite_run`](crate::LayerStack). The two edges turn out to
+/// This is also the answer one level up, where the same rules run at composite time — see
+/// [`LayerStack::composite_run`](crate::LayerStack). The two edges turn out to
 /// be the same question after all, and they now have the same answer.
 struct Row<'r> {
     cells: &'r mut [Cell],
@@ -346,8 +345,8 @@ impl<'r> Row<'r> {
     ///
     /// **The bound is the row, not the clip** — see [`Row`] for why, and for what it does not hand
     /// a caller. The returned span is what actually changed, so a repair that reached past the clip
-    /// is damaged past the clip too: the verbs mark what this returns, which is spec §5's *repair
-    /// damages cells outside the layer's own rectangle* one level down.
+    /// is damaged past the clip too: the verbs mark what this returns, which is *a repair damages
+    /// cells outside the layer's own rectangle* one level down.
     fn repair(&mut self, x: u16) -> (u16, u16) {
         let g = self.cells[x as usize].grapheme;
         if g.is_continuation() && x > 0 {
@@ -373,10 +372,9 @@ impl<'r> Row<'r> {
     /// an inconsistency.** `repair` reaches out because a pair it declined to mend would leave the
     /// surface holding a picture no terminal can show, and the only thing it can put there is the
     /// ground. This one has no such forcing: shrinking leaves the bisected pair *entirely*
-    /// unrestyled, which changes no grapheme and so cannot break §3's pairing invariant. Widening
+    /// unrestyled, which changes no grapheme and so cannot break the pairing invariant. Widening
     /// would be a caller-directed write into a parent's cells with nothing making it necessary,
-    /// which is precisely what spec §4 forbids. So §4's sentence keeps this edge and loses the
-    /// other, and architecture ticket 20 is where that split is recorded.
+    /// which is precisely what a view may not do. So the rule keeps this edge and loses the other.
     fn whole_pairs(&self, mut lo: u16, mut hi: u16) -> Option<(u16, u16)> {
         if self.cells[lo as usize].grapheme.is_continuation() {
             if lo > self.lo {
@@ -548,7 +546,7 @@ impl<'a> View<'a> {
     ///
     /// # Why this is not layout
     ///
-    /// It does not breach ADR 0002. It measures nothing, sizes nothing and asks nothing of the
+    /// It is not layout: it measures nothing, sizes nothing and asks nothing of the
     /// caller's data: it reports which of the coordinates the caller already chose fall inside the
     /// window the caller already brought. The engine still iterates nothing, and the *culling* —
     /// deciding not to draw what the range excludes — is still the caller's job.
@@ -594,8 +592,8 @@ impl<'a> View<'a> {
     ///
     /// The string is segmented into extended grapheme clusters (UAX #29) and each is placed in one
     /// cell, advancing by the columns it occupies. A cluster occupying no column — a lone combining
-    /// mark, a format character — is stepped over rather than placed, because spec §3's width table
-    /// says nothing advances.
+    /// mark, a format character — is stepped over rather than placed, because the width table says
+    /// nothing advances.
     ///
     /// Out-of-bounds writes are discarded silently — no panic, no `Result`, not even a
     /// `debug_assert`. A virtualised component writes far outside a surface as a matter of course,
@@ -805,13 +803,13 @@ impl<'a> View<'a> {
     ///
     /// A descriptor names a hyperlink as a URI ([`Link`](crate::Link)) rather than as a handle the
     /// caller minted somewhere else, and **this verb is what interns it** — into whatever handle
-    /// space it is drawing into, exactly as [`text`](Self::text) interns a grapheme cluster
-    /// (architecture ticket 21). It happens once, before the loop below, so the cost is **one hash
+    /// space it is drawing into, exactly as [`text`](Self::text) interns a grapheme cluster.
+    /// It happens once, before the loop below, so the cost is **one hash
     /// probe per verb call that names a URI** — not one per cell and not one per distinct style
     /// word.
     ///
-    /// It happens *after* the clip test, so a verb that lands nowhere mints nothing: ADR 0022's
-    /// clamp-and-discard reaches the table as well as the cells.
+    /// It happens *after* the clip test, so a verb that lands nowhere mints nothing: clamp-and-discard
+    /// reaches the table as well as the cells.
     ///
     /// # The memo, which is the whole implementation
     ///
@@ -834,8 +832,8 @@ impl<'a> View<'a> {
     /// the rectangle is therefore restyled whole — and left alone when its other half is outside
     /// the clip, because a view may not widen itself.
     ///
-    /// **This verb is where that sentence still bites**, and after architecture ticket 20 it is the
-    /// only place it does: the drawing verbs' repair now reaches past the clip, because a bisected
+    /// **This verb is where that sentence still bites**, and it is the
+    /// only place it does: the drawing verbs' repair reaches past the clip, because a bisected
     /// pair left in halves is a picture no terminal can show. Nothing forces this one — an
     /// unrestyled pair is a pair — so it stays inside the clip. `Row::whole_pairs` is where that is
     /// written down.

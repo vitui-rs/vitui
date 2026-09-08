@@ -90,7 +90,7 @@ pub fn wrap(s: &str, w: u16) -> Wrap<'_> {
 /// How many lines [`wrap`] would yield.
 ///
 /// **The contract is an equality against [`wrap`] and it is gated as one**: two functions that answer
-/// the same question and can drift are exactly the shape ticket 15's dry-run detector exists for, one
+/// the same question and can drift are exactly the shape the dry-run detector exists for, one
 /// axis over. So this is not a second implementation — it is `wrap(s, w).count()`, and the test that
 /// says so is the reason it can stay that way.
 ///

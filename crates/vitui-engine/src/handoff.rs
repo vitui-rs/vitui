@@ -7,7 +7,7 @@
 //! one primitive per concern, and the mutex is not a compromise: hybrid pacing requires a condvar,
 //! `std`'s condvar requires a mutex, so the mutex exists whatever the slot looks like. Putting the
 //! slot under it costs nothing. The critical section on submit is measured at
-//! [`crate::gates::what_the_handoff_costs`], against §7's **47 ns**.
+//! [`crate::gates::what_the_handoff_costs`], against **47 ns**.
 //!
 //! The alternatives were rejected on `unsafe`, not on speed, and the list is here so nobody
 //! rebuilds one: **a seqlock cannot be written in safe Rust at all**, because its reader reads while
@@ -18,7 +18,7 @@
 //! preempted while holding the lock, the render thread waits a quantum. Nothing cheaper than
 //! `unsafe` prevents that and it is accepted.
 //!
-//! **The lock is never held across a syscall** (spec §2's fifth invariant). Everything below hands
+//! **The lock is never held across a syscall** (the fifth invariant). Everything below hands
 //! a `Box<Packet>` in or out and returns; the write happens between [`Mailbox::take`] and
 //! [`Mailbox::finish`], with no guard alive.
 //!
@@ -35,7 +35,7 @@
 //! at *finish* instead would compose later and paint fresher, at the price of never overlapping the
 //! composite with the write at all — which is most of why compositing is on the app thread. The
 //! coalescing argument is untouched either way: on a 200 ms frame the app pays for one composite
-//! rather than the twenty it would have thrown away, because damage accumulates in §6's structure
+//! rather than the twenty it would have thrown away, because damage accumulates in the structure
 //! and 6.6 ns is what it costs to interrogate.
 //!
 //! # There is no backpressure and the drop path is unreachable
@@ -66,7 +66,7 @@ pub(crate) enum Lease {
     /// A packet nobody else holds. Fill it, then [`Mailbox::submit`] or [`Mailbox::give_back`].
     Ready(Box<Packet>),
     /// The render thread has not taken the last packet yet, so this frame is not composited at all.
-    /// Damage stays in §6's structure and coalesces into the next one.
+    /// Damage stays in the structure and coalesces into the next one.
     Busy,
     /// The renderer is free and the pool is empty, which the pool size makes unreachable.
     /// [`Mailbox::starved`] is register entry #8's counter.
@@ -79,7 +79,7 @@ pub(crate) enum Lease {
 /// crosses the critical section is a pointer, so a submit and a take move eight bytes. A `Vec<Packet>`
 /// against an `Option<Packet>` would work and would allocate nothing — the buffers inside a `Packet`
 /// keep their heap when it moves — but it would memcpy the whole struct twice per frame *inside the
-/// lock*, and §7's 47 ns is a number about that lock.
+/// lock*, and the 47 ns is a number about that lock.
 #[derive(Debug)]
 #[allow(clippy::vec_box)]
 struct Shared {
@@ -239,7 +239,7 @@ impl Mailbox {
     /// Put a packet back without submitting it: the resize path, and nothing else.
     ///
     /// `ready` is untouched, because a lease never cleared it. **A lease is never invalidated; the
-    /// frame it produced may be discarded** (spec §2's sixth invariant).
+    /// frame it produced may be discarded** (the sixth invariant).
     pub(crate) fn give_back(&self, packet: Box<Packet>) {
         let mut shared = self.lock();
         shared.free.push(packet);
@@ -371,10 +371,10 @@ impl Mailbox {
     ///
     /// `cfg(test)`, and the reason is a scope boundary rather than a shortcut: a dead renderer is
     /// **indistinguishable from a permanently busy one** through the public surface, because
-    /// `Presented` has no field for it and the engine offers no completion anywhere (§12's refusal
+    /// `Presented` has no field for it and the engine offers no completion anywhere (the refusal
     /// 7). What this ticket owed was that the app thread does not *hang*; telling the application
     /// its renderer is gone is a `Wake::Quit` or a shutdown, and inventing a third
-    /// spelling here would be a public API this backlog has not decided. Ticket 19's half of the same
+    /// spelling here would be a public API this backlog has not decided. The half of the same
     /// question is [`crate::clock::WakeSource::renderer_gone`], which **cancels** an owed frame
     /// rather than releasing it — releasing it spins at the frame gap against a sink that is gone —
     /// so the app thread parks and any `post` or `quit` gets it out.
@@ -485,19 +485,19 @@ impl Mailbox {
 /// The authoritative size of the terminal: one packed `AtomicU32`.
 ///
 /// **Written by the input thread, sampled by the app thread at frame start and re-checked at
-/// submit** (spec §2's sixth invariant). Writing a 300x80 frame into a terminal that is now 120x40
+/// submit** (the sixth invariant). Writing a 300x80 frame into a terminal that is now 120x40
 /// wraps and scrolls, which is worse than a missing frame — so a frame whose size moved under it is
 /// discarded and a full repaint is scheduled, and [`crate::Presented::discarded_for_resize`] is what
 /// says so. Cost: one load per frame, one discarded composite per resize.
 ///
 /// **A leased surface never changes size under a drawing caller** — it does not know the terminal
 /// exists. That is why this is sampled rather than applied: the surfaces resize when the application
-/// reacts to the resize *event*, which is [`crate::Screen::resize`]'s business and ticket 20's to
+/// reacts to the resize *event*, which is [`crate::Screen::resize`]'s business and the original's to
 /// deliver.
 ///
 /// # Who writes it
 ///
-/// Ticket 20's input thread, which owns the read direction and is the only thread that learns about
+/// The input thread, which owns the read direction and is the only thread that learns about
 /// a resize — a `SIGWINCH` arrives there, as an `Event::Resize`. Until then [`TerminalSize::set`]
 /// has one caller and it is a gate: the mechanism this ticket owes is the sampling, the re-check and
 /// the discard, and those are testable without the signal that will drive them.

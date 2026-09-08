@@ -38,7 +38,7 @@
 //! # Three things this side has that the engine's does not, each because the surface is different
 //!
 //! - **A cell nobody wrote is [`UNWRITTEN`] and it is not a blank.** The engine composites over an
-//!   opaque base, so an unpainted cell is a finding; here it is the *subject* — spec §2's partition
+//!   opaque base, so an unpainted cell is a finding; here it is the *subject* — the partition
 //!   rule is exactly the claim that a component leaves none of its own rectangle untouched, and
 //!   [`crate::counters::sentinel`] exists because *what was already there is almost always right*.
 //!   Rendering it as a space would make a golden agree with itself about the cells the shrink axis
@@ -56,7 +56,7 @@
 //!
 //! # The rung is not nameable here, so a screen is taken at a theme somebody else built
 //!
-//! §16's replacement for the type `Paint` was able to be is a count — `GlyphSet::` occurrences in
+//! The replacement for the type `Paint` was able to be is a count — `GlyphSet::` occurrences in
 //! `vitui-components/src` == 0 — so this module cannot say which rung a screen is at. It takes a
 //! [`Theme`] and reads the rung *off* it, which is what puts the rung in the header without naming
 //! it. The three-rung sweep is `crates/vitui-components/tests/golden.rs`, which is a test rather
@@ -106,7 +106,7 @@ fn printable_ascii(cluster: &str) -> Option<char> {
 
 /// A blank cell — a space, U+0020.
 ///
-/// Non-ASCII on purpose, and it is the owner's own correction to §14's example: a space rendered as
+/// Non-ASCII on purpose, and it is the owner's own correction to the example: a space rendered as
 /// a space is trailing whitespace, which editors strip and `git diff` paints red.
 pub const BLANK: char = '·';
 
@@ -116,7 +116,7 @@ pub const CONTINUATION: char = '▸';
 /// **A cell no verb of this frame or any frame before it wrote.**
 ///
 /// The engine's marker at this position means *no layer painted*, which cannot survive compositing;
-/// here it is spec §2's partition rule as one character. See the module header.
+/// here it is the partition rule as one character. See the module header.
 pub const UNWRITTEN: char = '▪';
 
 /// The glyph plane's legend characters, for every cluster that is not printable ASCII.
@@ -357,8 +357,8 @@ fn describe_cluster(cluster: &str) -> String {
 ///
 /// ADR 0018 is why this is a search and not a field read — a component names a role and never a
 /// colour, and a `Paint` is opaque here — and it is also why the answer is the *useful* one. A paint
-/// that is none of the thirteen came from `Theme::custom` or `Theme::mix`, which is §14's stated
-/// exception for a picture and §13's for a chart's palette, and it says so rather than guessing.
+/// that is none of the thirteen came from `Theme::custom` or `Theme::mix`, which is the stated
+/// exception for a picture and one for a chart's palette, and it says so rather than guessing.
 fn describe_paint(theme: &Theme, paint: Paint, hover: Option<Role>, customs: &mut u32) -> String {
     let named = match Role::ALL.iter().find(|r| theme.paint(**r) == paint) {
         Some(r) => format!("{r:?}"),
@@ -658,7 +658,7 @@ impl std::fmt::Display for Section {
 
 /// **A construction, as this crate is allowed to spell it.**
 ///
-/// §16's replacement for the type `Paint` was able to be is a count — `GlyphSet::` occurrences in
+/// The replacement for the type `Paint` was able to be is a count — `GlyphSet::` occurrences in
 /// `vitui-components/src` == 0 — so the repertoire cannot be named here, and a screen table that
 /// could not say which rung it was at would be a table with nine of its thirty-three screens
 /// missing. Three arms and no fourth, joined to the runtime's repertoire by **one match in one
@@ -682,7 +682,7 @@ pub enum Rung {
 ///
 /// `shoot` owns its own state and drives its own frames, because three of the twenty-eight cannot
 /// be written any other way: `select` and `file_picker` borrow their popup state **for the frame**
-/// (spec §1's sentence about the fifth component), and `file_preview_pane`'s answer arrives on a
+/// (the sentence about the fifth component), and `file_preview_pane`'s answer arrives on a
 /// frame after the one that asked for it.
 #[derive(Clone, Copy)]
 pub struct Screen {
@@ -1118,7 +1118,7 @@ pub fn on_disk() -> Vec<(String, usize)> {
 /// drawing rather than of a copy.
 ///
 /// **`sticky` is the one that draws nothing of its own**, and its screen is the caller's two rows
-/// clipped by the band — which is the construction, since §9's sticky is *one band construction*
+/// clipped by the band — which is the construction, since the sticky is *one band construction*
 /// and the band is all of it.
 ///
 /// **Private, and the reason is a collision rather than tidiness.** Every one of these is named
@@ -1318,13 +1318,13 @@ mod shots {
     ///
     /// `select_into` places its popup with `Ctx::overlay`, whose body is `move |cx| …` and takes no
     /// ink: a body outlives the base pass, so everything it touches is borrowed for the frame (spec
-    /// §1's sentence about the fifth component, and components 26's `'f`), and a `&mut I` is not.
+    /// the sentence about the fifth component, and components 26's `'f`), and a `&mut I` is not.
     /// So a popup's interior cannot reach a [`Pen`] at all, and a golden of an **open** `select` is
     /// four rows of *a cell no verb wrote* under one row of face — a picture that would pass, and
     /// would say nothing about the popup.
     ///
     /// What the shut face *is* evidence for is `select`'s own gate: a partition of its rectangle,
-    /// with the chevron, the space and the elided label meeting exactly once. §12's interiors are
+    /// with the chevron, the space and the elided label meeting exactly once. The interiors are
     /// measured by `crate::popup` and by `overlay`'s own screen, which draws through
     /// `overlay_into` — whose body **does** take the ink, because it is not a layer.
     pub fn select(pen: &mut Pen, driver: &mut Driver) {
@@ -1844,7 +1844,7 @@ mod tests {
     }
 
     /// **A cell nobody wrote is not a blank**, which is the one place this side departs from the
-    /// owner — and the departure is spec §2's partition rule.
+    /// owner — and the departure is the partition rule.
     #[test]
     fn an_unwritten_cell_and_a_blank_are_two_characters() {
         let mut canvas = Canvas::new(2, 1);

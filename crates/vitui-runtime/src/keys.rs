@@ -1,7 +1,7 @@
 //! Key maps: chords stored inline, matching on **intent**, and a capability the runtime reads and
 //! never acts on.
 //!
-//! Spec §9; ADR 0021 (a declared thing is not rewritten), ADR 0010 (a detected axis is not a ladder).
+//! A declared thing is never rewritten, and a detected axis is not a ladder.
 //!
 //! ```
 //! use vitui_engine::{Key, KeyCode, KeyKind, KeyText, Mods};
@@ -24,7 +24,7 @@
 //!
 //! # Chords are stored inline, and that is `E0716`'s doing
 //!
-//! Spec §12 sketched `keys: &'static [Chord]`. **It cannot be written at a call site**: rvalue
+//! The shape was sketched as `keys: &'static [Chord]`. **It cannot be written at a call site**: rvalue
 //! promotion does not cover a `const fn` call, so `&[Chord::key('s').ctrl()]` is
 //! *temporary value dropped while borrowed* and every binding list would need its own named `const`.
 //! That is a requirement-10 failure in the one demand that exists **because** bindings are declared
@@ -61,7 +61,7 @@
 //! whole of what is readable — one boolean, not a tier. Two reasons, and the second is the sharper:
 //! a binding is not rewritten because the terminal is poor, any more than a declared interest is;
 //! and **which legacy terminal we are in is unobservable**, both cases being silence on
-//! the wire, so a ladder's middle rungs cannot be told apart. ADR 0010 refuses `KeyboardTier` by name
+//! the wire, so a ladder's middle rungs cannot be told apart. A `KeyboardTier` is refused by name
 //! and this is why.
 
 // The thirty-three-binding corpus and the synthetic terminal that presses it. `#[path]`-included by
@@ -93,7 +93,7 @@ pub type ActionId = u32;
 /// which are keyboard *state*: a binding on `Ctrl+C` must still fire with caps lock on.
 ///
 /// The engine's own projection is [`Mods::chord`] — *"the same modifiers with the two locks removed,
-/// which is what a key binding compares"*, in its own words — and **spec §9 calls that method
+/// which is what a key binding compares"*, in its own words — and **it was sketched as
 /// `Mods::intent()`.** There is no `intent` in the engine and `Mods` is a foreign type this crate
 /// cannot add an inherent method to, so this module calls `chord()` and names the mask here rather
 /// than wrapping it in an extension trait. Two names for one mask is worse than one name in the wrong
@@ -117,7 +117,7 @@ pub const INTENT: Mods = Mods::SHIFT
 /// character the modifier is *how the character was produced* and carries no intent of its own. An
 /// author writing [`Chord::typed('+')`](Chord::typed) has already said everything shift says.
 ///
-/// Runtime architecture issue 28, and the third defect on this map with one shape: correct on the
+/// The third defect here with one shape: correct on the
 /// configuration everything was tested on and wrong on the capable one. It is **invisible on a
 /// legacy terminal**, which reports no modifier for a printable byte, which is why it shipped.
 ///
@@ -140,7 +140,7 @@ pub const TYPED_INTENT: Mods = Mods::ALT
 /// Whether the terminal reports the key the physical layout would have produced.
 ///
 /// A projection of `Capabilities::alternate_keys`, which is literally kitty flag 4 — **one boolean,
-/// and deliberately not a tier.** ADR 0010 refuses `KeyboardTier` by name, and this module's own
+/// and deliberately not a tier.** A `KeyboardTier` is refused by name, and this module's own
 /// measurement is why: below flag 4 there are two cases, a terminal that falls back to Latin and one
 /// that sends nothing, and **they are indistinguishable from inside the process** because both are
 /// silence on the wire. A ladder whose middle rungs cannot be told apart is not a ladder.
@@ -251,7 +251,7 @@ impl Chord {
     /// **The one to reach for on a character shift produces** — `+`, `?`, `:`, `_` — because it
     /// compares [`TYPED_INTENT`] and so matches whichever of the three spellings the terminal
     /// happens to send for that character. [`key`](Chord::key) on such a character matches only the
-    /// spelling a legacy terminal uses. Runtime architecture issue 28.
+    /// spelling a legacy terminal uses.
     ///
     /// **Do not hang a non-shift modifier on it.** `Chord::typed(c).ctrl()` and `.alt()` can match
     /// only on a terminal at kitty flag 16: below it the engine fills `text` from the key it was sent
@@ -341,7 +341,7 @@ impl Chord {
 /// How many alternatives one binding may name, and how long a sequence may be.
 ///
 /// Three covers the survey — one or two in almost every case, three at the widest. **Beyond three it
-/// truncates rather than failing** (ADR 0022's clamp-and-discard): a binding with four alternatives
+/// truncates rather than failing**, which is clamp-and-discard: a binding with four alternatives
 /// is a design smell, not an error, and a runtime that refused one would be turning a smell into an
 /// outage on a config reload.
 pub const MAX_ALTS: usize = 3;
@@ -408,7 +408,7 @@ impl Match {
 ///
 /// # The compile outcome that put the chords inline
 ///
-/// Spec §12's shape was `keys: &'static [Chord]`, and it cannot be written at a call site:
+/// The sketched shape was `keys: &'static [Chord]`, and it cannot be written at a call site:
 ///
 /// ```compile_fail,E0716
 /// use vitui_runtime::keys::Chord;
@@ -667,7 +667,7 @@ impl KeyMap {
 /// The buffer a frame copies matches into, **cleared and never freed**.
 ///
 /// This is the frame's half of the two-lifetimes split, and it lives here rather than on the frame
-/// because the frame does not exist yet — ticket 08 owns `Ctx` and will hold one of these. A frame
+/// because the frame does not exist yet — `Ctx` holds one of these. A frame
 /// that declares the same maps every frame allocates on the first one and never again.
 #[derive(Clone, Debug, Default)]
 pub struct Matches {
@@ -677,7 +677,7 @@ pub struct Matches {
 
 /// One `key_map` call: **a range tagged with the scope that was open when it was made.**
 ///
-/// Spec §9's scope resolution is this record and a walk outward. The flat pass — one list in
+/// Scope resolution is this record and a walk outward. The flat pass — one list in
 /// declaration order — is wrong in the expensive direction: `Ctrl+S` under a
 /// [`Trap`](crate::focus::ScopeKind::Trap) fires the application's *Save* instead of the modal's,
 /// which is a document written behind a dialog the user has not confirmed.
@@ -1006,7 +1006,7 @@ mod tests {
 
     /// The intent mask is the engine's own projection, bit for bit.
     ///
-    /// Spec §9 calls it `Mods::intent()`; the engine ships it as `Mods::chord()`. This is the
+    /// It was sketched as `Mods::intent()`; the engine ships it as `Mods::chord()`. This is the
     /// assertion that the two names are one operation, so the rename is a documentation fact rather
     /// than a behavioural guess.
     #[test]
@@ -1096,7 +1096,7 @@ mod tests {
     ///
     /// **This was once the only half of `On::Typed` this crate could test.** `KeyText` had no public
     /// constructor, so there was no way to build a key a `Typed` chord *would* match, and the
-    /// shortfall was written down rather than implied. Issue 28 is what ended it: `KeyText::of` is
+    /// shortfall was written down rather than implied, and it is over: `KeyText::of` is
     /// on the engine's surface now, and the positive half is
     /// [`a_typed_chord_matches_the_three_wire_spellings_of_one_character`].
     #[test]
@@ -1106,8 +1106,7 @@ mod tests {
         assert_eq!(map.match_first(&press(Chord::key('j'))), None);
     }
 
-    /// **The defect issue 28 filed, as the four spellings one keystroke has, and what each one
-    /// fires.**
+    /// **The defect, as the four spellings one keystroke has and what each one fires.**
     ///
     /// A US-layout `+` cannot be typed without shift, so the author writes the chord for the
     /// character they mean and the terminal reports a modifier that made the comparison unequal.
@@ -1390,7 +1389,7 @@ mod tests {
     ///
     /// `Capabilities` has a `pub(crate)` field and no public constructor, so the runtime cannot build
     /// one — the only way to hold one is to be handed it by an attached `Screen`. A headless attach is
-    /// the only kind a test can do, and it forces every input axis to `false` (ADR 0010's amendment:
+    /// the only kind a test can do, and it forces every input axis to `false`:
     /// *a declaration cannot make an event arrive*, so there is no `Overrides` field to turn it on
     /// with either).
     ///

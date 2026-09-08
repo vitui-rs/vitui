@@ -1,7 +1,7 @@
 //! Scrolling: **two mechanisms that must never be conflated**, four direction bits, and one
 //! sixteen-byte fact that crosses a frame.
 //!
-//! Spec §13; [ADR 0015](../../../docs/adr/) for why the one rectangle this subsystem keeps is not an
+//! Why the one rectangle this subsystem keeps is not an
 //! exception to *no geometry crosses a frame* but an instance of the rule it was mistaken for.
 //!
 //! # The two mechanisms
@@ -80,7 +80,7 @@
 //! - **It fires only for a keyboard-driven focus move.** A press already proves the widget was on
 //!   screen, and an unconditional pull is the list's old bug: it fights the wheel, dragging the
 //!   viewport back to the selection every time the user scrolls away from it.
-//! - **[`Ctx::scroll_scope`](crate::ctx::Ctx::scroll_scope) scopes no identity.** §5's rule applied: a container that takes a
+//! - **[`Ctx::scroll_scope`](crate::ctx::Ctx::scroll_scope) scopes no identity.** The identity rule applied: a container that takes a
 //!   closure renames its children, *except* the two that exist to wrap something already on screen.
 //!   A scroll area that renamed its body would lose the focus and every widget's state the moment it
 //!   appeared.
@@ -307,8 +307,8 @@ impl Default for Wheel {
 /// survives is [`IntoView`], which is why that type names an [`Id`] and this one is never handed
 /// across a boundary.
 ///
-/// It is therefore a **sixth** frame-local structure where spec §1 says five, and a finding against
-/// that sentence rather than against ADR 0012's decision: the decision is *nothing retained*, and a
+/// It is therefore a **sixth** frame-local structure where the design says five, which bends the
+/// count and not the decision: the decision is *nothing retained*, and a
 /// structure rebuilt from every draw and dead by `present` is on the right side of it.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub struct Area {
@@ -423,7 +423,7 @@ mod tests {
 
     /// The defective declaration, kept runnable so that the count below compares against something
     /// rather than against a memory of something. **A pair of axis bools**, derived from the same
-    /// four bits, matched the way `architecture.md` §13 matched them.
+    /// four bits, matched the way the proposal matched them.
     fn axis_matcher(s: Scrollable, delta: (i32, i32)) -> bool {
         let y = s.contains(Scrollable::UP) || s.contains(Scrollable::DOWN);
         let x = s.contains(Scrollable::LEFT) || s.contains(Scrollable::RIGHT);
@@ -906,7 +906,7 @@ mod tests {
 
     /// **A frame that leaves an into-view request wakes the screen.**
     ///
-    /// The regression for runtime architecture issue 33, and the reason it stood for four
+    /// The regression, and the reason it stood for four
     /// components: *a gate drives its own frames*. Every other test of this path draws a second
     /// frame because it wants to observe one, so the harness supplied the wake the runtime did not
     /// and the lag was invisible by construction. This one draws **one** frame per arm and asks the

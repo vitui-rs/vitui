@@ -1,6 +1,6 @@
 //! Layout: pure functions over integer rectangles, one denominator, and no gaps.
 //!
-//! Spec §11. **No solver state, no allocation, no floats in the result** — and no floats anywhere,
+//! **No solver state, no allocation, no floats in the result** — and no floats anywhere,
 //! because the one place a float would be natural is the one place it cannot be trusted: a
 //! proportional claim that rounds differently on two lanes is a hole in the screen.
 //!
