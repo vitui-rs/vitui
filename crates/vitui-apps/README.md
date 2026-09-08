@@ -230,7 +230,31 @@ than in three file headers:
 | `StatusOpts` has no per-segment role | `commander`'s function bar paints `1Help` in one colour where `mc` paints two |
 | `Column` carries no justification, so a header and its cells can disagree | `cluster`'s right-aligned `RESTARTS`, `CPU`, `MEM` |
 | the theme's twenty glyphs include no file icon | `spf`, which is a nerd-font application upstream |
-| `←`/`→` are `crate::nav::step`'s, so a container cannot bind them over a collection | `commander`'s menu bar (took `Alt+←`/`Alt+→`), `spf`'s open/parent |
-| `crate::collect::Refusal` is `pub(crate)`, so a container's own keys over a `collection` have no in-frame route | `commander`'s pull-downs, `spf`'s sort menu — both read them from `Driver::unhandled` instead |
 
 None of them is worked around in the files. The point of a port is to show the gap.
+
+### Two rows that were on this list and are not
+
+Both were about the same boundary — **which keys belong to a focused `collection`, and what a
+container above it can do about the answer** — and they closed together, because one of them was
+what made the other look like a wall.
+
+- **`←`/`→` were `nav::step`'s, so a container could not bind them over a collection.** A group
+  declares its axis now. A `collection`, a `table`, a `tree`, a `select`'s popup and a `form` are
+  vertical and decline the horizontal arrows; `pagination` is a strip and declines the vertical
+  ones — it had been answering `↑` for *the previous page* and printing that in a help bar.
+  `commander` walks its pull-downs with the bare arrows, as `mc` does, and `spf` binds
+  `hotkeys.toml`'s own `confirm = ['enter', 'right', 'l']` and
+  `parent_directory = ['h', 'left', 'backspace']`. `tree` is the one component that still reads the
+  two, as fold and unfold, and it declares them itself.
+- **`collect::Refusal` is `pub(crate)`, so a container's own keys had no in-frame route.** The
+  second half of that sentence was **false**, and it stood in this table, in `CLAUDE.md` and in
+  `commander`'s own source while all three ports answered their dialogs a frame late on the
+  strength of it. `Ctx::scope`'s after-the-body moment is the route: a scope the focus drew inside
+  becomes the routing target when its body ends, and the decline that closed the key queue is
+  spent. `input::form` had been built on that moment since it was written.
+
+  `Refusal` stays `pub(crate)`, and the division is what it reaches: **first** refusal, which is
+  the keys a collection would otherwise *consume* — a `tree`'s fold keys, and nothing a container
+  can have. The scope reaches what it *declines*. Moving the two arrows from the first set to the
+  second is what made the existing route enough.

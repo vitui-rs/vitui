@@ -36,7 +36,8 @@ MSRV **1.88** — `Cargo.toml` is the authority and the `msrv` CI job is what ke
   rather than counted: `crates/vitui-components/tests/crate_line.rs` cannot name the engine.
 - **`vitui-components` — implementation-complete.** All 46 tickets; spec §17's freeze is **29 of 29
   built**, as a value (`INVENTORY`) that tests iterate, with the documentation and verification
-  obligations as functions over it. Register **234 rows, 229 evaluated** — 234 is components
+  obligations as functions over it. Register **236 rows, 231 evaluated** — 235 and 236 are
+  production 17's, the keyboard boundary; 234 is components
   architecture 20's, *every entry of §16's twenty is drawn on a named line or recorded as undrawn* —
   and
   **no row pinned red** — row 112 was the last, inverted by runtime architecture 31 — beside
@@ -117,13 +118,19 @@ MSRV **1.88** — `Cargo.toml` is the authority and the `msrv` CI job is what ke
   by 12 and **iTerm2 by 13**, which was the last one reachable without Windows, with **14** closing
   the group's paperwork behind them),
   the release, and — added 2026-09-07 — **the two surface gaps the three ports found and nothing
-  scheduled**: 17 is the keyboard boundary asked about twice (`collect::Refusal` is `pub(crate)`, so
-  a container cannot read in-frame what a `collection` declined, and `nav::step` reads `←`/`→` as
-  `↑`/`↓`) and 18 is five option fields, two of which three separate applications reached for. Both
-  were already recorded in `crates/vitui-apps/README.md`'s *What they cannot say* table, and
-  recorded is not scheduled — the same sentence this backlog was opened with, one surface over.
-  **Neither is on 15's `Blocked by:` line**: a widened visibility and a field on a `Default` struct
-  are compatible additions, so both can land in 0.1.x.
+  scheduled**: 17, the keyboard boundary asked about twice, and 18, five option fields two of which
+  three separate applications reached for. Both were already recorded in
+  `crates/vitui-apps/README.md`'s *What they cannot say* table, and recorded is not scheduled — the
+  same sentence this backlog was opened with, one surface over.
+  **17 is resolved** (2026-09-08) and **half of it was refused because its premise was false**: the
+  in-frame route a container needs over a focused `collection` has existed the whole time
+  (`Ctx::scope`, register row 236), and what closed the other half was a decision — a group declares
+  its axis, `nav::step` reads it (row 235) — which found a live defect nobody had filed, a pager
+  answering `↑` for *the previous page* in a help bar. Both traps below are rewritten.
+  **It was not on 15's `Blocked by:` line and that judgement was half wrong in fact**: a widened
+  visibility was never what it needed, and what it did need — an argument on `nav::step` and
+  `nav::cursor` — is a **breaking** change that was free before the publish and would not have been
+  after. 18 is still off that line: a field on a `Default` struct is a compatible addition.
   A seventh group was added the same day and **19 is resolved** (2026-09-07): the shipped
   documentation cited an ADR, a spec section, a ticket, a register row or a backlog path on
   **5,557 lines**, and it is **zero** now — all four publishable crates are `SWEPT` in both
@@ -628,17 +635,33 @@ instrument rather than in the code. Each of these has bitten at least twice.
   focus, cursor and hover — and the screen looks perfect while the wrong panel answers the keyboard.
   `Ctx::with_key` is the fix and `commander` is where it was found; `spf` has the same shape with
   three panels. A gate never meets this, because a gate draws one subject.
-- **`Ctx::next_key` answers only the focused id, and `Ctx::decline` ends the level's turn**, which
-  together close two doors a container reaches for on its first day. A keyboard sink beside a
-  *focused* `field` is deaf — a dialog's `Enter` and `Esc` are the field's to decline and arrive in
-  `Driver::unhandled`, one frame later. And a container drawing a `collection` cannot read the keys
-  that collection declined **in the same frame**: `next_key` answers `None` for the rest of it. The
-  one in-frame route is `crate::collect::Refusal`, which is `pub(crate)`. Both shapes compile, draw
-  correctly and do nothing, which is why all three ports met them.
-- **`crate::nav::step` reads `←` and `→` as `↑` and `↓`**, so a `collection` *consumes* the two keys
-  a menu bar walks its pull-downs with. `commander` binds `Alt+←`/`Alt+→` instead — a collection
-  declines a chord and swallows no accelerator — and records that `mc`'s own binding is one this
-  surface cannot have.
+- **`Ctx::next_key` answers only the focused id, and `Ctx::decline` ends the level's turn** — so a
+  keyboard sink beside a *focused* `field` is deaf: a dialog's `Enter` and `Esc` are the field's to
+  decline and arrive in `Driver::unhandled`, one frame later. It compiles, draws correctly and does
+  nothing, which is why all three ports met it.
+  **The second half of that trap was itself false and stood in four documents** (2026-09-08):
+  *a container drawing a `collection` cannot read what it declined in the same frame, and the one
+  in-frame route is `crate::collect::Refusal`, which is `pub(crate)`.* It can. `Ctx::scope`'s
+  after-the-body moment is the route — a scope the focus drew inside becomes the routing target when
+  its body closes and the decline that shut the queue is spent — and `vitui_components::input::form`
+  has been built on it since it was written. What `Refusal` uniquely buys is **first** refusal: the
+  keys a collection would otherwise *consume*, which is a `tree`'s fold keys and nothing a container
+  can have. The scope reaches what it *declines*. Register row 236.
+- **A group declares its axis and `crate::nav::step` reads it** (2026-09-08, register row 235). It
+  read all four arrows as one axis until then — *a list's index grows downward, so `←` is `↑`* — and
+  a **consumed** key cannot reach the container the list is drawn inside, so `commander` bound
+  `Alt+←`/`Alt+→` and `spf` could not bind `hotkeys.toml`'s arrows at all. Both bind what their
+  originals bind now. **The axis is a fact about the component and never an option on it**: nothing
+  takes an `Axis` from an application, `collect::keyboard` takes it from the component, and there is
+  no `CollOpts` field — a caller who could set the other one would be declaring something the
+  component cannot honour. **Both values ship and the second was live and wrong**: `pagination` is a
+  strip, and it answered `↑` for *the previous page* and declared it in a help bar for the whole life
+  of the crate. `tree` is the only component that still reads `←`/`→`, as fold and unfold, and it
+  declares them itself. `Home`/`End`/`PageUp`/`PageDown` are both axes'; the deaf `Ctrl` step does
+  **not** turn, because `Ctrl+←`/`Ctrl+→` are word motion and `contract::ABSENT` reserves them — so a
+  strip has the two ends and no deaf step, and answers 18 spellings where the store declares 22.
+  `input::slider` still spells its own pairing (`↑` with `→`, a diagonal across both axes) and is why
+  a list can decline an axis at all.
 - **`owns_escape`'s defect was live one key over, and `collect::owns` is the rule said of the whole
   vocabulary** (2026-09-07). Components architecture 22 taught `Escape` to decline when `apply`
   would clear nothing — *the component owns it exactly when it would do something* — and left the

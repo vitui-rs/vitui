@@ -185,7 +185,7 @@ fn main() {
         println!(
             "  {:<10}  {from:>4} → {:>4}",
             format!("{code:?}"),
-            nav::step(&k, cur.to(from)).expect("a cursor key")
+            nav::step(&k, cur.to(from), nav::Axis::Vertical).expect("a cursor key")
         );
     }
     let ctrl_home = vitui_components::keys::press(Chord::new(Code::Home).ctrl());
@@ -194,7 +194,19 @@ fn main() {
          {:<10}  predicate a field declines `Ctrl+S` with",
         "Ctrl+Home", ""
     );
-    assert_eq!(nav::step(&ctrl_home, cur), None);
+    assert_eq!(nav::step(&ctrl_home, cur, nav::Axis::Vertical), None);
+    // **And the arrows the other axis owns**, printed beside the six above because a report that
+    // showed only what moves cannot show that two keys stopped moving anything.
+    for code in [Code::Left, Code::Right] {
+        let k = vitui_components::keys::press(Chord::new(code));
+        assert_eq!(nav::step(&k, cur, nav::Axis::Vertical), None);
+        assert!(nav::step(&k, cur, nav::Axis::Horizontal).is_some());
+        println!(
+            "  {:<10}  declined by a vertical group and answered by a strip — so it reaches \
+             whatever a list is drawn inside",
+            format!("{code:?}")
+        );
+    }
 
     // The **shape**, so that a report which has quietly started measuring something smaller fails
     // rather than looking good.

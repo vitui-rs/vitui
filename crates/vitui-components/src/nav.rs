@@ -18,12 +18,17 @@
 //! that forgets to open a group leaves every member in the ring, which is a `Tab` per row rather
 //! than a `Tab` per control.
 //!
-//! # The arrows are read as vertical
+//! # A group runs on one axis and says which
 //!
-//! [`step`] treats `←`/`→` the way it treats `↑`/`↓`, so a focused collection consumes both. A
-//! container that needs the horizontal arrows for itself — a menu bar walking its pull-downs —
-//! has to bind them with a modifier, because a collection declines a chord and swallows a plain
-//! arrow.
+//! [`step`] takes an [`Axis`] and answers the two arrows on it, **declining the other two** — so
+//! the arrows a group does not have reach whatever it is drawn inside. Both values ship:
+//! `crate::collect::collection` draws rows down a rectangle and `crate::collect::pagination` lays
+//! its pages across one.
+//!
+//! **The two it declines are not spare, they are somebody else's.** `crate::collect::tree` takes
+//! `←` and `→` first, as fold and unfold, through the hook this module's caller threads; and a
+//! container that wants them takes them after its body — see `Ctx::scope`, one crate down, and
+//! `crate::collect::Refusal` for which of the two moments answers which key.
 
 use std::time::{Duration, Instant};
 
@@ -85,8 +90,75 @@ impl Cursor {
     }
 }
 
-/// **Arrows, `Home`/`End`, `PageUp`/`PageDown`.** The new index, or `None` when the key is not the
+/// **Which pair of arrows a group runs on.** Two values, and this crate ships both.
+///
+/// # It is a fact about the component and not an option on it
+///
+/// Nothing takes an `Axis` from an application. A [`crate::collect::collection`] draws rows **down**
+/// a rectangle and a [`crate::collect::pagination`] lays its pages **across** one, so each passes
+/// its own and a caller who could set the other would be declaring something the component cannot
+/// honour. The type is public because [`step`] and [`cursor`] are, and a caller building a group of
+/// its own out of those two helpers is the one reader that has a choice to make.
+///
+/// # The arrows it does not have are declined, and that is the point
+///
+/// A group answers the two arrows on its own axis and hands the other two back, so they reach
+/// whatever it is drawn inside. `←` and `→` were read as `↑` and `↓` for every group in this crate
+/// until an axis became a value — a defensible reading on its own terms, *a list's index grows downward, so
+/// the two axes are one* — and what it cost was invisible from inside a list: a **consumed** key
+/// cannot reach a container, so a menu bar could not walk its pull-downs with the two keys every
+/// menu bar in the world walks them with, and a pager on a strip answered `↑` for *the previous
+/// page*.
+///
+/// # What it does not decide
+///
+/// `Home`, `End`, `PageUp` and `PageDown` are both axes' and are unmoved. So is the `Ctrl` pair
+/// [`crate::collect`] spells beside this — a deaf move has no horizontal spelling available at all,
+/// because `Ctrl+←` and `Ctrl+→` are word motion and `crate::contract::ABSENT` says no help in this
+/// crate may claim them.
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
+pub enum Axis {
+    /// `↑` and `↓` move the cursor; `←` and `→` are declined. **The default**, and every group here
+    /// but one.
+    #[default]
+    Vertical,
+    /// `←` and `→` move the cursor; `↑` and `↓` are declined. A strip: `crate::collect::pagination`
+    /// is the one in this crate.
+    Horizontal,
+}
+
+impl Axis {
+    /// The two codes this axis answers, backward first.
+    const fn arrows(self) -> (Code, Code) {
+        match self {
+            Axis::Vertical => (Code::Up, Code::Down),
+            Axis::Horizontal => (Code::Left, Code::Right),
+        }
+    }
+}
+
+/// **`↑`/`↓`, `Home`/`End`, `PageUp`/`PageDown`.** The new index, or `None` when the key is not the
 /// group's.
+///
+/// # The other two arrows are declined, and that is a decision rather than an omission
+///
+/// All four moved the cursor until this took an [`Axis`] — `←` read as `↑` and `→` as `↓`, on the argument
+/// that a list's index grows downward so the two axes are one. What that argument leaves out is the
+/// cost: a *consumed* key cannot reach the container the group is drawn inside, so a menu bar could
+/// not walk its pull-downs with the two keys every menu bar in the world walks them with, and three
+/// ports of real programs met it from three sides — `commander` bound `Alt+←`/`Alt+→` and wrote
+/// down that `mc`'s own binding was one this surface could not have, and `spf` could not bind
+/// `confirm = ['enter', 'right', 'l']` or `parent_directory = ['h', 'left', 'backspace']` on the
+/// arrows at all. The reading was also simply **wrong on a strip**: a pager answered `↑` for the
+/// previous page and declared it in a help bar.
+///
+/// A declined arrow goes where a declined key goes: to [`crate::collect::tree`]'s hook, which reads
+/// `←` and `→` as fold and unfold before the cursor sees them; and past it, to the container's
+/// after-the-body moment.
+///
+/// **[`crate::input::slider`] still does not call this**, and that is the same boundary a third
+/// time: a slider pairs `↑` with `→` because a value grows upward, which is not either of these two
+/// axes but a diagonal across both.
 ///
 /// # A chord is not a cursor key either, and it is the same predicate
 ///
@@ -116,14 +188,23 @@ impl Cursor {
 /// ring does at the ends of the *walk* — and a list that did the same makes `Tab` and `Down`
 /// indistinguishable to a user who cannot see where either one went. The ring wraps because it has
 /// somewhere to wrap to; a group's cursor stops.
-pub fn step(k: &Pressed, cur: Cursor) -> Option<usize> {
+pub fn step(k: &Pressed, cur: Cursor, axis: Axis) -> Option<usize> {
     if cur.len == 0 || k.kind == Edge::Release || is_chord(k) {
         return None;
     }
     let last = cur.last();
+    let (back, on) = axis.arrows();
+    // **The two arrows are matched before the four shared keys and not inside the same `match`**,
+    // because a `match` arm has to be a pattern and an axis is a value. Written as a guard on one
+    // arm — `c if c == back` — it reads as a comparison a reader has to check is exhaustive; here
+    // the axis is answered first and everything below it is the same for both axes.
+    if k.code == back {
+        return Some(cur.at.saturating_sub(1));
+    }
+    if k.code == on {
+        return Some((cur.at + 1).min(last));
+    }
     let moved = match k.code {
-        Code::Up | Code::Left => cur.at.saturating_sub(1),
-        Code::Down | Code::Right => (cur.at + 1).min(last),
         Code::Home => 0,
         Code::End => last,
         Code::PageUp => cur.at.saturating_sub(cur.page),
@@ -279,8 +360,9 @@ pub fn cursor(
     ahead: &mut TypeAhead,
     k: &Pressed,
     labels: &[&str],
+    axis: Axis,
 ) -> Option<usize> {
-    if let Some(moved) = step(k, cur) {
+    if let Some(moved) = step(k, cur, axis) {
         // A cursor key is not type-ahead, and a standing buffer that survived one would make the
         // next letter continue a search the user has visibly abandoned.
         ahead.clear();
@@ -472,19 +554,17 @@ mod tests {
         for code in [
             Code::Down,
             Code::Up,
-            Code::Left,
-            Code::Right,
             Code::Home,
             Code::End,
             Code::PageUp,
             Code::PageDown,
         ] {
             assert!(
-                step(&key(code), cur).is_some(),
+                step(&key(code), cur, Axis::Vertical).is_some(),
                 "{code:?} pressed is this group's key",
             );
             assert_eq!(
-                step(&released(code), cur),
+                step(&released(code), cur, Axis::Vertical),
                 None,
                 "{code:?} released is the other half of the same keystroke and must not step again",
             );
@@ -505,8 +585,6 @@ mod tests {
             (Code::Down, 9, 9, "down clamps at the last"),
             (Code::Up, 5, 4, "up"),
             (Code::Up, 0, 0, "up clamps at the first"),
-            (Code::Right, 0, 1, "right is down"),
-            (Code::Left, 3, 2, "left is up"),
             (Code::Home, 7, 0, "home"),
             (Code::End, 2, 9, "end"),
             (Code::PageDown, 0, 4, "a page down"),
@@ -515,7 +593,7 @@ mod tests {
             (Code::PageUp, 2, 0, "a page up clamps"),
         ] {
             assert_eq!(
-                step(&key(code), cur.to(from)),
+                step(&key(code), cur.to(from), Axis::Vertical),
                 Some(to),
                 "{what}: {code:?} from {from}"
             );
@@ -528,7 +606,7 @@ mod tests {
     fn an_empty_group_declines_every_cursor_key() {
         let empty = Cursor::new(0, 4);
         for code in [Code::Down, Code::Up, Code::Home, Code::End, Code::PageDown] {
-            assert_eq!(step(&key(code), empty), None);
+            assert_eq!(step(&key(code), empty, Axis::Vertical), None);
         }
         assert_eq!(empty.last(), 0);
     }
@@ -541,29 +619,99 @@ mod tests {
     #[test]
     fn a_chord_on_a_named_key_is_not_the_groups() {
         let cur = Cursor::new(10, 4).to(5);
-        assert_eq!(step(&key(Code::Home), cur), Some(0));
+        assert_eq!(step(&key(Code::Home), cur, Axis::Vertical), Some(0));
         assert_eq!(
-            step(&press(Chord::new(Code::Home).ctrl()), cur),
+            step(&press(Chord::new(Code::Home).ctrl()), cur, Axis::Vertical),
             None,
             "Ctrl+Home is the application's"
         );
-        assert_eq!(step(&press(Chord::new(Code::End).alt()), cur), None);
+        assert_eq!(
+            step(&press(Chord::new(Code::End).alt()), cur, Axis::Vertical),
+            None
+        );
         // Shift passes, because a range selection is the group's business.
-        assert_eq!(step(&press(Chord::new(Code::Down).shift()), cur), Some(6));
+        assert_eq!(
+            step(&press(Chord::new(Code::Down).shift()), cur, Axis::Vertical),
+            Some(6)
+        );
     }
 
     /// **Neither end wraps**, which is what tells `Down` apart from `Tab`.
     #[test]
     fn a_groups_cursor_stops_where_the_ring_would_wrap() {
         let cur = Cursor::new(3, 2);
-        assert_eq!(step(&key(Code::Down), cur.to(2)), Some(2));
-        assert_eq!(step(&key(Code::Up), cur.to(0)), Some(0));
+        assert_eq!(step(&key(Code::Down), cur.to(2), Axis::Vertical), Some(2));
+        assert_eq!(step(&key(Code::Up), cur.to(0), Axis::Vertical), Some(0));
     }
 
     /// A letter is not a cursor key, so it falls through to type-ahead.
     #[test]
     fn a_letter_is_not_a_cursor_key() {
-        assert_eq!(step(&press(Chord::key('a')), Cursor::new(6, 3)), None);
+        assert_eq!(
+            step(&press(Chord::key('a')), Cursor::new(6, 3), Axis::Vertical),
+            None
+        );
+    }
+
+    /// **A group answers its own two arrows and declines the other two, at every position.**
+    ///
+    /// **The assertion is the pair**: one arm alone is a gate that cannot fail on the defect it
+    /// exists for, because a helper that declined all four arrows would pass an absence scan and
+    /// lose every keyboard in the crate.
+    ///
+    /// **Read at `0` and at the last entry as well as in the middle**, because the old reading
+    /// answered `Some(0)` for `←` at the top and `Some(last)` for `→` at the bottom — so an arm
+    /// played only at an end compares `Some(0)` with `None` on the one row where a *clamped* move
+    /// and a refusal are the same cursor.
+    #[test]
+    fn a_group_answers_its_own_axis_and_declines_the_other() {
+        let cur = Cursor::new(10, 4);
+        for (axis, mine, theirs) in [
+            (
+                Axis::Vertical,
+                [Code::Up, Code::Down],
+                [Code::Left, Code::Right],
+            ),
+            (
+                Axis::Horizontal,
+                [Code::Left, Code::Right],
+                [Code::Up, Code::Down],
+            ),
+        ] {
+            for at in [0, 5, 9] {
+                for code in mine {
+                    assert!(
+                        step(&key(code), cur.to(at), axis).is_some(),
+                        "{code:?} at {at} is a {axis:?} group's own",
+                    );
+                }
+                for code in theirs {
+                    assert_eq!(
+                        step(&key(code), cur.to(at), axis),
+                        None,
+                        "{code:?} at {at} belongs to whatever a {axis:?} group is inside",
+                    );
+                }
+            }
+        }
+        // Shift does not buy the other axis either: `Shift+←` is a range selection on an axis this
+        // group does not have, and the pass-through rule above is about the modifier, not the key.
+        assert_eq!(
+            step(&press(Chord::new(Code::Left).shift()), cur, Axis::Vertical),
+            None
+        );
+        assert_eq!(
+            step(&press(Chord::new(Code::Up).shift()), cur, Axis::Horizontal),
+            None
+        );
+        // The four both axes share are unmoved, and they are what makes the two arms comparable.
+        for code in [Code::Home, Code::End, Code::PageUp, Code::PageDown] {
+            assert_eq!(
+                step(&key(code), cur.to(5), Axis::Vertical),
+                step(&key(code), cur.to(5), Axis::Horizontal),
+                "{code:?} is neither axis's alone",
+            );
+        }
     }
 
     // ── the matching rule ────────────────────────────────────────────────────────────────────────
@@ -748,7 +896,15 @@ mod tests {
 
         let mut moved = None;
         driver.frame(|cx| {
-            moved = cursor(cx, id, cur, &mut ahead, &key(Code::Home), &homely);
+            moved = cursor(
+                cx,
+                id,
+                cur,
+                &mut ahead,
+                &key(Code::Home),
+                &homely,
+                Axis::Vertical,
+            );
         });
         assert_eq!(moved, Some(0), "Home moved the cursor");
         assert_eq!(
@@ -764,7 +920,15 @@ mod tests {
 
         // And a letter does reach type-ahead.
         driver.frame(|cx| {
-            moved = cursor(cx, id, cur, &mut ahead, &press(Chord::key('h')), &homely);
+            moved = cursor(
+                cx,
+                id,
+                cur,
+                &mut ahead,
+                &press(Chord::key('h')),
+                &homely,
+                Axis::Vertical,
+            );
         });
         assert_eq!(moved, Some(0));
         assert_eq!(ahead.buffer(), "h");
@@ -779,11 +943,27 @@ mod tests {
         let mut ahead = TypeAhead::new();
         let cur = Cursor::new(6, 3);
         driver.frame(|cx| {
-            let _ = cursor(cx, id, cur, &mut ahead, &press(Chord::key('a')), &LABELS);
+            let _ = cursor(
+                cx,
+                id,
+                cur,
+                &mut ahead,
+                &press(Chord::key('a')),
+                &LABELS,
+                Axis::Vertical,
+            );
         });
         assert_eq!(ahead.buffer(), "a");
         driver.frame(|cx| {
-            let _ = cursor(cx, id, cur, &mut ahead, &key(Code::Down), &LABELS);
+            let _ = cursor(
+                cx,
+                id,
+                cur,
+                &mut ahead,
+                &key(Code::Down),
+                &LABELS,
+                Axis::Vertical,
+            );
         });
         assert_eq!(ahead.buffer(), "");
         assert!(!ahead.is_standing());

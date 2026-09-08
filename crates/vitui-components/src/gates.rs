@@ -376,6 +376,10 @@ const POPUP: &str = "crates/vitui-components/src/popup.rs";
 /// The collection's own file, which is where the rows run.
 const COLLECT: &str = "crates/vitui-components/src/collect.rs";
 
+/// **The cursor arithmetic every list, menu and strip shares**, and the one file that knows which
+/// axis a group runs on.
+const NAV: &str = "crates/vitui-components/src/nav.rs";
+
 /// The three scrolling components' own file. The seven rows are measured here.
 const SCROLL: &str = "crates/vitui-components/src/scroll.rs";
 
@@ -641,7 +645,7 @@ pub const SPEC_ROWS: usize = 32;
 /// **The four `gate` strings are the words and were left alone**, which is a rule this ticket
 /// nearly broke: extending row 15's to *at both ends and across an edit* and row 17's to *over five
 /// hundred edits* reads as clarification and is a **spec edit**, arriving as a one-line diff in this
-/// file, exactly what `tests::thirty_two_rows_are_the_specs_and_two_hundred_and_two_are_this_\
+/// file, exactly what `tests::thirty_two_rows_are_the_specs_and_two_hundred_and_four_are_this_\
 /// lineages` exists to make deliberate. What a ticket adds to a spec row goes in its comment.
 ///
 /// **Another moved it from two hundred and twenty-two to two hundred and twenty-four,
@@ -654,6 +658,20 @@ pub const SPEC_ROWS: usize = 32;
 /// are **four different tables** before asserting they draw one screen, and carries the clip-only
 /// sweep beside it as the control that steps at every arm. **Six unsubjected became four**, and all
 /// four of those are on the table too — they are the field's, and a later pass takes them.
+///
+/// **The keyboard boundary moved it from two hundred and twenty-nine to two hundred and
+/// thirty-one**, and neither of the two is an inversion: rows 235 and 236 are one question asked
+/// twice —
+/// *which keys belong to a focused `collection`, and what a container above it can do about the
+/// answer* — and the two halves were **found, recorded in two READMEs and scheduled nowhere** for
+/// four tickets. One of them turned out to be false when it was finally tested: `Ctx::scope`'s
+/// after-the-body moment has been an in-frame route the whole time, and `crate::input::form` was
+/// already built on it.
+///
+/// **The other half is the one number in this file a ticket has moved *down*.** A pager answers 18
+/// spellings where the shared store declares 22, because a strip has no deaf `Ctrl` step to turn
+/// into: `Ctrl+←`/`Ctrl+→` are word motion and `crate::contract::ABSENT` reserves them crate-wide.
+/// Recorded beside the row rather than padded away.
 ///
 /// **The indent-guide decision moved it from two hundred and twenty-eight to two hundred and
 /// twenty-nine**, and it is not an inversion: row 234 is a property the freeze had been asserting
@@ -688,7 +706,7 @@ pub const SPEC_ROWS: usize = 32;
 /// it. Row 30's own instrument compares two lists of *ids*, which is the most a query over the
 /// freeze can ask; the chord-for-chord equality needs a value with a machine in it, and
 /// `crate::contract::Contract::live` is that machine — it runs the shipped component.
-pub const EVALUATED: usize = 229;
+pub const EVALUATED: usize = 231;
 
 /// The register, row for row, and this ticket's gates beside it.
 #[expect(
@@ -698,7 +716,7 @@ pub const EVALUATED: usize = 229;
               array is read at compile time by nothing and at run time by tests, so the copy the \
               lint is warning about is one a test makes once"
 )]
-pub const REGISTER: [Row; 234] = [
+pub const REGISTER: [Row; 236] = [
     // ── the table, in its order ───────────────────────────────────────────────────────────
     Row {
         number: 1,
@@ -4580,14 +4598,17 @@ pub const REGISTER: [Row; 234] = [
         section: "spec §5, §7",
         // **A fact about the runtime rather than a preference.** `Ctx::decline` hands a key back
         // *and ends the level's turn at the queue*, so a container that drained before `collection`
-        // would leave it nothing and one that drained after would find the queue closed. And the
-        // collision is real: `crate::nav::step` reads `←` and `→` as `↑` and `↓`, which are exactly
-        // the two keys a tree folds with.
+        // would leave it nothing and one that drained after would find the queue closed. That is
+        // unchanged by the axis decision: `←` and `→` fall through `nav::step` now rather than being
+        // eaten by it, and a hook that ran second would still arrive after `Home`, `End` and the
+        // two page keys had moved the cursor.
         //
         // Fired in both directions on one screen: `←` through `tree` leaves a request and does not
-        // move the cursor, and the same key through a plain `collection` moves it. `→` on a row
-        // that is *not* folded is not the tree's, so a hook that swallowed every arrow would pass
-        // the first assertion and lose the keyboard.
+        // move the cursor, and the same key through a plain `collection` **moves nothing**, which
+        // is where this row met the ticket. `→` on a row that is *not* folded is not the tree's, so
+        // a hook that swallowed every arrow would pass the first assertion and lose the keyboard —
+        // and the `↓` control beside it is what keeps that half able to fail now that the arm it
+        // was written against answers `None` on both readings.
         standing: Standing::Evaluated {
             by: &[Instrument::Unit {
                 file: COLLECT,
@@ -6661,21 +6682,27 @@ pub const REGISTER: [Row; 234] = [
         kind: Kind::Count,
         owner: "C15",
         section: "spec §3, §14",
-        // ***A list's index grows downward and a slider's value grows upward.*** `nav::step` pairs
-        // `Up` with `Left` because it moves an index; a slider pairs `Up` with `Right`. So the two
-        // agree at `Left`, `Right`, `Home` and `End` and disagree at `Up`, `Down`, `PageUp` and
-        // `PageDown` — the finding from the other side, where a container could
-        // not read `←` and `→` through that helper because it reads them *as* `↑` and `↓`.
+        // ***A list's index grows downward and a slider's value grows upward.*** `nav::step` moves
+        // an index; a slider pairs `Up` with `Right`. So the two disagree at `Up`, `Down`, `PageUp`
+        // and `PageDown` and agree at `Home` and `End`.
         //
-        // **The count is the assertion.** A slider that called `nav::step` would be right for four
-        // keys and silently backwards for four, on a screen where the thumb visibly moves either
-        // way. Beside it, *a chord types nothing* on a component with no key map: all eight
-        // codes at three modifier states and both edges.
+        // **The eight split three ways and the `gate` string is unmoved**,
+        // which is the rule about spec words: a third class arrived under this row and what a
+        // ticket adds to a row goes in its comment. `←` and `→` are the third class — a list
+        // **declines** them now, so they are neither an agreement nor a disagreement — and this
+        // component is why it can: the two readings cannot both be one helper's, so the horizontal
+        // one is spelled by the component that wants it, and that component is this one.
+        //
+        // **The count is still the assertion**, and it is now three counts. A slider that called
+        // `nav::step` would be right for two keys, silently backwards for four, and **dead** for
+        // the two a user reaches for first, on a screen where the thumb visibly moves either way.
+        // Beside it, *a chord types nothing* on a component with no key map: all eight codes at
+        // three modifier states and both edges.
         standing: Standing::Evaluated {
             by: &[
                 Instrument::Unit {
                     file: INPUT,
-                    name: "the_sliders_pairing_is_not_a_lists_and_the_disagreement_is_four_codes",
+                    name: "the_sliders_pairing_is_not_a_lists_and_the_eight_codes_split_three_ways",
                 },
                 Instrument::Unit {
                     file: INPUT,
@@ -8719,6 +8746,122 @@ pub const REGISTER: [Row; 234] = [
             ],
         },
     },
+    Row {
+        number: 235,
+        on_spec_table: false,
+        gate: "a group answers the two arrows on its own axis and declines the other two, at every \
+               position and on both values",
+        kind: Kind::Count,
+        owner: "production 17",
+        section: "spec §5, §14",
+        // **All four arrows moved the cursor for the whole of this crate's life**, on an argument
+        // that is defensible on its own terms — *a list's index grows downward, so the two axes are
+        // one* — and the cost was invisible from inside a list: a **consumed** key cannot reach the
+        // container the list is drawn inside. Three ports of real programs met it from three sides
+        // and none could have the two keys it wanted.
+        //
+        // **The axis is a value and not a rule, because this crate ships both.** `pagination` lays
+        // its pages across a one-row strip, so for eleven tickets it answered `↑` for *the previous
+        // page* and **declared that in a help bar** — the sweep could not see it, because a key
+        // consumed to do the wrong thing reads exactly like a key consumed to do the right one.
+        // That is the consumption trap on a third axis.
+        //
+        // **The gate is the pair and never the refusal alone.** A helper that declined all four
+        // arrows passes an absence scan and loses every keyboard in the crate, so each arm asserts
+        // its own two answer *and* the other two do not — and at three positions, because the old
+        // reading answered `Some(0)` for `←` at the top, where a clamped move and a refusal are
+        // the same cursor.
+        //
+        // **What it costs is one number and it is recorded rather than padded away**: a strip has
+        // no deaf `Ctrl` step, because `Ctrl+←`/`Ctrl+→` are word motion and `crate::contract`'s
+        // `ABSENT` reserves them crate-wide. `pagination` answers 18 spellings where the shared
+        // store declares 22.
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Unit {
+                    file: NAV,
+                    name: "a_group_answers_its_own_axis_and_declines_the_other",
+                },
+                // **The two components that share one drain loop, compared over *moves* rather
+                // than over codes.** *The previous entry* is `←` on a strip and `↑` in a list, and
+                // the equality between where the two land is what says the axis is a parameter and
+                // the arithmetic under it is one. Read code for code they now disagree by
+                // construction, which is why the same test asserts each declines the other's
+                // spelling.
+                Instrument::Unit {
+                    file: COLLECT,
+                    name: "a_pager_and_a_collection_land_on_the_same_index",
+                },
+                // **The declaration half.** The sweep runs the shipped component over 162 triggers
+                // and subtracts the runtime's, so a component that took a key nobody declared is
+                // caught by the same pass that catches a declaration nothing honours — and the
+                // pager's own contract stopped being a slice of the collection's here.
+                Instrument::Unit {
+                    file: CONTRACT,
+                    name: "a_pagers_contract_is_the_shared_one_with_its_axis_turned",
+                },
+                Instrument::Unit {
+                    file: CONTRACT,
+                    name: "documented_equals_registered_for_every_component",
+                },
+                // **`tree` is the one component that reads the two keys a list now declines**, and
+                // it declares them itself: a fold and an unfold, which were hidden inside the
+                // shared contract for as long as `←` and `→` moved a cursor there too.
+                Instrument::Unit {
+                    file: CONTRACT,
+                    name: "a_trees_contract_is_the_collections_and_its_own_two",
+                },
+            ],
+        },
+    },
+    Row {
+        number: 236,
+        on_spec_table: false,
+        gate: "a container reads the keys a focused `collection` declined in the frame they \
+               arrived, and `Refusal` is what reaches the keys it takes",
+        kind: Kind::Count,
+        owner: "production 17",
+        section: "spec §5, ADR 0016",
+        // **This row exists because the claim it tests was written down four times and is false.**
+        // *The one in-frame route is `crate::collect::Refusal`, and it is `pub(crate)`* stood in an
+        // issue, in two READMEs and in an application's source, and every one of the three ports
+        // answered its dialogs a frame late on the strength of it.
+        //
+        // The route is `Ctx::scope`'s after-the-body moment: a scope the focus drew inside becomes
+        // the routing target when its body ends, and the queue's `resume` spends the decline that
+        // closed it. `crate::input::form` has been built on that moment since it was written, one
+        // component over, and nothing had asked it of a `collection`.
+        //
+        // **The two moments answer different sets and neither replaces the other.** `Refusal` is
+        // *first* refusal and reaches what a collection would otherwise **consume** — which is why
+        // `tree` needs it and no scope can stand in — and this reaches what it **declines**. Row
+        // 235 is what makes the difference matter: `←` and `→` moved from the first set to the
+        // second, so the keys three ports wanted became reachable with no visibility change at all.
+        //
+        // **Two arms of the six are the control and they are the arrows the collection keeps.** A
+        // container that saw every key would be a router, not a container; a gate over the four it
+        // sees alone would pass on one.
+        //
+        // **One call site draws the subject, and the reason is in the trap file.** `Ctx::id` is
+        // `Location::caller()`, so a body written twice mints two ids, the planted focus names a
+        // widget the second frame never draws, the vanish rule clears it, and every arm reports
+        // that the container saw nothing — indistinguishable from the claim this row refutes, and
+        // what this test did on its first spelling.
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Unit {
+                    file: COLLECT,
+                    name: "a_container_reads_what_a_collection_declined_in_the_same_frame",
+                },
+                // The other side of the division, unmoved by this ticket: the hook reaches the keys
+                // the cursor would otherwise spend, and a container cannot have those.
+                Instrument::Unit {
+                    file: COLLECT,
+                    name: "the_fold_keys_leave_a_request_and_do_not_move_the_cursor",
+                },
+            ],
+        },
+    },
 ];
 /// **The compile-outcome pair row 31 names, and its positive twin.**
 ///
@@ -9101,7 +9244,7 @@ mod tests {
              domain and needs no component to be run against, and its row had been citing spec §13 \
              and components 28 for two tickets"
         );
-        assert_eq!(evaluated + red.len() + unreachable.len() + unsubjected, 234);
+        assert_eq!(evaluated + red.len() + unreachable.len() + unsubjected, 236);
     }
 
     /// **The split, not the total.**
@@ -9112,10 +9255,10 @@ mod tests {
     /// be one of them is a design change, which should not be able to arrive as a one-line diff in this
     /// file.
     #[test]
-    fn thirty_two_rows_are_the_specs_and_two_hundred_and_two_are_this_lineages() {
+    fn thirty_two_rows_are_the_specs_and_two_hundred_and_four_are_this_lineages() {
         let on_table = REGISTER.iter().filter(|r| r.on_spec_table).count();
         assert_eq!(on_table, SPEC_ROWS);
-        assert_eq!(REGISTER.len() - on_table, 202);
+        assert_eq!(REGISTER.len() - on_table, 204);
         for (index, row) in REGISTER.iter().enumerate() {
             assert_eq!(
                 row.on_spec_table,

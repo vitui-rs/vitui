@@ -950,8 +950,11 @@ where
 /// its own, and `collection` would then see nothing at all; one that drained after would find the
 /// queue already closed. So the hook is a parameter of the one loop.
 ///
-/// And the collision is real rather than hypothetical: [`crate::nav::step`] reads `←` and `→` as
-/// `↑` and `↓`, which are exactly the two keys a tree folds and unfolds with.
+/// **The collision it was built for is gone and the hook is not.** [`crate::nav::step`] read `←`
+/// and `→` as `↑` and `↓` — exactly the two keys a tree folds and unfolds with — and a group
+/// declares its axis now, so a vertical one declines both and they would fall through. What keeps
+/// this a hook rather than a second loop is unchanged: `Home`, `End` and the two page keys are
+/// still the cursor's, and a component that wanted one of those would find it already spent.
 ///
 /// **It is `Refusal` and not `Chord`**, because [`vitui_runtime::Chord`] is a modifier byte and a
 /// key code and this is a *decision about* one. Two meanings of one word, both carrying
@@ -1277,6 +1280,9 @@ where
         find,
         usize::from(area.h.max(1)),
         first,
+        // **Rows down a rectangle**, so `←` and `→` are not this component's and reach whatever it
+        // is drawn inside. `tree` takes them off the hook one line up before they get this far.
+        nav::Axis::Vertical,
     );
     resp.changed |= asked.changed;
     // **The one call the rule is about, and it is *outside* the scroll scope rather than around the
@@ -1417,9 +1423,10 @@ struct Handled {
 /// eating `Ctrl+S`.
 #[expect(
     clippy::too_many_arguments,
-    reason = "the seven this drain loop already needed plus the one hook that makes a container's \
-              own keys expressible. A second loop is not available — see `Refusal` — so the hook has \
-              to be a parameter of this one"
+    reason = "the seven this drain loop already needed, the one hook that makes a container's own \
+              keys expressible, and the axis. A second loop is not available — see `Refusal` — so \
+              the hook has to be a parameter of this one, and the axis is the caller's because the \
+              two components that share this loop lay out at right angles to each other"
 )]
 fn keyboard<F>(
     cx: &mut Ctx<'_, '_>,
@@ -1430,6 +1437,7 @@ fn keyboard<F>(
     find: &mut F,
     page: usize,
     first: Refusal<'_>,
+    axis: nav::Axis,
 ) -> Handled
 where
     F: FnMut(&str, Range<usize>) -> Option<usize>,
@@ -1450,9 +1458,12 @@ where
         // **First refusal, inside the one drain loop** — see [`Refusal`]. A component built on this
         // one that owns keys of its own cannot read them before or after this call: `Ctx::decline`
         // sets a flag on the level, so the moment `collection` hands one key back, `next_key`
-        // answers `None` to everything else at this id for the rest of the frame. `←` and `→` are
-        // also the two keys `crate::nav::step` reads as `↑` and `↓`, so a hook that ran second would
-        // arrive after the cursor had already moved.
+        // answers `None` to everything else at this id for the rest of the frame.
+        //
+        // **It runs before `nav::step` and not after, and that is unchanged by the axis.** `tree`
+        // is vertical, so `←` and `→` fall through `step` now rather than being eaten by it — but a
+        // hook that ran second would still arrive after `Home`, `End` and the two page keys had
+        // moved the cursor, and a component that wanted one of those would find it spent.
         if first(&k, st.sel.lead) {
             out.changed = true;
             continue;
@@ -1462,10 +1473,15 @@ where
             len,
             page,
         };
-        let moved = nav::step(&k, cur);
+        let moved = nav::step(&k, cur, axis);
         // `Ctrl+↑/↓` is a chord, so `nav::step` refuses it — correctly, because a chord is an
         // accelerator. The cursor-only move is this component's and is spelled here.
-        let moved = moved.or_else(|| ctrl_step(&k, cur));
+        //
+        // **It does not turn with the axis, and the reason is one file over**: the horizontal
+        // spelling of a deaf move is `Ctrl+←`/`Ctrl+→`, and `crate::contract::ABSENT` reserves both
+        // for word motion — a binding this crate may not claim in any help. So a strip has the two
+        // ends and no deaf step, which is an absence with a reason rather than an oversight.
+        let moved = moved.or_else(|| ctrl_step(&k, cur, axis));
         if let Some(to) = moved {
             st.sel.lead = to;
             st.ahead.clear();
@@ -1508,14 +1524,31 @@ where
 /// The gesture measured beside `Ctrl+A`, `Space` and `Shift+↑/↓`, and the one an enum of
 /// selection states cannot express at all — the keyboard cursor without the selection is what every
 /// file manager draws and what C02's `Sel` had no variant for.
-fn ctrl_step(k: &Pressed, cur: Cursor) -> Option<usize> {
+///
+/// # A strip has the two ends and no deaf step, and the reason is one file over
+///
+/// The horizontal spelling of the arrow pair is `Ctrl+←`/`Ctrl+→`, and
+/// [`crate::contract::ABSENT`] reserves both for **word motion** — a binding no help in this crate
+/// may claim, because UAX #29's word-boundary half is not exported and there is nothing above the
+/// engine to move to. Answering them here would put two lines into a pager's help bar that the one
+/// gate watching that vocabulary exists to keep out.
+///
+/// So the arms turn with the axis and `Ctrl+Home`/`Ctrl+End` do not: an end is an end on either.
+/// **It is an absence with a reason rather than an oversight**, which is the difference the
+/// `ABSENT` row was written to make legible.
+fn ctrl_step(k: &Pressed, cur: Cursor, axis: nav::Axis) -> Option<usize> {
     if !k.mods.ctrl() || k.mods.alt() {
         return None;
     }
     let last = cur.last();
+    if axis == nav::Axis::Vertical {
+        match k.code {
+            Code::Up => return Some(cur.at.saturating_sub(1)),
+            Code::Down => return Some((cur.at + 1).min(last)),
+            _ => {}
+        }
+    }
     match k.code {
-        Code::Up => Some(cur.at.saturating_sub(1)),
-        Code::Down => Some((cur.at + 1).min(last)),
         Code::Home => Some(0),
         Code::End => Some(last),
         _ => None,
@@ -4807,9 +4840,10 @@ pub fn pagination_into<I: Ink>(
         }
     }
 
-    // **The keyboard is `collection`'s own drain loop and there is no second one.** `nav::step`
-    // reads `←`/`→` as `↑`/`↓` — the finding, which is a collision for a `tree`
-    // and is exactly right here, because a pager's axis *is* the horizontal one.
+    // **The keyboard is `collection`'s own drain loop and there is no second one**, and what this
+    // component passes it is `nav::Axis::Horizontal`. It read all four arrows as one axis until
+    // which was a collision for a `tree` and a plain error here: a strip's `↑` is not the previous
+    // page, and a help bar said it was.
     // **The caller's search, which for a pager is a prefix over its own page numbers** — and it
     // allocates nothing, because a label is [`Digits`] on the stack. `collection` owns the buffer,
     // the deadline and the bound; this is the half the design says is the caller's.
@@ -4827,6 +4861,10 @@ pub fn pagination_into<I: Ink>(
         &mut find,
         shown.max(1),
         &mut no_refusal,
+        // **Pages across a strip**, which is the one horizontal group in this crate and the reason
+        // the axis is a value rather than a rule. It read `↑` for *the previous page* and declared
+        // it in a help bar for the whole of the crate's life.
+        nav::Axis::Horizontal,
     );
     resp.changed |= asked.changed;
 
@@ -5271,36 +5309,53 @@ mod tests {
     /// between the indices they land on is what says the sharing is real: a pager that had grown its
     /// own reading of `←`/`→` would still draw correctly and would diverge here.
     ///
-    /// `crate::nav::step` reads `←` and `→` as `↑` and `↓`, which is the collision
-    /// for a `tree` and is exactly what a pager wants — so the horizontal keys are in the sweep
-    /// beside the vertical ones and both must agree.
+    /// **The sweep is over *moves* and not over codes.** The two components
+    /// pass [`keyboard`] different [`crate::nav::Axis`] values, so *the previous entry* is `←` on a
+    /// strip and `↑` in a list — and the equality is between the two spellings of one move, which
+    /// is a **stronger** reading of *no second navigation model* than the one it replaces: the axis
+    /// is a parameter and the arithmetic underneath it is one. Read code for code the two now
+    /// disagree by construction, and the pair below is what says the disagreement is only the
+    /// spelling.
     #[test]
     fn a_pager_and_a_collection_land_on_the_same_index() {
         use vitui_runtime::keys::Chord;
 
-        let codes = [
-            Code::Left,
-            Code::Right,
-            Code::Up,
-            Code::Down,
-            Code::Home,
-            Code::End,
-            Code::PageUp,
-            Code::PageDown,
+        // (what the move is, how a strip spells it, how a list does).
+        let moves = [
+            ("the previous entry", Code::Left, Code::Up),
+            ("the next entry", Code::Right, Code::Down),
+            ("the first", Code::Home, Code::Home),
+            ("the last", Code::End, Code::End),
+            ("a page back", Code::PageUp, Code::PageUp),
+            ("a page on", Code::PageDown, Code::PageDown),
         ];
         let mut landed = std::collections::BTreeSet::new();
         for len in [1usize, 2, 9, 40] {
-            for code in codes {
+            for (what, across, down) in moves {
                 for presses in [1usize, 3] {
-                    let chords = vec![Chord::new(code); presses];
-                    let pager = drive_pager(len, &chords);
-                    let coll = drive_collection(len, &chords);
+                    let pager = drive_pager(len, &vec![Chord::new(across); presses]);
+                    let coll = drive_collection(len, &vec![Chord::new(down); presses]);
                     assert_eq!(
                         pager, coll,
-                        "{len} pages, {presses}x {code:?}: a pager and a collection disagree about \
+                        "{len} pages, {presses}x {what}: a pager and a collection disagree about \
                          where the cursor is"
                     );
                     landed.insert(pager);
+                }
+                // **And each declines the other's spelling**, which is the half that makes the
+                // equality above a statement about the arithmetic rather than about four keys that
+                // happen to move nothing. Skipped where the two spellings are the same key.
+                if across != down {
+                    assert_eq!(
+                        drive_pager(len, &[Chord::new(down)]),
+                        0,
+                        "{len} pages: a strip moved on a vertical arrow"
+                    );
+                    assert_eq!(
+                        drive_collection(len, &[Chord::new(across)]),
+                        0,
+                        "{len} rows: a list moved on a horizontal arrow"
+                    );
                 }
             }
         }
@@ -5703,9 +5758,24 @@ mod tests {
         let ctrl_down = crate::keys::press_with(Code::Down, Mods::CTRL);
         assert_eq!(from_key(&ctrl_down, 5, Some(6)), None);
         assert_eq!(
-            ctrl_step(&ctrl_down, Cursor::new(10, 8).to(5)),
+            ctrl_step(&ctrl_down, Cursor::new(10, 8).to(5), nav::Axis::Vertical),
             Some(6),
             "and the cursor still moves"
+        );
+        // **On a strip it moves nothing**, and the two ends still do: `Ctrl+←`/`Ctrl+→` are word
+        // motion (`crate::contract::ABSENT`) and cannot become a pager's, so the deaf step has no
+        // horizontal spelling to turn into and `Ctrl+Home`/`Ctrl+End` are the whole of what is
+        // left. Asserted with the ends beside it, because an arm answering `None` to everything
+        // would satisfy the first line alone.
+        assert_eq!(
+            ctrl_step(&ctrl_down, Cursor::new(10, 8).to(5), nav::Axis::Horizontal),
+            None,
+        );
+        let ctrl_end = crate::keys::press_with(Code::End, Mods::CTRL);
+        assert_eq!(
+            ctrl_step(&ctrl_end, Cursor::new(10, 8).to(5), nav::Axis::Horizontal),
+            Some(9),
+            "an end is an end on either axis"
         );
 
         // The two readings agree arm for arm, which is what *one vocabulary* means.
@@ -6879,14 +6949,111 @@ mod tests {
         );
     }
 
+    /// **A container reads the keys a focused `collection` declined, in the frame they arrived.**
+    ///
+    /// This test exists because the opposite was written down four times — *the one in-frame
+    /// route is [`Refusal`], and it is `pub(crate)`* — in two READMEs, in a backlog and in an
+    /// application's source. **The claim is false and this is what says so.** `Ctx::scope`'s
+    /// after-the-body
+    /// moment is the route: a scope the focus drew inside becomes the routing target when its body
+    /// ends, and `Frame::keys::resume` spends the decline that closed the queue, so a container's
+    /// own `next_key` answers everything the collection handed back. `crate::input::form` has been
+    /// built on that moment since it was written; nothing had asked it of a `collection`.
+    ///
+    /// # What the two moments answer is not the same set, and that is the whole division
+    ///
+    /// [`Refusal`] is **first** refusal and reaches the keys a collection would otherwise
+    /// *consume* — which is why `tree` needs it and no scope can replace it. This moment reaches
+    /// what it **declines**. The axis decision is what made the difference matter: `←` and `→`
+    /// moved from the first set to the second, so the two keys three ports wanted are now
+    /// reachable without publishing anything.
+    ///
+    /// # One call site, and the test is the reason
+    ///
+    /// The body is a `fn` called once a frame rather than a block written twice, because `Ctx::id`
+    /// is `Location::caller()`: two call sites mint two ids, the focus planted on the first frame
+    /// names a widget the second frame never draws, the vanish rule clears it, and **every arm
+    /// reports that the container saw nothing** — which is what this test did on its first
+    /// spelling, and it is indistinguishable from the claim it was written to refute.
+    #[test]
+    fn a_container_reads_what_a_collection_declined_in_the_same_frame() {
+        use vitui_runtime::focus::ScopeKind;
+        use vitui_runtime::keys::Code;
+        use vitui_runtime::{Chord, Id};
+
+        /// The container's own id, fixed rather than minted: a scope claims an id it already has.
+        const BAR: Id = Id::from_raw(0x_B_A_5);
+        const ROWS: usize = 4;
+
+        fn draw(cx: &mut Ctx<'_, '_>, st: &mut CollState, seen: &mut Vec<Code>) {
+            let area = cx.area();
+            let opts = CollOpts {
+                mode: Mode::Cursor,
+                ..CollOpts::default()
+            };
+            let resp = cx.scope(BAR, ScopeKind::Group, |cx| {
+                collection(
+                    cx,
+                    area,
+                    st,
+                    &opts,
+                    Rows::of(ROWS),
+                    &mut |_: &str, _: Range<usize>| None,
+                    &mut |_cx: &mut Ctx<'_, '_>, _r: Rect, _i: usize, _f: Face| {},
+                )
+            });
+            if cx.focused().is_none() {
+                cx.focus(resp.id);
+            }
+            // The container's after-the-body moment. Declined again, so the application's own
+            // window still sees them — a container that reads a key does not have to eat it.
+            while let Some(k) = cx.next_key(BAR) {
+                seen.push(k.code);
+                cx.decline(k);
+            }
+        }
+
+        // (the key, whether the container sees it, where the cursor ends up from row 1).
+        let arms = [
+            (Code::Enter, true, 1),
+            (Code::Escape, true, 1),
+            (Code::Left, true, 1),
+            (Code::Right, true, 1),
+            (Code::Down, false, 2),
+            (Code::Up, false, 0),
+        ];
+        for (code, reaches, lands) in arms {
+            let mut driver =
+                crate::runner::driver_at(20, ROWS as u16, vitui_runtime::Density::default());
+            let mut st = CollState::new();
+            driver.frame(|cx| draw(cx, &mut st, &mut Vec::new()));
+            st.sel.lead = 1;
+            driver.post_key(crate::keys::press(Chord::new(code)));
+            let mut seen = Vec::new();
+            driver.frame(|cx| draw(cx, &mut st, &mut seen));
+            assert_eq!(
+                seen.contains(&code),
+                reaches,
+                "{code:?}: the container saw {seen:?}",
+            );
+            assert_eq!(st.sel.lead, lands, "{code:?}: the cursor");
+        }
+    }
+
     /// **Criterion: `←` and `→` leave a request, and they do not move the cursor.**
     ///
-    /// The whole of [`Refusal`] in one measurement. `crate::nav::step` reads `←` as `↑`, so a tree
-    /// whose fold keys arrived after `collection`'s own would find the cursor already moved — and
-    /// a tree that read them *before* by draining the queue itself would leave `collection` with
-    /// nothing, because `Ctx::decline` ends the level's turn.
+    /// The whole of [`Refusal`] in one measurement. A tree that read the two keys by draining the
+    /// queue itself would leave `collection` with nothing, because `Ctx::decline` ends the level's
+    /// turn — so the hook is a parameter of the one drain loop, and this is what it buys.
     ///
-    /// Both directions: the same key through a plain [`collection`] **does** move the cursor.
+    /// **The other direction moved with the axis and it is the whole of that decision from this
+    /// side**: the same key through a plain [`collection`] used to move the cursor, because
+    /// `crate::nav::step` read `←` as `↑`. It moves nothing now, and the two arms below are the
+    /// only place in this crate where one key is read by one component and declined by another.
+    ///
+    /// **Played from row 1 and not from row 0**, which is the assertion this ticket had to
+    /// strengthen before it could say anything: `←` at row 0 clamps to 0 and a declined `←` leaves
+    /// 0, so the arm that was here compared the two readings at the one row where they agree.
     #[test]
     fn the_fold_keys_leave_a_request_and_do_not_move_the_cursor() {
         use vitui_runtime::keys::Code;
@@ -6900,10 +7067,15 @@ mod tests {
         ]);
 
         fn play(index: &Order, code: Code, as_tree: bool) -> (Option<Ask>, usize) {
+            play_from(index, code, as_tree, 0)
+        }
+
+        fn play_from(index: &Order, code: Code, as_tree: bool, at: usize) -> (Option<Ask>, usize) {
             let mut driver = crate::runner::driver_at(20, 4, vitui_runtime::Density::default());
             let mut st = TreeState::new();
             let mut coll = CollState::new();
-            st.coll.sel.lead = 0;
+            st.coll.sel.lead = at;
+            coll.sel.lead = at;
             for frame in 0..2 {
                 if frame == 1 {
                     driver.post_key(crate::keys::press(vitui_runtime::Chord::new(code)));
@@ -6948,22 +7120,28 @@ mod tests {
             (Some(Ask::Collapse(0)), 0),
             "`←` folds the cursor's row and leaves the cursor where it was"
         );
-        // **The same key through a plain collection moves the cursor**, which is what the hook is
-        // for and what a tree without one would inherit.
-        assert_eq!(play(&index, Code::Left, false).1, 0, "`←` is `↑` at row 0");
+        // **The same key through a plain collection moves nothing**, and the row is 1 so that a
+        // move would be visible in either direction. `↓` beside it is the control: a harness that
+        // delivered no key at all would pass the first of these two and fail the second.
         assert_eq!(
-            play(&index, Code::Down, false).1,
+            play_from(&index, Code::Left, false, 1).1,
             1,
+            "`←` is nobody's here, so it reaches whatever the list is inside"
+        );
+        assert_eq!(
+            play_from(&index, Code::Down, false, 1).1,
+            2,
             "and `↓` is `↓`, so the harness really does deliver a key"
         );
 
-        // `→` on a node that is not folded is **not** the tree's, so `collection` takes it and the
-        // cursor moves. A hook that swallowed every arrow would pass the assertion above and lose
-        // the keyboard.
+        // `→` on a node that is not folded is **not** the tree's, so the hook declines it — and
+        // there is nothing behind the hook to take it any more, so the cursor stays. A hook that
+        // swallowed every arrow would pass the request assertions above and lose the keyboard,
+        // which is what the `↓` control beside this one is for.
         assert_eq!(
             play(&index, Code::Right, true),
-            (None, 1),
-            "`→` on an expanded node is a cursor move and not a request"
+            (None, 0),
+            "`→` on an expanded node is neither a request nor a cursor move"
         );
 
         // And on a folded one it is a request. One value changed.

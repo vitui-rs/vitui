@@ -2472,15 +2472,18 @@ fn fraction(value: f32) -> f32 {
 ///
 /// # `Up` is paired with `Right`, which is why [`crate::nav::step`] is not what this calls
 ///
-/// `nav::step` is the cursor-key helper this crate already ships, and it pairs `Up` with `Left`
-/// because it moves an **index into a list** and a list's index grows downward. A slider's value
-/// grows *upward*: `Up` is more. The two therefore disagree at exactly four of the eight cursor
-/// codes — `Up`, `Down`, `PageUp`, `PageDown` — and agree at `Left`, `Right`, `Home` and `End`,
-/// which `tests::the_slider_s_pairing_is_not_a_list_s_and_the_disagreement_is_four_codes` counts.
+/// `nav::step` is the cursor-key helper this crate already ships, and it moves an **index into a
+/// list**, which grows downward. A slider's value grows *upward*: `Up` is more. So the two
+/// disagree at four of the eight cursor codes — `Up`, `Down`, `PageUp`, `PageDown` — agree at
+/// `Home` and `End`, and part company altogether on `←` and `→`, which a list **declines**.
+/// `tests::the_sliders_pairing_is_not_a_lists_and_the_eight_codes_split_three_ways` counts all
+/// three classes.
 ///
-/// It is the same boundary from the other side: there, a container could not read `←`
-/// and `→` through `nav::step` because that helper reads them *as* `↑`/`↓`. Here the same pairing
-/// is right for a list and wrong for a value.
+/// **This component is why a list can decline them.** The two readings cannot both belong to one
+/// helper — here `→` is *larger* and there it was *the next row* — so one of the two had to be
+/// spelled by the component that wants it, and the horizontal one is this one and nothing else in
+/// the crate. What a list gains by not having them is a container above it that can — and three
+/// ports of real programs wanted exactly these two keys before any of them could have them.
 ///
 /// **Both arrows act at both orientations**, so there is no orientation branch here at all. A
 /// vertical slider that ignored `Right` would be a slider a user cannot find the keys for.
@@ -2985,7 +2988,17 @@ pub fn form_into<I: Ink>(
             len: shown,
             page: shown.max(1),
         };
-        match nav::cursor(cx, id, cur, &mut st.ahead, &k, &labels[..shown]) {
+        // **Fields down a rectangle**, so `←` and `→` are not a form's: they reach whatever it is
+        // drawn inside, which for a form inside a dialog is the dialog.
+        match nav::cursor(
+            cx,
+            id,
+            cur,
+            &mut st.ahead,
+            &k,
+            &labels[..shown],
+            nav::Axis::Vertical,
+        ) {
             Some(to) => {
                 // **The row's id is arithmetic and not a lookup**, which is the whole reason
                 // `field_keyed` exists: a container cannot ask what id a row it has already drawn
@@ -4892,19 +4905,24 @@ mod slider_tests {
         assert_eq!(stepped(&key(Code::PageUp), 0.98, &opts), Some(1.0));
     }
 
-    /// **A slider's pairing is not a list's, and the disagreement is exactly four of the eight
-    /// cursor codes.**
+    /// **A slider's pairing is not a list's, and the eight cursor codes split three ways.**
     ///
-    /// [`crate::nav::step`] pairs `Up` with `Left`, because it moves an index into a list and a
-    /// list's index grows downward. A slider's value grows *upward*. So the two agree at `Left`,
-    /// `Right`, `Home` and `End` and disagree at `Up`, `Down`, `PageUp` and `PageDown` — which is
-    /// the same boundary from the other side, where a container could not read `←` and
-    /// `→` through that helper because it reads them *as* `↑` and `↓`.
+    /// [`crate::nav::step`] moves an index into a list, and a list's index grows downward; a
+    /// slider's value grows *upward*. So the two **disagree** at `Up`, `Down`, `PageUp` and
+    /// `PageDown`, and **agree** at `Home` and `End`.
     ///
-    /// The count is the assertion. A slider that called `nav::step` would be right for four keys and
-    /// silently backwards for four, on a screen where the thumb visibly moves either way.
+    /// The third class arrived with the axis and it is the whole of that decision from this side: a
+    /// list **declines** `←` and `→`, and this component is why it can. The two readings cannot
+    /// both be a shared helper's — a slider's `→` is *larger* and a list's was *the next row* —
+    /// and one of the two had to be spelled by the component that wants it. What settled which was
+    /// that nothing here is horizontal except this one: a slider spells its own pairing, a list
+    /// declines the axis it does not have, and the keys reach the container above it.
+    ///
+    /// The count is the assertion, and it is now three counts. A slider that called `nav::step`
+    /// would be right for two keys, silently backwards for four, and **dead** for the two a user
+    /// reaches for first, on a screen where the thumb visibly moves either way.
     #[test]
-    fn the_sliders_pairing_is_not_a_lists_and_the_disagreement_is_four_codes() {
+    fn the_sliders_pairing_is_not_a_lists_and_the_eight_codes_split_three_ways() {
         let opts = SliderOpts {
             steps: 10,
             page: 3,
@@ -4916,21 +4934,27 @@ mod slider_tests {
             len: 11,
             page: 3,
         };
-        let mut disagreed: Vec<Code> = Vec::new();
+        let (mut agreed, mut disagreed, mut refused) = (Vec::new(), Vec::new(), Vec::new());
         for code in CURSOR {
             let k = key(code);
             let ours = stepped(&k, 0.5, &opts).expect("a cursor key is the slider's");
-            let list =
-                crate::nav::step(&k, cursor).expect("a cursor key is a list's") as f32 / 10.0;
-            if (ours - list).abs() > f32::EPSILON {
-                disagreed.push(code);
+            match crate::nav::step(&k, cursor, crate::nav::Axis::Vertical) {
+                None => refused.push(code),
+                Some(at) if (ours - at as f32 / 10.0).abs() > f32::EPSILON => disagreed.push(code),
+                Some(_) => agreed.push(code),
             }
         }
+        assert_eq!(
+            refused,
+            vec![Code::Left, Code::Right],
+            "a vertical group declines the horizontal axis and this component is why it can"
+        );
         assert_eq!(
             disagreed,
             vec![Code::Up, Code::Down, Code::PageUp, Code::PageDown],
             "the two helpers disagree somewhere other than on the vertical pairing"
         );
+        assert_eq!(agreed, vec![Code::Home, Code::End], "an end is an end");
     }
 
     /// **A chord moves a slider nothing, and a release is not a step.**

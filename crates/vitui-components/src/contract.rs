@@ -697,13 +697,23 @@ mod live {
         )
     }
 
+    /// **Three arms and not two, and the third arrived with the fold keys.**
+    ///
+    /// `←` and `→` were `↑` and `↓` until then, so both were answered by `crate::nav::step` at
+    /// every state this fixture could be in and the two sweeps below were enough. They are this
+    /// component's own keys now — its hook takes them and nothing else here reads them — and the
+    /// hook answers each on **one** state: `←` collapses a row that is open and has children, `→`
+    /// expands one that is folded, and a row is never both. Two arms would therefore have declared
+    /// one key dead whichever state they fixed, which is a help bar that lies in the one direction
+    /// the sweep exists to catch.
     pub fn tree(t: Trigger) -> bool {
-        tree_holding(t, false) || tree_holding(t, true)
+        tree_shaped(t, false, false) || tree_shaped(t, true, false) || tree_shaped(t, false, true)
     }
 
-    /// [`tree`]'s sweep, with the selection seeded or empty. See [`collection`] for why a
-    /// collection-backed component is swept twice.
-    pub fn tree_holding(t: Trigger, holding: bool) -> bool {
+    /// [`tree`]'s sweep, with the selection seeded or empty and the first row open or folded. See
+    /// [`collection`] for why a collection-backed component is swept twice, and [`tree`] for why
+    /// this one is swept three times.
+    pub fn tree_shaped(t: Trigger, holding: bool, folded: bool) -> bool {
         probe(
             t,
             move || {
@@ -718,20 +728,23 @@ mod live {
                 if holding {
                     seeded.coll.sel.select_only(1);
                 }
-                (
-                    seeded,
-                    // **Six, like every other list-shaped probe**: the type-ahead's corpus is
-                    // `NAMES`, and a four-row index leaves `zeta` unreachable, so the text *class*
-                    // comes apart into two answers on one component.
-                    Order::built(vec![
-                        Node::of(0),
-                        Node::of(1).at_depth(1),
-                        Node::of(2).at_depth(1),
-                        Node::of(3),
-                        Node::of(4).at_depth(1),
-                        Node::of(5),
-                    ]),
-                )
+                // **Six, like every other list-shaped probe**: the type-ahead's corpus is
+                // `NAMES`, and a four-row index leaves `zeta` unreachable, so the text *class*
+                // comes apart into two answers on one component.
+                let mut order = Order::built(vec![
+                    Node::of(0),
+                    Node::of(1).at_depth(1),
+                    Node::of(2).at_depth(1),
+                    Node::of(3),
+                    Node::of(4).at_depth(1),
+                    Node::of(5),
+                ]);
+                if folded {
+                    // The cursor's row, closed over its two children — which is the one state `→`
+                    // is this component's key in, and the one state `←` is not.
+                    order.fold(0);
+                }
+                (seeded, order)
             },
             |pen: &mut Pen, cx: &mut Ctx<'_, '_>, st: &mut (TreeState, Order)| {
                 let (st, index) = (&mut st.0, &st.1);
@@ -1245,40 +1258,38 @@ const CTRL_SHIFT: Mods = Mods::CTRL.with(Mods::SHIFT);
 const COLLECTION_FULL: &[Bind] = &[
     only(Code::Up, 1, "Previous row"),
     only(Code::Down, 2, "Next row"),
-    // **`←` and `→` are `↑` and `↓` here**, which is `crate::nav::step`'s own pairing and
-    // an earlier pass's finding: a list's index grows downward, so the two axes are one. A `tree`
-    // takes them away again — its `Refusal` reads them as fold and unfold before the cursor sees
-    // them — and the sweep is blind to that, because both readings take the key.
-    only(Code::Left, 3, "Previous row"),
-    only(Code::Right, 4, "Next row"),
-    only(Code::Home, 5, "First row"),
-    only(Code::End, 6, "Last row"),
-    only(Code::PageUp, 7, "Page up"),
-    only(Code::PageDown, 8, "Page down"),
-    chord(Code::Up, Mods::SHIFT, 9, "Extend the selection up"),
-    chord(Code::Down, Mods::SHIFT, 10, "Extend the selection down"),
-    chord(Code::Left, Mods::SHIFT, 11, "Extend the selection up"),
-    chord(Code::Right, Mods::SHIFT, 12, "Extend the selection down"),
-    chord(Code::Home, Mods::SHIFT, 13, "Extend to the first row"),
-    chord(Code::End, Mods::SHIFT, 14, "Extend to the last row"),
-    chord(Code::PageUp, Mods::SHIFT, 15, "Extend a page up"),
-    chord(Code::PageDown, Mods::SHIFT, 16, "Extend a page down"),
-    deaf(Code::Up, Mods::CTRL, 17, "Move without selecting, up"),
-    deaf(Code::Down, Mods::CTRL, 18, "Move without selecting, down"),
+    // **`←` and `→` are not here, and they were.** They were declared as `↑`
+    // and `↓` on `crate::nav::step`'s old pairing — *a list's index grows downward, so the two axes
+    // are one* — and the cost of that reading was invisible from this side: a consumed key cannot
+    // reach the container the list is drawn inside. `tree` is the one component here that reads
+    // them, and it declares them itself, two lines the sweep can now see; every other collection
+    // declines them and they arrive at whatever it is inside.
+    only(Code::Home, 3, "First row"),
+    only(Code::End, 4, "Last row"),
+    only(Code::PageUp, 5, "Page up"),
+    only(Code::PageDown, 6, "Page down"),
+    chord(Code::Up, Mods::SHIFT, 7, "Extend the selection up"),
+    chord(Code::Down, Mods::SHIFT, 8, "Extend the selection down"),
+    chord(Code::Home, Mods::SHIFT, 9, "Extend to the first row"),
+    chord(Code::End, Mods::SHIFT, 10, "Extend to the last row"),
+    chord(Code::PageUp, Mods::SHIFT, 11, "Extend a page up"),
+    chord(Code::PageDown, Mods::SHIFT, 12, "Extend a page down"),
+    deaf(Code::Up, Mods::CTRL, 13, "Move without selecting, up"),
+    deaf(Code::Down, Mods::CTRL, 14, "Move without selecting, down"),
     deaf(
         Code::Home,
         Mods::CTRL,
-        19,
+        15,
         "Move without selecting, to the first row",
     ),
     deaf(
         Code::End,
         Mods::CTRL,
-        20,
+        16,
         "Move without selecting, to the last row",
     ),
-    key(Code::Char(' '), 21, "Toggle the row under the cursor"),
-    deaf(Code::Char('a'), Mods::CTRL, 22, "Select every row"),
+    key(Code::Char(' '), 17, "Toggle the row under the cursor"),
+    deaf(Code::Char('a'), Mods::CTRL, 18, "Select every row"),
     // ── and the five a pager does not have ────────────────────────────────────────────────────────
     //
     // `pagination` reaches `CollState` and the thirteen arms of `apply` and reaches neither the
@@ -1294,19 +1305,19 @@ const COLLECTION_FULL: &[Bind] = &[
     // selection that can be empty is a **listing's** property and this is where it belongs.
     key(
         Code::Escape,
-        23,
+        19,
         "Clear the selection; with nothing selected the key goes to whatever this is inside",
     ),
     // **The deadline is in the words**, because the ticket names the contract as *type-ahead with a
     // deadline* and a buffer that lapses is the half a user notices. [`TYPE_AHEAD_LAPSES`] holds
     // the sentence to `crate::nav::WINDOW`, so the prose cannot drift from the constant.
     text(
-        24,
+        20,
         "Jump to the row that starts with what you type; the buffer lapses after a second",
     ),
-    click(Mods::CTRL, 25, "Add or remove one row"),
-    click(Mods::SHIFT, 26, "Extend the selection to here"),
-    click(CTRL_SHIFT, 27, "Add the range up to here"),
+    click(Mods::CTRL, 21, "Add or remove one row"),
+    click(Mods::SHIFT, 22, "Extend the selection to here"),
+    click(CTRL_SHIFT, 23, "Add the range up to here"),
 ];
 
 /// Where [`COLLECTION_FULL`] stops being a pager's contract and starts being a listing's.
@@ -1323,13 +1334,102 @@ const COLLECTION_FULL: &[Bind] = &[
 /// half of it a help bar can see. `Space` did **not** move: a pager toggles with it, because
 /// `apply` answers [`crate::collect::Gesture::Toggle`] in every mode but
 /// [`crate::collect::Mode::Cursor`], and a menu is the mode with no pager.
-const PAGER_BINDS: usize = 21;
+#[cfg(test)]
+const PAGER_BINDS: usize = 17;
 
-/// **What a pager declares: [`COLLECTION_FULL`] without the listing's five.**
+/// **What a pager declares: the shared seventeen with the axis turned and the deaf step gone.**
 ///
-/// The other half — the type-ahead and the three pointer gestures — has no constant of its own,
+/// Written out rather than sliced, which it was until the axis turned, and the reason is the whole of
+/// that ticket in one declaration: **a pager is not a list drawn narrow, it is a list drawn
+/// sideways.** `crate::collect::pagination` lays its pages across a one-row strip and its
+/// `CollState::offset` is a *column*, so `←` and `→` are its cursor keys and `↑` and `↓` are not —
+/// and for the whole of this crate's life it answered `↑` for *the previous page* and printed that
+/// in a help bar, because one helper read all four arrows as one axis.
+///
+/// **The deaf step has no horizontal spelling and therefore no line here.** `Ctrl+←` and `Ctrl+→`
+/// are word motion, which [`ABSENT`] reserves crate-wide, so `crate::collect::ctrl_step` answers
+/// nothing on the arrows at this axis; `Ctrl+Home` and `Ctrl+End` stay, because an end is an end on
+/// either. Fifteen and not seventeen.
+///
+/// `tests::a_pagers_contract_is_the_shared_one_with_its_axis_turned` is what holds the two
+/// declarations together now that neither is derived from the other.
+const PAGER: &[Bind] = &[
+    only(Code::Left, 1, "Previous page"),
+    only(Code::Right, 2, "Next page"),
+    only(Code::Home, 3, "First page"),
+    only(Code::End, 4, "Last page"),
+    only(Code::PageUp, 5, "Page up"),
+    only(Code::PageDown, 6, "Page down"),
+    chord(Code::Left, Mods::SHIFT, 7, "Extend the selection back"),
+    chord(Code::Right, Mods::SHIFT, 8, "Extend the selection on"),
+    chord(Code::Home, Mods::SHIFT, 9, "Extend to the first page"),
+    chord(Code::End, Mods::SHIFT, 10, "Extend to the last page"),
+    chord(Code::PageUp, Mods::SHIFT, 11, "Extend a page up"),
+    chord(Code::PageDown, Mods::SHIFT, 12, "Extend a page down"),
+    deaf(
+        Code::Home,
+        Mods::CTRL,
+        13,
+        "Move without selecting, to the first page",
+    ),
+    deaf(
+        Code::End,
+        Mods::CTRL,
+        14,
+        "Move without selecting, to the last page",
+    ),
+    key(Code::Char(' '), 15, "Toggle the page under the cursor"),
+];
+
+/// **What a `tree` declares that no other collection does: the two keys its hook takes first.**
+///
+/// `collection` and `table` decline `←` and `→`; `tree` is the one component in this crate that
+/// reads them, and it reads each on exactly one state — `←` closes a row that is open and has
+/// children, `→` opens one that is folded. Both leave a **request** rather than editing the order,
+/// which is why the words say *ask* nothing: a help bar is about what the user pressed, and the
+/// caller's splice is not a second binding.
+///
+/// # It is appended at compile time rather than written out
+///
+/// A tree is a collection plus a flatten index, and its contract is that sentence: the shared
+/// twenty-three verbatim, then these two. Copying the twenty-three would put a second declaration
+/// in this file for a reviewer's diff to drift against — the collision
+/// [`tests::a_trees_contract_is_the_collections_and_its_own_two`] would then be watching for rather
+/// than a thing the type system cannot express.
+const TREE_FOLD: [Bind; 2] = [
+    // **`key` and not `only`, which is a fact about the hook rather than a choice.** It guards
+    // `Ctrl` and `Alt` — an accelerator is not this component's — and says nothing about `Shift`,
+    // so `Shift+←` folds exactly as `←` does, by construction. Declared `only`, the sweep answered
+    // *a feature nobody can find* on both twins the moment they became this component's own keys.
+    key(Code::Left, 24, "Close the row under the cursor"),
+    key(Code::Right, 25, "Open the row under the cursor"),
+];
+
+/// [`COLLECTION_FULL`] with [`TREE_FOLD`] after it.
+const TREE: &[Bind] = &{
+    let mut out = [COLLECTION_FULL[0]; COLLECTION_FULL.len() + TREE_FOLD.len()];
+    let mut i = 0;
+    while i < COLLECTION_FULL.len() {
+        out[i] = COLLECTION_FULL[i];
+        i += 1;
+    }
+    let mut j = 0;
+    while j < TREE_FOLD.len() {
+        out[COLLECTION_FULL.len() + j] = TREE_FOLD[j];
+        j += 1;
+    }
+    out
+};
+
+/// **What a store declares before a row loop adds anything: [`COLLECTION_FULL`] without the
+/// listing's six.**
+///
+/// It was [`PAGER`] itself once and is now the thing `PAGER` is compared *against*: the
+/// pager's own declaration turned an axis and lost a step, so a slice can no longer be it. The
+/// other half — the type-ahead and the three pointer gestures — has no constant of its own,
 /// because nothing declares it: it is what a row loop *adds*, and
-/// `tests::the_three_collections_declare_the_pager_plus_the_listing` takes it off the same slice.
+/// `tests::a_pagers_contract_is_the_shared_one_with_its_axis_turned` takes it off the same slice.
+#[cfg(test)]
 const COLLECTION: &[Bind] = COLLECTION_FULL.split_at(PAGER_BINDS).0;
 
 /// **The overlay family: the owner's four, and the popup's list underneath them.**
@@ -1362,32 +1462,30 @@ const SELECT: &[Bind] = &[
     only(Code::Down, 3, "Open the list; inside it, the next row"),
     key(Code::Escape, 4, "Close it"),
     only(Code::Up, 5, "Previous row"),
-    only(Code::Left, 6, "Previous row"),
-    only(Code::Right, 7, "Next row"),
-    only(Code::Home, 8, "First row"),
-    only(Code::End, 9, "Last row"),
-    only(Code::PageUp, 10, "Page up"),
-    only(Code::PageDown, 11, "Page down"),
-    chord(Code::Up, Mods::SHIFT, 12, "Extend the selection up"),
-    chord(Code::Down, Mods::SHIFT, 13, "Extend the selection down"),
-    chord(Code::Left, Mods::SHIFT, 14, "Extend the selection up"),
-    chord(Code::Right, Mods::SHIFT, 15, "Extend the selection down"),
-    chord(Code::Home, Mods::SHIFT, 16, "Extend to the first row"),
-    chord(Code::End, Mods::SHIFT, 17, "Extend to the last row"),
-    chord(Code::PageUp, Mods::SHIFT, 18, "Extend a page up"),
-    chord(Code::PageDown, Mods::SHIFT, 19, "Extend a page down"),
-    deaf(Code::Up, Mods::CTRL, 20, "Move without selecting, up"),
-    deaf(Code::Down, Mods::CTRL, 21, "Move without selecting, down"),
+    // `←` and `→` came off with `COLLECTION_FULL`'s, and for the same sentence: a popup
+    // is a list drawn down a rectangle, so the horizontal arrows are its owner's.
+    only(Code::Home, 6, "First row"),
+    only(Code::End, 7, "Last row"),
+    only(Code::PageUp, 8, "Page up"),
+    only(Code::PageDown, 9, "Page down"),
+    chord(Code::Up, Mods::SHIFT, 10, "Extend the selection up"),
+    chord(Code::Down, Mods::SHIFT, 11, "Extend the selection down"),
+    chord(Code::Home, Mods::SHIFT, 12, "Extend to the first row"),
+    chord(Code::End, Mods::SHIFT, 13, "Extend to the last row"),
+    chord(Code::PageUp, Mods::SHIFT, 14, "Extend a page up"),
+    chord(Code::PageDown, Mods::SHIFT, 15, "Extend a page down"),
+    deaf(Code::Up, Mods::CTRL, 16, "Move without selecting, up"),
+    deaf(Code::Down, Mods::CTRL, 17, "Move without selecting, down"),
     deaf(
         Code::Home,
         Mods::CTRL,
-        22,
+        18,
         "Move without selecting, to the first row",
     ),
     deaf(
         Code::End,
         Mods::CTRL,
-        23,
+        19,
         "Move without selecting, to the last row",
     ),
     // **`Ctrl+A` is not here, and it is the same sentence as the `Ctrl+Click` two lines down.**
@@ -1398,14 +1496,14 @@ const SELECT: &[Bind] = &[
     // and left the two keys beside it, and `crate::collect::owns` is that narrowing said of the
     // whole vocabulary.
     text(
-        24,
+        20,
         "Jump to the row that starts with what you type; the buffer lapses after a second",
     ),
     // **Two and not three**, and the missing one is `Ctrl+Click`: the popup's list is
     // `Mode::Single`, where `apply` answers `Plain` and `Toggle` with the same call — see
     // [`SINGLE_KEEPS`], which is the same fact one component over.
-    click(Mods::SHIFT, 25, "Extend the selection to here"),
-    click(CTRL_SHIFT, 26, "Add the range up to here"),
+    click(Mods::SHIFT, 21, "Extend the selection to here"),
+    click(CTRL_SHIFT, 22, "Add the range up to here"),
 ];
 
 /// **The field: the cluster steps, the edits, and the two chords it owns.**
@@ -1441,14 +1539,14 @@ const FIELD: &[Bind] = &[
 const FORM: &[Bind] = &[
     key(Code::Up, 1, "Previous field"),
     key(Code::Down, 2, "Next field"),
-    key(Code::Left, 3, "Previous field"),
-    key(Code::Right, 4, "Next field"),
-    key(Code::Home, 5, "First field"),
-    key(Code::End, 6, "Last field"),
-    key(Code::PageUp, 7, "First field"),
-    key(Code::PageDown, 8, "Last field"),
+    // A form stacks its fields down a rectangle, so `←` and `→` are not its either — production
+    // 17, `crate::nav::step`'s decision reaching every caller of it at once.
+    key(Code::Home, 3, "First field"),
+    key(Code::End, 4, "Last field"),
+    key(Code::PageUp, 5, "First field"),
+    key(Code::PageDown, 6, "Last field"),
     text(
-        9,
+        7,
         "Jump to the field whose label starts with what you type; the buffer lapses after a second",
     ),
 ];
@@ -1496,12 +1594,12 @@ pub const CONTRACTS: &[Contract] = &[
     },
     Contract {
         id: "tree",
-        binds: COLLECTION_FULL,
+        binds: TREE,
         live: live::tree,
     },
     Contract {
         id: "pagination",
-        binds: COLLECTION,
+        binds: PAGER,
         live: live::pagination,
     },
     Contract {
@@ -1597,8 +1695,18 @@ pub const CORPUS_SIZE: usize = CODES.len() * 5 + 26 * 3 + 1 + 3;
 /// A spelling and not a bind: [`Bind::ignores`] makes twelve of `slider`'s sixteen and one of
 /// `collection`'s thirty-four a second chord on one line of help.
 pub const REGISTERED: [(&str, usize); 13] = [
-    ("collection", 34),
-    ("table", 34),
+    // **Thirty, and the four that left are `←`, `→` and their `Shift` twins.** They were
+    // `↑` and `↓` here for the whole of the crate's life, on the argument that a list's index grows
+    // downward — and what that costs is not visible from inside a list: a *consumed* key cannot
+    // reach the container the list is drawn inside, so a menu bar could not walk its pull-downs
+    // with the two keys every menu bar walks them with. They are declined now.
+    ("collection", 30),
+    ("table", 30),
+    // **The one number here that did not move**, and it is the same four keys: `tree`'s hook takes
+    // `←` and `→` before the cursor sees them, so what left `COLLECTION_FULL` arrived in
+    // [`TREE_FOLD`] and this component answers exactly what it did. What changed is that the four
+    // are now **its own** — before, the sweep could not tell a fold from a cursor move, because
+    // both readings take the key.
     ("tree", 34),
     // **Eight fewer, and the eight are the listing's**: a pager has no labels to seek and reads
     // `Gesture::Plain` from its own arithmetic, so the type-ahead and the three pointer gestures
@@ -1610,20 +1718,28 @@ pub const REGISTERED: [(&str, usize); 13] = [
     // `Shift` twin were two more of exactly the same: `apply` answers `Gesture::All` in
     // `Mode::Multi` alone, so *select every row* was a line in a pager's help bar that no press
     // could perform.
-    ("pagination", 26),
-    // **Thirty-three, and the popup's are most of it**: open, the list takes the keyboard from its
+    // **Eighteen, and it is the only component here whose four went a different way.** A pager lays its pages across a strip, so `←` and `→` *arrived* and `↑` and
+    // `↓` left — and four more went with them, because the deaf `Ctrl` step has no horizontal
+    // spelling available: `Ctrl+←`/`Ctrl+→` are word motion, which `ABSENT` reserves crate-wide.
+    // Twenty-two would be the number if that pair were free.
+    ("pagination", 18),
+    // **Twenty-nine, and the popup's are most of it**: open, the list takes the keyboard from its
     // owner and answers the collection at `Mode::Single`. Thirty-five until the applications, and
     // the two that went are `Ctrl+A`'s — `Mode::Single` ignores `Gesture::All` for the same reason
     // it answers `Plain` and `Toggle` with one call, which is the fact that already took
     // `Ctrl+Click` off this contract.
-    ("select", 33),
-    // **Thirty-three, the same as `select`**, since the picker's popup got a
+    // **Twenty-nine**, four fewer for `collection`'s reason: a popup is a list
+    // drawn down a rectangle and the horizontal arrows are its owner's.
+    ("select", 29),
+    // **Twenty-nine, the same as `select`**, since the picker's popup got a
     // keyboard. Eight until then, and the gap was [`PICKER_IS_MISSING`] rather than a smaller
     // component: an open picker could only be used with a mouse and the eight were its *owner's*.
     // The two it lost since are `select`'s two, because the two share one `&[Bind]` and one body.
-    ("file_picker", 33),
+    ("file_picker", 29),
     ("field", 25),
-    ("form", 17),
+    // **Thirteen**: a form stacks its fields, and `crate::nav::step`'s decision
+    // reaches every caller of it at once.
+    ("form", 13),
     ("collapsible", 4),
     ("slider", 16),
     ("checkbox", 4),
@@ -1891,12 +2007,19 @@ mod tests {
     /// flatten index* as an equality between three declarations, and the store without its row
     /// loop as the difference — `pagination` reaches `CollState` and the thirteen arms of `apply`
     /// and reaches neither the type-ahead nor `from_click` (components 35).
+    ///
+    /// **`tree` is the shared declaration plus two**, which is the *plus a
+    /// flatten index* half becoming visible from this side: a fold and an unfold are the two keys
+    /// an index has that a list does not, and they were hidden inside the shared contract for as
+    /// long as `←` and `→` moved a cursor there too. The prefix equality is asserted rather than
+    /// the whole, and [`tests::a_trees_contract_is_the_collections_and_its_own_two`] is the half
+    /// that says the two are what the difference is.
     #[test]
     fn the_three_collections_declare_the_pager_plus_the_listing() {
         let full = contract("collection").documented();
         assert_eq!(contract("table").documented(), full);
-        assert_eq!(contract("tree").documented(), full);
-        let pager = contract("pagination").documented();
+        assert_eq!(contract("tree").documented()[..full.len()], full[..]);
+        let pager: Vec<String> = COLLECTION.iter().flat_map(Bind::spellings).collect();
         let listing: Vec<String> = COLLECTION_FULL[PAGER_BINDS..]
             .iter()
             .flat_map(Bind::spellings)
@@ -1913,6 +2036,75 @@ mod tests {
                 .cloned()
                 .chain(listing.iter().cloned())
                 .collect::<Vec<String>>()
+        );
+    }
+
+    /// **A pager's contract is the shared one with its axis turned and its deaf step gone.**
+    ///
+    /// [`PAGER`] stopped being a slice of [`COLLECTION_FULL`] when its axis turned, so this is what
+    /// keeps the two declarations from drifting: named as **two set differences and not as a
+    /// count**, because a count is exactly what a slice already was and it could not see the defect
+    /// this ticket found — a pager answering `↑` for *the previous page* is the same size as a
+    /// pager answering `←`.
+    ///
+    /// The `Ctrl` arrows are in one difference and not the other, and that is [`ABSENT`]'s row
+    /// reaching a second file: `Ctrl+←`/`Ctrl+→` are word motion, so the deaf step has no
+    /// horizontal spelling to turn into and the pager simply does not have one.
+    #[test]
+    fn a_pagers_contract_is_the_shared_one_with_its_axis_turned() {
+        let shared: BTreeSet<String> = COLLECTION.iter().flat_map(Bind::spellings).collect();
+        let pager: BTreeSet<String> = contract("pagination").documented().into_iter().collect();
+        let gone: Vec<&str> = shared.difference(&pager).map(String::as_str).collect();
+        let gained: Vec<&str> = pager.difference(&shared).map(String::as_str).collect();
+        assert_eq!(
+            gone,
+            [
+                "Ctrl+Down",
+                "Ctrl+Shift+Down",
+                "Ctrl+Shift+Up",
+                "Ctrl+Up",
+                "Down",
+                "Shift+Down",
+                "Shift+Up",
+                "Up",
+            ],
+            "a strip declares neither the vertical arrows nor a deaf step it has no spelling for",
+        );
+        assert_eq!(
+            gained,
+            ["Left", "Right", "Shift+Left", "Shift+Right"],
+            "and it declares the two it does have, with their `Shift` twins",
+        );
+        // **The four both axes share are in neither difference**, which is what makes the two
+        // lists above a *turn* rather than two unrelated contracts.
+        for both in ["Home", "End", "PageUp", "PageDown", "Ctrl+Home", "Ctrl+End"] {
+            assert!(shared.contains(both) && pager.contains(both), "{both}");
+        }
+    }
+
+    /// **A tree's contract is a collection's and its own two, and the two are the fold keys.**
+    ///
+    /// The other half of the prefix equality above. Written as a set difference rather than as a
+    /// slice index, because an appended-at-compile-time declaration and a hand-written one are
+    /// indistinguishable from the prefix side — and what this ticket is about is *which* two keys,
+    /// not how many.
+    #[test]
+    fn a_trees_contract_is_the_collections_and_its_own_two() {
+        let shared: BTreeSet<String> = contract("collection").documented().into_iter().collect();
+        let tree: BTreeSet<String> = contract("tree").documented().into_iter().collect();
+        let extra: Vec<&String> = tree.difference(&shared).collect();
+        assert_eq!(
+            extra,
+            ["Left", "Right", "Shift+Left", "Shift+Right"]
+                .iter()
+                .map(ToString::to_string)
+                .collect::<BTreeSet<String>>()
+                .iter()
+                .collect::<Vec<&String>>()
+        );
+        assert!(
+            shared.difference(&tree).next().is_none(),
+            "a tree declares everything a collection does",
         );
     }
 
@@ -2142,7 +2334,7 @@ mod tests {
     ///
     /// It was repaired and this is the gate the other way up: the two share **one `&[Bind]`**,
     /// so the equality is now the type system's and what is left to assert is that the *sweep*
-    /// agrees — two components running two different bodies answering the same thirty-three
+    /// agrees — two components running two different bodies answering the same twenty-nine
     /// spellings. `PICKER_IS_MISSING` stays as the number, at **0**, because a count that records a
     /// repair is worth more than a deleted constant: the gate that reads it is what would catch the
     /// two coming apart again.
@@ -2153,7 +2345,7 @@ mod tests {
         assert_eq!(picker, select, "one family, one declaration");
         assert_eq!(select.len() - picker.len(), PICKER_IS_MISSING);
         assert_eq!(PICKER_IS_MISSING, 0);
-        assert_eq!(picker.len(), 33, "and thirty-three is what both answer");
+        assert_eq!(picker.len(), 29, "and twenty-nine is what both answer");
         // **Both are swept, not just declared.** The declaration being one slice makes the equality
         // above free; this is the half that still costs something, and it is the half the keyboard question was
         // about — `registered()` runs the shipped component.

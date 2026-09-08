@@ -77,7 +77,7 @@
 //! | `Enter` | descend into a directory, or `..`; on a non-empty prompt, run it |
 //! | `Insert` | mark the row and step down · `Ctrl+T` inverts · `Esc` drops the marks |
 //! | `F1` … `F10` | help, menu, view, edit, copy, move, mkdir, delete, menu, quit |
-//! | `Alt+←` `Alt+→` | inside a pull-down: its neighbour. **Not the bare arrows**, which a `collection` reads as `↑`/`↓` and consumes |
+//! | `←` `→` | inside a pull-down: its neighbour, as `mc` binds it. They were `Alt+←`/`Alt+→` here while a `collection` read the bare arrows as `↑`/`↓` and consumed them |
 //! | `Ctrl+R` | re-read: fresh sizes and timestamps for the active directory |
 //! | `Ctrl+U` | swap the panels, as `mc` does |
 //! | `Ctrl+Q` | quit, because `q` is a character and characters go to the prompt |
@@ -102,6 +102,7 @@ use vitui_components::structure::{
 };
 use vitui_components::text::{FitOpts, Justify, TextOpts, fit_with, text_with};
 use vitui_runtime::ctx::Driver;
+use vitui_runtime::focus::ScopeKind;
 use vitui_runtime::keys::{Code, Pressed};
 use vitui_runtime::layout::Constraint::{Fixed, Weight};
 use vitui_runtime::layout::{Col, Row, Stack, rect};
@@ -748,7 +749,7 @@ const HELP: [&str; 17] = [
     " F5 / F6 / F7     copy / move / make a directory",
     " F8               delete — tab, then enter: it opens on Cancel",
     " F9               the menu bar",
-    " Alt+← / Alt+→    the neighbouring pull-down",
+    " ← / →           the neighbouring pull-down",
     " Ctrl+R           re-read the active directory",
     " Ctrl+U           swap the panels",
     " Ctrl+Q           quit",
@@ -1639,39 +1640,61 @@ fn draw_menu(
         mode: Mode::Cursor,
         ..CollOpts::default()
     };
-    let resp = collection(
-        cx,
-        r,
-        st,
-        &opts,
-        Rows::of(entries.len()),
-        &mut |_buf, _range| None,
-        &mut |cx, row, i, face| {
-            let role = face_role(face);
-            fit_with(
-                cx,
-                row,
-                &format!(" {} ", entries[i]),
-                &FitOpts {
-                    justify: Justify::Start,
-                    role,
-                    pad: role,
-                },
-            );
-        },
-    );
+    // **The pull-down's own id, and the scope is what buys it a keyboard.** A container draws
+    // *before* its children, so a pull API gives capture and not bubbling; the one moment an
+    // ancestor can ask *after* its children is after its body, and `Ctx::scope` is the verb that
+    // has one. A scope the focus drew inside becomes the routing target when it closes and the
+    // decline that shut the queue is spent, so `next_key` below is answered.
+    let menu = cx.id();
+    let resp = cx.scope(menu, ScopeKind::Group, |cx| {
+        collection(
+            cx,
+            r,
+            st,
+            &opts,
+            Rows::of(entries.len()),
+            &mut |_buf, _range| None,
+            &mut |cx, row, i, face| {
+                let role = face_role(face);
+                fit_with(
+                    cx,
+                    row,
+                    &format!(" {} ", entries[i]),
+                    &FitOpts {
+                        justify: Justify::Start,
+                        role,
+                        pad: role,
+                    },
+                );
+            },
+        )
+    });
     if cx.focused().is_none() {
         cx.focus(resp.id);
     }
     if resp.clicked {
         *pending = Some(Act::Menu(which, st.sel.lead));
     }
-    // **The keyboard is not read here, and it cannot be.** `Ctx::decline` hands a key back *and
-    // ends the level's turn at the queue*, so once the collection has declined this frame's
-    // `Enter` a second `next_key` on its id answers `None` however many keys are left. A container
-    // that wants its own keys over a `collection` has one route — `crate::collect::Refusal`, which
-    // is `pub(crate)` — or the unhandled window, which is where `App::take_unhandled` reads them.
-    let _ = which;
+    // **`mc`'s own bindings, and this surface could not have two of them.** `←` and `→` were
+    // `vitui_components::nav::step`'s — a `collection` consumed both to move its cursor — so this
+    // file bound `Alt+←`/`Alt+→` and recorded that the bare arrows were unreachable. A group
+    // declares its axis now, a vertical one declines the horizontal arrows, and they arrive here.
+    //
+    // **`Enter` and `Esc` were reachable the whole time and this file did not know it.** They came
+    // through `Driver::unhandled` a frame later, on the belief that a container over a focused
+    // `collection` had no in-frame route at all — which compiled, drew correctly, and answered
+    // every pull-down one keystroke behind.
+    while let Some(k) = cx.next_key(menu) {
+        match k.code {
+            Code::Enter => *pending = Some(Act::Menu(which, st.sel.lead)),
+            Code::Escape | Code::F(9) => *pending = Some(Act::Close),
+            Code::Left => *pending = Some(Act::Sibling((which + MENUS.len() - 1) % MENUS.len())),
+            Code::Right => *pending = Some(Act::Sibling((which + 1) % MENUS.len())),
+            // Anything else is nobody's here — `Ctrl+Q` above all, which must work from inside
+            // whatever is open.
+            _ => cx.decline(k),
+        }
+    }
 }
 
 // ── what happens between two frames ──────────────────────────────────────────────────────────────
@@ -1993,32 +2016,10 @@ impl App {
                 }
                 return;
             }
-            Modal::Menu { which, st } => {
-                // See `draw_menu`: a collection declines these and ends the turn, so the pull-down's
-                // own keys arrive here rather than inside the frame.
-                let (which, lead) = (*which, st.sel.lead);
-                for k in keys {
-                    match k.code {
-                        Code::Enter => self.pending = Some(Act::Menu(which, lead)),
-                        Code::Escape | Code::F(9) => self.pending = Some(Act::Close),
-                        // **`Alt+←`/`Alt+→` and not `←`/`→`, and that is a finding rather than a
-                        // taste.** `mc` walks its pull-downs with the bare arrows;
-                        // `crate::nav::step` reads `←` and `→` as `↑` and `↓` — its own
-                        // documentation says so — so a `collection` *consumes* them to move its
-                        // cursor and they never reach here. A chord is a different matter: a
-                        // collection declines one and swallows no accelerator.
-                        Code::Left if k.mods.alt() => {
-                            self.pending =
-                                Some(Act::Sibling((which + MENUS.len() - 1) % MENUS.len()));
-                        }
-                        Code::Right if k.mods.alt() => {
-                            self.pending = Some(Act::Sibling((which + 1) % MENUS.len()));
-                        }
-                        _ => {}
-                    }
-                }
-                return;
-            }
+            // **The pull-down reads its own keys inside the frame** and is skipped here, which is
+            // the shape the two button dialogs already had. It was the exception in this file
+            // until `draw_menu` opened a scope.
+            Modal::Menu { .. } => return,
             Modal::Help | Modal::View { .. } | Modal::Delete { .. } => return,
         }
         for k in keys {

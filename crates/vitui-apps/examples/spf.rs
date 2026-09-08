@@ -38,13 +38,14 @@
 //!    `App::tick` starts it from the frame's own `now`. Seeding it from `Instant::now()` out
 //!    there draws the identical screen and puts every phase in the program outside
 //!    `Driver::pin_clock`, which is the entire test regime of this workspace.
-//! 5. **`→` and `←` are not *open* and *parent* here.** `hotkeys.toml` binds
-//!    `confirm = ['enter', 'right', 'l']` and `parent_directory = ['h', 'left', 'backspace']`, and
-//!    `crate::nav::step` reads `←` and `→` as `↑` and `↓` — so a focused `collection` or `table`
-//!    consumes them to move its cursor and they never reach this application. `l`, `Enter`, `h`
-//!    and `Backspace` all work; the two arrows move the cursor, which is the component's decision
-//!    and is visible rather than silent. `commander` met the same wall in its menu bar and took
-//!    `Alt+←`/`Alt+→` around it.
+//! 5. **`→` and `←` are *open* and *parent* here, and for most of this file's life they could not
+//!    be.** `hotkeys.toml` binds `confirm = ['enter', 'right', 'l']` and
+//!    `parent_directory = ['h', 'left', 'backspace']`, and `vitui_components::nav::step` read `←`
+//!    and `→` as `↑` and `↓` — so a focused `collection` or `table` consumed both to move its
+//!    cursor and neither ever reached this application. It took the letters alone, and
+//!    `commander` met the same wall in its menu bar and went round it with `Alt+←`/`Alt+→`. A
+//!    group declares its axis now: a list is vertical, the two horizontal arrows are declined,
+//!    and both applications bind what their originals bind.
 //!
 //! # What a process is here, and why it needs a deadline
 //!
@@ -582,8 +583,8 @@ enum Focus {
 /// The help modal's text: `hotkeys.toml`'s own names beside its own keys.
 const HELP: [(&str, &str); 19] = [
     ("j / k / ↓ / ↑", "list down · list up"),
-    ("l / enter", "confirm — open. `→` is eaten by the table"),
-    ("h / backspace", "parent directory. `←` is eaten too"),
+    ("l / enter / →", "confirm — open"),
+    ("h / backspace / ←", "parent directory"),
     (
         "L / H",
         "next / previous file panel — `tab` walks every pane",
@@ -672,9 +673,26 @@ fn key_map() -> KeyMap {
         .bind(&[Chord::typed('q')], QUIT, "Quit")
         .bind(&[Chord::typed('j'), Chord::new(Code::Down)], DOWN, "Down")
         .bind(&[Chord::typed('k'), Chord::new(Code::Up)], UP, "Up")
-        .bind(&[Chord::typed('l'), Chord::new(Code::Enter)], OPEN, "Open")
+        // **The arrows are here, and for most of this file's life they could not be.** A focused
+        // `collection` or `table` read `←` and `→` as `↑` and `↓` and consumed both to move its
+        // cursor, so `hotkeys.toml`'s own spelling of *open* and *parent* was unreachable and this
+        // application took the letters alone. A group declares its axis now: a list is vertical,
+        // the horizontal arrows are declined, and they reach this map.
         .bind(
-            &[Chord::typed('h'), Chord::new(Code::Backspace)],
+            &[
+                Chord::typed('l'),
+                Chord::new(Code::Enter),
+                Chord::new(Code::Right),
+            ],
+            OPEN,
+            "Open",
+        )
+        .bind(
+            &[
+                Chord::typed('h'),
+                Chord::new(Code::Backspace),
+                Chord::new(Code::Left),
+            ],
             PARENT,
             "Parent",
         )

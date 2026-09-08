@@ -42,8 +42,8 @@
 //!
 //! `crate::collect::from_key` answers a bare `Space` with `Gesture::Toggle` and `Ctrl+A` with
 //! `Gesture::All` in **every** [`Mode`], and `apply` then ignores both at [`Mode::Cursor`] — so the
-//! key was consumed to do nothing and never reached this application. `crate::nav::step` reads `←`
-//! and `→` as `↑` and `↓`, so those two still go that way.
+//! key was consumed to do nothing and never reached this application. `crate::nav::step` read `←`
+//! and `→` as `↑` and `↓`, which sent those two the same way for a different reason.
 //!
 //! **It was `owns_escape`'s defect one key over.** `Escape` had been taught to
 //! decline when `apply` would clear nothing — *the component owns it exactly when it would clear
@@ -51,10 +51,10 @@
 //! for the life of this port. `crate::collect::owns` is that narrowing said of the whole
 //! vocabulary and the bare key arrives now; the chord stays bound beside it.
 //!
-//! **`←` and `→` are still the collection's**, and that one is a fact about `nav::step` rather than
-//! about ownership: a tab strip is a horizontal collection and needs them, and nothing on the
-//! surface says which axis a list runs on. `commander` binds `Alt+←`/`Alt+→` around it and `spf`
-//! meets it too; three ports, one reading.
+//! **`←` and `→` are not the collection's any more**, and that one was never about ownership: a
+//! group declares its axis, `nav::step` reads it, and a vertical list declines the two arrows it
+//! does not have. This port wanted them least of the three — k9s walks its levels with `Esc` and a
+//! colon command — and `commander` and `spf` bind what their originals bind because of it.
 //!
 //! # The letters are commands, so the table's type-ahead must never match
 //!
