@@ -207,6 +207,7 @@ const INNER: PanelOpts = PanelOpts {
     border: Role::Border,
     title_role: Role::Title,
     pad: Role::Body,
+    justify: Justify::Start,
     bordered: true,
     padded: false,
     interest: Interest::HOVER,
@@ -277,7 +278,7 @@ impl App {
 
     /// One frame, top to bottom.
     fn ui(&mut self, cx: &mut Ctx<'_, '_>) {
-        let outer = panel_with(cx, cx.area(), " Triage ", &PanelOpts::default());
+        let outer = panel_with(cx, cx.area(), " Triage ", "", &PanelOpts::default());
         let [body, status_row] = Col::new().split(outer.interior, [Weight(1), Fixed(1)]);
         let [left, messages, actions] = Row::new().split(body, [Fixed(14), Weight(1), Fixed(18)]);
         // **Five rows for three entries**, because these panels are unpadded: two for the border
@@ -319,7 +320,7 @@ impl App {
     /// choice: a horizontal segmented control shares `Selection` and `apply` and lays itself out,
     /// because `collection` virtualises rows.
     fn view_list(&mut self, cx: &mut Ctx<'_, '_>, area: Rect) {
-        let panel = panel_with(cx, area, " View ", &INNER);
+        let panel = panel_with(cx, area, " View ", "", &INNER);
         let opts = CollOpts {
             mode: Mode::Options,
             ..Default::default()
@@ -352,7 +353,7 @@ impl App {
 
     /// **`Mode::Single`: a folder list, and clicking the current one clears it.**
     fn folder_list(&mut self, cx: &mut Ctx<'_, '_>, area: Rect) {
-        let panel = panel_with(cx, area, " Folders ", &INNER);
+        let panel = panel_with(cx, area, " Folders ", "", &INNER);
         let opts = CollOpts {
             mode: Mode::Single,
             ..Default::default()
@@ -387,7 +388,7 @@ impl App {
     fn message_list(&mut self, cx: &mut Ctx<'_, '_>, area: Rect) -> Id {
         let shown = self.visible_messages();
         let title = format!(" Messages — {shown} ");
-        let panel = panel_with(cx, area, &title, &INNER);
+        let panel = panel_with(cx, area, &title, "", &INNER);
         let opts = CollOpts {
             mode: Mode::Multi,
             ..Default::default()
@@ -457,7 +458,7 @@ impl App {
     /// Press `Tab` into it and try `Space`: the cursor moves and the store stays empty, because
     /// `apply`'s `(Mode::Cursor, _) => {}` arm is the second of the thirteen.
     fn action_menu(&mut self, cx: &mut Ctx<'_, '_>, area: Rect) {
-        let panel = panel_with(cx, area, " Actions ", &INNER);
+        let panel = panel_with(cx, area, " Actions ", "", &INNER);
         let opts = CollOpts {
             mode: Mode::Cursor,
             ..Default::default()

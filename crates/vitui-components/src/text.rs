@@ -67,6 +67,20 @@ pub enum Justify {
     End,
 }
 
+/// **How many cells lead a run of `used` cells, given the slack around it.**
+///
+/// One home for the arithmetic, because three components now share it: a fitted row, a rule's
+/// caption and a frame's two edges. Written twice it is the kind of number that drifts by one on
+/// the odd cell and is only ever seen at a width nobody plays.
+pub(crate) const fn lead_for(justify: Justify, slack: u16) -> u16 {
+    match justify {
+        Justify::Start => 0,
+        // The odd cell goes to the trailing side.
+        Justify::Middle => slack / 2,
+        Justify::End => slack,
+    }
+}
+
 /// [`fit`]'s options.
 ///
 /// **Options are a `Default` struct, never a required builder**, and every helper
@@ -170,11 +184,7 @@ pub fn fit_into<I: Ink>(
         "`elide` returned {used} cells for a {w}-cell row: the one-cell ellipsis rule has moved"
     );
     let slack = w - used;
-    let lead = match opts.justify {
-        Justify::Start => 0,
-        Justify::Middle => slack / 2,
-        Justify::End => slack,
-    };
+    let lead = lead_for(opts.justify, slack);
     let trail = slack - lead;
 
     let y = band.y;

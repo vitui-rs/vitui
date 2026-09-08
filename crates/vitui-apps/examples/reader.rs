@@ -246,7 +246,7 @@ impl App {
     fn ui(&mut self, cx: &mut Ctx<'_, '_>) {
         let screen = cx.area();
         let (top, status) = split_last_row(screen);
-        let panel = panel_with(cx, top, " build log ", &PanelOpts::default());
+        let panel = panel_with(cx, top, " build log ", "", &PanelOpts::default());
 
         // **The geometry the keys are clamped against comes from here**, where the panel has just
         // told this frame what it handed over. See `App::geometry`.

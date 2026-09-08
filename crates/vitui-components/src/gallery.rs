@@ -1366,7 +1366,7 @@ fn tiles_into<'f, I: Ink>(
         // the assembled screen and not over an arithmetic beside it.
         if panels.keying == Keying::Derived {
             cx.with_key(slot as u64, |cx| {
-                let frame = panel_into(&mut *ink, cx, here, panel.title, &opts);
+                let frame = panel_into(&mut *ink, cx, here, panel.title, "", &opts);
                 let mut sink: Sink<'_> = ink;
                 (panel.draw)(bag, owners, &mut sink, cx, frame.interior);
             });
@@ -1381,7 +1381,7 @@ fn tiles_into<'f, I: Ink>(
                 verbs: Vec::new(),
             };
             cx.with_key(slot as u64, |cx| {
-                let frame = panel_into(&mut rec, cx, here, panel.title, &opts);
+                let frame = panel_into(&mut rec, cx, here, panel.title, "", &opts);
                 let mut sink: Sink<'_> = &mut rec;
                 (panel.draw)(bag, owners, &mut sink, cx, frame.interior);
             });
@@ -1466,7 +1466,7 @@ mod draws {
         cx: &mut Ctx<'_, '_>,
         r: Rect,
     ) {
-        let frame = panel_into(ink, cx, r, "General", &PanelOpts::default());
+        let frame = panel_into(ink, cx, r, "General", "", &PanelOpts::default());
         // **A `block` returns the rectangle it did not write**, and the owner writes it.
         // This is the second half in the one shape the rule states outright, and the panel inside a
         // panel is where the gallery meets it: 294 cells of a 50x15 tile.
@@ -2510,7 +2510,7 @@ pub mod defective {
             if here.is_empty() {
                 break;
             }
-            let _ = panel_into(ink, cx, here, "tile", &opts);
+            let _ = panel_into(ink, cx, here, "tile", "", &opts);
         }
     }
 
@@ -2529,7 +2529,7 @@ pub mod defective {
             if here.is_empty() {
                 break;
             }
-            let _ = panel_into(ink, cx, here, "tile", &opts);
+            let _ = panel_into(ink, cx, here, "tile", "", &opts);
         }
     }
 }

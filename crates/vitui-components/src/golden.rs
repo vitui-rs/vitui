@@ -1210,7 +1210,7 @@ mod shots {
     pub fn panel(pen: &mut Pen, driver: &mut Driver) {
         driver.frame(|cx| {
             let opts = PanelOpts::default();
-            let _ = panel_into(pen, cx, Rect::new(0, 0, 24, 5), "General", &opts);
+            let _ = panel_into(pen, cx, Rect::new(0, 0, 24, 5), "General", "", &opts);
         });
     }
 

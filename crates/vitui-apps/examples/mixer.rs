@@ -196,7 +196,7 @@ impl App {
         } else {
             " mixer — the integer grid (press f for the f32 step) "
         };
-        let block = panel_into(ink, cx, cx.area(), title, &PanelOpts::default());
+        let block = panel_into(ink, cx, cx.area(), title, "", &PanelOpts::default());
         let interior = block.interior;
         if interior.h < CHROME_H + 3 || interior.w < FADER_W + 5 {
             text_into(

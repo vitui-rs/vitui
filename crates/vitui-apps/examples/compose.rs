@@ -107,6 +107,7 @@ impl App {
             cx,
             cx.area(),
             " compose — a field is one component and one flag ",
+            "",
             &PanelOpts::default(),
         );
         let interior = block.interior;

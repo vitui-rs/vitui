@@ -34,14 +34,14 @@
 //! `overrun_report` cannot have them from here, because `..Default::default()` in a struct literal
 //! needs the struct's name.
 //!
-//! # Two things the port cannot say, and they are the surface's to fix
+//! # Two things the port could not say, and both are `PanelOpts` fields now
 //!
-//! 1. **The title is left-anchored.** ratatui centres it. `PanelOpts` has no title alignment.
-//! 2. **The instructions are on an interior row, not in the bottom border.** ratatui puts them
-//!    there with `Title::position(Bottom)`. There is no bottom title here.
-//!
-//! Both are missing fields on `PanelOpts` rather than anything structural, and neither is worked
-//! around below — the point of a port is to show the gap, not to hide it.
+//! The screen ratatui's tutorial draws is a centred title over a centred row of key hints in the
+//! bottom border, and for most of this file's life neither was expressible: the title was pinned to
+//! the left and the hints sat on an interior row, a cell inside the frame the eye reads as their
+//! container. `PanelOpts::justify` and `panel_with`'s second string are what closed it — this
+//! application, `commander` and `spf` all wanted the same two, which is what turned a taste into a
+//! gap.
 //!
 //! # Run it
 //!
@@ -53,9 +53,8 @@ use vitui_components::structure::{PanelOpts, panel_with};
 use vitui_components::text::{Justify, TextOpts, text_with};
 use vitui_runtime::ctx::Driver;
 use vitui_runtime::keys::{ActionId, Chord, Code, KeyMap};
-use vitui_runtime::layout::rect;
 use vitui_runtime::work::Wake;
-use vitui_runtime::{Ctx, Interest, Role, Themes};
+use vitui_runtime::{Ctx, Interest, Themes};
 
 /// Everything this application knows. Two fields.
 ///
@@ -99,34 +98,29 @@ impl App {
 
         // The block. `panel_with` returns the interior it handed over **and did not write** — spec
         // the partition rule, which is why there is no second call to clear the inside.
+        //
+        // **Both captions are the panel's**: the title over the top border, the key hints under the
+        // bottom one, and one alignment centring the pair. The hints used to be an interior row,
+        // which cost the screen a row and put them a cell inside a frame the eye reads as their
+        // container.
         let block = panel_with(
             cx,
             cx.area(),
             " Counter App Tutorial ",
+            " Decrement <Left> Increment <Right> Quit <Q> ",
             &PanelOpts {
                 padded: false,
+                justify: Justify::Middle,
                 ..Default::default()
             },
         );
 
-        let (value_row, instructions) =
-            rect::split_at_v(block.interior, block.interior.h.saturating_sub(1));
         text_with(
             cx,
-            value_row,
+            block.interior,
             &format!("Value: {}", self.counter),
             &TextOpts {
                 justify: Justify::Middle,
-                ..Default::default()
-            },
-        );
-        text_with(
-            cx,
-            instructions,
-            " Decrement <Left> Increment <Right> Quit <Q> ",
-            &TextOpts {
-                justify: Justify::Middle,
-                role: Role::Dim,
                 ..Default::default()
             },
         );

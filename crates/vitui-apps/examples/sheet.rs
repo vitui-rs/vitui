@@ -322,6 +322,7 @@ impl App {
             cx,
             whole,
             " sheet — the caller owns the offset ",
+            "",
             &PanelOpts::default(),
         );
         let interior = panel.interior;

@@ -283,6 +283,7 @@ impl App {
             cx,
             whole,
             " console — one shell, one collection, three kinds ",
+            "",
             &PanelOpts::default(),
         );
         let interior = block.interior;

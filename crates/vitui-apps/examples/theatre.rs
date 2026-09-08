@@ -354,7 +354,7 @@ impl App {
         // **`panel_into` and not `panel_with`**, so the frame's own border and padding ring are in
         // the counters: `panel_with` draws through `Direct`, and a `writes` figure that silently
         // omits the container is a figure about part of the screen.
-        let panel = panel_into(&mut sink, cx, body, " theatre ", &PanelOpts::default());
+        let panel = panel_into(&mut sink, cx, body, " theatre ", "", &PanelOpts::default());
         let interior = panel.interior;
 
         let chrome_h = if interior.h >= CHROME_TALL + 4 {

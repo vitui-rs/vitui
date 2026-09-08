@@ -483,7 +483,13 @@ impl App {
             threshold_glyph: self.rule,
             ..Opts::plot()
         };
-        let panel = panel_with(cx, wide, " p50 / p99 latency, ms ", &PanelOpts::default());
+        let panel = panel_with(
+            cx,
+            wide,
+            " p50 / p99 latency, ms ",
+            "",
+            &PanelOpts::default(),
+        );
         if !panel.interior.is_empty() {
             // **The fold, timed where it happens.** `Raster::build` runs inside this call and
             // nowhere else, so this is the number the volume moves — by two orders over the
@@ -501,7 +507,7 @@ impl App {
             self.last_fold = started.elapsed();
         }
 
-        let panel = panel_with(cx, bars, " requests ", &PanelOpts::default());
+        let panel = panel_with(cx, bars, " requests ", "", &PanelOpts::default());
         if !panel.interior.is_empty() {
             let _ = chart_with(
                 cx,
@@ -515,7 +521,7 @@ impl App {
             );
         }
 
-        let panel = panel_with(cx, readouts, " readouts ", &PanelOpts::default());
+        let panel = panel_with(cx, readouts, " readouts ", "", &PanelOpts::default());
         if !panel.interior.is_empty() {
             self.readouts(cx, panel.interior);
         }

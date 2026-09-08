@@ -98,12 +98,12 @@ pub struct App {
 pub const APPS: [App; 21] = [
     App {
         name: "counter",
-        what: "A bordered panel, a centred value, and Left/Right/q. The smallest program anybody \
-               calls a TUI application",
+        what: "A bordered panel, a centred title over centred key hints in the bottom border, a \
+               centred value, and Left/Right/q. The smallest program anybody calls a TUI \
+               application",
         uses: &[
             "structure::panel_with",
             "text::text_with",
-            "layout::rect::split_at_v",
             "keys::KeyMap",
             "ctx::Driver::wait",
         ],
@@ -682,15 +682,16 @@ pub const APPS: [App; 21] = [
                deadline the frame asks for itself, so an application with nothing running still \
                costs zero wakeups. The rename is **in place**, drawn by the row drawer — which is \
                worth seeing, because §5 fixes the shipped row signature at four arguments and none \
-               of them is an editor: the state a container needs is the caller's to capture. What \
-               it cannot say is the one a reader notices first — the theme has twenty glyphs and \
-               none of them is a file icon",
+               of them is an editor: the state a container needs is the caller's to capture. Each \
+               panel's bottom border carries superfile's three info items. What it cannot say is \
+               the one a reader notices first — the theme has twenty glyphs and none of them is a \
+               file icon, which is a refusal rather than a gap: a glyph has a spelling at every \
+               rung of the ladder and a private-use codepoint has none",
         uses: &[
             "collect::table",
             "collect::collection",
             "collect::apply",
             "structure::panel_with",
-            "structure::status_bar_with",
             "indicate::meter_with",
             "indicate::spinner",
             "input::field",
@@ -859,12 +860,15 @@ mod tests {
              column is documenting something that is no longer there"
         );
         assert_eq!(
-            checked, 79,
-            "**seventy-nine (application, component) pairs**, and the number is here for the reason \
-             every count on this map is: a scan whose needle has quietly stopped matching reports \
-             every column clean, and two empty lists agree about everything. It moves when an \
-             application draws one more component, which is a deliberate edit — it was fifty-one \
-             before `commander`, `cluster` and `spf` added ten, eight and ten"
+            checked, 78,
+            "**seventy-eight (application, component) pairs**, and the number is here for the \
+             reason every count on this map is: a scan whose needle has quietly stopped matching \
+             reports every column clean, and two empty lists agree about everything. It moves when \
+             an application draws one more component, which is a deliberate edit — it was fifty-one \
+             before `commander`, `cluster` and `spf` added ten, eight and ten, and **seventy-nine \
+             until a panel grew a bottom-border caption**: `spf` drew superfile's three info items \
+             with a `status_bar` on an interior row, and the border took them, so the pair went \
+             away rather than the component"
         );
     }
 

@@ -227,6 +227,7 @@ impl App {
             cx,
             cx.area(),
             " vitals — press g to step the glyph rung ",
+            "",
             &PanelOpts::default(),
         );
         let interior = block.interior;

@@ -123,6 +123,7 @@ use crate::frame::Face;
 use crate::ink::{Direct, Ink};
 use crate::nav::{self, Cursor, TypeAhead};
 use crate::order::{Ask, Asked, Order, Rows};
+use crate::text::Justify;
 
 /// The components homed in this module. See [`crate::Family::members`].
 pub const MEMBERS: &[&str] = &["collection", "table", "tree", "pagination"];
@@ -2981,6 +2982,13 @@ pub struct Column {
     pub width: Constraint,
     /// Which of the three bands it lands in.
     pub pin: Pin,
+    /// **Where the title and the cells sit in the column's own rectangle.**
+    ///
+    /// [`Justify::Start`] by default. The header is drawn here and the cells are drawn by the
+    /// caller's row closure, so this is the one value the two can read to agree: a numeric column
+    /// pushed to its right edge whose header stayed on the left is a wrong screen built out of
+    /// correct code, and there was no field either side could name.
+    pub justify: Justify,
 }
 
 impl Column {
@@ -2991,7 +2999,13 @@ impl Column {
             title,
             width,
             pin: Pin::None,
+            justify: Justify::Start,
         }
+    }
+
+    /// The same column, with its title and its cells against the other edge or in the middle.
+    pub const fn aligned(self, justify: Justify) -> Column {
+        Column { justify, ..self }
     }
 
     /// The same column, pinned to the left edge at a fixed width.
@@ -3991,11 +4005,24 @@ fn header_row<I: Ink>(
     // `vitui-apps`'s `ledger`, which is the first thing to put a table inside anything.
     let base = head.x;
     let mut write = |ink: &mut I, cx: &mut Ctx<'_, '_>, slot: usize, x: i32| {
-        let title = cols[usize::from(s.spec[slot])].title;
-        let cut = truncate(title, s.w[slot]);
+        let col = &cols[usize::from(s.spec[slot])];
+        let cut = truncate(col.title, s.w[slot]);
         let used = width(cut);
-        let _ = ink.text(cx, x, y, cut, paint);
-        let _ = ink.run(cx, x + i32::from(used), y, " ", s.w[slot] - used, paint);
+        // **The header's own justification is the column's**, so a right-aligned numeric column
+        // cannot have a left-aligned heading. An empty run is not a verb — every `Ink` returns
+        // early on a zero count — so the default alignment writes the same two the header always
+        // wrote, in the same order.
+        let lead = crate::text::lead_for(col.justify, s.w[slot] - used);
+        let _ = ink.run(cx, x, y, " ", lead, paint);
+        let _ = ink.text(cx, x + i32::from(lead), y, cut, paint);
+        let _ = ink.run(
+            cx,
+            x + i32::from(lead + used),
+            y,
+            " ",
+            s.w[slot] - used - lead,
+            paint,
+        );
     };
     let band_x = i32::from(s.left_w);
     let right_x = band_x + i32::from(s.view_w);
@@ -7868,6 +7895,76 @@ mod tests {
             landed(100, true),
             8,
             "and so is a key inside it, which is what runtime architecture issue 31 bought"
+        );
+    }
+
+    /// **A column's heading sits where the column says, and the cells under it read the same
+    /// field.**
+    ///
+    /// The defect this closes is one a caller writes with correct code: a numeric column drawn
+    /// against its right edge by the row closure, under a heading pinned to the left because the
+    /// header had no field to read. Both halves are asserted, and the second is the one with teeth
+    /// — the heading alone would be satisfied by a table whose cells still disagreed, so the cell
+    /// drawer here is handed nothing but [`Column::justify`] and the two runs are compared column
+    /// for column.
+    #[test]
+    fn a_columns_heading_and_its_cells_read_one_justification() {
+        const W: u16 = 30;
+        let cols = [
+            Column::new(0, "NAME", Constraint::Fixed(12)),
+            Column::new(1, "AGE", Constraint::Fixed(18)).aligned(Justify::End),
+        ];
+        let opts = TableOpts {
+            header: true,
+            ..TableOpts::default()
+        };
+        let mut st = TableState::new();
+        let mut driver = crate::runner::driver_at(W, 3, vitui_runtime::Density::default());
+        let mut pen = crate::runner::Pen::new(W, 3);
+        driver.frame(|cx| {
+            let _ = table_into(
+                &mut pen,
+                cx,
+                Rect::new(0, 0, W, 3),
+                &mut st,
+                &opts,
+                &cols,
+                Rows::of(1),
+                &mut |_: &str, _: Range<usize>| None,
+                |ink: &mut crate::runner::Pen, cx: &mut Ctx<'_, '_>, r: Rect, c: Cell, _f: Face| {
+                    // **The cell reads the column and answers no opinion of its own**, which is
+                    // the arrangement the field exists to make possible.
+                    let col = cols.iter().find(|col| col.key == c.key).expect("a key");
+                    let body = &crate::text::FitOpts {
+                        justify: col.justify,
+                        role: Role::Body,
+                        pad: Role::Body,
+                    };
+                    let text = if c.key == 0 { "pod" } else { "42" };
+                    crate::text::fit_into(ink, cx, r, text, body);
+                },
+            );
+        });
+        let canvas = pen.into_canvas();
+        let head = canvas.row_text(0);
+        let body = canvas.row_text(1);
+        let at = |row: &str, needle: &str| row.find(needle).map(|b| row[..b].chars().count());
+
+        // The left column is untouched by the field and stays where it always was.
+        assert_eq!(at(&head, "NAME"), Some(0), "`{head}`");
+        assert_eq!(at(&body, "pod"), Some(0), "`{body}`");
+
+        // The right one ends against its own right edge, heading and cell alike.
+        let last = usize::from(W) - 1;
+        assert_eq!(
+            at(&head, "AGE").map(|x| x + "AGE".len() - 1),
+            Some(last),
+            "the heading is not against the column's right edge — `{head}`"
+        );
+        assert_eq!(
+            at(&body, "42").map(|x| x + 1),
+            Some(last),
+            "the cell is not against the column's right edge — `{body}`"
         );
     }
 

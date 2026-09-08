@@ -39,7 +39,8 @@
 //!     // Thirteen roles, and a component names one of them rather than a colour: the theme
 //!     // resolves it for the terminal in hand.
 //!     let opts = PanelOpts { border: Role::Focus, ..PanelOpts::default() };
-//!     panel_with(cx, cx.area(), " focused ", &opts);
+//!     // Two captions: the title over the top border and, here, a hint under the bottom one.
+//!     panel_with(cx, cx.area(), " focused ", " Tab to leave ", &opts);
 //! });
 //! ```
 //!

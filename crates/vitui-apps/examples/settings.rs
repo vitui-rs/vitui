@@ -283,7 +283,7 @@ impl App {
     fn ui(&mut self, cx: &mut Ctx<'_, '_>) {
         let screen = cx.area();
         let (top, status) = split_last_row(screen);
-        let panel = panel_with(cx, top, " settings ", &PanelOpts::default());
+        let panel = panel_with(cx, top, " settings ", "", &PanelOpts::default());
         self.view = panel.interior;
 
         let mut tally = Tally::new();

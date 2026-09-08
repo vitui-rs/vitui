@@ -285,6 +285,7 @@ impl App {
                 self.index.len(),
                 self.folded.len()
             ),
+            "",
             &PanelOpts {
                 padded: false,
                 ..Default::default()

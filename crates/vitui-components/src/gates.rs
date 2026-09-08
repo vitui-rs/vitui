@@ -56,8 +56,8 @@
 //!   moment: the next row written against a component this crate has not declared belongs here. The
 //!   count in the line below is the authority; this is a summary of it.
 //!
-//! **Two hundred and twenty-eight evaluated, none red, five unreachable, none unsubjected**, and
-//! `tests::two_hundred_and_twenty_eight_rows_are_evaluated_and_the_rest_say_why_not` is what makes
+//! **Two hundred and thirty-three evaluated, none red, five unreachable, none unsubjected**, and
+//! `tests::two_hundred_and_thirty_three_rows_are_evaluated_and_the_rest_say_why_not` is what makes
 //! the next change a deliberate edit rather than a quiet one. It was eighteen / four / six / sixteen until components
 //! the glyph-set count was inverted — red because it had nothing to be about —
 //! and the cross-family collapse gate was subjected; five more arrived, and none of them
@@ -645,7 +645,7 @@ pub const SPEC_ROWS: usize = 32;
 /// **The four `gate` strings are the words and were left alone**, which is a rule this ticket
 /// nearly broke: extending row 15's to *at both ends and across an edit* and row 17's to *over five
 /// hundred edits* reads as clarification and is a **spec edit**, arriving as a one-line diff in this
-/// file, exactly what `tests::thirty_two_rows_are_the_specs_and_two_hundred_and_four_are_this_\
+/// file, exactly what `tests::thirty_two_rows_are_the_specs_and_two_hundred_and_six_are_this_\
 /// lineages` exists to make deliberate. What a ticket adds to a spec row goes in its comment.
 ///
 /// **Another moved it from two hundred and twenty-two to two hundred and twenty-four,
@@ -658,6 +658,24 @@ pub const SPEC_ROWS: usize = 32;
 /// are **four different tables** before asserting they draw one screen, and carries the clip-only
 /// sweep beside it as the control that steps at every arm. **Six unsubjected became four**, and all
 /// four of those are on the table too — they are the field's, and a later pass takes them.
+///
+/// **The two surface gaps moved it from two hundred and thirty-one to two hundred and
+/// thirty-three**, and neither of the two is an inversion: rows 237 and 238 are the fields three
+/// ports of real programs reached for and could not have. Both were **found, recorded in a README
+/// and scheduled nowhere** for a backlog's length, which is the keyboard boundary's history one
+/// surface over.
+///
+/// **The two are not the same argument and they are deliberately not counted the same way.** The
+/// frame's two captions are three applications wanting one thing, which is what turns a taste into
+/// a gap; the column's justification is **one** application, and what carries it is that the
+/// component let that application build a wrong screen out of correct code — a heading placed by
+/// the component and cells placed by the caller, with no field either could read.
+///
+/// **A third gap was refused and the refusal is the finding.** A status bar's segments are drawn
+/// in one `Role` and the row asked for one role per segment; the screen it was asked for paints two
+/// roles **inside** one segment, which no per-segment field buys, because a segment split in two
+/// draws a separator between the halves and shares the width out per part. The field named would
+/// not have drawn the screen named.
 ///
 /// **The keyboard boundary moved it from two hundred and twenty-nine to two hundred and
 /// thirty-one**, and neither of the two is an inversion: rows 235 and 236 are one question asked
@@ -706,7 +724,7 @@ pub const SPEC_ROWS: usize = 32;
 /// it. Row 30's own instrument compares two lists of *ids*, which is the most a query over the
 /// freeze can ask; the chord-for-chord equality needs a value with a machine in it, and
 /// `crate::contract::Contract::live` is that machine — it runs the shipped component.
-pub const EVALUATED: usize = 231;
+pub const EVALUATED: usize = 233;
 
 /// The register, row for row, and this ticket's gates beside it.
 #[expect(
@@ -716,7 +734,7 @@ pub const EVALUATED: usize = 231;
               array is read at compile time by nothing and at run time by tests, so the copy the \
               lint is warning about is one a test makes once"
 )]
-pub const REGISTER: [Row; 236] = [
+pub const REGISTER: [Row; 238] = [
     // ── the table, in its order ───────────────────────────────────────────────────────────
     Row {
         number: 1,
@@ -8872,6 +8890,81 @@ pub const REGISTER: [Row; 236] = [
             ],
         },
     },
+    Row {
+        number: 237,
+        on_spec_table: false,
+        gate: "a frame carries a caption on each of its two horizontal edges, both where its one \
+               alignment says, and neither touching a corner",
+        kind: Kind::Equality,
+        owner: "production 18",
+        section: "spec §1, §2",
+        // **Three applications wanted the same two things and one of them was a whole edge.** A
+        // panel wrote a title into its top border at the left and nothing at all into its bottom
+        // one, so a free-space readout, a row of key hints and a sort-mode-position triple were
+        // each an interior row — a cell inside the frame the eye reads as their container, and a
+        // row the listing did not get.
+        //
+        // **One alignment and not one per edge**, which is the half a later ticket could undo by
+        // adding the second field. It is measured rather than preferred: of the four applications
+        // that asked, two want both captions at the start and two want both in the middle, and none
+        // wants them to disagree. Two fields would buy the screen nobody drew.
+        //
+        // **The strings are arguments and the alignment is the option.** A caption changes from
+        // frame to frame and a `Default` struct is configuration — putting one string in the
+        // argument list and the other on the struct is one idea with two spellings, and it would
+        // cost `PanelOpts` the lifetime-free `Copy` a caller uses to write one as a `const`.
+        //
+        // **The empty arm is the one with reach.** Every panel in this workspace passes an empty
+        // caption, so an edge that changed shape when it was given one would have moved a golden
+        // screen and a verb count in thirty places for a field those panels never used.
+        standing: Standing::Evaluated {
+            by: &[
+                Instrument::Unit {
+                    file: STRUCTURE,
+                    name: "a_panels_two_captions_sit_where_its_one_alignment_says",
+                },
+                // The reserve is one glyph of frame each side, and the trailing run is computed as
+                // what is left — exactly the arithmetic that goes to zero when the lead grows, so
+                // it is watched at the far end of the alignment and not only at the near one.
+                Instrument::Unit {
+                    file: STRUCTURE,
+                    name: "a_caption_never_touches_a_corner_at_any_alignment",
+                },
+                Instrument::Unit {
+                    file: STRUCTURE,
+                    name: "an_empty_footer_is_the_run_the_bottom_edge_always_was",
+                },
+            ],
+        },
+    },
+    Row {
+        number: 238,
+        on_spec_table: false,
+        gate: "a column's heading and the cells under it are placed from one declaration",
+        kind: Kind::Equality,
+        owner: "production 18",
+        section: "spec §6",
+        // **A wrong screen built out of correct code**, which is a stronger argument for a field
+        // than any number of callers wanting one: a table's heading was drawn by the component at
+        // the start of the column and its cells by the caller's own closure, and nothing either of
+        // them could read said where the column's contents go. A right-aligned numeric column
+        // therefore sat under a left-aligned heading, and both halves were correct on their own
+        // terms.
+        //
+        // **The heading alone would not have closed it.** A component that honoured a new field
+        // while the row closure kept its own opinion draws the same wrong screen, so the gate hands
+        // the cell drawer nothing but the column and compares the two runs column for column.
+        //
+        // **The default writes the verbs it always wrote.** An empty run is not a verb — every
+        // `Ink` returns early on a zero count — so a column that declares nothing is the same two
+        // calls in the same order, which is what keeps this off every counter in the crate.
+        standing: Standing::Evaluated {
+            by: &[Instrument::Unit {
+                file: COLLECT,
+                name: "a_columns_heading_and_its_cells_read_one_justification",
+            }],
+        },
+    },
 ];
 /// **The compile-outcome pair row 31 names, and its positive twin.**
 ///
@@ -9151,14 +9244,14 @@ mod tests {
         assert_eq!(seen, expected);
     }
 
-    /// **Two hundred and twenty-eight evaluated, and the other five each say why not.**
+    /// **Two hundred and thirty-three evaluated, and the other five each say why not.**
     ///
     /// This is the number asked for: *how many gates are actually evaluated is a number a test
     /// asserts rather than a claim in a document*. Saying it out loud is what stops the next change
     /// arriving unremarked — a row that quietly stops running has to edit this line, and a row that
     /// starts running has to edit it too.
     #[test]
-    fn two_hundred_and_twenty_eight_rows_are_evaluated_and_the_rest_say_why_not() {
+    fn two_hundred_and_thirty_three_rows_are_evaluated_and_the_rest_say_why_not() {
         let mut evaluated = 0usize;
         let mut red = Vec::new();
         let mut unreachable = Vec::new();
@@ -9254,21 +9347,24 @@ mod tests {
              domain and needs no component to be run against, and its row had been citing spec §13 \
              and components 28 for two tickets"
         );
-        assert_eq!(evaluated + red.len() + unreachable.len() + unsubjected, 236);
+        assert_eq!(evaluated + red.len() + unreachable.len() + unsubjected, 238);
     }
 
     /// **The split, not the total.**
     ///
     /// The table is thirty-two rows and it is closed; everything after it is a gate a ticket on
-    /// this lineage wrote. Asserting the split is what made the forty-fifth row — components ticket
+    /// this lineage wrote. **Both halves of this test's name have been stale and neither carried a
+    /// note saying so, which is what buys a rename here**: a name that says a number it does not
+    /// assert sends the next reader to the wrong file, where a name that says *see the register for
+    /// the count* would not have. Asserting the split is what made the forty-fifth row — components ticket
     /// 05's matrix barrier — say which side of the line it is on, and a thirty-third row claiming to
     /// be one of them is a design change, which should not be able to arrive as a one-line diff in this
     /// file.
     #[test]
-    fn thirty_two_rows_are_the_specs_and_two_hundred_and_four_are_this_lineages() {
+    fn thirty_two_rows_are_the_specs_and_two_hundred_and_six_are_this_lineages() {
         let on_table = REGISTER.iter().filter(|r| r.on_spec_table).count();
         assert_eq!(on_table, SPEC_ROWS);
-        assert_eq!(REGISTER.len() - on_table, 204);
+        assert_eq!(REGISTER.len() - on_table, 206);
         for (index, row) in REGISTER.iter().enumerate() {
             assert_eq!(
                 row.on_spec_table,

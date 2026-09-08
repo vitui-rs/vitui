@@ -420,9 +420,9 @@ pub fn draw_into<I: Ink>(ink: &mut I, cx: &mut Ctx<'_, '_>, arm: Arm, requested:
         // index; the component fixes the order once.
         let stood = cx.with_key(u64::MAX - 2 - u64::from(panel), |cx| {
             if arm == Arm::BorderOverTheTitle {
-                panel_over_title(ink, cx, slot, TITLE, &opts)
+                panel_over_title(ink, cx, slot, TITLE, "", &opts)
             } else {
-                panel_into(ink, cx, slot, TITLE, &opts)
+                panel_into(ink, cx, slot, TITLE, "", &opts)
             }
         });
         shape.declared += 1;
@@ -573,6 +573,7 @@ fn modal<I: Ink>(
             cx,
             dialog,
             DIALOG_TITLE,
+            "",
             &PanelOpts {
                 interest: Interest::CLICK,
                 ..PanelOpts::default()

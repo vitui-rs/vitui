@@ -36,7 +36,8 @@ MSRV **1.88** — `Cargo.toml` is the authority and the `msrv` CI job is what ke
   rather than counted: `crates/vitui-components/tests/crate_line.rs` cannot name the engine.
 - **`vitui-components` — implementation-complete.** All 46 tickets; spec §17's freeze is **29 of 29
   built**, as a value (`INVENTORY`) that tests iterate, with the documentation and verification
-  obligations as functions over it. Register **236 rows, 231 evaluated** — 235 and 236 are
+  obligations as functions over it. Register **238 rows, 233 evaluated** — 237 and 238 are
+  production 18's, the two surface gaps that closed as fields; 235 and 236 are
   production 17's, the keyboard boundary; 234 is components
   architecture 20's, *every entry of §16's twenty is drawn on a named line or recorded as undrawn* —
   and
@@ -130,7 +131,13 @@ MSRV **1.88** — `Cargo.toml` is the authority and the `msrv` CI job is what ke
   **It was not on 15's `Blocked by:` line and that judgement was half wrong in fact**: a widened
   visibility was never what it needed, and what it did need — an argument on `nav::step` and
   `nav::cursor` — is a **breaking** change that was free before the publish and would not have been
-  after. 18 is still off that line: a field on a `Default` struct is a compatible addition.
+  after. **18 is resolved** (2026-09-08) and **its compatibility premise was wrong in the same
+  direction**: three of its five rows ship as fields — a panel's bottom-border caption, one
+  alignment governing both borders, and `Column::justify` — and a public struct with public fields
+  cannot gain one compatibly, which `triage`'s `const INNER: PanelOpts` proved by not compiling. So
+  18 belonged before the publish too, and both refusals are findings rather than shrugs: a
+  per-segment `Role` on `StatusOpts` would not draw the screen it was asked for, and a file icon has
+  no spelling at any rung of the repertoire ladder. Rows 237 and 238.
   A seventh group was added the same day and **19 is resolved** (2026-09-07): the shipped
   documentation cited an ADR, a spec section, a ticket, a register row or a backlog path on
   **5,557 lines**, and it is **zero** now — all four publishable crates are `SWEPT` in both
@@ -467,6 +474,21 @@ MSRV **1.88** — `Cargo.toml` is the authority and the `msrv` CI job is what ke
   somewhere other than it started. Do not "simplify" either by moving the filter into the readers or
   the ask into `Driver::frame`: the first is the one place a key enters a frame from both doors, and
   the second is the one place that knows what `end` decided.
+- **A panel's two border captions are arguments and its one alignment is a field, and a `Column`
+  places its heading and its cells from one declaration** (production 18, resolved 2026-09-08).
+  `panel_with(cx, area, title, footer, opts)` — the bottom border's caption is an **argument** beside
+  the title, because a caption is per-frame data and an options struct is configuration, and because
+  a `&str` on `PanelOpts` costs the type the lifetime-free `Copy` an application uses to write one as
+  a `const`. `PanelOpts::justify` is **one** value for both borders and that is measured, not
+  preferred: of the four applications that asked, two centre both captions, two start both, and none
+  wants them to disagree — a second field buys only the screen nobody drew. `Column::justify` (with
+  `Column::aligned`) is the one row a single application carries, and what carries it is the
+  asymmetry — a heading placed by the component and cells placed by the caller's closure, with no
+  field either could read, which is a wrong screen out of correct code. **Two rows of the same table
+  are refused and the refusals are findings**: a per-segment `Role` on `StatusOpts` would not draw
+  `mc`'s function bar, because that bar paints two roles *inside* one segment and a segment split in
+  two draws a separator between the halves; and a file icon is not a `Glyph`, because a `Glyph` has a
+  spelling at every rung and a private-use codepoint has none. Rows 237 and 238.
 - **Nothing holds the focus until an application seats it** (issue 25): `if cx.focused().is_none()`
   inside the draw. A runtime that seats the first stop was refused.
 - **`Driver::unhandled` is read *after* the frame**, never before — it is a window onto the same

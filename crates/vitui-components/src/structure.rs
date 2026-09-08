@@ -53,19 +53,28 @@ pub const MEMBERS: &[&str] = &["panel", "rule", "status_bar"];
 ///
 /// A `Default` struct, never a required builder.
 ///
-/// **The title is not here.** It is the panel's data and rule 2 puts data in the argument list — and
-/// [`crate::frame::BlockOpts::title`] carrying it as well would be two homes for one string, which
-/// is the shape the 15-cell instance is made of.
+/// **Neither string is here, and that is the same rule twice.** A title and a footer are the
+/// panel's data, they change from frame to frame, and data goes in the argument list — so
+/// [`panel_with`] takes both and this struct takes the one decision that is *configuration*: where
+/// they sit. Putting the footer here instead would give one idea two spellings, one string in the
+/// argument list and one in the options, and would cost this struct its lifetime-free `Copy` — a
+/// caller can write `const OPTS: PanelOpts` today, and an application in this workspace does.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub struct PanelOpts {
     /// The role the frame is drawn in. **This is where focus lands** — a focused panel is drawn in
     /// [`Role::Focus`] *before* its cells are written, never restyled after. See
     /// [`crate::frame::WhyThereIsNoFocusRing`].
     pub border: Role,
-    /// The role the title is drawn in.
+    /// The role **both** captions are drawn in — the title over the top border and the footer
+    /// under the bottom one.
     pub title_role: Role,
     /// The role the padding ring is drawn in.
     pub pad: Role,
+    /// **Where the title and the footer sit along their borders — one value for both.**
+    ///
+    /// [`Justify::Start`] by default, which is where a panel's title has always been. See
+    /// [`crate::frame::BlockOpts::justify`] for why a panel does not carry one alignment per edge.
+    pub justify: Justify,
     /// Whether to draw a frame at all. A panel without one still has a padding ring.
     pub bordered: bool,
     /// Whether to apply the theme's density as a padding ring. Density is theme data and it changes
@@ -84,6 +93,7 @@ impl Default for PanelOpts {
             border: Role::Border,
             title_role: Role::Title,
             pad: Role::Body,
+            justify: Justify::Start,
             bordered: true,
             padded: true,
             interest: Interest::HOVER,
@@ -129,13 +139,22 @@ pub struct Panel {
 /// ```
 #[track_caller]
 pub fn panel(cx: &mut Ctx<'_, '_>, area: Rect, title: &str) -> Panel {
-    panel_with(cx, area, title, &PanelOpts::default())
+    panel_with(cx, area, title, "", &PanelOpts::default())
 }
 
-/// [`panel`], with the options spelled out.
+/// [`panel`], with the bottom border's caption and the options spelled out.
+///
+/// `footer` is written into the bottom border the way `title` is written into the top one, and an
+/// empty one leaves the uninterrupted run the border has always been.
 #[track_caller]
-pub fn panel_with(cx: &mut Ctx<'_, '_>, area: Rect, title: &str, opts: &PanelOpts) -> Panel {
-    panel_into(&mut Direct, cx, area, title, opts)
+pub fn panel_with(
+    cx: &mut Ctx<'_, '_>,
+    area: Rect,
+    title: &str,
+    footer: &str,
+    opts: &PanelOpts,
+) -> Panel {
+    panel_into(&mut Direct, cx, area, title, footer, opts)
 }
 
 /// **[`panel`], drawing through an [`Ink`] so a counter can see the verbs.**
@@ -153,19 +172,22 @@ pub fn panel_into<I: Ink>(
     cx: &mut Ctx<'_, '_>,
     area: Rect,
     title: &str,
+    footer: &str,
     opts: &PanelOpts,
 ) -> Panel {
     let id = cx.id();
     let response = cx.interact(id, area, opts.interest);
-    let interior = block_into(ink, cx, area, &block_opts(title, opts));
+    let interior = block_into(ink, cx, area, &block_opts(title, footer, opts));
     Panel { response, interior }
 }
 
-/// The [`BlockOpts`] a [`PanelOpts`] and a title make. One place, so the two structs cannot drift
-/// into disagreeing about what a panel's frame is.
-fn block_opts<'a>(title: &'a str, opts: &PanelOpts) -> BlockOpts<'a> {
+/// The [`BlockOpts`] a [`PanelOpts`] and the two captions make. One place, so the two structs
+/// cannot drift into disagreeing about what a panel's frame is.
+fn block_opts<'a>(title: &'a str, footer: &'a str, opts: &PanelOpts) -> BlockOpts<'a> {
     BlockOpts {
         title,
+        footer,
+        justify: opts.justify,
         border: opts.border,
         title_role: opts.title_role,
         pad: opts.pad,
@@ -651,12 +673,17 @@ pub mod defective {
         cx: &mut Ctx<'_, '_>,
         area: Rect,
         title: &str,
+        footer: &str,
         opts: &PanelOpts,
     ) -> Panel {
         let id = cx.id();
         let response = cx.interact(id, area, opts.interest);
-        let interior =
-            crate::frame::defective::block_over_title(ink, cx, area, &block_opts(title, opts));
+        let interior = crate::frame::defective::block_over_title(
+            ink,
+            cx,
+            area,
+            &block_opts(title, footer, opts),
+        );
         Panel { response, interior }
     }
 }
@@ -665,6 +692,7 @@ pub mod defective {
 mod tests {
     use super::*;
     use crate::counters::Tally;
+    use crate::runner::{Canvas, Pen};
     use vitui_runtime::ctx::Driver;
 
     /// A tally over one frame of `f`, on a `w` by `h` sink.
@@ -678,6 +706,132 @@ mod tests {
         let mut interior = Rect::new(0, 0, 0, 0);
         driver.frame(|cx| interior = f(&mut tally, cx));
         (tally, interior)
+    }
+
+    /// The recorded surface of one frame of `f`, on a `w` by `h` sink.
+    fn penned(w: u16, h: u16, f: impl FnOnce(&mut Pen, &mut Ctx<'_, '_>)) -> Canvas {
+        let mut driver = Driver::headless(w, h).expect("a sink cannot fail to attach");
+        let mut pen = Pen::new(w, h);
+        driver.frame(|cx| f(&mut pen, cx));
+        pen.into_canvas()
+    }
+
+    /// The **column** a needle starts at in a recorded row, which is not the byte offset a
+    /// `str::find` answers: a box-drawing glyph is three bytes and one cell, so the two disagree by
+    /// two per frame glyph before the caption.
+    fn column_of(row: &str, needle: &str) -> Option<usize> {
+        let at = row.find(needle)?;
+        Some(row[..at].chars().count())
+    }
+
+    /// A panel of `w` by `h` with the two captions and one alignment, as its two border rows.
+    fn edges(w: u16, h: u16, title: &str, footer: &str, justify: Justify) -> (String, String) {
+        let opts = PanelOpts {
+            justify,
+            padded: false,
+            ..PanelOpts::default()
+        };
+        let canvas = penned(w, h, |pen, cx| {
+            let _ = panel_into(pen, cx, Rect::new(0, 0, w, h), title, footer, &opts);
+        });
+        (canvas.row_text(0), canvas.row_text(h - 1))
+    }
+
+    /// **A panel's two captions sit where its one alignment says, and the two borders agree.**
+    ///
+    /// One field governs both edges, so two captions of the same width start in the same column at
+    /// every value — which is the property that makes the single field defensible rather than a
+    /// saving: two fields would let a caller centre one and leave the other at the edge, and no
+    /// application that asked for this wanted that screen.
+    #[test]
+    fn a_panels_two_captions_sit_where_its_one_alignment_says() {
+        // Two captions of equal width, so the columns are directly comparable.
+        const TOP: &str = " logs ";
+        const BOTTOM: &str = " 3/24 ";
+        let span = 40 - 2;
+        let used = width(TOP);
+        assert_eq!(used, width(BOTTOM));
+        for justify in [Justify::Start, Justify::Middle, Justify::End] {
+            let (top, bottom) = edges(40, 5, TOP, BOTTOM, justify);
+            // The caption's own first cell, and the trimmed word starts one cell into it.
+            let want = usize::from(2 + crate::text::lead_for(justify, span - 2 - used)) + 1;
+            assert_eq!(
+                column_of(&top, TOP.trim()),
+                Some(want),
+                "{justify:?}: the title is not where the alignment put it — `{top}`"
+            );
+            assert_eq!(
+                column_of(&bottom, BOTTOM.trim()),
+                Some(want),
+                "{justify:?}: the footer disagrees with the title about one field — `{bottom}`"
+            );
+        }
+    }
+
+    /// **A caption never touches a corner, at any alignment and at every width that has one.**
+    ///
+    /// The budget reserves one glyph of frame on each side, so the cell after the left corner and
+    /// the cell before the right one are line and never text however the slack is shared out. It is
+    /// asserted at [`Justify::End`] as well as at `Start`, because a trailing run computed as
+    /// `span - lead - used` is exactly the arithmetic that goes to zero when the lead grows.
+    #[test]
+    fn a_caption_never_touches_a_corner_at_any_alignment() {
+        for w in [5u16, 6, 9, 12, 20, 41] {
+            for caption in ["x", "a longer caption than this", " logs "] {
+                for justify in [Justify::Start, Justify::Middle, Justify::End] {
+                    let (top, bottom) = edges(w, 4, caption, caption, justify);
+                    for (edge, row) in [("top", &top), ("bottom", &bottom)] {
+                        let cells: Vec<char> = row.chars().collect();
+                        let line = cells[1];
+                        assert_eq!(
+                            cells[usize::from(w) - 2],
+                            line,
+                            "{w} `{caption}` {justify:?}: the {edge} caption reached the corner —                              `{row}`"
+                        );
+                    }
+                }
+            }
+        }
+    }
+
+    /// **An empty footer is the uninterrupted run the bottom edge has always been**, and a
+    /// caption on it costs exactly the two verbs the top edge pays for a title.
+    ///
+    /// The half that matters is the first: every panel already drawn in this workspace passes
+    /// `""`, so a bottom edge that changed shape would have moved a golden screen and a verb count
+    /// in thirty places for a field nobody had asked those panels to use.
+    #[test]
+    fn an_empty_footer_is_the_run_the_bottom_edge_always_was() {
+        const TITLE: &str = " logs ";
+        let opts = PanelOpts::default();
+        let (bare, _) = tallied(40, 6, |tally, cx| {
+            panel_into(tally, cx, cx.area(), TITLE, "", &opts).interior
+        });
+        let (footed, _) = tallied(40, 6, |tally, cx| {
+            panel_into(tally, cx, cx.area(), TITLE, " 3/24 ", &opts).interior
+        });
+        let canvas = penned(40, 6, |pen, cx| {
+            let _ = panel_into(pen, cx, cx.area(), TITLE, "", &opts);
+        });
+        let bottom = canvas.row_text(5);
+        let line: String = bottom.chars().skip(1).take(38).collect();
+        assert_eq!(
+            line.chars()
+                .collect::<std::collections::BTreeSet<_>>()
+                .len(),
+            1,
+            "an empty footer left something other than one run between the corners — `{bottom}`"
+        );
+        assert_eq!(
+            footed.verbs() - bare.verbs(),
+            2,
+            "a caption is the lead run, the text and the trailing run where a bare edge is one run"
+        );
+        assert_eq!(
+            footed.writes(),
+            footed.distinct(),
+            "a footer wrote a cell twice, which is the 15-cell instance on the other edge"
+        );
     }
 
     /// **Criterion 2 and criterion 4: a panel writes its frame exactly once, writes every cell of it
@@ -696,7 +850,7 @@ mod tests {
             ] {
                 let opts = PanelOpts::default();
                 let (tally, interior) = tallied(w, h, |tally, cx| {
-                    panel_into(tally, cx, Rect::new(0, 0, w, h), title, &opts).interior
+                    panel_into(tally, cx, Rect::new(0, 0, w, h), title, "", &opts).interior
                 });
                 let cells = u64::from(w) * u64::from(h);
                 assert_eq!(
@@ -739,10 +893,10 @@ mod tests {
         let opts = PanelOpts::default();
 
         let (correct, _) = tallied(40, 10, |tally, cx| {
-            panel_into(tally, cx, cx.area(), TITLE, &opts).interior
+            panel_into(tally, cx, cx.area(), TITLE, "", &opts).interior
         });
         let (broken, _) = tallied(40, 10, |tally, cx| {
-            defective::panel_over_title(tally, cx, cx.area(), TITLE, &opts).interior
+            defective::panel_over_title(tally, cx, cx.area(), TITLE, "", &opts).interior
         });
 
         assert_eq!(correct.writes() - correct.distinct(), 0);

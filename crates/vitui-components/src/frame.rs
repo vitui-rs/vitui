@@ -61,6 +61,7 @@ use vitui_runtime::{Ctx, Glyph, Role};
 
 use crate::glyphs::elide;
 use crate::ink::{Direct, Ink};
+use crate::text::Justify;
 use vitui_runtime::Rect;
 use vitui_runtime::layout::rect;
 
@@ -85,9 +86,24 @@ pub struct BlockOpts<'a> {
     /// `" Title "`; `block` adding them would make the written width differ from the width the
     /// caller measured, which is the kind of hidden cell the 15-cell instance is made of.
     pub title: &'a str,
+    /// **The bottom edge's caption**, written the way [`BlockOpts::title`] is written into the top
+    /// one: verbatim, elided to the same budget, with a glyph of frame either side of it.
+    ///
+    /// Empty by default, and an empty one is the uninterrupted run the bottom edge has always
+    /// been — the same cells, in the same order, so a frame that asks for no caption pays no verb
+    /// for the option.
+    pub footer: &'a str,
+    /// **Where a caption sits along its edge — one value for both.**
+    ///
+    /// A title over the top and a caption under the bottom are one typographic decision, not two:
+    /// a frame whose title is centred over a caption pushed to the left is a screen the four
+    /// applications that asked for this never wanted, and two fields would let a caller build it
+    /// by leaving one of them behind.
+    pub justify: Justify,
     /// The role the frame is drawn in. **This is where focus lands** — see the type's own note.
     pub border: Role,
-    /// The role the title is drawn in.
+    /// The role **both** captions are drawn in — the title over the top edge and the footer under
+    /// the bottom one.
     pub title_role: Role,
     /// The role the padding ring is drawn in.
     pub pad: Role,
@@ -106,6 +122,8 @@ impl Default for BlockOpts<'_> {
     fn default() -> BlockOpts<'static> {
         BlockOpts {
             title: "",
+            footer: "",
+            justify: Justify::Start,
             border: Role::Border,
             title_role: Role::Title,
             pad: Role::Body,
@@ -192,43 +210,40 @@ fn draw<I: Ink>(
 
         // ── the top edge: corner, run, title, run, corner ────────────────────────────────────────
         ink.text(cx, x0, y0, theme.glyph(Glyph::TopLeft), border);
-        let (head, marker, used) = plan_title(cx, opts.title, span);
-        if used == 0 {
-            ink.run(cx, x0 + 1, y0, hline, span, border);
-        } else {
-            // One glyph of frame before the title, so a title never touches a corner.
-            let lead = 1u16;
-            if title_split {
-                ink.run(cx, x0 + 1, y0, hline, lead, border);
-            } else {
-                // **The defect.** One run across the whole span, and the title written over it
-                // below: `used` cells written twice, with two different values, in one frame.
-                ink.run(cx, x0 + 1, y0, hline, span, border);
-            }
-            let at = x0 + 1 + i32::from(lead);
-            let head_w = vitui_runtime::layout::text::width(head);
-            if head_w > 0 {
-                ink.text(cx, at, y0, head, title_paint);
-            }
-            if !marker.is_empty() {
-                ink.text(cx, at + i32::from(head_w), y0, marker, title_paint);
-            }
-            if title_split {
-                ink.run(
-                    cx,
-                    at + i32::from(used),
-                    y0,
-                    hline,
-                    span - lead - used,
-                    border,
-                );
-            }
-        }
+        caption_edge(
+            ink,
+            cx,
+            Edge {
+                x0,
+                y: y0,
+                span,
+                hline,
+                border,
+                paint: title_paint,
+                justify: opts.justify,
+            },
+            opts.title,
+            title_split,
+        );
         ink.text(cx, right, y0, theme.glyph(Glyph::TopRight), border);
 
-        // ── the bottom edge ──────────────────────────────────────────────────────────────────────
+        // ── the bottom edge: the same five parts, and the caption is the one that may be empty ───
         ink.text(cx, x0, bottom, theme.glyph(Glyph::BottomLeft), border);
-        ink.run(cx, x0 + 1, bottom, hline, span, border);
+        caption_edge(
+            ink,
+            cx,
+            Edge {
+                x0,
+                y: bottom,
+                span,
+                hline,
+                border,
+                paint: title_paint,
+                justify: opts.justify,
+            },
+            opts.footer,
+            true,
+        );
         ink.text(cx, right, bottom, theme.glyph(Glyph::BottomRight), border);
 
         // ── the two sides, which are the rows the edges did not take ─────────────────────────────
@@ -294,15 +309,90 @@ fn draw<I: Ink>(
     body
 }
 
-/// The title as it will be written: the head, the one-cell marker, and how many cells the two take.
+/// **One horizontal edge of a frame, as everything between its two corners.**
+///
+/// Seven values rather than seven arguments, because the two edges differ in exactly one of them
+/// and a reader comparing the two calls should have one line to look at.
+struct Edge {
+    /// The rectangle's left column — the corner, not the run.
+    x0: i32,
+    /// The row the edge is on.
+    y: i32,
+    /// The columns strictly between the two corners.
+    span: u16,
+    /// The cluster the line is drawn with.
+    hline: &'static str,
+    /// The paint the line and the corners are drawn in.
+    border: vitui_runtime::Paint,
+    /// The paint the caption is drawn in.
+    paint: vitui_runtime::Paint,
+    /// Where the caption sits along the span.
+    justify: Justify,
+}
+
+/// **The span between two corners: the run before the caption, the caption, and the run after it.**
+///
+/// A caption that does not fit — or is not there — leaves one uninterrupted run, which is the same
+/// verb and the same cells the edge wrote before captions existed.
+///
+/// `split` is the one boolean between the correct frame and the 15-cell one, and it is the *top*
+/// edge's alone: with it false the run crosses the whole span and the caption is written over it,
+/// which is `writes - distinct` cells paid twice in one frame.
+fn caption_edge<I: Ink>(ink: &mut I, cx: &mut Ctx<'_, '_>, edge: Edge, caption: &str, split: bool) {
+    let Edge {
+        x0,
+        y,
+        span,
+        hline,
+        border,
+        paint,
+        justify,
+    } = edge;
+    let (head, marker, used) = plan_caption(cx, caption, span);
+    if used == 0 {
+        ink.run(cx, x0 + 1, y, hline, span, border);
+        return;
+    }
+    // One glyph of frame on each side, so a caption never touches a corner — which is what
+    // `plan_caption` reserved when it sized the caption, and is why the trailing run is never empty
+    // however the slack is shared out.
+    let lead = 1 + crate::text::lead_for(justify, span - 2 - used);
+    if split {
+        ink.run(cx, x0 + 1, y, hline, lead, border);
+    } else {
+        // **The defect.** One run across the whole span, and the caption written over it below:
+        // `used` cells written twice, with two different values, in one frame.
+        ink.run(cx, x0 + 1, y, hline, span, border);
+    }
+    let at = x0 + 1 + i32::from(lead);
+    let head_w = vitui_runtime::layout::text::width(head);
+    if head_w > 0 {
+        ink.text(cx, at, y, head, paint);
+    }
+    if !marker.is_empty() {
+        ink.text(cx, at + i32::from(head_w), y, marker, paint);
+    }
+    if split {
+        ink.run(
+            cx,
+            at + i32::from(used),
+            y,
+            hline,
+            span - lead - used,
+            border,
+        );
+    }
+}
+
+/// A caption as it will be written: the head, the one-cell marker, and how many cells the two take.
 ///
 /// One glyph of frame is reserved on each side, so the budget is `span - 2`. A span with no room for
-/// a title at all reports zero cells, and the caller writes one uninterrupted run.
-fn plan_title<'a>(cx: &Ctx<'_, '_>, title: &'a str, span: u16) -> (&'a str, &'static str, u16) {
-    if title.is_empty() || span < 3 {
+/// a caption at all reports zero cells, and the caller writes one uninterrupted run.
+fn plan_caption<'a>(cx: &Ctx<'_, '_>, caption: &'a str, span: u16) -> (&'a str, &'static str, u16) {
+    if caption.is_empty() || span < 3 {
         return ("", "", 0);
     }
-    let (head, marker) = elide(cx.theme(), title, span - 2);
+    let (head, marker) = elide(cx.theme(), caption, span - 2);
     let used =
         vitui_runtime::layout::text::width(head) + vitui_runtime::layout::text::width(marker);
     (head, marker, used)

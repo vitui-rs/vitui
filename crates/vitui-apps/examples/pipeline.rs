@@ -184,6 +184,7 @@ impl App {
             cx,
             whole,
             " pipeline — a component may own an anchor and may not own a clock ",
+            "",
             &PanelOpts::default(),
         );
         let interior = panel.interior;

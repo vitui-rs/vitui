@@ -115,9 +115,10 @@ recorded in the component rather than worked around in the application.
 
 **Ports rather than inventions, where a port is available.** A tutorial's shape is not ours to argue
 with, so what it cannot express here is a fact about this surface instead of a taste. `counter`
-records two: `PanelOpts` has no title alignment, so the title is left-anchored where ratatui centres
-it, and there is no bottom-border title, so the instruction line sits on an interior row. Neither is
-worked around in the file — the point of a port is to show the gap.
+recorded two — a title pinned to the left where ratatui centres it, and an instruction line on an
+interior row where ratatui puts it in the bottom border — and **both are fields now**, because two
+more applications reached for the same pair. Neither was ever worked around in the file: the point
+of a port is to show the gap, and a gap that is shown is a gap somebody can close.
 
 ## Three ports of programs people use
 
@@ -220,18 +221,36 @@ different random draw.
 
 ### What they cannot say, in one list
 
-The same missing field turned up three times, which is what makes it worth stating here rather
-than in three file headers:
+Two rows, and both are here because the gap was **refused** rather than because nobody has looked
+at it. A row that is only unanswered belongs on a backlog; a row that has been argued and turned
+down belongs where the next reader will meet it.
 
-| gap | who wanted it |
-|---|---|
-| `PanelOpts` has no bottom-border title or border-info items | `counter` (instructions), `commander` (free space), `spf` (`sort · Browser · 3/24`) |
-| `PanelOpts` has no title alignment | `counter`, `commander`, `cluster` |
-| `StatusOpts` has no per-segment role | `commander`'s function bar paints `1Help` in one colour where `mc` paints two |
-| `Column` carries no justification, so a header and its cells can disagree | `cluster`'s right-aligned `RESTARTS`, `CPU`, `MEM` |
-| the theme's twenty glyphs include no file icon | `spf`, which is a nerd-font application upstream |
+| gap | who wanted it | why it is not a field |
+|---|---|---|
+| `StatusOpts` has no per-segment role | `commander`'s function bar paints `1Help` in one colour where `mc` paints two | **the field asked for would not draw the screen asked for.** `mc` paints two roles *inside* one segment; split into `1` and `Help` the bar draws a separator between the halves and shares the width out per part, so a per-segment role gets a different wrong screen |
+| the theme's twenty glyphs include no file icon | `spf`, which is a nerd-font application upstream | **a glyph has a spelling at every rung of the repertoire ladder and a file icon has none.** A private-use codepoint is outside ascii, unicode and extended alike; what the theme carries is a distinction it makes, and a file's type is content the caller draws |
 
-None of them is worked around in the files. The point of a port is to show the gap.
+Neither is worked around in the files. The point of a port is to show the gap.
+
+### Five rows that were on this list and are not
+
+Three closed as fields, and the two refusals above are the rest of the same list.
+
+- **`PanelOpts` had no bottom-border caption**, so `counter`'s key hints, `commander`'s free-space
+  readout and `spf`'s `sort │ Browser │ 3/24` were each an interior row — a cell inside the frame
+  the eye reads as their container, and a row the listing did not get. `panel_with` takes a second
+  string now. It is an **argument** and not a field, because a caption changes from frame to frame
+  where an options struct is configuration, and because a string on `PanelOpts` would cost the
+  struct the lifetime-free `Copy` that lets `triage` write one as a `const`.
+- **`PanelOpts` had no title alignment**, so `counter`'s title, `commander`'s path and `cluster`'s
+  `Pods(default)[9]` all sat at the left where the originals centre them. `PanelOpts::justify` is
+  that field, and it is **one** value for both borders: of the four applications that asked, two
+  want both captions at the start and two want both centred, and none wants them to disagree.
+- **`Column` carried no justification**, so `cluster`'s right-aligned `RESTARTS`, `CPU` and `MEM`
+  sat under left-aligned headings — a wrong screen out of correct code, since the heading is placed
+  by the component and the cells by the caller and neither had a field to read. `Column::justify`
+  is that field and `Column::aligned` sets it; the row drawer in `cluster` reads it rather than
+  answering a second opinion.
 
 ### Two rows that were on this list and are not
 

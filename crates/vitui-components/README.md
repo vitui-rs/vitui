@@ -13,7 +13,7 @@ verification obligations are functions over that value and all seven are met, th
 component stands up under every hostile axis it can meet*, at 34 of 34 `(component, axis)` pairs. A
 query with no evidence behind it panics here rather than returning green over an empty population.
 
-The verification register is 236 rows, 231 of them evaluated and **none pinned red**, beside 5 that
+The verification register is 238 rows, 233 of them evaluated and **none pinned red**, beside 5 that
 are unreachable from a crate that cannot name the engine. Forty-seven scenes stand behind them,
 forty-five of which stand up and two of which have nothing to run over, each with the size it is
 played at and the property it decides; three of them exist because a defect survived every gate then

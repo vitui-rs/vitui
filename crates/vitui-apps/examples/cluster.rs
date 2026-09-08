@@ -27,16 +27,22 @@
 //! like any other, which is why it scrolls with the same keys the table does and leaves with the
 //! same `Esc`.
 //!
-//! # Three things the port cannot say, recorded rather than worked around
+//! # One thing the port cannot say, recorded rather than worked around
 //!
-//! 1. **A table header is drawn in one role and one alignment.** k9s right-aligns `RESTARTS`,
-//!    `CPU` and `MEM` in both the header and the cells; `Column` carries a title and a width and no
-//!    justification, so the cells here are right-aligned by their drawer and the headers are not.
-//! 2. **`PanelOpts` has no title alignment**, so `Pods(default)[9]` sits at the left where k9s
-//!    centres it. `counter` recorded this first; `commander` met it again; this is the third.
-//! 3. **A command prompt cannot live in the border.** k9s slides its `:` prompt over the header;
-//!    here it is a panel of its own that replaces the header's rows, because an overlay would put
-//!    a scrim over a screen that is not modal.
+//! **A command prompt cannot live in the border.** k9s slides its `:` prompt over the header; here
+//! it is a panel of its own that replaces the header's rows, because an overlay would put a scrim
+//! over a screen that is not modal.
+//!
+//! # Two that were on this list and are not
+//!
+//! - **A table header was drawn in one alignment whatever its cells did.** k9s right-aligns
+//!   `RESTARTS`, `CPU` and `MEM` in the header *and* the cells, and a `Column` carried a title and
+//!   a width and nothing either drawer could read — so the cells were right-aligned by
+//!   `cell_of` and the headings stayed at the left. `Column::justify` is that field, and the row
+//!   drawer here reads it rather than answering a second opinion: a wrong screen out of correct
+//!   code is a stronger argument for a field than any number of applications wanting one.
+//! - **`PanelOpts` had no title alignment**, so `Pods(default)[9]` sat at the left where k9s centres
+//!   it. `counter` recorded it first, `commander` met it again, and this was the third.
 //!
 //! # Three keys k9s binds that a `collection` ate, and the one reading behind all three
 //!
@@ -529,17 +535,24 @@ enum Sort {
 // ── the columns, one static set per view ─────────────────────────────────────────────────────────
 
 /// `internal/render/pod.go`'s own order, narrowed to what fits without `Ctrl+W`.
+///
+/// **The right-aligned columns carry a trailing space in the title as well as in the cell**, and
+/// that is the caller's separator rather than the component's: two adjacent columns are two
+/// rectangles that touch, so a number pushed to its own right edge would run into whatever starts
+/// at the left edge of the next one. The cell strings already carried it; putting it in the title
+/// too is what makes the heading and the digits line up on the same column, which is the whole
+/// point of declaring the justification once.
 const POD_COLS: [Column; 10] = [
     Column::new(0, "NAMESPACE", Fixed(14)),
     Column::new(1, "NAME", Weight(3)),
     Column::new(2, "READY", Fixed(6)),
     Column::new(3, "STATUS", Fixed(18)),
-    Column::new(4, "RESTARTS", Fixed(9)),
-    Column::new(5, "CPU", Fixed(6)),
-    Column::new(6, "MEM", Fixed(7)),
+    Column::new(4, "RESTARTS ", Fixed(10)).aligned(Justify::End),
+    Column::new(5, "CPU ", Fixed(6)).aligned(Justify::End),
+    Column::new(6, "MEM ", Fixed(7)).aligned(Justify::End),
     Column::new(7, "IP", Fixed(15)),
     Column::new(8, "NODE", Weight(2)),
-    Column::new(9, "AGE", Fixed(5)),
+    Column::new(9, "AGE ", Fixed(5)).aligned(Justify::End),
 ];
 
 /// The same, with the two `Wide` columns k9s keeps behind `Ctrl+W`.
@@ -548,23 +561,23 @@ const POD_COLS_WIDE: [Column; 12] = [
     Column::new(1, "NAME", Weight(3)),
     Column::new(2, "READY", Fixed(6)),
     Column::new(3, "STATUS", Fixed(18)),
-    Column::new(4, "RESTARTS", Fixed(9)),
-    Column::new(5, "CPU", Fixed(6)),
-    Column::new(6, "MEM", Fixed(7)),
+    Column::new(4, "RESTARTS ", Fixed(10)).aligned(Justify::End),
+    Column::new(5, "CPU ", Fixed(6)).aligned(Justify::End),
+    Column::new(6, "MEM ", Fixed(7)).aligned(Justify::End),
     Column::new(7, "IP", Fixed(15)),
     Column::new(8, "NODE", Weight(2)),
     Column::new(10, "QOS", Fixed(11)),
     Column::new(11, "OWNER", Weight(2)),
-    Column::new(9, "AGE", Fixed(5)),
+    Column::new(9, "AGE ", Fixed(5)).aligned(Justify::End),
 ];
 
 const DEPLOY_COLS: [Column; 6] = [
     Column::new(0, "NAMESPACE", Fixed(14)),
     Column::new(1, "NAME", Weight(3)),
     Column::new(2, "READY", Fixed(8)),
-    Column::new(3, "UP-TO-DATE", Fixed(11)),
-    Column::new(4, "AVAILABLE", Fixed(10)),
-    Column::new(5, "AGE", Fixed(5)),
+    Column::new(3, "UP-TO-DATE ", Fixed(12)).aligned(Justify::End),
+    Column::new(4, "AVAILABLE ", Fixed(11)).aligned(Justify::End),
+    Column::new(5, "AGE ", Fixed(5)).aligned(Justify::End),
 ];
 
 const SVC_COLS: [Column; 7] = [
@@ -574,7 +587,7 @@ const SVC_COLS: [Column; 7] = [
     Column::new(3, "CLUSTER-IP", Fixed(13)),
     Column::new(4, "EXTERNAL-IP", Fixed(13)),
     Column::new(5, "PORTS", Weight(2)),
-    Column::new(6, "AGE", Fixed(5)),
+    Column::new(6, "AGE ", Fixed(5)).aligned(Justify::End),
 ];
 
 const NODE_COLS: [Column; 7] = [
@@ -582,16 +595,16 @@ const NODE_COLS: [Column; 7] = [
     Column::new(1, "STATUS", Fixed(9)),
     Column::new(2, "ROLE", Fixed(15)),
     Column::new(3, "VERSION", Fixed(9)),
-    Column::new(4, "PODS", Fixed(6)),
+    Column::new(4, "PODS ", Fixed(6)).aligned(Justify::End),
     Column::new(5, "CAPACITY", Fixed(16)),
-    Column::new(6, "AGE", Fixed(5)),
+    Column::new(6, "AGE ", Fixed(5)).aligned(Justify::End),
 ];
 
 const NS_COLS: [Column; 4] = [
     Column::new(0, "NAME", Weight(2)),
     Column::new(1, "STATUS", Fixed(9)),
-    Column::new(2, "PODS", Fixed(6)),
-    Column::new(3, "AGE", Fixed(5)),
+    Column::new(2, "PODS ", Fixed(6)).aligned(Justify::End),
+    Column::new(3, "AGE ", Fixed(5)).aligned(Justify::End),
 ];
 
 const CONTAINER_COLS: [Column; 7] = [
@@ -599,9 +612,9 @@ const CONTAINER_COLS: [Column; 7] = [
     Column::new(1, "IMAGE", Weight(3)),
     Column::new(2, "READY", Fixed(6)),
     Column::new(3, "STATE", Fixed(18)),
-    Column::new(4, "RESTARTS", Fixed(9)),
-    Column::new(5, "CPU", Fixed(6)),
-    Column::new(6, "MEM", Fixed(7)),
+    Column::new(4, "RESTARTS ", Fixed(10)).aligned(Justify::End),
+    Column::new(5, "CPU ", Fixed(6)).aligned(Justify::End),
+    Column::new(6, "MEM ", Fixed(7)).aligned(Justify::End),
 ];
 
 /// `internal/ui/splash.go`'s `LogoSmall`, verbatim.
@@ -1249,6 +1262,7 @@ impl App {
             cx,
             area,
             which.title(),
+            "",
             &PanelOpts {
                 border: Role::Focus,
                 padded: false,
@@ -1287,9 +1301,13 @@ impl App {
             cx,
             area,
             &title,
+            "",
             &PanelOpts {
                 border: Role::Border,
                 padded: false,
+                // **k9s centres `Pods(default)[9]`**, and for most of this file's life a panel's
+                // title was pinned to the left edge.
+                justify: Justify::Middle,
                 ..Default::default()
             },
         );
@@ -1340,7 +1358,14 @@ impl App {
                     ..face
                 };
                 let base = face_role(face);
-                let (text, justify, own) = cell_of(cluster, view, at, cell.key, scratch);
+                // **The justification is the column's and not the drawer's.** Two sources for one
+                // decision is how a right-aligned number ends up under a left-aligned heading, and
+                // there was no field either of them could read until there was.
+                let justify = cols
+                    .iter()
+                    .find(|c| c.key == cell.key)
+                    .map_or(Justify::Start, |c| c.justify);
+                let (text, own) = cell_of(cluster, view, at, cell.key, scratch);
                 let role = if base == Role::Body { own } else { base };
                 cell_into(cx, r, &text, justify, role);
             },
@@ -1529,6 +1554,7 @@ impl App {
                     cx,
                     r,
                     title,
+                    "",
                     &PanelOpts {
                         border: Role::Focus,
                         title_role: if deleting.is_some() {
@@ -1680,47 +1706,47 @@ fn cell_into(cx: &mut Ctx<'_, '_>, r: Rect, text: &str, justify: Justify, role: 
 /// **One function and not one per view**, because the alternative is six row drawers that drift:
 /// the column key is the same vocabulary in all of them, and a key a view has no answer for is an
 /// empty cell rather than a panic.
+///
+/// **It answers no justification.** That is the column's, read out of `Column::justify` by the row
+/// drawer, so the heading and the cells under it cannot disagree — which they did, for the whole of
+/// this file's life, on every numeric column k9s right-aligns.
 fn cell_of(
     cluster: &Cluster,
     view: &View,
     at: usize,
     key: u16,
     scratch: &mut String,
-) -> (String, Justify, Role) {
-    let start = Justify::Start;
-    let end = Justify::End;
+) -> (String, Role) {
     match view {
         View::Pods { .. } => {
             let p = &cluster.pods[at];
             let (ready, of) = p.ready();
             let (cpu, mem) = p.usage();
             match key {
-                0 => (cluster.namespaces[p.ns].to_owned(), start, Role::Dim),
-                1 => (p.name.clone(), start, Role::Body),
+                0 => (cluster.namespaces[p.ns].to_owned(), Role::Dim),
+                1 => (p.name.clone(), Role::Body),
                 2 => (
                     format!("{ready}/{of}"),
-                    start,
                     if ready == of { Role::Body } else { Role::Warn },
                 ),
-                3 => (p.phase.word().to_owned(), start, p.phase.role()),
+                3 => (p.phase.word().to_owned(), p.phase.role()),
                 4 => (
                     format!("{} ", p.restarts),
-                    end,
                     if p.restarts > 0 {
                         Role::Warn
                     } else {
                         Role::Body
                     },
                 ),
-                5 => (format!("{cpu} "), end, Role::Body),
-                6 => (format!("{mem} "), end, Role::Body),
-                7 => (p.ip.clone(), start, Role::Dim),
-                8 => (cluster.nodes[p.node].name.clone(), start, Role::Dim),
-                10 => (p.qos.to_owned(), start, Role::Dim),
-                11 => (cluster.deployments[p.owner].name.clone(), start, Role::Dim),
+                5 => (format!("{cpu} "), Role::Body),
+                6 => (format!("{mem} "), Role::Body),
+                7 => (p.ip.clone(), Role::Dim),
+                8 => (cluster.nodes[p.node].name.clone(), Role::Dim),
+                10 => (p.qos.to_owned(), Role::Dim),
+                11 => (cluster.deployments[p.owner].name.clone(), Role::Dim),
                 _ => {
                     age(p.age, scratch);
-                    (format!("{scratch} "), end, Role::Dim)
+                    (format!("{scratch} "), Role::Dim)
                 }
             }
         }
@@ -1732,109 +1758,99 @@ fn cell_of(
                 .filter(|p| p.owner == at && p.phase.healthy())
                 .count();
             match key {
-                0 => (cluster.namespaces[d.ns].to_owned(), start, Role::Dim),
-                1 => (d.name.clone(), start, Role::Body),
+                0 => (cluster.namespaces[d.ns].to_owned(), Role::Dim),
+                1 => (d.name.clone(), Role::Body),
                 2 => (
                     format!("{up}/{}", d.want),
-                    start,
                     if u32::try_from(up).unwrap_or(0) == d.want {
                         Role::Ok
                     } else {
                         Role::Warn
                     },
                 ),
-                3 => (format!("{} ", d.want), end, Role::Body),
-                4 => (format!("{up} "), end, Role::Body),
+                3 => (format!("{} ", d.want), Role::Body),
+                4 => (format!("{up} "), Role::Body),
                 _ => {
                     age(d.age, scratch);
-                    (format!("{scratch} "), end, Role::Dim)
+                    (format!("{scratch} "), Role::Dim)
                 }
             }
         }
         View::Services => {
             let s = &cluster.services[at];
             match key {
-                0 => (cluster.namespaces[s.ns].to_owned(), start, Role::Dim),
-                1 => (s.name.clone(), start, Role::Body),
-                2 => (s.kind.to_owned(), start, Role::Body),
-                3 => (s.cluster_ip.clone(), start, Role::Dim),
+                0 => (cluster.namespaces[s.ns].to_owned(), Role::Dim),
+                1 => (s.name.clone(), Role::Body),
+                2 => (s.kind.to_owned(), Role::Body),
+                3 => (s.cluster_ip.clone(), Role::Dim),
                 4 => (
                     s.external.clone(),
-                    start,
                     if s.external == "<none>" {
                         Role::Dim
                     } else {
                         Role::Ok
                     },
                 ),
-                5 => (s.ports.clone(), start, Role::Dim),
+                5 => (s.ports.clone(), Role::Dim),
                 _ => {
                     age(s.age, scratch);
-                    (format!("{scratch} "), end, Role::Dim)
+                    (format!("{scratch} "), Role::Dim)
                 }
             }
         }
         View::Nodes => {
             let n = &cluster.nodes[at];
             match key {
-                0 => (n.name.clone(), start, Role::Body),
+                0 => (n.name.clone(), Role::Body),
                 1 => (
                     if n.ready { "Ready" } else { "NotReady" }.to_owned(),
-                    start,
                     if n.ready { Role::Ok } else { Role::Danger },
                 ),
-                2 => (n.role.to_owned(), start, Role::Dim),
-                3 => (n.version.to_owned(), start, Role::Dim),
-                4 => (format!("{} ", cluster.pods_on(at)), end, Role::Body),
-                5 => (
-                    format!("{}m {}Mi", n.capacity.0, n.capacity.1),
-                    start,
-                    Role::Dim,
-                ),
+                2 => (n.role.to_owned(), Role::Dim),
+                3 => (n.version.to_owned(), Role::Dim),
+                4 => (format!("{} ", cluster.pods_on(at)), Role::Body),
+                5 => (format!("{}m {}Mi", n.capacity.0, n.capacity.1), Role::Dim),
                 _ => {
                     age(n.age, scratch);
-                    (format!("{scratch} "), end, Role::Dim)
+                    (format!("{scratch} "), Role::Dim)
                 }
             }
         }
         View::Namespaces => {
             let name = cluster.namespaces[at];
             match key {
-                0 => (name.to_owned(), start, Role::Body),
-                1 => ("Active".to_owned(), start, Role::Ok),
+                0 => (name.to_owned(), Role::Body),
+                1 => ("Active".to_owned(), Role::Ok),
                 2 => (
                     format!("{} ", cluster.pods.iter().filter(|p| p.ns == at).count()),
-                    end,
                     Role::Body,
                 ),
-                _ => ("61d ".to_owned(), end, Role::Dim),
+                _ => ("61d ".to_owned(), Role::Dim),
             }
         }
         View::Containers { pod } => {
             let c = &cluster.pods[*pod].containers[at];
             match key {
-                0 => (c.name.clone(), start, Role::Body),
-                1 => (c.image.clone(), start, Role::Dim),
+                0 => (c.name.clone(), Role::Body),
+                1 => (c.image.clone(), Role::Dim),
                 2 => (
                     if c.ready { "true" } else { "false" }.to_owned(),
-                    start,
                     if c.ready { Role::Ok } else { Role::Warn },
                 ),
-                3 => (c.state.word().to_owned(), start, c.state.role()),
+                3 => (c.state.word().to_owned(), c.state.role()),
                 4 => (
                     format!("{} ", c.restarts),
-                    end,
                     if c.restarts > 0 {
                         Role::Warn
                     } else {
                         Role::Body
                     },
                 ),
-                5 => (format!("{} ", c.cpu), end, Role::Body),
-                _ => (format!("{} ", c.mem), end, Role::Body),
+                5 => (format!("{} ", c.cpu), Role::Body),
+                _ => (format!("{} ", c.mem), Role::Body),
             }
         }
-        View::Text { .. } => (String::new(), start, Role::Body),
+        View::Text { .. } => (String::new(), Role::Body),
     }
 }
 

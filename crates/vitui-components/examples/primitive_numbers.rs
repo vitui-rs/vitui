@@ -79,6 +79,7 @@ fn main() {
                     cx,
                     Rect::new(0, 0, CELL.0, CELL.1 + 6),
                     " panel systems ",
+                    "",
                     &PanelOpts::default(),
                 );
                 handed = u64::from(panel.interior.w) * u64::from(panel.interior.h);

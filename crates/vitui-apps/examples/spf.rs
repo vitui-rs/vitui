@@ -12,25 +12,27 @@
 //! panels side by side, and a footer of three — processes, metadata, clipboard. The hotkeys are
 //! `src/superfile_config/hotkeys.toml`'s own, including the ones that read oddly out of context
 //! (`w` closes a panel, `n` opens one, `v` changes the panel mode, `A` selects everything). The
-//! panel footer carries superfile's three border-info items — the sort, the mode and `3/24`.
+//! bottom border of each panel carries superfile's three border-info items — the sort, the mode
+//! and `3/24`.
 //!
 //! **Nothing here touches a filesystem.** Sizes and dates are hashed out of each entry's own name,
 //! so two runs agree and a rename is a deliberate change rather than a different random draw.
 //!
-//! # Five things the port cannot say, recorded rather than worked around
+//! # Four things the port cannot say, recorded rather than worked around
 //!
 //! 1. **The theme has twenty glyphs and none of them is a file icon.** superfile is a nerd-font
 //!    application: every row carries a codepoint from a private-use range chosen by extension.
 //!    The repertoire ladder is ascii · unicode · extended, and a hard-coded private-use glyph
 //!    would be outside all three — so a directory here is a trailing `/` and the cursor is
 //!    `Glyph::ArrowRight`, both of which degrade with the ladder. This is the one difference a
-//!    reader will see first, and it is a real gap rather than a taste.
-//! 2. **`PanelOpts` has no border-info items**, so superfile's bottom-frame `sort · Browser · 3/24`
-//!    is an interior row here, drawn with a `status_bar`. `counter` recorded the missing bottom
-//!    title first and `commander` met it again; this is the third application to want it.
-//! 3. **A panel's border cannot carry the search bar either**, and superfile puts one there. It is
-//!    a row of the interior here, shown only while `/` is open.
-//! 4. **Every process row spins on one phase.** `SpinState` is an anchor and the clock is
+//!    reader will see first, and it is **refused rather than owed**: a `Glyph` is a lookup with a
+//!    spelling at every rung and a private-use codepoint has none, so an icon in the theme would be
+//!    blank at two of the three — which is the defect the complete table exists to prevent. A
+//!    file's type is content the caller draws.
+//! 2. **A panel's border cannot carry the search bar**, and superfile puts one there. It is a row
+//!    of the interior here, shown only while `/` is open — a border caption is a string, and a
+//!    search bar is a focused `field` with a caret in it.
+//! 3. **Every process row spins on one phase.** `SpinState` is an anchor and the clock is
 //!    `Ctx::now` — and it means two processes running at once are in step, where
 //!    superfile gives each its own model. **The anchor is seeded inside the draw and not where the
 //!    process is started**, which is the only place that sentence can be true: `Ctrl+V` is answered
@@ -38,7 +40,7 @@
 //!    `App::tick` starts it from the frame's own `now`. Seeding it from `Instant::now()` out
 //!    there draws the identical screen and puts every phase in the program outside
 //!    `Driver::pin_clock`, which is the entire test regime of this workspace.
-//! 5. **`→` and `←` are *open* and *parent* here, and for most of this file's life they could not
+//! 4. **`→` and `←` are *open* and *parent* here, and for most of this file's life they could not
 //!    be.** `hotkeys.toml` binds `confirm = ['enter', 'right', 'l']` and
 //!    `parent_directory = ['h', 'left', 'backspace']`, and `vitui_components::nav::step` read `←`
 //!    and `→` as `↑` and `↓` — so a focused `collection` or `table` consumed both to move its
@@ -93,7 +95,7 @@ use vitui_components::input::{ButtonOpts, button_with, field};
 use vitui_components::order::Rows;
 use vitui_components::overlay::{Kind as ShellKind, ShellOpts, overlay_with};
 use vitui_components::scroll::{Span, scrollbar};
-use vitui_components::structure::{PanelOpts, StatusOpts, panel_with, status_bar_with};
+use vitui_components::structure::{PanelOpts, panel_with};
 use vitui_components::text::{FitOpts, Justify, fit_with};
 use vitui_runtime::ctx::Driver;
 use vitui_runtime::keys::{ActionId, Chord, Code, KeyMap, Pressed};
@@ -949,6 +951,7 @@ impl App {
             cx,
             area,
             " superfile ",
+            "",
             &PanelOpts {
                 border: if focused { Role::Focus } else { Role::Border },
                 padded: false,
@@ -1057,18 +1060,18 @@ impl App {
             cx,
             area,
             &format!(" {path} "),
+            &self.info_line(cx, which),
             &PanelOpts {
                 border: if focused { Role::Focus } else { Role::Border },
                 padded: false,
                 ..Default::default()
             },
         );
-        if frame.interior.h < 4 {
+        if frame.interior.h < 3 {
             return;
         }
         let search_rows = u16::from(self.searching && focused);
-        let [bar, list, info] =
-            Col::new().split(frame.interior, [Fixed(search_rows), Weight(1), Fixed(1)]);
+        let [bar, list] = Col::new().split(frame.interior, [Fixed(search_rows), Weight(1)]);
 
         if search_rows == 1 {
             let cut = 3.min(bar.w);
@@ -1174,38 +1177,30 @@ impl App {
         // documented one.
         let open = resp.double_clicked;
 
-        // **superfile's three border-info items**, on an interior row because `PanelOpts` has no
-        // place for them. `status_bar` is what makes them a partition rather than three labels
-        // with holes between them.
-        let n = self.panels[which].rows.len();
-        let at = self.panels[which].st.coll.sel.lead;
-        let sort = self.panels[which].sort.word();
-        let arrow = if self.panels[which].desc {
-            "desc"
-        } else {
-            "asc"
-        };
-        let mode = match self.panels[which].mode {
-            PanelMode::Browser => "Browser".to_owned(),
-            PanelMode::Select => format!("Select ({})", self.panels[which].marks.count()),
-        };
-        let counter = format!("{}/{n}", if n == 0 { 0 } else { at + 1 });
-        status_bar_with(
-            cx,
-            info,
-            &[&format!("{sort} {arrow}"), &mode, &counter],
-            (0, 0),
-            &StatusOpts {
-                role: Role::Dim,
-                pad: Role::Dim,
-                sep: Role::Border,
-                justify: Justify::Middle,
-                ..Default::default()
-            },
-        );
         if open {
             self.open();
         }
+    }
+
+    /// **superfile's three border-info items**: the sort, the panel mode and the position.
+    ///
+    /// One string in the bottom border, which is where superfile draws them and where this port
+    /// could not draw them for most of its life — they were an interior row and cost the listing a
+    /// line. The separator is the theme's own vertical rule rather than a literal, so it degrades
+    /// with the repertoire the way every other glyph on the screen does.
+    fn info_line(&self, cx: &Ctx<'_, '_>, which: usize) -> String {
+        let panel = &self.panels[which];
+        let n = panel.rows.len();
+        let at = panel.st.coll.sel.lead;
+        let arrow = if panel.desc { "desc" } else { "asc" };
+        let mode = match panel.mode {
+            PanelMode::Browser => "Browser".to_owned(),
+            PanelMode::Select => format!("Select ({})", panel.marks.count()),
+        };
+        let sep = cx.theme().glyph(Glyph::VLine);
+        let sort = panel.sort.word();
+        let counter = format!("{}/{n}", if n == 0 { 0 } else { at + 1 });
+        format!(" {sort} {arrow} {sep} {mode} {sep} {counter} ")
     }
 
     /// The three footer panels: processes, metadata, clipboard.
@@ -1223,6 +1218,7 @@ impl App {
             cx,
             area,
             " Processes ",
+            "",
             &PanelOpts {
                 border: if focused { Role::Focus } else { Role::Border },
                 padded: false,
@@ -1320,6 +1316,7 @@ impl App {
             cx,
             area,
             " Metadata ",
+            "",
             &PanelOpts {
                 border: if focused { Role::Focus } else { Role::Border },
                 padded: false,
@@ -1421,6 +1418,7 @@ impl App {
             cx,
             area,
             title,
+            "",
             &PanelOpts {
                 padded: false,
                 ..Default::default()
@@ -1569,6 +1567,7 @@ impl App {
                     cx,
                     r,
                     title,
+                    "",
                     &PanelOpts {
                         border: Role::Focus,
                         title_role: match modal {

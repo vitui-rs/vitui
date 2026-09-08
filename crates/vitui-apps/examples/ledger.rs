@@ -596,6 +596,7 @@ impl App {
             cx,
             cx.area(),
             " Ledger — 1 000 000 entries ",
+            "",
             &PanelOpts {
                 padded: false,
                 ..Default::default()

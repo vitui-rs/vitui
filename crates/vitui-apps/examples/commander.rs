@@ -21,21 +21,25 @@
 //!
 //! # What the port cannot say, recorded rather than worked around
 //!
-//! 1. **`PanelOpts` has no bottom-border title.** `mc` puts the free-space readout in the bottom
-//!    frame (`12G/58G (79%)`, free of total); here it sits on the mini-status row, which is an interior row. This
-//!    is `counter`'s second finding met a second time, and two applications hitting one gap is what
-//!    makes it a gap rather than a taste.
-//! 2. **`PanelOpts` has no title alignment**, so the path is left-anchored where `mc` centres it.
-//!    `counter`'s first finding, met again.
-//! 3. **A status bar's segments are drawn in one `Role`.** `mc` paints the digit and the label of
-//!    `1Help` differently; `StatusOpts` has `role`, `pad` and `sep` and no per-segment role, so the
-//!    function bar here is flat where `mc`'s is two-toned. Drawing it by hand would have hidden the
-//!    gap and lost the component.
-//! 4. **A marked file loses its type colour.** `mc` paints marks yellow *over* the directory white
+//! 1. **A status bar's segments are drawn in one `Role`, and a segment is one run.** `mc` paints the
+//!    digit and the label of `1Help` differently — two paints **inside** one segment, which is not
+//!    what a per-segment role would buy: split into `1` and `Help` the bar would draw a separator
+//!    between them and share the width out per part. So the function bar here is flat where `mc`'s
+//!    is two-toned, and the field this file used to ask for would not have fixed it. Drawing it by
+//!    hand would have hidden the gap and lost the component.
+//! 2. **A marked file loses its type colour.** `mc` paints marks yellow *over* the directory white
 //!    and the executable green; the face ladder is *disabled > selected > cursor > hovered > base*,
 //!    resolved before a cell is written, so a mark replaces the type rather than riding
 //!    on it. That is the library's decision working, not a defect — it is recorded because a reader
 //!    comparing the two screens will notice.
+//!
+//! # Two that were on this list and are not: the path is centred and the volume is in the frame
+//!
+//! `mc` centres a panel's path over its top border and prints the free-space readout under its
+//! bottom one, and for most of this file's life the first was pinned to the left and the second sat
+//! on the mini-status row. `PanelOpts::justify` and `panel_with`'s second string are what closed
+//! it — this application, `counter` and `spf` all wanted the same two, and one alignment governs
+//! both borders because none of the three wanted them to disagree.
 //!
 //! # The prompt is fed from the unhandled window, and that is a finding rather than a trick
 //!
@@ -186,6 +190,19 @@ struct Vfs {
 }
 
 impl Vfs {
+    /// The free-space readout `mc` prints in a panel's bottom frame: free of total, and the
+    /// percentage used.
+    fn free_line(&self) -> String {
+        let (total, used) = self.volume;
+        let gb = 1024 * 1024 * 1024;
+        format!(
+            " {}G/{}G ({}%) ",
+            (total - used) / gb,
+            total / gb,
+            used * 100 / total.max(1),
+        )
+    }
+
     /// The tree this application opens on.
     fn seed() -> Vfs {
         let mut vfs = Vfs {
@@ -990,16 +1007,25 @@ impl App {
             self.vfs.path(self.panels[which].cwd),
             self.panels[which].sort.word(),
         );
+        // **The free-space readout is the bottom border's**, which is where `mc` puts it and where
+        // this port could not put it for most of its life. It is the volume and never the marked
+        // total: a mark is about the cursor's panel and belongs on the mini-status row beside the
+        // entry it counts.
+        let free = self.vfs.free_line();
         let panel = panel_with(
             cx,
             area,
             &title,
+            &free,
             &PanelOpts {
                 // **This is where focus lands.** A focused panel is drawn in `Role::Focus` before
                 // its cells are written, never restyled after — which is how `mc` marks the active
                 // panel and how a ring is drawn.
                 border: if active { Role::Focus } else { Role::Border },
                 padded: false,
+                // **`mc` centres both of them**, and one field carries the pair: a title pushed to
+                // the middle over a free-space readout left at the edge is a screen nobody drew.
+                justify: Justify::Middle,
                 ..Default::default()
             },
         );
@@ -1120,20 +1146,14 @@ impl App {
                 )
             }
         };
-        let right = if marked > 0 {
-            format!(" {marked} marked, {bytes} bytes ")
-        } else {
-            let (total, used) = self.vfs.volume;
-            format!(
-                " {}G/{}G ({}%) ",
-                (total - used) / (1024 * 1024 * 1024),
-                total / (1024 * 1024 * 1024),
-                used * 100 / total.max(1),
-            )
+        // **The marked total and nothing else.** The volume moved to the bottom border, so this row
+        // is the cursor's entry across the whole width until something is marked.
+        let right = match marked {
+            0 => String::new(),
+            _ => format!(" {marked} marked, {bytes} bytes "),
         };
         let cut = u16::try_from(right.len()).unwrap_or(0).min(area.w);
         let (l, r) = rect::split_at_h(area, area.w.saturating_sub(cut));
-        let role = if marked > 0 { Role::Warn } else { Role::Dim };
         fit_with(
             cx,
             l,
@@ -1150,8 +1170,8 @@ impl App {
             &right,
             &FitOpts {
                 justify: Justify::End,
-                role,
-                pad: role,
+                role: Role::Warn,
+                pad: Role::Warn,
             },
         );
     }
@@ -1328,6 +1348,7 @@ impl App {
                     cx,
                     r,
                     &title,
+                    "",
                     &PanelOpts {
                         border: Role::Focus,
                         title_role: match modal {

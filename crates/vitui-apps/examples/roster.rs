@@ -253,6 +253,7 @@ impl App {
             cx,
             panel_at,
             " record ",
+            "",
             &PanelOpts {
                 interest: vitui_runtime::Interest::HOVER,
                 ..PanelOpts::default()
