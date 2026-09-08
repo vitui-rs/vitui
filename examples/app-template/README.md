@@ -1,4 +1,4 @@
-# A vitui application template — and spec §11's lint rung
+# A vitui application template — and the lint rung that keeps its draw thread quick
 
 Copy this directory. Replace `draw`. Keep `clippy.toml`.
 
@@ -26,7 +26,7 @@ Two things are needed, and one alone is inert:
 
 ## What the rung catches, and what it does not
 
-Spec §11 defines the offence as **a frame-budget overrun by the app thread's iteration, whatever
+The offence is **a frame-budget overrun by the app thread's iteration, whatever
 caused it** — not as a blocking syscall. Android's `NetworkOnMainThreadException` picks the syscall
 and therefore catches a DNS lookup while waving through a `for` loop that takes 400 ms; a frozen
 interface is a frozen interface, and a pure slow function freezes it identically.

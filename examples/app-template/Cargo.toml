@@ -1,7 +1,7 @@
 # A template application, and **deliberately outside the workspace**.
 #
 # `clippy.toml` is read from the crate being linted, and `cargo clippy` lints every *workspace
-# member* it builds. So a `clippy.toml` anywhere inside the workspace would apply spec §11's
+# member* it builds. So a `clippy.toml` anywhere inside the workspace would apply this
 # disallowed-method list to `vitui-engine` itself — which legitimately spawns, joins and locks, on
 # the render and input threads that exist so the app thread does not have to. Excluding this package
 # is what makes the fragment mean *the application author's crate* rather than *every crate in this

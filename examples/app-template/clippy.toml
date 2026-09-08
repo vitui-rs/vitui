@@ -1,4 +1,4 @@
-# The lint rung of spec §11's unblockable app thread.
+# The lint rung that keeps an application's draw thread unblockable.
 #
 # **This file protects vitui, not vitui's users.** Copy it into your own application's crate root and
 # it protects your application; leave it here and it protects this template and nothing else. That is
@@ -13,7 +13,7 @@
 #
 # # What it catches, and what it cannot
 #
-# The offence spec §11 defines is **a frame-budget overrun by the app thread's iteration, whatever
+# The offence is **a frame-budget overrun by the app thread's iteration, whatever
 # caused it**. This list is the *lintable subset* of that definition and never the definition:
 # `thread::sleep` is here, and a `for` loop that takes 400 ms is not, because no lint can see it. The
 # runtime detector is what catches the rest, after the frame is already lost — and a debug build

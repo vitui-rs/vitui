@@ -1,4 +1,4 @@
-//! A vitui application that does everything spec §11 asks of an app thread, and nothing else.
+//! A vitui application that does everything asked of an app thread, and nothing else.
 //!
 //! It is a **template rather than a demo**: there is no interesting UI here, because what it exists
 //! to show is the shape of the loop and the shape of getting work off it. Copy this directory,
@@ -32,7 +32,7 @@
 //! # Run it
 //!
 //! `cargo run` and press a key; `q` or Ctrl-C to leave. `cargo clippy` is the half that matters:
-//! `clippy.toml` beside this file is spec §11's lint rung, and `README.md` says what it does and
+//! `clippy.toml` beside this file is the lint rung, and `README.md` says what it does and
 //! does not protect.
 
 // **The line the fragment needs to do anything.** `clippy.toml` supplies the list; this switches the
