@@ -24,7 +24,7 @@ nobody checks.**
 
 ## What writing the first one found
 
-Architecture issue 23. `Screen::wait` is the app thread's only blocking call, `Driver` owned its
+`Screen::wait` is the app thread's only blocking call, and `Driver` owned its
 `Screen` privately, and `Driver::attach` bound the `WakeHandle` it was given as `_wake` and let it
 fall. So the only loop an application could write was
 
@@ -34,7 +34,7 @@ while !app.exit { driver.frame(|cx| app.ui(cx)); }
 
 — a spin at 100% of a core. `present` coalesces, so the screen looked right and the whole symptom
 was in the CPU. Worse, `Worker::hire(WakeHandle)` was **public and uninvokable**: the whole of spec
-§17 was reachable from a test that builds its own `Engine` and from nowhere else.
+the resident worker thread was reachable from a test that builds its own `Engine` and from nowhere else.
 
 `Driver::wait` and `Driver::wake` forward both, unchanged. Measured on the shipped `counter`
 binary, parked for five seconds:
@@ -67,20 +67,20 @@ cargo run -p vitui-apps --example triage
 ```
 
 `triage` is the second and it is **not** a port, because there is nothing to port: what it shows is
-ADR 0028's claim that `list`, option list, menu, multi-select, tabs, radio group and segmented
+The claim that `list`, option list, menu, multi-select, tabs, radio group and segmented
 control are one component and one `Mode`, and no other library's tutorial has an equivalent because
 no other library makes the claim. The status bar is the point — `Ctrl+A` over two hundred thousand
 messages reads **`selected 200000 in 1 span(s), 16 B`**, and every other gesture adds at most one
 span.
 
-Switching the **View** filter is an edit in §10's sense: the message list holds *positions in the
+Switching the **View** filter is an edit in the data contract's sense: the message list holds *positions in the
 filtered order*, and the caller stamps a fresh revision so the component compares one `u64` once a
 frame and clears them. Watch `rev` move in the status bar.
 
 Three things it cannot say, each recorded in the file rather than worked around: a **horizontal**
 segmented control shares `Selection` and `apply` and lays itself out, because `collection`
 virtualises rows; a collection cannot be *given* an id, so the focus is seated from the `Response`
-the draw returned; and `Ctx::with_id` cannot be called inside a scroll scope, so ADR 0027's *wrap
+the draw returned; and `Ctx::with_id` cannot be called inside a scroll scope, so *wrap
 the row loop* is written as *wrap the whole component*.
 
 | `latency` | A live p50/p99 latency monitor, an SLO rule and a throughput chart. `g` repertoire · `c` colour depth · `t` threshold axis · `space` pause · `+`/`-` points · `q` quit | — |
@@ -102,7 +102,7 @@ are only visible in a program that is **running**.
   braille buys exactly one bit of vertical resolution. At ASCII both become a *different
   construction* rather than a worse-looking one.
 - **`c` cycles the colour depth and `t` takes the SLO rule off the glyph axis.** At sixteen colours a
-  threshold carried by a paint alone stops being distinguishable and nobody is told. That is §16's
+  threshold carried by a paint alone stops being distinguishable and nobody is told. That is the
   *carried on both axes*, and watching it disappear is the only way to believe it.
 - **The readouts count the two memos of the chain separately.** A resize moves the raster's fold
   count and not the range's; a new sample moves both; a still frame moves neither.
@@ -150,7 +150,7 @@ different random draw.
   deaf: every `Enter` and `Esc` in these three arrives through `Driver::unhandled` instead. Both
   facts are documented and both are easy to get wrong the first time, because the wrong version
   compiles and draws correctly.
-- **A band the application composes is a rectangle the application owes in full** (spec §2). The
+- **A band the application composes is a rectangle the application owes in full.** The
   seventh row of `cluster`'s namespace column has no namespace in it, and left unwritten it kept
   whatever the previous frame put there — a pod's `Running`, in the middle of the header.
 - **`owns_escape`'s defect was live one key over, and it is fixed.** `collect::from_key` answered a
@@ -175,7 +175,7 @@ different random draw.
   back with the **right** panel active, and `cluster`'s table went deaf after `Esc`. All three now
   carry a one-`bool` standing request and re-seat.
 - **A match arm on a bare `Code::Char('q')` also catches `Ctrl+Q`.** `spf`'s help closed on `q` and
-  therefore swallowed the application's quit chord — components ticket 38's finding one level up
+  therefore swallowed the application's quit chord — a finding one level up
   (*`Esc` and `Space` are keys and not chords*), met by an application instead of a component. All
   three now answer the quit chord before anything else claims the keyboard, so the way out never
   depends on which dialog is up.
@@ -191,7 +191,7 @@ different random draw.
   `?` is `CSI 47;2;63u` or `CSI 47;2u` and `Shift+N` is `CSI 110;2;78u` or `CSI 110;2u` — and
   `Code::Char('?')` sees neither. `cluster` opened its *filter* on `?`; `spf` lost every capital
   `hotkeys.toml` binds. Both now go through a `KeyMap` of `Chord::typed(c)` plus the
-  `Chord::key(base).shift()` alternate ADR 0053 names, resolved with `KeyMap::match_first` from the
+  `Chord::key(base).shift()` alternate, resolved with `KeyMap::match_first` from the
   unhandled window. `commander` was unaffected and that is instructive: its only character route is
   `keys::text`, which reads what the terminal *says was produced*.
 - **An overlay that appears IS on the screen on its own frame, and the sentence that stood here
@@ -205,7 +205,7 @@ different random draw.
   bullet below: a pull-down opened from `Response::clicked` looked like a click on nothing because
   the *click* was a frame late, and `Response::press_began` appeared to work because the release was
   then the event that brought the next frame.
-- **Everything `end` decides is drawn on the next frame, and until register entry 50 nothing asked
+- **Everything `end` decides is drawn on the next frame, and nothing used to ask
   for it.** The award is resolved from the index that has just drawn and rotated into `delivered` by
   the next `begin`; the ring resolves its walk in the same place. Every application here parks in
   `Driver::wait`, so the press drew nothing, the release drew the press, the click waited for

@@ -6,7 +6,7 @@
 //! **being a consumer**: each file in `examples/` is a program a person would recognise as an
 //! application, written with no access to `vitui-engine`, and it compiles or it does not. Six of
 //! the runtime's ten found defects were found by writing a consumer rather than another gate, and
-//! architecture issue 23 was found by writing the first file here — `Driver` owned its `Screen`
+//! The missing forward for a suspend was found by writing the first file here — `Driver` owned its `Screen`
 //! privately and `attach` dropped the `WakeHandle`, so **no loop could be written at all** and the
 //! only shape available was a spin at 100% of a core.
 //!
@@ -16,13 +16,13 @@
 //! its own frame — so an application acted on the previous frame's window, one wake late. For a
 //! single keystroke that means never: measured on the shipped binaries, `reader` did not quit on `q`
 //! at all and `explorer` quit a second late, because a `collection`'s type-ahead deadline happened to
-//! supply the second wake. Components ticket 22's application found it by being run, and
+//! supply the second wake. An application found it by being run, and
 //! `tests::every_loop_reads_the_unhandled_window_from_the_frame_that_has_just_drawn` is what keeps
 //! it fixed.
 //!
 //! Beside it, the finding that pairs with it: **a printable character cannot be an application's quit
 //! key while a `collection` holds the focus**, because a focused collection consumes every
-//! text-bearing key into its type-ahead buffer (spec §5). `ledger` and `explorer` bind `Ctrl+Q`, and
+//! text-bearing key into its type-ahead buffer. `ledger` and `explorer` bind `Ctrl+Q`, and
 //! `Ctrl` is not text.
 //!
 //! The dependency list is `vitui-runtime` and `vitui-components`. Not the `vitui` facade, and the
@@ -30,8 +30,8 @@
 //! would put `vitui::engine::Surface`, `View`, `Screen`, `Engine` and `LayerStack` in reach here, and
 //! the claim *the component surface is sufficient* would evaporate without a line changing.
 //!
-//! **`Rect` used to be the example in that sentence and is no longer**, because runtime architecture
-//! issue 22 made it `vitui_runtime::Rect`. That does not weaken the proof and it is worth saying why:
+//! **`Rect` used to be the example in that sentence and is no longer**, because the runtime now
+//! re-exports it as `vitui_runtime::Rect`. That does not weaken the proof and it is worth saying why:
 //! the runtime re-exports the engine's **vocabulary** — the types its own public surface names, plus
 //! what is needed to construct one it accepts — under a rule gated in both directions. The facade
 //! re-exports the engine's **machinery** as well, and an application that reaches a `View` is an
@@ -40,8 +40,8 @@
 //!
 //! # A component ticket ships an application
 //!
-//! **That is the rule, and until components ticket 45 it was a claim about this crate and about no
-//! component in it.** Obligation O7 is the join —
+//! **That is the rule, and it used to be a claim about this crate and about no component in it.**
+//! The obligation that every built component has an application importing it is the join —
 //! [`vitui_components::obligations::o7_everything_declared_has_an_application`] over
 //! [`vitui_components::consumer`] — and the argument for it is that every application written so
 //! far has found something no gate could see, at coordinates the gates never use: `counter` found
@@ -525,7 +525,7 @@ pub const APPS: [App; 21] = [
                and a corner, two `scrollbar`s and a `file_picker` along the top — the pieces spec \
                §9 states *underneath* `scroll_area`, assembled by a caller for the first time \
                anywhere in this workspace. `t` is the one to press, on `tiny.csv`: it stops the \
-               screen writing the cells past the end of the document, which is §2's partition rule \
+               screen writing the cells past the end of the document, which is the partition rule \
                arriving as the application's own because there is no component here to own the \
                rectangle. The grid is a tab stop that reads no key, so every keystroke falls \
                through to `Driver::unhandled`",
@@ -719,7 +719,7 @@ mod tests {
 
     /// **Every name in a `uses` column is a name its own file actually spells.**
     ///
-    /// Nothing checked this column until components ticket 39, and the review that found it out
+    /// Nothing checked this column for a long time, and the review that found it out
     /// found the sharp instance: the gallery's row listed `gallery::PANELS`, which
     /// `vitui_components::gallery`'s own scan **forbids** that file from spelling — so the column
     /// documented an application doing exactly what a gate one crate over refuses. A stale row here
@@ -729,7 +729,7 @@ mod tests {
     /// (`ctx::Driver::attach`) and a file spells it where it is called (`Driver::attach`), and a
     /// crate that re-exports at the root would make the module prefix a fiction either way.
     ///
-    /// **Two exceptions, each named and each with its reason** — §21's rule, and a list rather than a
+    /// **Two exceptions, each named and each with its reason**, as a list rather than a
     /// count so that a third has to arrive as an argument. Both are `compose`'s, and both are types
     /// the application genuinely exercises without ever writing the name: `edit::Caret` arrives from
     /// `Text::caret()` and `edit::Ring` from the undo verbs, and a row that dropped them would say
@@ -777,7 +777,7 @@ mod tests {
     /// **`App::uses` stops being load-bearing: it agrees with the scan.**
     ///
     /// The column is a hand-written list of strings, and a list a human maintains is exactly what
-    /// obligation O7's register replaces — it would go stale in the direction that reads as green.
+    /// the register replaces — it would go stale in the direction that reads as green.
     /// `every_name_in_a_uses_column_is_spelled_by_its_own_file` already stops a row naming something
     /// its file does not contain; this is the *component* half, and it runs in both directions
     /// against [`vitui_components::consumer::coverage`], which joins import paths against the
@@ -871,7 +871,7 @@ mod tests {
     /// **Every loop reads `Driver::unhandled` from the frame that has just drawn, and not before
     /// it.**
     ///
-    /// Components ticket 22's application found this and **every loop in this crate had it.**
+    /// An application found this and **every loop in this crate had it.**
     /// `Driver::unhandled` is documented as *a window onto the same queue, valid until the next frame
     /// begins*, so a loop shaped `wait → unhandled → frame` reads the **previous** frame's window and
     /// acts one wake late — which for a single keystroke means never, because nothing will wake it

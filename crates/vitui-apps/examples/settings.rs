@@ -1,6 +1,6 @@
-//! A settings screen of twelve sections, where every claim of §8 is a key you can press.
+//! A settings screen of twelve sections, where every claim the collapsible makes is a key you can press.
 //!
-//! Components ticket 22's application, and the seventh in this crate. It is the first thing to put a
+//! The collapsible's application. It is the first thing to put a
 //! [`collapsible`] anywhere, and it exists for the reason every file here exists: **the surface's
 //! only consumer is an application**, and six of the six before it found a defect their own gates
 //! could not see.
@@ -28,36 +28,36 @@
 //! | `v` | the live counters, through a `Tally` |
 //! | `q` `Ctrl+Q` | quit |
 //!
-//! **`w` is the one to watch, and it is §9's own precondition on the height axis.** The bodies here
+//! **`w` is the one to watch, and it is the scroll family's precondition on the height axis.** The bodies here
 //! paint a background over every row of the rectangle they are handed — which is what a padding ring
 //! *is* — so a height measured inside the rectangle the last decision produced can never come back
 //! down. Press `w` and open a section: it opens to the **whole panel** and stays there, every row
-//! drawn, the chevron correct, nothing on the screen wrong. Spec §8 prices the drawn extent at *8
+//! drawn, the chevron correct, nothing on the screen wrong. The drawn extent is priced at *8
 //! rows wrong, settled in 3 frames*; over a body that fills what it is given it is not eight rows and
 //! it does not settle.
 //!
-//! **`t` is spec §2's partition rule and §9's seam sentence, on one key.** A section names the rows
+//! **`t` is the partition rule and the seam sentence, on one key.** A section names the rows
 //! it took — [`Disclosure::used`] — and every row below is the caller's. Press `t`, then close a
 //! section: the header turns, the section's rows go, and the body that was underneath **stays on the
 //! screen**. Nothing throws. The screen is plausible. `vitui_components::disclose`'s own gate reports
 //! 240 cells over 4 rows for the same mistake.
 //!
-//! **`x` with `k` is §8's focus sentence, and the finding is which half of it is reachable.** A
+//! **`x` with `k` is the focus sentence, and the finding is which half of it is reachable.** A
 //! section closed by a gesture on its own header cannot reach R08's vanish rule at all — the press
 //! award has already moved the focus, three different ways for three different gestures — so the only
 //! arm that pays is a collapse **nobody clicked for**. Exclusive mode is one: open section 7 while the
-//! focus is inside section 3's body and section 3 goes without being asked. `k` is §8's other
+//! focus is inside section 3's body and section 3 goes without being asked. `k` is the other
 //! sentence — *`Stash` belongs to whoever owns the content's identity, and the caller does it by
 //! capturing `Frame::focus`* — and the probe count on the status line is the difference.
 //!
 //! # What it deliberately does not do
 //!
-//! **There is no scroll area here**, and the offset is the application's own. Spec §22 leaves open
+//! **There is no scroll area here**, and the offset is the application's own. Still open is
 //! *whether a collapsible inside a scroll area may learn its content height one frame late under the
 //! extent shape*; putting one inside the other and pressing `w` would answer that question by
 //! accident, in an application, which is the last place a map decision should arrive from. The
 //! culling is the caller's either way — a section entirely below the panel is not drawn and therefore
-//! declares nothing, which is §8's *1.05× six open rather than 2×*.
+//! declares nothing, which is *1.05× six open rather than 2×*.
 //!
 //! # It does not depend on the facade
 //!
@@ -80,7 +80,7 @@ use vitui_runtime::keys::{Code, Pressed};
 use vitui_runtime::work::Wake;
 use vitui_runtime::{Ctx, Id, Rect, Role, Themes};
 
-/// The twelve sections, which are §8's own count.
+/// The twelve sections, which is the count the family was measured at.
 const TITLES: [&str; 12] = [
     "General",
     "Appearance",
@@ -133,13 +133,13 @@ const OPTIONS: [&[&str]; 12] = [
 const CHIPS_PER_ROW: usize = 3;
 /// How many rows of buttons every body ends with.
 const BUTTON_ROWS: u16 = 1;
-/// How long an animated collapse takes. §8's own two hundred milliseconds.
+/// How long an animated collapse takes: two hundred milliseconds.
 const TWEEN: Duration = Duration::from_millis(200);
 
 /// **The height a section's body wants, in rows, at width `w`.**
 ///
 /// The sizing function, and it is the one decision both the component and the status line read — spec
-/// §8's *the height is an argument*. It is a free function rather than a closure so that the shape
+/// *The height is an argument.* It is a free function rather than a closure so that the shape
 /// `vitui_runtime::sizing::check` sweeps a component against is what this application actually
 /// passes: `FnMut(u16) -> u16`.
 fn body_rows(section: usize, w: u16) -> u16 {
@@ -204,7 +204,7 @@ struct Seen {
     /// **How many slots the vanish rule touched.** Zero on every frame nothing vanished on, which is
     /// why the `x`/`k` pair is the only thing on this screen that moves it.
     probes: u64,
-    /// Whether anything holds the focus at all. `Ctx::focused`, and architecture issue 25's finding
+    /// Whether anything holds the focus at all. `Ctx::focused`, and the finding
     /// is that this can be `false` on a screen that looks correct.
     focused: bool,
 }
@@ -338,7 +338,7 @@ impl App {
         for i in 0..TITLES.len() {
             let want = 1 + i32::from(self.sections[i].height());
             // **The caller's culling, and both bounds are the *child's*.** A section entirely outside
-            // the panel is not drawn and therefore declares nothing at all, which is §8's *1.05x six
+            // the panel is not drawn and therefore declares nothing at all, which is *1.05x six
             // open rather than 2x* — and the top edge is `0` rather than `area.y`, because this
             // context is `cx.child(interior)` and its coordinates start at its own corner. Compared
             // against the interior's root-space `y` instead, the first three sections of a
@@ -380,7 +380,7 @@ impl App {
         self.content = content;
 
         // **The tail, and it is the caller's** — every row of the panel below the last section is
-        // inside the panel's rectangle and no section owns it (spec §2). `t` is what happens when
+        // inside the panel's rectangle and no section owns it. `t` is what happens when
         // nobody writes it.
         if self.tail {
             for row in y.max(0)..bottom {
@@ -388,7 +388,7 @@ impl App {
             }
         }
 
-        // **Nothing holds the focus until an application says so** — runtime architecture issue 25,
+        // **Nothing holds the focus until an application says so** —
         // and the reason `Ctx::focused` exists: a `Ctx` could ask `is_focused(id)` and had no way to
         // ask whether *anything* held the focus. Without this the screen draws correctly, `Tab`
         // works, and `Enter` does nothing at all until the user has pressed `Tab` once. It is
@@ -412,7 +412,7 @@ impl App {
                     section.set(now, false, 0, Duration::ZERO);
                 }
             }
-            // **§8's other sentence**: `Stash` belongs to whoever owns the content's identity, and
+            // **The other sentence**: `Stash` belongs to whoever owns the content's identity, and
             // the caller does it by capturing the focus. Without this the focused widget inside the
             // section that just went vanishes and R08 answers with the nearest surviving entry — one
             // section too far, while the section the user acted on is still on screen.
@@ -477,7 +477,7 @@ impl App {
 /// The padding is why `w` latches: a body whose extent reaches the bottom of any rectangle it is
 /// given cannot be measured inside the rectangle the last measurement produced. That is not a defect
 /// in the body — a padding ring is what makes a section look like a section — which is exactly why
-/// spec §9 puts the precondition on the *body* and refuses the spelling unconditionally.
+/// the precondition is on the *body* and the spelling is refused unconditionally.
 fn body_into<I: Ink>(ink: &mut I, cx: &mut Ctx<'_, '_>, section: usize) {
     let area = cx.area();
     if area.is_empty() {

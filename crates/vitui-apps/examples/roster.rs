@@ -1,8 +1,8 @@
 //! **`roster` — the three Tier 2 composites, and `Ctrl+G` is the key to press.**
 //!
-//! Components ticket 35's application, and the only consumer of
+//! The form's application, and the only consumer of
 //! [`form`](vitui_components::input::form), [`pagination`](vitui_components::collect::pagination)
-//! and [`status_bar`](vitui_components::structure::status_bar) that is not a gate. Spec §17, §18 R3.
+//! and [`status_bar`](vitui_components::structure::status_bar) that is not a gate.
 //!
 //! ```text
 //! cargo run -p vitui-apps --example roster            # the directory
@@ -11,14 +11,14 @@
 //!
 //! # What it is for, and `Ctrl+G` is the key to press
 //!
-//! §18's R3 is *a composition of shipped components with no new mechanism*, and the spec calls it
+//! A composition is *shipped components with no new mechanism*, and this one is called
 //! **the class that requires the most care** — because *composition without a new mechanism is
 //! exactly the claim that turns out to be false when it is false.* What a screen can show that a
 //! gate cannot is the **keyboard**, and `Ctrl+G` is where it is visible: it takes the form's `Group`
 //! scope away, and three things happen at once.
 //!
 //! - The status bar's `stops` jumps from **1 to 6**. A `Group` collapses the walk onto its first
-//!   entry and the rest stay in the ring, which is spec §3's *a list is one tab stop* over fields.
+//!   entry and the rest stay in the ring, which is *a list is one tab stop* over fields.
 //! - `Tab` starts walking the fields instead of leaving the form.
 //! - **The arrows stop working entirely.** That is not a preference: a container hears what its
 //!   children hand back only through `Ctx::scope`'s after-the-body moment, and `ScopeKind` has three
@@ -27,7 +27,7 @@
 //!
 //! # `Ctrl+D` is where density stops being theme data and starts being two fields
 //!
-//! Spec §3: *density is theme data, it changes rectangles, and `block` is where that lands* — one
+//! *Density is theme data, it changes rectangles, and `block` is where that lands* — one
 //! cell of padding at `Compact` and two at `Cosy`, on both edges, which is two rows of interior. Two
 //! rows of a one-row entry is **two fields**, and the status bar prints *standing / of* so the
 //! number that falls off the bottom is on the screen rather than in a comment.
@@ -109,7 +109,7 @@ const FLOOR_H: u16 = LABELS.len() as u16 + 4;
 /// Everything this application knows.
 struct App {
     /// The six fields of the record on screen. **The widgets' own values, never application data** —
-    /// spec §1's rule 2, and the reason `form` takes them by `&mut [Text]`.
+    /// The widgets' own state, and the reason `form` takes them by `&mut [Text]`.
     fields: [Text; 6],
     /// The form's one cross-frame fact, which is `nav::cursor`'s type-ahead buffer and nothing else.
     form: FormState,
@@ -159,7 +159,7 @@ struct Seen {
     /// Cells written. `--probe` only.
     writes: u64,
     /// How many of them were distinct. **The partition equality as a number** — this application
-    /// assembles its own rectangles, so §2's rule is its to keep, and four of this crate's tickets
+    /// assembles its own rectangles, so the partition rule is its to keep, and four of this crate's applications
     /// found the hole in their own application rather than in a component.
     distinct: u64,
     /// How many verbs it took.
@@ -270,7 +270,7 @@ impl App {
                 ..FormOpts::default()
             },
         );
-        // **Nothing holds the focus until an application says so** — architecture issue 25, and the
+        // **Nothing holds the focus until an application says so** — and the
         // symptom is a program whose documented keys do nothing until `Tab`. `form_row_id` is the
         // only way to name a row from out here, because `Ctx::id` mints from `Location::caller()`.
         if cx.focused().is_none() {
@@ -500,7 +500,7 @@ fn probe(app: &mut App) {
         );
     }
 
-    // **And the partition, swept.** An application that assembles its own rectangles owes §2's
+    // **And the partition, swept.** An application that assembles its own rectangles owes the partition rule's
     // equality over the ones it made up, and four of this crate's tickets found the hole in their
     // own application rather than in a component.
     let mut swept = 0usize;

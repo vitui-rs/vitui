@@ -33,14 +33,14 @@
 //!    gap and lost the component.
 //! 4. **A marked file loses its type colour.** `mc` paints marks yellow *over* the directory white
 //!    and the executable green; the face ladder is *disabled > selected > cursor > hovered > base*,
-//!    resolved before a cell is written (ADR 0026), so a mark replaces the type rather than riding
+//!    resolved before a cell is written, so a mark replaces the type rather than riding
 //!    on it. That is the library's decision working, not a defect — it is recorded because a reader
 //!    comparing the two screens will notice.
 //!
 //! # The prompt is fed from the unhandled window, and that is a finding rather than a trick
 //!
 //! In `mc` a letter typed anywhere lands on the shell prompt. Here the panel holds the focus, and
-//! **a focused collection consumes every text-bearing key into its type-ahead buffer** (spec §5) —
+//! **a focused collection consumes every text-bearing key into its type-ahead buffer** —
 //! the trap `ledger` and `explorer` bind `Ctrl+Q` around. What makes the prompt reachable is that
 //! type-ahead is *the caller's search behind a component's budget*: this application's search
 //! answers `None` for every buffer, so the component declines the key and it arrives in
@@ -54,7 +54,7 @@
 //! found.** `crate::collect::from_key` answers a bare space with `Gesture::Toggle` in *every*
 //! [`Mode`], and `apply` ignores it at [`Mode::Cursor`] — so it was consumed to do nothing and the
 //! prompt never saw it, and this file recorded the words running together rather than working
-//! around it. It was `owns_escape`'s defect one key over: components architecture 22 taught
+//! around it. It was `owns_escape`'s defect one key over: `Escape` had been taught
 //! `Escape` to decline when `apply` would clear nothing and left `Space` and `Ctrl+A` as they
 //! were. `crate::collect::owns` is that narrowing said of the whole vocabulary, so the panel
 //! declines both here and the prompt takes its spaces.
@@ -126,7 +126,7 @@ enum Kind {
 impl Kind {
     /// The role an entry of this kind is drawn in **while nothing else claims the row**.
     ///
-    /// A component names a `Role` and never a colour (ADR 0018), so `mc`'s cyan directories are
+    /// A component names a `Role` and never a colour, so `mc`'s cyan directories are
     /// `Role::Title` here and its green executables are `Role::Ok`. Which colour a scheme gives
     /// those is the scheme's business.
     const fn role(self) -> Role {
@@ -366,7 +366,7 @@ impl Vfs {
     /// `Mon DD HH:MM`, off an invented calendar of twelve thirty-day months.
     ///
     /// A real `mtime` would need a clock, and a component may own a time anchor and never a clock
-    /// (ADR 0051). This is neither: it is a label computed from the entry.
+    ///. This is neither: it is a label computed from the entry.
     fn stamp(&self, at: usize, out: &mut String) {
         const MONTHS: [&str; 12] = [
             "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
@@ -474,7 +474,7 @@ struct Panel {
     sort: Sort,
     /// Whether that sort is reversed. `mc`'s `Reverse sort` menu entry.
     desc: bool,
-    /// Stamped by [`Panel::relist`]. §10's *one `u64` compared once a frame*: the component drops
+    /// Stamped by [`Panel::relist`]. *One `u64` compared once a frame*: the component drops
     /// positions it can no longer trust rather than keeping a cursor on a deleted row.
     rev: Revision,
     /// The id the table drew under, learned from its response and used to seat the focus.
@@ -897,7 +897,7 @@ impl App {
         self.draw_prompt(cx, prompt);
         self.draw_fkeys(cx, fkeys);
 
-        // **The focus is seated only when nobody holds it** (architecture issue 25):
+        // **The focus is seated only when nobody holds it**:
         // `focused().is_none()` rather than `!is_focused(id)`, which would drag the keyboard back
         // every frame the user had tabbed away — and `Tab` between the two panels is exactly that
         // walk. A table mints its own id, so the seat is the last statement of the draw.
@@ -953,7 +953,7 @@ impl App {
                 },
             );
             // **The press and not the click**, which is what a menu bar does everywhere and what
-            // `Response::press_began` is for (runtime architecture 29): the edge, true on the frame
+            // `Response::press_began` is for : the edge, true on the frame
             // the button went down, against the level `pressed` reports for the whole grab.
             if resp.press_began {
                 clicked = Some(i);
@@ -996,7 +996,7 @@ impl App {
             &PanelOpts {
                 // **This is where focus lands.** A focused panel is drawn in `Role::Focus` before
                 // its cells are written, never restyled after — which is how `mc` marks the active
-                // panel and how ADR 0026 says a ring is drawn.
+                // panel and how a ring is drawn.
                 border: if active { Role::Focus } else { Role::Border },
                 padded: false,
                 ..Default::default()
@@ -1238,7 +1238,7 @@ impl App {
                 ..Default::default()
             },
         );
-        // **A status bar declares one region for all ten segments** (spec §9), so which one was
+        // **A status bar declares one region for all ten segments**, so which one was
         // clicked is arithmetic on `Response::local` rather than ten hit entries.
         if let (true, Some((x, _))) = (resp.clicked, resp.local) {
             let per = i32::from(area.w) / i32::try_from(FKEYS.len()).unwrap_or(10);
@@ -1308,7 +1308,7 @@ impl App {
             };
             // **The shell is handed the height it has**, so no bar is reserved. A reserved bar's
             // thumb is a function of the extent and the offset it is handed is a literal zero
-            // (production 08) — the viewer wants one that moves, and draws its own below.
+            //  — the viewer wants one that moves, and draws its own below.
             let rows = u32::from(area.h);
             let _ = overlay_with(cx, area, rows, &shell, &mut |cx, r| {
                 // **The frame is a `panel`, and the overlay does not draw one.** A shell reserves a
@@ -1354,7 +1354,7 @@ impl App {
 
 /// Write one cell, keeping a one-cell gutter on the right of a left-justified one.
 ///
-/// **A cell drawer owes its whole rectangle** (spec §2), so the gutter is *written* rather than
+/// **A cell drawer owes its whole rectangle**, so the gutter is *written* rather than
 /// left out: a left-justified name that fills its column otherwise runs into the column beside it,
 /// and the ellipsis lands against a digit. A right-justified cell carries its gutter in the text,
 /// because its padding is on the left.
@@ -1451,7 +1451,7 @@ fn draw_view(
         },
     );
     // **A scrollbar of this application's, and not the shell's reserved one.** A reserved bar is
-    // handed a literal zero for its offset (production 08), so its thumb cannot move; this one is
+    // handed a literal zero for its offset , so its thumb cannot move; this one is
     // given the viewer's own span and therefore reports where the reader is.
     scrollbar(
         cx,
@@ -2141,7 +2141,7 @@ fn main() {
         // **A focus move owes a frame too, and this loop deliberately no longer counts it.** The
         // ring resolves its walk in `settle`, *after* the draw, so the frame that consumed a `Tab`
         // painted the old focus ring with an empty `unhandled` — and this file used to compare
-        // `Driver::inspect().focused()` across frames because nothing else asked. Register entry 50
+        // `Driver::inspect().focused()` across frames because nothing else asked. The award's own wake
         // put the ask where the decision is made: `Frame::resolve_award` calls
         // `wants_another_frame`, which is `deadline(now)`, so `wait` returns at once rather than
         // parking on a screen a keystroke behind. Comparing here as well would be a second spelling

@@ -1,7 +1,7 @@
 //! **`compose` — a title, a body, and the caret pair a megabyte deep.**
 //!
-//! Components ticket 24's application, and the only consumer of [`vitui_components::input::field`]
-//! that is not a gate. Spec §11.
+//! The text field's application, and the only consumer of [`vitui_components::input::field`] that
+//! is not a gate.
 //!
 //! ```text
 //! cargo run -p vitui-apps --example compose            # a short note
@@ -10,14 +10,14 @@
 //!
 //! # What it is for
 //!
-//! §11's headline is that **`input` and `textarea` are one component**, and an application is where
+//! The headline is that **`input` and `textarea` are one component**, and an application is where
 //! that stops being a sentence: the two widgets below are one function called twice over two states
 //! whose only difference is [`WrapKind`]. The title takes `WrapKind::Ruler` — hard breaks every `w`
 //! columns, no word breaks, no newlines — and the body takes `WrapKind::Words`. Nothing else about
 //! them differs, and `Tab` moves between them because each is a tab stop and the focus ring is
 //! built from the draw.
 //!
-//! The status bar prints what §11's four gates are *about*, live: the caret's `(byte, column)` pair,
+//! The status bar prints what the four field gates are *about*, live: the caret's `(byte, column)` pair,
 //! the visual row it is on out of how many, the revision, the width the wrap index was built at, and
 //! the undo ring's two bounds. **Watch the width figure while resizing the terminal** — that is the
 //! fourth gate, `the index's recorded width equals the width being drawn`, and it is the one a memo
@@ -66,7 +66,7 @@ use vitui_runtime::{Ctx, Mods, Rect, Role, Themes};
 /// The note the `--mega` arm pastes: 24 000 lines, a little over a megabyte.
 const MEGA_LINES: usize = 24_000;
 
-/// What the short arm starts with. Deliberately not ASCII — every gate of §11 runs on clusters that
+/// What the short arm starts with. Deliberately not ASCII — every field gate runs on clusters that
 /// are not one code point, and so should the thing a person looks at.
 const OPENING: &str = "A cafe\u{301} note.\n\nThe caret moves in cluster steps, so \u{1f469}\u{200d}\u{1f469}\u{200d}\u{1f467} is one Left and one \
                        Right — not four, and not seven.\nWide glyphs count two columns: \u{4e2d}\u{6587}\u{3002}\n\nTab moves to the title \
@@ -130,7 +130,7 @@ impl App {
             },
         );
 
-        // **One function, called twice, over two states.** §11's headline as two lines of an
+        // **One function, called twice, over two states.** The headline as two lines of an
         // application. The `Ruler` state is above and the `Words` state below, and neither call
         // says which is which.
         let head_resp = field(cx, entry, &mut self.title);

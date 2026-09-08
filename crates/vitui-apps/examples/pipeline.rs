@@ -1,7 +1,7 @@
 //! A build pipeline whose spinners and playhead are the two things on this map that own an anchor.
 //!
-//! Components ticket 46's application, and the eighteenth in this crate. It exists because the
-//! twenty-ninth row of spec §17's freeze — [`spinner`](vitui_components::indicate::spinner) — is the
+//! The spinner's application. It exists because the last row of the v1 freeze —
+//! [`spinner`](vitui_components::indicate::spinner) — is the
 //! last one built, and because the interesting number about a component that animates is **not the
 //! motion**. It is the *cadence*: how often the screen has to wake up, which is what an anchor buys
 //! and a stored phase cannot.
@@ -46,7 +46,7 @@
 //! `vitui_components::indicate::defective::spinner_asking_always_into` is a runnable arm rather than
 //! a paragraph, and why this key prints a counter instead of showing you something.
 //!
-//! **`g` is the ladder, and the middle rung is the correction.** Components ticket 42's prototype
+//! **`g` is the ladder, and the middle rung is the correction.** The prototype
 //! put the braille spinner at `Unicode`; the engine's own `GlyphSet` says `Unicode` is *Unicode a
 //! normal text font covers* and braille is `Extended`, so a terminal that kept the middle promise
 //! would have rendered tofu. The middle rung is the quadrant blocks — an orbiting dot rather than a
@@ -105,7 +105,7 @@ const FAST: Duration = Duration::from_millis(30);
 /// seconds — a shortfall that is a *rate* and so grows with the run.
 const FRAME_DT: Duration = Duration::from_micros(16_667);
 
-/// **How long the thing being played is: two hours**, which is the length components ticket 42
+/// **How long the thing being played is: two hours**, which is the length the prototype
 /// measured the cadence over — so the number this application prints is the number the map records
 /// rather than a scaled version of it.
 const FILM_S: f32 = 7_200.0;
@@ -117,7 +117,7 @@ struct Counters {
     distinct: u64,
     verbs: u64,
     regions: usize,
-    /// **Cumulative**, and the status line prints the delta beside it — components ticket 42's own
+    /// **Cumulative**, and the status line prints the delta beside it — the prototype's own
     /// recorded trap: `WakeLedger`'s counters are never reset, so a total saturates and a spinner
     /// nobody stops measures exactly what a stopped one does.
     asks: u64,

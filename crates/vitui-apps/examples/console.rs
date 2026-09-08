@@ -1,8 +1,7 @@
 //! **`console` — a menu bar, two `select`s, a command palette and four ways out of a popup.**
 //!
-//! Components ticket 26's application, and the only consumer of
+//! The overlay family's application, and the only consumer of
 //! [`vitui_components::input::select`] and [`vitui_components::overlay::overlay`] that is not a gate.
-//! Spec §12.
 //!
 //! ```text
 //! cargo run -p vitui-apps --example console
@@ -10,12 +9,12 @@
 //!
 //! # What it is for
 //!
-//! §12's headline is that **the whole overlay family is three kinds on two axes over one two-phase
+//! The headline is that **the whole overlay family is three kinds on two axes over one two-phase
 //! protocol**, and an application is where that stops being a sentence: everything that opens on this
 //! screen — the two dropdowns, the menu, its submenu, the command palette — is one shell and one
 //! collection, differing in a [`Kind`] and a [`Placement`].
 //!
-//! The status bar prints what §12's gates are *about*, live: how many layers the census is keeping
+//! The status bar prints what the overlay gates are *about*, live: how many layers the census is keeping
 //! alive, what the open popup was granted, whether its gutter needs a bar, whether its blur position
 //! can see the pointer, and how many requests were merged. **Resize the terminal short** and watch
 //! the granted height fall and the bar appear — that is the short-screen case, and the row that would
@@ -38,7 +37,7 @@
 //!
 //! # `Ctrl+Z` gives the terminal back to the shell, and `fg` takes it again
 //!
-//! Runtime architecture issue 35's application, and the gesture is a demonstration of a seam rather
+//! The suspend forward's application, and the gesture is a demonstration of a seam rather
 //! than a feature of a console: `Driver::suspend` writes the epilogue and gives the terminal back,
 //! `Driver::resume` renegotiates and repaints every cell. **Neither was reachable above the engine
 //! until that issue** — `Driver` owns its `Screen` privately, which is the wall issues 23
@@ -61,13 +60,13 @@
 //!
 //! # `Esc` closes the palette, and this file is why it does
 //!
-//! **It did not, and finding that here is what opened components architecture issue 22.** A
+//! **It did not, and finding that here is what opened the question.** A
 //! `collection` read `Esc` as `Gesture::Nothing` — *clear the selection* — and consumed it whatever
 //! the selection was, so the key died inside the modal and never reached `Driver::unhandled`. The
 //! palette had to close on `Ctrl+P` both ways, because a chord is what `nav::step` and `from_key`
 //! both refuse by rule and was the only thing that could get out of the trap.
 //!
-//! The issue resolved by **narrowing §5's claim rather than publishing the hook**: a collection owns
+//! It resolved by **narrowing the claim rather than publishing the hook**: a collection owns
 //! `Esc` exactly when `apply` would clear something, and declines it otherwise. `select` still closes
 //! its own popup through `collect::collection_shaped`'s first refusal, and that hook stays
 //! crate-private for the reason its own documentation gives — *a public one would invite an
@@ -85,7 +84,7 @@
 //!
 //! # `q` cannot be the quit key here either
 //!
-//! A focused `collection` consumes every text-bearing key into its type-ahead buffer (§5), and an
+//! A focused `collection` consumes every text-bearing key into its type-ahead buffer, and an
 //! open popup is a focused collection. `ledger`, `explorer` and `compose` hit the same wall; this one
 //! binds `Ctrl+Q` and `Esc`-when-nothing-is-open, and there is no `q` to bind beside them because the
 //! popup's own type-ahead is a thing to try.
@@ -163,7 +162,7 @@ const HOST: Id = Id::named("console.host");
 
 /// **Give this process's terminal back to the shell, and take it again when continued.**
 ///
-/// Runtime architecture issue 35's application. `Driver::suspend` writes the epilogue and hands the
+/// The suspend forward's application. `Driver::suspend` writes the epilogue and hands the
 /// terminal over, `Driver::resume` renegotiates and repaints every cell, and until that issue
 /// neither was reachable from here — `Driver` owns its `Screen` privately, which is the wall issues
 /// 23 (`wait`) and 30 (`permit_slow`) hit before it.
@@ -238,7 +237,7 @@ struct App {
     /// Not decoration: the body is held in the queue until the satisfy pass, so a local the body
     /// wrote cannot be read again in the same frame. Written as a local the diagnostic is `E0503:
     /// cannot use answer because it was mutably borrowed`, pointing at this function's own read and
-    /// never mentioning the overlay — spec §1's trap, met while writing the application for it.
+    /// never mentioning the overlay — the trap, met while writing the application for it.
     pending: Option<&'static str>,
     /// Set inside `take_unhandled`, read by the loop.
     exit: bool,
@@ -299,7 +298,7 @@ impl App {
         let (right, _) = rect::split_at_h(right, 24.min(right.w));
 
         // Destructured, because `select` takes `&'f mut` of two of these and the rest are read
-        // afterwards. One line of an application is what §12's *two structs, one writer each* costs.
+        // afterwards. One line of an application is what *two structs, one writer each* costs.
         let App {
             sort,
             sort_popup,
@@ -339,7 +338,7 @@ impl App {
         let sort_resp = select_with(cx, left, sort, sort_popup, &SORTS, &opts);
         let view_resp = select_with(cx, right, view, view_popup, &VIEWS, &opts);
 
-        // **Nothing holds the focus until an application says so** (architecture issue 25).
+        // **Nothing holds the focus until an application says so**.
         // `focused().is_none()` and never `!is_focused(id)`, which would drag the keyboard back every
         // frame the user had tabbed away.
         if cx.focused().is_none() {
@@ -391,7 +390,7 @@ impl App {
             // **The header is a row of the popup and the sizing function does not know that.**
             // `popup_size` sizes a *list*; this body spends one row of what it is granted on a title,
             // so the popup has to ask for one more or the last command is off the bottom — which is
-            // §12's own short-screen case arriving as an off-by-one in an application. The `rows`
+            // The short-screen case arriving as an off-by-one in an application. The `rows`
             // handed to the shell counts the same way, so the gutter's decision is about the same
             // rectangle.
             let list = popup_size(&COMMANDS, (44.min(room.0), room.1.saturating_sub(5)));
@@ -582,17 +581,17 @@ impl App {
                 // the trap has nobody to hand a declined key to. A chord is what `nav::step` and
                 // `from_key` both refuse by rule, so it reaches this window from inside the modal.
                 // It is kept because it is a good binding, not because `Esc` still cannot — see
-                // this file's header and components architecture issue 22.
+                // this file's header.
                 Code::Char('p') if chord.contains(Mods::CTRL) => self.palette = !self.palette,
                 Code::Char('q') if chord.contains(Mods::CTRL) => self.exit = true,
-                // **The one the runtime could not reach until issue 35.** `Ctrl+Z` arrives here as
+                // **The one the runtime could not reach for a long time.** `Ctrl+Z` arrives here as
                 // an ordinary key and not as a signal, because raw mode is `cfmakeraw` and that
                 // clears `ISIG` — so an application that wants the shell's `Ctrl+Z` has to spell
                 // it, and could not.
                 Code::Char('z') if chord.contains(Mods::CTRL) => self.handoff = true,
                 // **`Esc` closes the palette, and it is the same key that quits.** It reaches here
                 // only when nothing took it first — a *shut* `select` declines it, an open popup's
-                // own body consumes it as *cancel*, and since architecture issue 22 the palette's
+                // own body consumes it as *cancel*, and since `Escape` was narrowed the palette's
                 // own `collection` declines it whenever it has no selection to clear. So with a row
                 // selected the first press clears the selection and the second lands here, which is
                 // the two-stage dismissal and not a missed key.

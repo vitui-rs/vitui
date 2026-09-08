@@ -1,7 +1,7 @@
 //! **`mixer` — eight faders, a master, and a value that cannot reach its own maximum.**
 //!
-//! Components ticket 33's application, and the only consumer of
-//! [`vitui_components::input::slider`] that is not a gate. Spec §14, §17.
+//! The slider's application, and the only consumer of [`vitui_components::input::slider`] that is
+//! not a gate.
 //!
 //! ```text
 //! cargo run -p vitui-apps --example mixer            # the desk
@@ -10,7 +10,7 @@
 //!
 //! # What it is for, and `x` is the key to press
 //!
-//! §17 froze `slider` at Tier 3 for an **unmeasured mechanism**, and §14 measured it: a drag is
+//! `slider` was frozen at Tier 3 for an **unmeasured mechanism**, and the mechanism was measured: a drag is
 //! `Response::local` over `Response::rect` and nothing else. That half is what a pointer shows —
 //! press a fader anywhere and it *jumps* there rather than starting a delta, drag it and it follows,
 //! release it and nothing moves.
@@ -30,7 +30,7 @@
 //! by [`defective::Range`], the spelling that stores nothing and derives its boundary from the two
 //! values it separates. Drag the low thumb rightwards past the midpoint and watch the **high** thumb
 //! jump back to meet the pointer, in a gesture that never released. That is why no range slider
-//! ships: the fact it needs — *which thumb* — is the fifth cross-frame fact §14's headline is that
+//! ships: the fact it needs — *which thumb* — is the fifth cross-frame fact, and the headline is that
 //! drag capture does not need.
 //!
 //! # Keys
@@ -60,7 +60,7 @@
 //! `Ctx::id` mints from `Location::caller()` and there is one call site inside the loop below, so
 //! without `cx.with_key` all eight faders would be **one** widget: the first would be draggable and
 //! the other seven inert, with every thumb in the right place and the screen looking perfect. That is
-//! ADR 0027's defect, and `crate::media`'s chrome shipped it twice.
+//! The identity defect, and `crate::media`'s chrome shipped it twice.
 
 use std::env;
 
@@ -135,7 +135,7 @@ struct Seen {
     /// Cells written. `--probe` only.
     writes: u64,
     /// How many of them were distinct. **The partition equality, and it is a number rather than an
-    /// argument** — this application assembles its own rectangles, so §2's rule is its to keep.
+    /// argument** — this application assembles its own rectangles, so the partition rule is its to keep.
     distinct: u64,
     /// How many verbs it took.
     verbs: u64,
@@ -252,7 +252,7 @@ impl App {
             // **The channel's column is partitioned, not sampled.** A three-cell track inside a
             // seven-cell column leaves two gutters either side, and a first draft drew the track and
             // the dB row and left them alone: four columns a channel that nobody writes, which keep
-            // whatever the previous screen put there for ever. Spec §2's rule is a component's, and
+            // whatever the previous screen put there for ever. The partition rule is a component's, and
             // an application that assembles rectangles owes the same equality over the ones it made
             // up — which is the shape three of this crate's tickets found in their own applications.
             let column = Rect::new(x, faders.y, FADER_W, faders.h);
@@ -365,7 +365,7 @@ impl App {
         }
         text_into(ink, cx, spare, "", &TextOpts::default());
 
-        // **Seat the keyboard on the first fader while nothing holds it** — architecture issue 25's
+        // **Seat the keyboard on the first fader while nothing holds it** —
         // one line inside the draw. `focused().is_none()` and never `!is_focused(id)`, because the
         // second drags the keyboard back every frame the user has tabbed away and `Tab` then appears
         // to do nothing.
@@ -620,7 +620,7 @@ fn probe(app: &mut App) {
     println!("  verbs        {:>8}", app.seen.verbs);
 
     // The two arms of the step, fifty presses each, side by side — which is what `x` shows on the
-    // desk and what §14's arithmetic finding is.
+    // desk and what the drag arithmetic found.
     let opts = SliderOpts::default();
     let key = vitui_components::keys::press_with(Code::Right, Mods::NONE);
     let mut grid = 0.0f32;

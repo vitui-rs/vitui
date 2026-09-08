@@ -1,7 +1,7 @@
 //! **Mail triage over two hundred thousand messages, and one component drawn four times.**
 //!
-//! The application components ticket 12 is for. `list`, option list, menu, multi-select, tabs, radio
-//! group and segmented control are **one component and one [`Mode`]** (ADR 0028), and the way to see
+//! The collection's application. `list`, option list, menu, multi-select, tabs, radio
+//! group and segmented control are **one component and one [`Mode`]**, and the way to see
 //! that is not a paragraph — it is four collections on one screen whose only difference is the value
 //! in `CollOpts::mode`:
 //!
@@ -36,7 +36,7 @@
 //! menu is worth pressing `Tab` into: it has a cursor, `Space` does nothing to it, and nothing is
 //! ever selected — which is what `Mode::Cursor` *is*.
 //!
-//! **The pointer gestures are real.** Spec §5 recorded ctrl-click and shift-click as inexpressible
+//! **The pointer gestures are real.** Ctrl-click and shift-click were once inexpressible
 //! above this runtime, because only `Key` carried a modifier byte. `Response::mods` carries them
 //! now, and they route through the same `apply` as `Space` and `Shift+↑/↓` — the same six
 //! `Gesture`s from both sides.
@@ -54,11 +54,11 @@
 //! | `Esc` | clear the selection |
 //! | a letter | type-ahead over senders, bounded — see the status bar's `search` |
 //! | `Enter` | apply the action the menu's cursor is on to the selection |
-//! | `Ctrl+Q` | quit. **`q` alone is racy here** and the pair is the point: a focused `collection` consumes every text-bearing key into its type-ahead buffer (spec §5), so a plain `q` reaches the application only on a frame where nothing is focused. `Ctrl` is not text, and the check below ignores the modifiers so the chord satisfies it |
+//! | `Ctrl+Q` | quit. **`q` alone is racy here** and the pair is the point: a focused `collection` consumes every text-bearing key into its type-ahead buffer, so a plain `q` reaches the application only on a frame where nothing is focused. `Ctrl` is not text, and the check below ignores the modifiers so the chord satisfies it |
 //!
 //! # Switching the view is an edit, and the selection goes with it
 //!
-//! Components ticket 13. The message list stores **positions in the filtered order**, and switching
+//! The message list stores **positions in the filtered order**, and switching
 //! the filter replaces that order without changing any data — so nothing inside the collection can
 //! notice, and the frame after would draw a perfectly correct list with the wrong messages
 //! selected. The caller stamps a fresh revision on the change, the component compares one `u64`
@@ -87,7 +87,7 @@
 //!
 //! # Three things this application cannot say, and they are the surface's to fix
 //!
-//! 1. **A segmented control is the store and not the component.** §5 names *tabs* and *segmented
+//! 1. **A segmented control is the store and not the component.** The freeze names *tabs* and *segmented
 //!    control* among the seven `collection` absorbs, and the **policy** really is one arm of
 //!    `apply` — but `collection` virtualises **rows**, so a strip laid out left to right cannot be
 //!    drawn through its row loop: the rectangle a row drawer is handed is `(0, i, w, 1)` in the
@@ -95,12 +95,12 @@
 //!    list of three with one visible. Written that way, the first draft of this file drew **one
 //!    tab and clipped the other two**. The View strip below is therefore vertical, which is honest;
 //!    a horizontal one shares `Selection` and `apply` and lays itself out.
-//! 2. **A collection cannot be given an id.** It mints one from its call site (ADR 0013), so an
+//! 2. **A collection cannot be given an id.** It mints one from its call site, so an
 //!    application cannot name it before the first draw — which is why the focus is seated from the
 //!    `Response` this frame returned rather than before the frame starts. It costs one frame, and
-//!    architecture issue 25's rule (`cx.focused().is_none()`) still does the work.
-//! 3. **`Ctx::with_id` cannot be used inside a scroll scope**, so ADR 0027's *wrap the row loop* is
-//!    written as *wrap the whole component*. That is a finding recorded in components ticket 12
+//!    the rule `cx.focused().is_none()` still does the work.
+//! 3. **`Ctx::with_id` cannot be used inside a scroll scope**, so *wrap the row loop* is
+//!    written as *wrap the whole component*. That is a finding recorded
 //!    rather than a thing this file works around.
 //!
 //! # Run it
@@ -199,7 +199,7 @@ fn starts_with_ci(hay: &str, needle: &str) -> bool {
 
 /// **The inner panels' options: a border and no padding ring.**
 ///
-/// Density is theme data and it changes rectangles (spec §3), so a padded panel spends two of its
+/// Density is theme data and it changes rectangles, so a padded panel spends two of its
 /// rows on the ring. That is right for a dialog and wrong for a list five rows tall — and getting it
 /// wrong shows up as a collection that draws one of its three entries, which is a *clip* and not a
 /// missing row. Stated once here rather than four times below.
@@ -234,7 +234,7 @@ struct App {
     last: String,
     /// **The revision of the message order**, moved when the view filter changes.
     ///
-    /// Components ticket 13, and it is the whole of §10 in one field: the message list stores
+    /// The whole of the data contract in one field: the message list stores
     /// *positions* in the filtered order, and switching the filter replaces that order without
     /// changing any data. Nothing inside the collection can notice — the frame after would draw a
     /// perfectly correct list with the wrong rows selected — so the caller stamps a fresh revision
@@ -298,7 +298,7 @@ impl App {
         self.action_menu(cx, actions);
         self.status(cx, status_row);
 
-        // **Seat the keyboard on the message list while nobody holds it.** Architecture issue 25's
+        // **Seat the keyboard on the message list while nobody holds it.**
         // rule, with the one wrinkle a component that mints its own id adds: the id is only knowable
         // after the draw, so this is the last statement rather than the first. Guarded on
         // `focused().is_none()` and **not** on `!is_focused(msg_id)`, which would drag the keyboard
@@ -312,7 +312,7 @@ impl App {
     ///
     /// The only difference from the folder list beneath it is **one arm of `apply`** — `Options`
     /// refuses to reach zero and `Single` clears on the second press. Every other line of the two
-    /// functions is the row drawer, which is ADR 0028's claim written out as two calls that differ
+    /// functions is the row drawer, which is the claim written out as two calls that differ
     /// in one field.
     ///
     /// It is **vertical**, and that is the finding in this file's header rather than a design
@@ -393,7 +393,7 @@ impl App {
             ..Default::default()
         };
         // **The tab's filter is a *view* over the same indices**, which is what makes this a
-        // function rather than a rebuilt list. Components ticket 13's order/index is the general
+        // function rather than a rebuilt list. The order/index pair is the general
         // form of it; here the filter is arithmetic and needs none.
         let at = |n: usize| match self.tabs.sel.lead {
             0 => n * 3,
@@ -537,14 +537,14 @@ fn main() {
         // `q` is read here from what nothing wanted, because a key an application owns cannot be
         // read inside a draw. **And a collection with a type-ahead buffer standing eats it** — this
         // file's own comment said *would have* and it is *does*: a focused collection consumes every
-        // text-bearing key (spec §5), so a plain `q` arrives only on a frame where nothing is
+        // text-bearing key, so a plain `q` arrives only on a frame where nothing is
         // focused. Measured: it quits in 270 ms or not at all, run to run. The check ignores the
         // modifiers, so `Ctrl+Q` satisfies it and `Ctrl` is not text.
         //
         // **And it is read from the frame that has just drawn.** `Driver::unhandled` is *a window
         // onto the same queue, valid until the next frame begins*, so reading it before the frame
         // read the previous frame's window and acted one wake late — which for a single keystroke
-        // means never. Measured on the shipped binary; components ticket 22's application found it
+        // means never. Measured on the shipped binary; an application found it
         // and every loop in this crate had it.
         let unhandled = driver.unhandled();
         if unhandled

@@ -11,7 +11,7 @@
 //! can answer the one question a person holding a broken screen has: **what did my terminal claim,
 //! and what did the engine decide because of it.**
 //!
-//! Detection is levels 1–5 of engine spec §10, and level 5 — [`quirks`] — is *field work*: one
+//! Detection is five levels of precedence, and the fifth — [`quirks`] — is *field work*: one
 //! terminal, one version range, one observed misbehaviour, none of it establishable from a document.
 //! This is the instrument that makes a report about somebody else's terminal possible at all, and it
 //! is deliberately the smallest application here: attach, read `Capabilities::report`, detach, print.
@@ -38,7 +38,7 @@ use vitui_runtime::ctx::Driver;
 
 fn main() {
     // **Attach and detach without drawing.** `Driver::attach` is what performs the live capability
-    // negotiation (ADR 0007), so the report has to come from a real attach — and a frame would put
+    // negotiation, so the report has to come from a real attach — and a frame would put
     // component behaviour between the terminal and the answer.
     let report = match Driver::attach(Default::default(), Default::default()) {
         Ok(driver) => driver.env().caps().report(),

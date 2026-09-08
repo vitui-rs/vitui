@@ -1,6 +1,6 @@
 //! A workspace of 258 313 nodes, folded and unfolded through a caller-owned flatten index.
 //!
-//! Components ticket 17's application, and the fifth in this crate. It is the first thing to put a
+//! The tree's application. It is the first thing to put a
 //! [`tree`] anywhere, and — like `ledger` one ticket before it — it exists because **the surface's
 //! only consumer is an application**: four of this crate's five files have found a defect its own
 //! gates could not see, and every one of them was found by drawing something the gates draw at
@@ -16,7 +16,7 @@
 //!   st.ask.drain()        the caller answers, after the draw, with `Order::fold` / `unfold`
 //! ```
 //!
-//! # What it demonstrates, and every claim of §7 is a key you can press
+//! # What it demonstrates, and every claim the tree makes is a key you can press
 //!
 //! | key | what it shows |
 //! |---|---|
@@ -26,17 +26,17 @@
 //! | `Space` | the selection, which survives a fold **because the fold is an interval** |
 //! | `f` | fold every crate: 258 248 rows out in one pass |
 //! | `u` | unfold everything |
-//! | `d` | draw through `collect::defective::unclamped_indent` — §7's negative case, live |
+//! | `d` | draw through `collect::defective::unclamped_indent` — the negative case, live |
 //! | `v` | the live counters, through a `Tally` |
-//! | `Ctrl+Q` | quit. **`q` alone is racy here** and the pair is the point: a focused `collection` consumes every text-bearing key into its type-ahead buffer (spec §5), so a plain `q` reaches the application only on a frame where nothing is focused. `Ctrl` is not text |
+//! | `Ctrl+Q` | quit. **`q` alone is racy here** and the pair is the point: a focused `collection` consumes every text-bearing key into its type-ahead buffer, so a plain `q` reaches the application only on a frame where nothing is focused. `Ctrl` is not text |
 //!
 //! **The selection is the one to watch.** Select a range with `Space` inside a subtree, fold the
 //! crate above it, and the status bar's `sel` does not change: a subtree is contiguous in pre-order
 //! display coordinates, so the edit is a [`Splice`] and the caller reconciles it exactly under
 //! [`Policy::Drop`]. Sort the same rows instead and the answer is a shattered span list — which is
-//! §10's table and is why `Clear` is a permutation's honest default.
+//! the data contract's table and is why `Clear` is a permutation's honest default.
 //!
-//! **`d` is the whole of §7's trap, on a screen.** The deep branch is a module chain 200 levels
+//! **`d` is the whole of the indent trap, on a screen.** The deep branch is a module chain 200 levels
 //! down; at eighty columns an unclamped indent has eaten the row long before it gets there. Press
 //! `v` and then `d` and watch it: the cells written do not move, the distinct cells do not move,
 //! and the **verbs go down**. The one number that moves is `asked`, and the `Tally`'s own version of
@@ -58,12 +58,12 @@
 //!
 //! 1. **There are no indent guides, and that is now a decision rather than a gap.** A guide column
 //!    at depth *d* is a fact about *d* ancestors, so a correct guide run is either data-proportional
-//!    per row or a fifth field on a record §7 fixes at eight bytes — four routes, all refused.
-//!    Components architecture 20 settled it by striking `VLine`, `TeeLeft` and `BottomLeft` from
+//!    per row or a fifth field on a record fixed at eight bytes — four routes, all refused.
+//!    It was settled by striking `VLine`, `TeeLeft` and `BottomLeft` from
 //!    `INVENTORY`'s `tree` row, which had declared them as *the indent guides* while the component
 //!    drew none: the freeze's glyph column is what a component draws. The shipped indent is one
 //!    `Ink::run` of spaces.
-//! 2. **A fold cannot be animated.** §8's `Collapse` is components ticket 22's, and until it lands a
+//! 2. **A fold cannot be animated.** `Collapse` belongs to the disclosure family, and until it lands a
 //!    fold is one frame.
 //!
 //! # Run it
@@ -110,7 +110,7 @@ const ITEMS: usize = 62;
 /// How deep the one deliberately deep branch goes.
 ///
 /// **Two hundred levels is four hundred indent columns**, which is past any terminal — so `d`'s
-/// negative case has something to be about. §7's own scene is at 59 999 and needs no screen.
+/// negative case has something to be about. The library's own scene is at 59 999 and needs no screen.
 const DEEP: u16 = 200;
 
 /// **The caller's forest: a pre-order depth array and a name a node.**
@@ -154,7 +154,7 @@ impl Forest {
         self.depth.len()
     }
 
-    /// **How many nodes hang under `i`, walked in the data.** The expensive half of §7's sentence,
+    /// **How many nodes hang under `i`, walked in the data.** The expensive half of the flatten,
     /// and it is here rather than in the frame: this is what the index exists so a frame never does.
     fn descendants(&self, i: usize) -> usize {
         let mine = self.depth[i];
@@ -227,7 +227,7 @@ struct App {
     forest: Forest,
     /// **The flatten index. The caller's, and the component may only ask.**
     index: Order,
-    /// The fold set, sorted. Caller state, which is §8's own table: *rows in a caller-owned index
+    /// The fold set, sorted. Caller state: *rows in a caller-owned index
     /// are collapsed by the caller, on request*.
     folded: Vec<u32>,
     tree: TreeState,
@@ -295,7 +295,7 @@ impl App {
         let id = self.draw_tree(cx, body);
         self.draw_status(cx, status);
 
-        // **Give it the keyboard while nobody has it** — architecture issue 25, and `counter.rs`
+        // **Give it the keyboard while nobody has it** — and `counter.rs`
         // says at length why it is `focused().is_none()` and not `!is_focused(id)`.
         if cx.focused().is_none() || std::mem::take(&mut self.reseat) {
             cx.focus(id);
@@ -321,7 +321,7 @@ impl App {
             }
             match key.code {
                 // **`Ctrl+Q` is bound beside it, in the branch above** — a focused `collection`
-                // consumes every text-bearing key into its type-ahead buffer (spec §5), so a plain
+                // consumes every text-bearing key into its type-ahead buffer, so a plain
                 // `q` reaches here only on a frame where nothing is focused. `Ctrl` is not text, so
                 // the chord is declined all the way out every time. `ledger` carries the same pair.
                 Code::Char('q') => self.exit = true,
@@ -350,7 +350,7 @@ impl App {
     /// - **The function is not, and cannot be.** `d` swaps `tree_into` for
     ///   `defective::unclamped_indent`, which is a *different component* as far as identity goes —
     ///   a second call site, a second id. That is the runtime being right rather than a limitation:
-    ///   two draws written at two lines are two widgets (ADR 0027). The application answers for it
+    ///   two draws written at two lines are two widgets. The application answers for it
     ///   by re-seating the focus on the frame after the toggle, which is what [`App::reseat`] is.
     fn draw_tree(&mut self, cx: &mut Ctx<'_, '_>, area: Rect) -> vitui_runtime::Id {
         let opts = TreeOpts {
@@ -482,7 +482,7 @@ impl App {
 
     /// **`Drop`, and the caller says it carried the positions across.**
     ///
-    /// The third of ADR 0031's three things. Without the `reconciled` call the next frame sees a
+    /// The third of the three things a reorder owes. Without the `reconciled` call the next frame sees a
     /// revision it does not recognise and clears every position the component holds — which is
     /// correct for an edit nobody explained and wrong for one the caller performed.
     fn reconcile(&mut self, edit: &Splice) {
@@ -506,7 +506,7 @@ impl App {
 
     /// Fold every crate, in one rebuild rather than one splice a crate.
     ///
-    /// **The one place a rebuild is the right answer**, and it is the crossover §7 names: this
+    /// **The one place a rebuild is the right answer**, and it is the crossover the tree names: this
     /// removes 99.9% of the index, which is the far side of it.
     fn fold_all(&mut self) {
         let before = self.index.len();
@@ -597,7 +597,7 @@ fn main() {
         // `Driver::unhandled` is *a window onto the same queue, valid until the next frame begins*,
         // so reading it **before** this application's frame read the previous frame's window and
         // acted one wake late — which for a single keystroke means never, because nothing wakes it
-        // again. Measured on the shipped binary: `q` did not quit. Components ticket 22's
+        // again. Measured on the shipped binary: `q` did not quit. An application's
         // application found it and every loop in this crate had it. A key this application owns
         // still cannot be read inside the draw — see `App::take_unhandled`; what moved is *which*
         // frame's window is read.

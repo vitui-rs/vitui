@@ -1,6 +1,6 @@
 //! **`gallery` — every built component on one screen, and `t` is the key to press.**
 //!
-//! Components ticket 39, and the implementation of `tickets/002`. Spec §17 (O2), §21.
+//! Every built component on one screen.
 //!
 //! ```text
 //! cargo run -p vitui-apps --example gallery              # the screen
@@ -18,7 +18,7 @@
 //! free to list its own panels is an application that can drift from the freeze in a direction no
 //! equality over the table can see — which is the whole of O2.
 //!
-//! The screen lives in the library crate for a reason that is not tidiness: spec §21 names two
+//! The screen lives in the library crate for a reason that is not tidiness: there are two
 //! defects to be measured **on the assembled gallery** — the sentinel and the palette swap, register
 //! rows 7 and 8 — and both are components tickets whose gate is `cargo test`. A screen only an
 //! application can reach is a screen no gate can measure.
@@ -26,11 +26,11 @@
 //! # `t` is not cosmetic, and this screen is where it is cheap enough to be a key
 //!
 //! `t` re-imports and re-resolves the whole theme on a live frame — fourteen schemes, thirteen
-//! roles, nine distinctions, both axes of §16's matrix. That is the test of *degradation is resolved
-//! at construction, never branched at the draw* (ADR 0032): if construction quietly meant *at
+//! roles, nine distinctions, both axes of the distinction matrix. That is the test of *degradation is resolved
+//! at construction, never branched at the draw*: if construction quietly meant *at
 //! start-up*, this key would stutter. `examples/gallery_numbers.rs` prints what it costs.
 //!
-//! It is also the most visible possible form of *a memo's key is every input* (spec §10). Six of the
+//! It is also the most visible possible form of *a memo's key is every input*. Six of the
 //! twenty-eight keep a memo — the two charts, the sparkline, the wrap index, the flatten index and
 //! the preview — and a memo keyed without the theme shows up here as a panel that keeps the old
 //! palette while its neighbours change.
@@ -38,7 +38,7 @@
 //! # `t` cannot be the only spelling, and the reason is O4
 //!
 //! **A focused `field` consumes every text-bearing key** and a focused `collection` eats one into
-//! its type-ahead buffer (spec §3, §5, components 38). This gallery has a `field`, a `form`, three
+//! its type-ahead buffer. This gallery has a `field`, a `form`, three
 //! collections and a picker on it, all one `Tab` away — so `t` reaches the theme only while the
 //! focus is somewhere that does not read text, and `Ctrl+T` is the spelling that always arrives.
 //! `ledger` and `explorer` bind `Ctrl+Q` beside `q` for exactly this; here **there is no `q` to
@@ -52,17 +52,17 @@
 //! | any character | into whatever holds the focus, which is what a `field` is *for* |
 //! | `t` `T` | the next or previous of the fourteen schemes — **eaten by a focused field** |
 //! | `Ctrl+T` | the next scheme, always |
-//! | `Ctrl+G` | the next of §16's three repertoires: ascii, unicode, extended |
-//! | `Ctrl+L` | the next of §16's three colour depths — watch the traffic light go monochrome |
+//! | `Ctrl+G` | the next of the three repertoires: ascii, unicode, extended |
+//! | `Ctrl+L` | the next of the three colour depths — watch the traffic light go monochrome |
 //! | `Ctrl+N` `Ctrl+P` | the next or previous page of panels |
-//! | `Ctrl+D` | `Compact` against `Cosy` — density is theme data (spec §3) |
+//! | `Ctrl+D` | `Compact` against `Cosy` — density is theme data |
 //! | `Ctrl+F` | ask the preview pane about the next file |
 //! | `Ctrl+O` | the counters on and off, through one `Ink` and one call site |
 //! | `Ctrl+Q` · `Esc` | quit |
 //!
 //! # Nothing here names crossterm, and that is the criterion met rather than excepted
 //!
-//! The ticket asks for the gallery to join ADR 0001's wrapper list because a gallery uses crossterm
+//! The gallery joins the crossterm wrapper list because a gallery uses crossterm
 //! "for raw mode, the alternate screen and input". **It needs none of that**: `Driver::attach` enters
 //! raw mode and the alternate screen, reads the input, and restores both — the panic hook included —
 //! and `deny.toml`'s `{ name = "crossterm", wrappers = ["vitui-engine"] }` is unchanged. The
@@ -128,7 +128,7 @@ impl App {
         let mut direct = Direct;
         // **Destructured, and the status text is read rather than cloned.** `ui_into` takes `&'f mut
         // self` of the gallery, so a later `self.line` would be `E0502`; a `clone` would compile and
-        // allocate on the frame path, which is the one thing §20 forbids outright.
+        // allocate on the frame path, which is the one thing forbidden outright.
         let App {
             gallery,
             counters,
@@ -241,7 +241,7 @@ impl App {
 /// **One headless frame at 300×80, and what it cost.**
 ///
 /// The budget is measured **in the gallery** and not only in isolated harnesses, which is the
-/// criterion §20 states and the four single-component screens over it are the reason for.
+/// criterion the four single-component screens exist for.
 fn probe() {
     for (w, h) in [(300u16, 80u16), (100, 30), (80, 24)] {
         let (cols, rows, per) = gallery::grid(w, h);
@@ -276,7 +276,7 @@ fn probe() {
                 "** tiles share an id **"
             }
         );
-        // **Register row 7, with the arm it replaced beside it.** A zero on its own cannot be told
+        // **The paired figure, with the arm it replaced beside it.** A zero on its own cannot be told
         // from an instrument that stopped reading, so the probe prints what the same screen leaves
         // behind when every remainder is left to whatever was already in the cells: three drawings
         // hand a rectangle back to their owner and, at 300x80, two slots of a six-by-five grid hold
@@ -290,7 +290,7 @@ fn probe() {
     }
 }
 
-/// **§16's nine cells, as counts.** Three repertoires against three colour depths, on this screen.
+/// **The matrix's nine cells, as counts.** Three repertoires against three colour depths, on this screen.
 fn matrix() {
     println!("== the nine cells, at 100x30 ==\n");
     println!(
@@ -365,7 +365,7 @@ fn main() {
     // wakes the loop rather than waiting for a keystroke.
     let mut app = App::new(Worker::hire(driver.wake()));
     // The terminal's own answer, told once at start-up. The registry detects nothing itself
-    // (ADR 0007) and starts at `ColorDepth::None`, which is the conservative answer and not a
+    //  and starts at `ColorDepth::None`, which is the conservative answer and not a
     // placeholder.
     let tier = driver.env().caps().colors;
     app.gallery.set_tier(tier);

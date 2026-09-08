@@ -1,6 +1,6 @@
 //! A build log of 120 000 entries in a scroll area whose bars are reserved and whose bands are views.
 //!
-//! Components ticket 19's application, and the sixth in this crate. It is the first thing to put a
+//! The scroll area's application. It is the first thing to put a
 //! `scroll_area` anywhere, and it exists for the reason every file here exists: **the surface's
 //! only consumer is an application**, and five of the six before it found a defect their own gates
 //! could not see.
@@ -13,7 +13,7 @@
 //!   cx.visible_rows()     the window, in **content cells**; the body iterates that and nothing else
 //! ```
 //!
-//! # What it demonstrates, and every claim of §9 is a key you can press
+//! # What it demonstrates, and every claim the scroll family makes is a key you can press
 //!
 //! | key | what it shows |
 //! |---|---|
@@ -26,7 +26,7 @@
 //! | `v` | the live counters, through a `Tally` |
 //! | `q` `Ctrl+Q` | quit |
 //!
-//! **`u` is the one to watch, and it is the whole of §9's unit rule.** One entry in eight is three
+//! **`u` is the one to watch, and it is the whole of the unit rule.** One entry in eight is three
 //! rows tall, so `Σ h` is **150 000 cells over 120 000 entries**. Measured in rows the area's
 //! furthest offset is 119 986 instead of 149 986, `End` reaches **entry 95 999 of 119 999** and
 //! calls it the end, and **nothing on the screen looks wrong** — the thumb is a plausible size in a
@@ -34,7 +34,7 @@
 //! writes, distinct, verbs and regions are the same numbers at both ends of the content. A fifth of
 //! the log is unreachable and the only thing that says so is the entry number in the gutter.
 //!
-//! **`n` is §9's one-hit-entry rule, and the reason it is a key rather than a sentence.** Four bands
+//! **`n` is the one-hit-entry rule, and the reason it is a key rather than a sentence.** Four bands
 //! come and go and `regions` stays at one plus the two bars. A band that published a scrollable
 //! region of its own would be a second scroll area and would win the wheel from the body it is a
 //! header of; that this cannot happen is not a promise the component makes, it is a number on the
@@ -52,7 +52,7 @@
 //!
 //! Four bands stand — a header, a footer, a pinned column of entry numbers and the gutter where they
 //! meet — and **not one of them declares a hit entry**: the status line's `regions` never moves when
-//! they come and go. Spec §9 says why. A band that were a second scroll area would win the wheel
+//! they come and go, and why: a band that were a second scroll area would win the wheel
 //! from the body it is a header of, and the wheel over this screen belongs to one region.
 //!
 //! # It does not depend on the facade
@@ -86,7 +86,7 @@ const GUTTER: u16 = 9;
 /// **The caller's index, and the component never sees it.**
 ///
 /// `ytop` is the prefix sum of the heights — `ENTRIES + 1` entries, four bytes each — and it is the
-/// only structure in this file a frame is not allowed to walk. ADR 0002: the engine lays nothing
+/// only structure in this file a frame is not allowed to walk. The engine lays nothing
 /// out, and by the same rule a scroll area iterates nothing.
 struct Log {
     ytop: Vec<u32>,
@@ -104,7 +104,7 @@ impl Log {
         Log { ytop }
     }
 
-    /// **`Σ h`, in content cells.** Spec §9's extent, and never the entry count.
+    /// **`Σ h`, in content cells.** The extent, and never the entry count.
     fn cells(&self) -> u32 {
         *self.ytop.last().unwrap_or(&0)
     }
@@ -131,7 +131,7 @@ impl Log {
 /// Which unit the extent is declared in. **`Cells` is the answer and `Rows` is the defect.**
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Unit {
-    /// `Σ h`. Spec §9.
+    /// `Σ h`.
     Cells,
     /// The entry count, handed over as if it were a length in cells.
     Rows,
@@ -149,7 +149,7 @@ struct App {
     /// What the last frame wrote, when the counters are on.
     seen: (u64, u64, u64, usize),
     /// **How many hit entries the frame before declared**, read from `Driver::inspect` after the
-    /// draw. It is on the screen because it is the gate §9 states as a sentence: four bands stand
+    /// draw. It is on the screen because it is the gate stated as a sentence: four bands stand
     /// and this number does not move.
     regions: usize,
     /// **The viewport and the furthest offset the last frame actually produced.**
@@ -231,7 +231,7 @@ impl App {
                 Code::PageDown => self.st.offset.1 = (self.st.offset.1 + page).clamp(0, max),
                 Code::Left => self.st.offset.0 = (self.st.offset.0 - 4).max(0),
                 Code::Right => self.st.offset.0 += 4,
-                // **A reveal and not a position**, which is spec §9's fourth site: the component
+                // **A reveal and not a position**, which is the fourth site: the component
                 // takes it as a delta in content cells and clamps it against the extent it was
                 // declared. Under `u` the last entry is not reachable and `End` stops short.
                 Code::Home => self.reveal = Some(0),
@@ -362,7 +362,7 @@ impl App {
                         // reported.** `Written::cells` is columns *written*, which inside a
                         // scrolled scope is what survived the clip: at a horizontal offset of 100
                         // the text lands on content 100..180 and reports 80, and a run started at
-                        // content column 80 would blank every visible cell of the row. ADR 0022's
+                        // content column 80 would blank every visible cell of the row. clamp-and-discard's
                         // clamp-and-discard, met from the caller's side.
                         let used = width(cut);
                         ink.run(
@@ -494,7 +494,7 @@ fn main() {
         // `Driver::unhandled` is *a window onto the same queue, valid until the next frame begins*,
         // so reading it before this application's frame read the *previous* frame's window and acted
         // one wake late — which for a single keystroke means never. Measured on the shipped binary:
-        // `q` did not quit. Components ticket 22's application found it and every loop in this crate
+        // `q` did not quit. An application found it and every loop in this crate
         // had it.
         //
         // **This loop once drew a reveal's second frame itself, right here**, and it no longer does.
@@ -502,7 +502,7 @@ fn main() {
         // and the component applies it through `take_into_view` on the next one — and nothing asked
         // for that second frame, so `End` drew, requested and parked: the list moved on the *next*
         // keystroke. This program is where it was found, because it is the first to drive a reveal
-        // from a key an **application** owns. Runtime architecture issue 33 put the ask in the
+        // from a key an **application** owns. The ask went in the
         // runtime, where both producers meet and where a wake policy belongs; what stands here is
         // the ordinary loop, and the reveal arrives as a `Wake::Deadline` below.
         let unhandled: Vec<Pressed> = driver.unhandled().to_vec();

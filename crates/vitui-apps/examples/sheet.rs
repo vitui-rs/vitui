@@ -1,6 +1,6 @@
 //! A spreadsheet viewer whose offset belongs to the application, not to a component.
 //!
-//! Components ticket 45's application, and the seventeenth in this crate. It exists because O7 —
+//! The sticky-header application. It exists because the obligation that every component has a consumer —
 //! *every component this crate declares is exercised by an application* — was owed three rows when
 //! it was built, and this screen is what closed them: [`scrollbar`], [`sticky`] and
 //! [`file_picker`](vitui_components::files::file_picker).
@@ -27,7 +27,7 @@
 //!
 //! [`scroll_area`](vitui_components::scroll::scroll_area) is the component that **owns** the offset:
 //! it reserves the bars, computes the four bands, applies the reveal, clamps, draws the tail and
-//! consumes the wheel. Spec §9 states [`sticky`] and [`scrollbar`] as the pieces underneath it —
+//! consumes the wheel. [`sticky`] and [`scrollbar`] are the pieces underneath it —
 //! *one band construction with an axis argument*, and *a bar over one `Span`, which does not own an
 //! offset* — and **nothing in this workspace had ever called either of them from outside
 //! `scroll_area`.** Both were `built: true` with no consumer anywhere but the component that homes
@@ -39,7 +39,7 @@
 //! | what | where it is here | what happens without it |
 //! |---|---|---|
 //! | the clamp | `App::clamp` | the body draws nothing and the bars point off the end |
-//! | the tail | `App::tail` | §2's partition rule breaks: cells past the extent keep whatever was there. Press `t` |
+//! | the tail | `App::tail` | the partition rule breaks: cells past the extent keep whatever was there. Press `t` |
 //! | the wheel | `Ctx::scrollable` + `Response::scrolled` | the wheel chains outward to the panel and the grid never moves |
 //! | the reveal | not written at all | see *what this application cannot say* |
 //!
@@ -61,11 +61,11 @@
 //! **`t` is the one to watch, and it needs `tiny.csv`.** A sheet larger than the viewport has no
 //! tail: every cell of the body is a cell of the document. Open the six-row file, and the rows past
 //! the end of it belong to nobody — `scroll_area` writes them and this screen has to, because
-//! **spec §2 assigns the remainder to whoever owns the rectangle** and here that is the
+//! **the remainder belongs to whoever owns the rectangle** and here that is the
 //! application.
 //!
 //! **`Tab` is the second.** The grid declares `Interest::FOCUS` and reads no key of its own, so
-//! every keystroke falls through to [`Driver::unhandled`] — which is components ticket 38's control
+//! every keystroke falls through to [`Driver::unhandled`] — which is the control
 //! arm as a screen: *a tab stop that reads no key*. Move the focus to the picker and the arrows stop
 //! being the grid's, because a shut picker binds `Down` to *open the list*.
 //!
@@ -74,15 +74,15 @@
 //! **The picker's popup had no keyboard at all**, and this screen is where a person pressing keys
 //! reproduced it: the list drew a plain collection, seated no focus and declared no refusal, so an
 //! open picker had no arrows, no `Home`/`End`, no type-ahead and no way to choose a file — on a
-//! screen that rendered perfectly. Found by ticket 38's sweep, filed as components architecture
-//! issue 23, and **repaired there**: the popup now takes the keyboard from its owner, `Enter`
+//! screen that rendered perfectly. Found by a sweep and **repaired**: the popup takes the
+//! keyboard from its owner, `Enter`
 //! chooses the file under the cursor and `Esc` cancels without disturbing what was chosen before.
 //! Nothing in this file changed for it, which is the point — the keyboard belongs to the component.
 //!
 //! What is still true here, and is a decision rather than a gap: **the preview pane inside the
 //! popup has no keyboard either**, and it is not going to. Its document is a function of the list's
 //! cursor, so a key that scrolled the pane would be operating on something the next arrow press
-//! replaces; the pane is scrolled with the pointer. See issue 23's third decision.
+//! replaces; the pane is scrolled with the pointer.
 //!
 //! **There is no reveal.** `Ctx::request_into_view` addresses the widget that owns the offset, and
 //! here that is an application rather than a widget: nothing declared a scroll scope's id to ask
@@ -90,7 +90,7 @@
 //! that a component drawn *inside* this grid could not ask to be scrolled to, which is the one thing
 //! a hand-assembled area cannot buy back.
 //!
-//! **The bars are the caller's rectangles.** `scroll_area`'s hysteresis — §9's fixpoint, where an
+//! **The bars are the caller's rectangles.** `scroll_area`'s hysteresis — the bar fixpoint, where an
 //! auto-hiding bar loses a row and a column permanently — cannot happen here, because nothing on
 //! this screen decides whether a bar stands. That is not the caller doing better; it is the caller
 //! having declared the question away.
@@ -264,7 +264,7 @@ struct App {
     sheet: Sheet,
     /// **The offset, and it is the whole point of the screen.** In content cells on both axes.
     offset: (i32, i32),
-    /// Whether the caller writes the cells past the extent. Spec §2's partition rule, under `t`.
+    /// Whether the caller writes the cells past the extent. The partition rule, under `t`.
     tail: bool,
     /// Whether a column is pinned at all.
     pinned: bool,
@@ -333,7 +333,7 @@ impl App {
         let (grid, foot) = rect::split_at_v(rest, rest.h.saturating_sub(2));
         let (hbar, status) = rect::split_at_v(foot, 1);
 
-        // **The two bars are rectangles the caller reserved**, which is the half of §9 a component
+        // **The two bars are rectangles the caller reserved**, which is the half a component
         // usually decides. Nothing on this screen asks whether they should stand.
         let (grid, vbar) = rect::split_at_h(grid, grid.w.saturating_sub(1));
         let pinned_w = if self.pinned { GUTTER } else { 0 };
@@ -427,7 +427,7 @@ impl App {
             let _ = ink.text(cx, left_foot.x, left_foot.y, "      ", border);
         }
 
-        // **The footer: `Shares::X` again**, which is what makes §9's four bands three arms.
+        // **The footer: `Shares::X` again**, which is what makes four bands three arms.
         sticky(cx, footer, Shares::X, offset, |cx| {
             let span = grid_row(
                 &mut line,
@@ -446,13 +446,13 @@ impl App {
         // **The body, at content coordinates**, under the grid's own id so that the scroll scope and
         // the hit entry are one widget. `Ctx::with_id` is outside the scope and not around it
         // because the id names the whole area — which was also the only thing that worked until
-        // runtime architecture issue 31: inside, `with_id` re-childed the view at the *content's*
+        // an older defect: inside, `with_id` re-childed the view at the *content's*
         // rectangle.
         cx.with_id(GRID, |cx| {
             cx.scroll_scope(GRID, view, offset, max, |cx| {
                 for i in 0..i32::from(view.h) {
                     let row = offset.1 + i;
-                    // **The tail, and §2 assigns it to whoever owns the rectangle.** Here that is an
+                    // **The tail, and the partition rule assigns it to whoever owns the rectangle.** Here that is an
                     // application: a row past the end of the document belongs to nobody, and `t`
                     // is what stops this screen writing it.
                     if row >= ey && !fill {
@@ -535,7 +535,7 @@ impl App {
             &PickerOpts::default(),
         );
 
-        // **Nothing holds the focus until an application says so** (architecture issue 25), and the
+        // **Nothing holds the focus until an application says so**, and the
         // grid is what it is seated on: a tab stop that reads no key, so every keystroke reaches
         // `Driver::unhandled`.
         if cx.focused().is_none() {

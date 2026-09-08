@@ -1,9 +1,9 @@
 //! **`vitals` — six components composed of proved mechanisms, and `g` is the key to press.**
 //!
-//! Components ticket 34's application, and the only consumer of the six Tier 2 components that is
+//! The Tier 2 application, and the only consumer of the six composed components that is
 //! not a gate: the three toggles, [`meter`](vitui_components::indicate::meter),
 //! [`sparkline`](vitui_components::indicate::sparkline) and
-//! [`rule`](vitui_components::structure::rule). Spec §17, §18 R2.
+//! [`rule`](vitui_components::structure::rule).
 //!
 //! **It reaches them through the `_into` spellings** — `toggle_into`, `meter_into`,
 //! `sparkline_into`, `rule_into` — because `--probe` chooses its [`Ink`] at run time and a second
@@ -19,7 +19,7 @@
 //!
 //! # What it is for, and `g` is the key to press
 //!
-//! §17 froze nine rows at **Tier 2 — composed of proved mechanisms**, and the risk in shipping one
+//! Nine rows are frozen at **Tier 2 — composed of proved mechanisms**, and the risk in shipping one
 //! is that the composition turns out to introduce something new. Six of them are here, and what a
 //! screen can show that a gate cannot is the **repertoire axis**: `g` steps the glyph rung through
 //! [`RUNGS`], and three things happen at once.
@@ -29,7 +29,7 @@
 //!   `chart`'s ladder `1 / 8 / 8` on a component that is not a chart, and the whole of why the
 //!   freeze gives `meter` `constructions: 2`.
 //! - The **checkbox** and the **radio** change their marks — `✓` becomes `x`, `•` becomes `*` —
-//!   because their state is carried on the glyph axis and §16's rule is that no spelling is blank.
+//!   because their state is carried on the glyph axis and no spelling may be blank.
 //! - The **switch** does not change at all. Its `glyphs` column in the freeze is **empty**, and that
 //!   is the point rather than a hole: its state is two words, the side its knob sits on and the
 //!   face — three axes, and only one of them is the palette.
@@ -39,7 +39,7 @@
 //! `a` pushes one sample onto a series of a hundred thousand points and the status bar prints the
 //! **fold count**. Press it ten times and the count goes up by ten; hold `Tab` down and it does not
 //! move at all. The memo is the caller's — this application owns the `PlotState` — which is rule 2
-//! of spec §1 and the reason the component takes it by `&mut`.
+//! of the component shape, and the reason the component takes it by `&mut`.
 //!
 //! # Keys
 //!
@@ -65,7 +65,7 @@
 //! `Ctx::id` mints from `Location::caller()` and there is one call site inside the loop below, so
 //! without `cx.with_key` all three toggles would be **one** widget: the first would be clickable and
 //! the other two inert, with every mark in the right place and the screen looking perfect. That is
-//! ADR 0027's defect, and `vitui_components::media`'s chrome shipped it twice.
+//! The identity defect, and `vitui_components::media`'s chrome shipped it twice.
 
 use std::env;
 
@@ -125,7 +125,7 @@ const POINTS: usize = 100_000;
 
 /// Everything this application knows.
 struct App {
-    /// The three toggles' values. **The widgets' own, never application data** — spec §1's rule 2,
+    /// The three toggles' values. **The widgets' own, never application data**,
     /// and the reason each of them takes a `&mut bool` rather than an index into this.
     on: [bool; 3],
     /// The six cores' loads, `0.0..=1.0`.
@@ -167,7 +167,7 @@ struct Seen {
     /// Cells written. `--probe` only.
     writes: u64,
     /// How many of them were distinct. **The partition equality as a number** — this application
-    /// assembles its own rectangles, so §2's rule is its to keep, and three of this crate's tickets
+    /// assembles its own rectangles, so the partition rule is its to keep, and three of this crate's applications
     /// found the same hole in their own applications first.
     distinct: u64,
     /// How many verbs it took.
@@ -293,7 +293,7 @@ impl App {
                 )
                 .id
             });
-            // **Nothing holds the focus until an application says so** (architecture issue 25).
+            // **Nothing holds the focus until an application says so**.
             // `Frame::focused` starts `None`, and `toggle_into` reads its keys through
             // `Ctx::next_key(id)`, which answers only the focused id — so without this line the
             // key table's `Space` and `Enter` do nothing at all until the user presses `Tab` or
@@ -304,7 +304,7 @@ impl App {
             //
             // **`is_none` and not `!is_focused`**: dragging the keyboard back to the first toggle
             // whenever the user tabs away is a `Tab` that appears to do nothing, which is exactly
-            // the pair issue 25 gates.
+            // the pair the focus gate covers.
             if cx.focused().is_none() {
                 cx.focus(id);
             }
@@ -566,7 +566,7 @@ fn probe(app: &mut App) {
         );
     }
 
-    // **And the partition, swept.** An application that assembles its own rectangles owes §2's
+    // **And the partition, swept.** An application that assembles its own rectangles owes the partition rule's
     // equality over the ones it made up, and three of this crate's tickets found the hole in their
     // own application rather than in a component — `mixer` left four columns a channel to whatever
     // was there before, and `reader` blanked its body at a horizontal offset. One size proves

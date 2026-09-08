@@ -1,7 +1,7 @@
 //! **A general ledger of a million entries, twelve columns, and both edges pinned.**
 //!
-//! The application components ticket 15 is for. `table` is `collection` **plus a column rect split**
-//! (spec §6, ADR 0028), and the three claims that sentence carries are all things you have to watch
+//! The table's application. `table` is `collection` **plus a column rect split**, and the three
+//! claims that sentence carries are all things you have to watch
 //! rather than be told:
 //!
 //! ```text
@@ -19,9 +19,9 @@
 //!
 //! # The `+` is paid in verbs, and the counter is on the screen
 //!
-//! §6's headline is that a table and a list write **the same cells** and differ in **drawing
+//! The headline is that a table and a list write **the same cells** and differ in **drawing
 //! calls** — a table cuts each row into one short run per column where a list writes one long one,
-//! and §2's partition rule then makes each column two verbs, the text and the padding after it.
+//! and the partition rule then makes each column two verbs, the text and the padding after it.
 //! `Alt+1` draws the same rectangle as one column and `Alt+2` as twelve: the cell count does not
 //! move and the verb count does, by an order of magnitude.
 //!
@@ -67,7 +67,7 @@
 //! | `Alt+s` | reverse the order and **do not** reconcile. The revision the component compares once a frame stops matching, and the editor closes and the cell selection empties — because every one of those is a position in an order that has been replaced |
 //! | `Alt+S` | reverse the order **and carry the positions across**. The editor follows its row, the cursor follows, and the spans are remapped — one call each, at any length, because a slot is one position |
 //!
-//! Only the caller can do the second one, and that is ADR 0031 rather than a limitation: the
+//! Only the caller can do the second one, and that is deliberate rather than a limitation: the
 //! component was not told what the permutation was. `Alt+s` is the honest default for an edit
 //! nobody explained.
 //!
@@ -77,7 +77,7 @@
 //! **row** instead — one microsecond cheaper and correct until a cell declares a target — the first
 //! cell of each row would answer and the other eleven would be inert, on a screen that renders
 //! pixel for pixel identically. `merges` is the only counter that sees it, which is why components
-//! ticket 15 gates it with a count and not with a picture.
+//! it is gated with a count and not with a picture.
 //!
 //! # A million entries and no ledger
 //!
@@ -91,7 +91,7 @@
 //! 1. **A table has no horizontal wheel.** The vertical offset is `collection`'s and is applied
 //!    from *this frame's* wheel inside the draw; `TableState::hoff` is the caller's, because the
 //!    column solve runs **before** the row pass and a wheel read where the vertical one is read
-//!    would land a frame late — which is the defect runtime ticket 14 found and removed. So the
+//!    would land a frame late — which is the defect that was found and removed. So the
 //!    band moves under `Alt+←/→` and not under a trackpad.
 //! 2. **The header cannot be measured while it is drawn.** `Alt+h` turns it on, and with it on the
 //!    body's view starts a row down: a recorder that unions in the coordinates of the `Ctx` the
@@ -115,7 +115,7 @@
 //! | `1` / `2` | draw as one column / as twelve |
 //! | `v` | the live counters, through a `Tally` |
 //! | `h` | the header |
-//! | `Ctrl+Q` | quit. **`q` alone is racy here** and the pair is the point: a focused `collection` consumes every text-bearing key into its type-ahead buffer (spec §5), so a plain `q` reaches the application only on a frame where nothing is focused. `Ctrl` is not text |
+//! | `Ctrl+Q` | quit. **`q` alone is racy here** and the pair is the point: a focused `collection` consumes every text-bearing key into its type-ahead buffer, so a plain `q` reaches the application only on a frame where nothing is focused. `Ctrl` is not text |
 //!
 //! **The plain letters are this application's luck and not the component's gift.** A key reaches
 //! the application only when the component declines it, and `collection` declines a letter only
@@ -293,7 +293,7 @@ fn columns() -> Vec<Column> {
     ]
 }
 
-/// **The same rectangle as one column**, which is `Alt+1` and §6's control.
+/// **The same rectangle as one column**, which is `Alt+1` and the control.
 ///
 /// A list, expressed as a table: the same rows, the same cells, and one verb pair a row instead of
 /// one a cell. What it isolates is the price of the `+`.
@@ -436,7 +436,7 @@ fn paint_cell<I: Ink>(
             },
         ),
     };
-    // **A partition of the cell**, which is the rule every drawer owes (§2): the text, then the
+    // **A partition of the cell**, which is the rule every drawer owes : the text, then the
     // padding after it, and no cell written twice. Both verbs go through the ink, so `writes`,
     // `distinct` and `verbs` are the frame's and not the header's.
     let cut = truncate(text, r.w);
@@ -554,7 +554,7 @@ impl App {
         };
     }
 
-    /// **Reverse the order.** `carry` is the difference between ADR 0031's two answers.
+    /// **Reverse the order.** `carry` is the difference between the two answers.
     fn sort(&mut self, carry: bool) {
         self.reversed = !self.reversed;
         self.rev = Revision::fresh();
@@ -621,7 +621,7 @@ impl App {
                 self.type_into_cell(cx, editor);
             }
             false => {
-                // Architecture issue 25's rule, with the wrinkle a component that mints its own id
+                // The focus rule, with the wrinkle a component that mints its own id
                 // adds: the id is only knowable after the draw, so this is the last statement
                 // rather than the first.
                 if cx.focused().is_none() || cx.is_focused(editor) {
@@ -900,7 +900,7 @@ impl App {
                 }
                 // **`Ctrl+Q` beside `q`, and both are bound** — the same arrangement as the four
                 // spellings above and for a sharper reason. A focused `collection` consumes every
-                // text-bearing key into its type-ahead buffer (spec §5), so `q` reaches this
+                // text-bearing key into its type-ahead buffer, so `q` reaches this
                 // function only on a frame where nothing is focused: it is racy, it always was, and
                 // it read as working because the old loop happened to read the window of the frame
                 // *before* the focus was seated. `Ctrl` is not text (`crate::keys::text` excludes
@@ -934,7 +934,7 @@ fn main() {
         // `Driver::unhandled` is *a window onto the same queue, valid until the next frame begins*,
         // so reading it **before** this application's frame read the previous frame's window and
         // acted one wake late — which for a single keystroke means never, because nothing wakes it
-        // again. Measured on the shipped binary: `q` did not quit. Components ticket 22's
+        // again. Measured on the shipped binary: `q` did not quit. An application's
         // application found it and every loop in this crate had it. A key this application owns
         // still cannot be read inside the draw — see `App::take_unhandled`; what moved is *which*
         // frame's window is read.

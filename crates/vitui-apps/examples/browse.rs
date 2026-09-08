@@ -1,6 +1,6 @@
 //! A file browser whose preview pane really decodes on another thread.
 //!
-//! Components ticket 32's application, and the eleventh in this crate. It is the first thing to put
+//! The preview pane's application. It is the first thing to put
 //! a [`file_preview_pane`](vitui_components::files::file_preview_pane) anywhere, and it exists for
 //! the reason every file here exists: **the surface's only consumer is an application**, and ten of
 //! the ten before it found something their own gates could not see.
@@ -29,7 +29,7 @@
 //! | `s` | **re-sort the listing.** One line of application code and no keystroke inside the pane |
 //! | `k` | key the question on the cursor's **position** instead. Then press `s` |
 //! | `o` | cycle the four offset spellings, on a long file and a short one |
-//! | `x` | declare no extent — §15's *unclamped*. Watch the pane go blank after a shrink |
+//! | `x` | declare no extent, so the offset is never clamped. Watch the pane go blank after a shrink |
 //! | `b` | advance the revision on every frame. The screen does not change and the fold count does |
 //! | `l` | take the landing inside the draw. The two status rows stop agreeing |
 //! | `p` | show the selected file as a **photograph** instead: one `Theme::custom` a cell |
@@ -41,7 +41,7 @@
 //! Nothing moves. The listing is in a different order, the cursor is on a different file, the pane
 //! is still showing the file that used to be at that position, and it will go on showing it for
 //! ever — because the question still matches, so nothing posts, so nothing wakes, so no frame
-//! corrects it. Press `k` again and the same `s` fixes it on the next frame. That is §10's memo-key
+//! corrects it. Press `k` again and the same `s` fixes it on the next frame. That is the memo-key
 //! rule through the one door whose trigger is not a gesture, and there is no keystroke anywhere
 //! that could have found it.
 //!

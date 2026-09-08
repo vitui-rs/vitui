@@ -1,6 +1,6 @@
-//! A media viewer where every claim of §14 is a key you can press.
+//! A media viewer where every claim the media family makes is a key you can press.
 //!
-//! Components ticket 30's application, and the tenth in this crate. It is the first thing to put a
+//! The media family's application. It is the first thing to put a
 //! [`picture`](vitui_components::media::picture) anywhere, and it exists for the reason every file
 //! here exists: **the surface's only consumer is an application**, and nine of the nine before it
 //! found something their own gates could not see.
@@ -23,7 +23,7 @@
 //! | `r` | draw the picture from the theme's thirteen roles instead. Zero customs, and a description |
 //! | `p` | the pairing inverted — `▄` where `▀` is right. **The screen still looks like a picture** |
 //! | `b` | the plot's ladder on a picture. Watch `g` start to matter, which is what it must not do |
-//! | `m` | collect the chapter marks on the draw path. The shape §21 found, kept as a negative case |
+//! | `m` | collect the chapter marks on the draw path — an allocation per frame, kept as a negative case |
 //! | `Space` | play / pause. **Nothing advances by itself** — the playhead is the part that needs a clock |
 //! | `←` `→` | seek. The value the drag writes, from the keyboard |
 //! | drag on the bar | the grab: press jumps, move carries, release moves nothing |

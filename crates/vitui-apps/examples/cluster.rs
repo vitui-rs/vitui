@@ -45,7 +45,7 @@
 //! key was consumed to do nothing and never reached this application. `crate::nav::step` reads `←`
 //! and `→` as `↑` and `↓`, so those two still go that way.
 //!
-//! **It was `owns_escape`'s defect one key over.** Components architecture 22 taught `Escape` to
+//! **It was `owns_escape`'s defect one key over.** `Escape` had been taught to
 //! decline when `apply` would clear nothing — *the component owns it exactly when it would clear
 //! something* — and left `Space` and `Ctrl+A` as they were, so k9s's `space` was `Ctrl+Space` here
 //! for the life of this port. `crate::collect::owns` is that narrowing said of the whole
@@ -59,10 +59,10 @@
 //! # The letters are commands, so the table's type-ahead must never match
 //!
 //! `d`, `l`, `y`, `s` and the rest are k9s's verbs, and **a focused collection eats every
-//! text-bearing key into its type-ahead buffer** (spec §5). The same reading `commander` uses works
+//! text-bearing key into its type-ahead buffer**. The same reading `commander` uses works
 //! here: the caller's search answers `None`, the component declines the key, and it arrives in
 //! `Driver::unhandled`. Filtering is a *field* — `/` — which is where a search belongs and what
-//! §5's own budget note says out loud.
+//! the collection's own budget note says out loud.
 //!
 //! # Keys
 //!
@@ -118,7 +118,7 @@ fn hash(s: &str) -> u64 {
 
 /// A pod phase, and the role it is drawn in.
 ///
-/// k9s colours these and so does this — through a `Role`, never a colour (ADR 0018).
+/// k9s colours these and so does this — through a `Role`, never a colour.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 enum Phase {
     Running,
@@ -663,7 +663,7 @@ impl Prompt {
     const fn sigil(self) -> &'static str {
         match self {
             // **k9s draws a dog here and this does not**, for `spf`'s reason one application over:
-            // §16's repertoire ladder is ascii · unicode · extended, the theme names twenty glyphs
+            // The repertoire ladder is ascii · unicode · extended, the theme names twenty glyphs
             // and none of them is a mascot, and a hard-coded emoji is a wide cluster outside all
             // three rungs. The sigil is the key you pressed.
             Prompt::Command => " : ",
@@ -701,7 +701,7 @@ enum Act {
 
 /// **Every binding this application owns, and it is a [`KeyMap`] rather than a match on `k.code`.**
 ///
-/// The reason is ADR 0053, met the hard way. **One keystroke has four wire spellings** and a
+/// The reason is the wire encoding, met the hard way. **One keystroke has four wire spellings** and a
 /// terminal speaking the enhanced keyboard protocol picks the last two: `?` arrives as
 /// `CSI 47;2;63u` — the base key `/`, the shift bit, and `?` as the text — or as `CSI 47;2u`, which
 /// says `/` and shift and nothing about `?` at all. A match on `Code::Char('?')` sees neither, so
@@ -717,7 +717,7 @@ enum Act {
 /// **Order is precedence** ([`KeyMap::match_first`] takes the first match), and it is load-bearing
 /// twice: `?` is bound before `/` and `Shift+N` before anything reading a bare `n`, or the alternate
 /// for the shifted key would be swallowed by the unshifted one.
-/// **`?`, on every wire spelling ADR 0053 names, in one place.**
+/// **`?`, on every wire spelling a terminal can send it as, in one place.**
 ///
 /// [`key_map`]'s own `shifted` helper is a closure inside that function and is not reachable from a
 /// draw, so the help modal's *close* arm re-spelled the pair by hand — a second place for one of the
@@ -943,7 +943,7 @@ impl App {
     /// Rebuild the row list of the top view: the namespace, then the filter, then the sort.
     ///
     /// **One pass and one stamp.** The revision is what lets the table drop a cursor it can no
-    /// longer trust rather than keep one pointing at a row that has moved (§10).
+    /// longer trust rather than keep one pointing at a row that has moved.
     fn relist(&mut self) {
         let keep = self.filter.to_lowercase();
         let ns = self.namespace;
@@ -1055,7 +1055,7 @@ impl App {
             self.draw_crumbs(cx, crumbs);
         }
 
-        // **Nothing holds the focus until this application seats it** (architecture issue 25), and
+        // **Nothing holds the focus until this application seats it**, and
         // the prompt takes it away from the table while it is open — which is what stops a `d`
         // meant for the filter being read as *describe*.
         let busy = self.deleting.is_some() || self.helping;
@@ -1151,7 +1151,7 @@ impl App {
         // The two mnemonic columns: the namespaces `0`..`4`, and the actions.
         let [ns_col, act_col] = Row::new().split(mnemonics, [Weight(1), Weight(1)]);
         // **Both columns are written to their own height, not to their content's.** A band the
-        // application composes is a rectangle the application owes in full (spec §2): the seventh
+        // application composes is a rectangle the application owes in full: the seventh
         // row of the namespace column has no namespace in it, and left unwritten it keeps whatever
         // the *previous* frame put there — which on this screen was a pod's `Running`.
         let here = self.namespace;
@@ -1652,7 +1652,7 @@ fn draw_help(cx: &mut Ctx<'_, '_>, r: Rect, pending: &mut Option<Act>) {
 
 /// Write one cell, keeping a one-cell gutter on the right of a left-justified one.
 ///
-/// **A cell drawer owes its whole rectangle** (spec §2), so the gutter is *written* rather than
+/// **A cell drawer owes its whole rectangle**, so the gutter is *written* rather than
 /// left out: a left-justified name that fills its column otherwise runs into the column beside it,
 /// and the ellipsis lands against a digit. A right-justified cell carries its gutter in the text,
 /// because its padding is on the left.
@@ -2330,7 +2330,7 @@ fn main() {
         // **A focus move owes a frame too, and this loop deliberately no longer counts it.** The
         // ring resolves its walk in `settle`, *after* the draw, so the frame that consumed a `Tab`
         // painted the old focus ring with an empty `unhandled` — and this file used to compare
-        // `Driver::inspect().focused()` across frames because nothing else asked. Register entry 50
+        // `Driver::inspect().focused()` across frames because nothing else asked. The award's own wake
         // put the ask where the decision is made: `Frame::resolve_award` calls
         // `wants_another_frame`, which is `deadline(now)`, so `wait` returns at once rather than
         // parking on a screen a keystroke behind. Comparing here as well would be a second spelling

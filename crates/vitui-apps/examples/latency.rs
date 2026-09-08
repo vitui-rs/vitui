@@ -21,7 +21,7 @@
 //!
 //! **`fold` and `edit` are two different costs and the program times them apart.** `edit` is
 //! `Feed::push`, which is one `Vec::push` per trace and is flat in the volume by construction.
-//! `fold` is the [`plot_with`] call, which is where §13's raster is built — the number the volume
+//! `fold` is the [`plot_with`] call, which is where the raster is built — the number the volume
 //! actually moves, and the one the memo chain exists to skip on a still frame.
 //!
 //! **It moves by two orders of magnitude and not three**, and the three was a ratio read off the
@@ -30,12 +30,12 @@
 //! points and then writes a raster whose size is the rectangle. Those three are a **report and
 //! never a gate**, and **they are quoted from one home rather than spelled here**: the call being
 //! timed is the component crate's, so the number is too, and the `ref` readout reads the constant
-//! rather than three digits this file would have to keep true. §13's **1 849 000x** is the *hit
+//! rather than three digits this file would have to keep true. The **1 849 000x** figure is the *hit
 //! against miss* ratio of one fold against a memo that skipped it, which is the chain's figure
 //! rather than the volume's, and quoting it as this axis is how the sentence got a third order it
 //! never had.
 //!
-//! **What no readout here can show is the write count.** §13's flat figure — 21 872 writes at 1k,
+//! **What no readout here can show is the write count.** The flat figure — 21 872 writes at 1k,
 //! 100k and 1M — is measured by the crate's own instruments
 //! (`cargo run --release --example series_numbers -p vitui-components`), because nothing an
 //! application can hold carries a write counter: `Presented` says whether a frame was submitted,
@@ -54,9 +54,9 @@
 //! `Role::Danger` across a row of the plot's own `Role::Dim` cells, so whether it can be seen at
 //! all is `roles_differ_on_wire(Danger, Dim)` — and on the shipped Catppuccin Mocha palette that is
 //! **false at sixteen colours**, where `(Danger, Body)` is still true and collapses only at `none`.
-//! That is §16's *carried on both axes*, and the `wire` readout answers it for the live theme
+//! That is *carried on both axes*, and the `wire` readout answers it for the live theme
 //! rather than asking the reader to trust this paragraph: the pair that collapses is a fact about a
-//! palette, and ticket 28 recorded refusing to swap the palette to make an older sentence true.
+//! palette, and swapping the palette to make an older sentence true was refused and recorded.
 //!
 //! **The memo chain is two memos.** The readouts count raster folds against range folds. A resize
 //! moves the first and not the second; a new sample moves both; a still frame moves neither.
@@ -206,7 +206,7 @@ impl Feed {
     }
 
     /// **One sample onto each trace, which bumps both revisions.** The *edit*, and it is one
-    /// `Vec::push` per trace: flat in the volume, which is the half of §13's sentence this verb is.
+    /// `Vec::push` per trace: flat in the volume, which is the half of the sentence this verb is.
     fn push(&mut self, step: u64) {
         self.latency.push(&sample(step));
         self.requests.push(&[throughput(step)]);
@@ -266,8 +266,8 @@ struct App {
 
 /// The worker and the one-slot task the feed lands in.
 ///
-/// **Spec §17's resident thread, from an application rather than from a test.** Until runtime
-/// architecture issue 23 this was reachable from nowhere else: `Worker::hire` was public and
+/// **The resident worker thread, from an application rather than from a test.** This used to be
+/// reachable from nowhere else: `Worker::hire` was public and
 /// uninvokable because `Driver` owned its `Screen` privately and dropped the `WakeHandle`.
 struct Offload {
     /// **Held to keep the thread alive**, and read by nothing. Dropping a `Worker` closes its
@@ -293,7 +293,7 @@ struct Offload {
 /// is the second one.
 ///
 /// **Scoped, not global.** The permit is a guard around one `frame` call, so the detector is live
-/// for everything else this process does — declaring the loop once would delete spec §11's only
+/// for everything else this process does — declaring the loop once would delete the only
 /// instrument for the whole run.
 const FOLDING: &str = "folding a million-point series into a raster, which is the demonstration";
 
@@ -329,7 +329,7 @@ fn key_map() -> KeyMap {
         // `Chord::typed('+')` compares `keys::TYPED_INTENT` — the five intent modifiers that are
         // not `SHIFT` — so it matches whichever of the three spellings the terminal sends for the
         // character: the legacy byte, `CSI 43;2u`, and `CSI 61;2;43u` where the base layout is in
-        // `code` and the `+` is in `text`. Runtime architecture issue 28; this used to be three
+        // `code` and the `+` is in `text`. This used to be three
         // chords and a paragraph explaining why none of them worked.
         //
         // The alternate is the fourth spelling and is not a workaround: at kitty flag 1 alone the
@@ -421,9 +421,9 @@ impl App {
     /// **This is the fix for a panic rather than a flourish.** `Feed::build` at a million points
     /// took **250 ms on the app thread**, and `perf.rs`'s in-loop detector said so and aborted: *the
     /// app thread's iteration took 250.1 ms against a 16.7 ms frame budget*. It was unreachable
-    /// until the `+` binding was fixed, and it is the diagnostic working exactly as spec §11
+    /// until the `+` binding was fixed, and it is the diagnostic working exactly as
     /// describes. The other repair it offers — declaring the work — **could not be written here at
-    /// all** until runtime architecture issue 30: `permit_slow` is an inherent method on the
+    /// all** until the runtime forwarded it: `permit_slow` is an inherent method on the
     /// engine's `Screen` and this crate may not name the engine, so the diagnostic named a method
     /// the program could not call. `Driver::permit_slow` forwards it now, and the frames below are
     /// bracketed with it.
@@ -521,7 +521,7 @@ impl App {
         }
 
         // **The keyboard sink**, and nothing holds the focus until this application seats it —
-        // architecture issue 25. `focused().is_none()` and not `!is_focused(sink)`: the second takes
+        // `focused().is_none()` and not `!is_focused(sink)`: the second takes
         // the keyboard back every frame the user has tabbed away.
         let sink = cx.id();
         let _ = cx.interact(sink, area, Interest::FOCUS);
@@ -629,7 +629,7 @@ impl App {
             };
             // **A row at a time, and each is a partition of its own band.** `text` returns a
             // `Response` rather than the rows below it — that is `text::fit`'s shape and not
-            // `text`'s — so the caller cuts the band, which is spec §2's rule with the caller on
+            // `text`'s — so the caller cuts the band, which is the partition rule with the caller on
             // the correct side of it.
             let band = rect::shrink(area, 0, y, 0, area.h.saturating_sub(y + 1));
             let _ = text_with(cx, band, row, &opts);
@@ -685,7 +685,7 @@ fn main() {
 
     // **Sixty, and the feed's ten hertz is a different number.**
     //
-    // `Config::max_frame_rate` is a *ceiling on painting* — ADR 0004's minimum gap, not a tick —
+    // `Config::max_frame_rate` is a *ceiling on painting* — a minimum gap, not a tick —
     // and `perf.rs` derives both of its limits from it: the in-loop budget is one frame interval
     // and the observer's stall limit is 64 of them. This application damages on a tick and on
     // input, so it presents about ten times a second; what it is willing to do is sixty, and that
@@ -694,7 +694,7 @@ fn main() {
     // **It said ten for one commit and that was a workaround wearing a contract's clothes.** The
     // bars fold cost 476 ns a point then, so a million-point frame took a second and the only way
     // past the stall limit was to widen it. Declaring a low ceiling to survive a slow frame is
-    // exactly the shape of edit spec §21 forbids — a budget moved to fit a measurement — and the
+    // exactly the shape of edit that is forbidden — a budget moved to fit a measurement — and the
     // fold being 350x faster is what makes the honest number affordable again.
     let config = Config {
         max_frame_rate: 60.0,
@@ -709,8 +709,8 @@ fn main() {
     };
 
     // **The worker is hired here and nowhere earlier.** `Worker::hire` takes a `WakeHandle`, and
-    // the only way to hold one is `Driver::wake` — which runtime architecture issue 23 added for
-    // exactly this reason, and which is what makes spec §17's resident thread reachable from an
+    // the only way to hold one is `Driver::wake` — which was added for
+    // exactly this reason, and which is what makes the resident worker thread reachable from an
     // application at all.
     app.employ(driver.wake());
 

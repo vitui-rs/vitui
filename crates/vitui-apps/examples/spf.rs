@@ -21,7 +21,7 @@
 //!
 //! 1. **The theme has twenty glyphs and none of them is a file icon.** superfile is a nerd-font
 //!    application: every row carries a codepoint from a private-use range chosen by extension.
-//!    §16's repertoire ladder is ascii · unicode · extended, and a hard-coded private-use glyph
+//!    The repertoire ladder is ascii · unicode · extended, and a hard-coded private-use glyph
 //!    would be outside all three — so a directory here is a trailing `/` and the cursor is
 //!    `Glyph::ArrowRight`, both of which degrade with the ladder. This is the one difference a
 //!    reader will see first, and it is a real gap rather than a taste.
@@ -31,7 +31,7 @@
 //! 3. **A panel's border cannot carry the search bar either**, and superfile puts one there. It is
 //!    a row of the interior here, shown only while `/` is open.
 //! 4. **Every process row spins on one phase.** `SpinState` is an anchor and the clock is
-//!    `Ctx::now` (ADR 0051) — and it means two processes running at once are in step, where
+//!    `Ctx::now` — and it means two processes running at once are in step, where
 //!    superfile gives each its own model. **The anchor is seeded inside the draw and not where the
 //!    process is started**, which is the only place that sentence can be true: `Ctrl+V` is answered
 //!    out in the loop, where nothing holds a `Ctx`, so `paste` pushes a stopped spinner and
@@ -50,14 +50,14 @@
 //!
 //! `Ctrl+V` starts a copy: a `Process` with a total, a done count and a spinner. It advances one
 //! step every 140 ms, and the frame that advances it **asks for the next wake itself** —
-//! `Ctx::deadline`, because a paused application must cost zero wakeups (spec §11) and a process
+//! `Ctx::deadline`, because a paused application must cost zero wakeups and a process
 //! that finished must stop asking. That is the whole of the animation contract in an application:
 //! one anchor, one clock, one deadline, and no timer thread.
 //!
 //! # Rename is inline, and the row drawer is where it happens
 //!
 //! superfile renames in place, and so does this. The row drawer is a closure, so it can hold a
-//! `&mut Text` and call [`field`] for the cursor's row — which is worth saying because §5 fixes the
+//! `&mut Text` and call [`field`] for the cursor's row — which is worth saying because the
 //! *shipped* row signature at four arguments and none of them is an editor. The state a container
 //! needs is the caller's to capture, and `CollState::editing` is the component's own word for the
 //! same idea.
@@ -535,7 +535,7 @@ struct Process {
     done: u32,
     total: u32,
     /// **Stopped when the process is pushed**, and started by `App::tick` from the frame's own
-    /// `Ctx::now`: an anchor is the application's and a clock is not (ADR 0051).
+    /// `Ctx::now`: an anchor is the application's and a clock is not.
     spin: SpinState,
 }
 
@@ -608,7 +608,7 @@ const HELP: [(&str, &str); 19] = [
 // ── the keyboard, as a map ───────────────────────────────────────────────────────────────────────
 
 /// **`hotkeys.toml`'s bindings as a [`KeyMap`], and it is a map rather than a match on `k.code` for
-/// ADR 0053's reason.**
+/// the same reason.**
 ///
 /// **One keystroke has four wire spellings**, and a terminal speaking the enhanced keyboard
 /// protocol picks the last two: `?` arrives as `CSI 47;2;63u` — the base key `/`, the shift bit,
@@ -627,7 +627,7 @@ const HELP: [(&str, &str); 19] = [
 /// for every one of the five shifted/unshifted pairs: `J` before `j`, `L` before `l`, `H` before
 /// `h`, `?` before `/`. The alternate for the shifted key is a chord on the *unshifted* one, so the
 /// unshifted binding would otherwise swallow it.
-/// **`?`, on every wire spelling ADR 0053 names, in one place.**
+/// **`?`, on every wire spelling a terminal can send it as, in one place.**
 ///
 /// [`key_map`]'s own `shifted` helper is a closure inside that function and is not reachable from a
 /// draw, so the help modal's *close* arm re-spelled the pair by hand — a second place for one of the
@@ -902,7 +902,7 @@ impl App {
             if p.done < p.total {
                 // **The anchor is seeded here and nowhere else**, because this is the only place in
                 // the program holding a `Ctx`. A `SpinState` started from `Instant::now()` in the
-                // driver loop is a phase the application sampled itself, and ADR 0051's whole point
+                // driver loop is a phase the application sampled itself, and the whole point of a caller-owned anchor
                 // is that such a phase is invisible to `Driver::pin_clock` — the frame would still
                 // draw, and every spinner in it would be outside the one instrument that can hold a
                 // clock still. `SpinState::spinning` is what makes the seeding idempotent, so the
@@ -1111,7 +1111,7 @@ impl App {
                 let item = &tree.items[at];
                 // **The rename is drawn where the name would be**, which is superfile's own
                 // arrangement. The row drawer is a closure, so it can hold the `&mut Text` that
-                // §5's four-argument row signature has no room for.
+                // The four-argument row signature has no room for.
                 if cell.key == 0
                     && let Some((row, buf)) = renaming.as_deref_mut()
                     && *row == cell.row
@@ -1248,7 +1248,7 @@ impl App {
                 if i % 2 == 0 {
                     let cut = 3.min(r.w);
                     let (mark, rest) = rect::split_at_h(r, cut);
-                    // **A spinner is an anchor and the clock is `Ctx::now`** (ADR 0051): it stops
+                    // **A spinner is an anchor and the clock is `Ctx::now`**: it stops
                     // when the work does, and a stopped spinner asks for no frames.
                     spinner(cx, mark, &p.spin, "");
                     fit_with(
@@ -1489,7 +1489,7 @@ impl App {
 
     /// Seat the keyboard where `s`, `p`, `m`, `L` and `H` last put it.
     ///
-    /// **`focused().is_none()` and never `!is_focused(id)`** (architecture issue 25) — except when
+    /// **`focused().is_none()` and never `!is_focused(id)`** — except when
     /// this application's own focus word has moved, which is what the second arm is: a `Tab`
     /// between panels is superfile's key and not the runtime's walk here.
     fn seat_focus(&mut self, cx: &mut Ctx<'_, '_>) {
@@ -1506,7 +1506,7 @@ impl App {
             Focus::Process => self.proc_id,
             Focus::Metadata => self.meta_id,
         };
-        // **Only when this application asked, or when nobody holds it** (architecture issue 25).
+        // **Only when this application asked, or when nobody holds it**.
         // Seating unconditionally would drag the keyboard back on the frame after every `Tab`,
         // which is the anti-pattern `counter` documents — and here it would silently undo the ring.
         let Some(id) = want else {
@@ -1576,7 +1576,7 @@ impl App {
 
 /// Write one cell, keeping a one-cell gutter on the right of a left-justified one.
 ///
-/// **A cell drawer owes its whole rectangle** (spec §2), so the gutter is *written* rather than
+/// **A cell drawer owes its whole rectangle**, so the gutter is *written* rather than
 /// left out: a left-justified name that fills its column otherwise runs into the column beside it,
 /// and the ellipsis lands against a digit. A right-justified cell carries its gutter in the text,
 /// because its padding is on the left.
@@ -1632,7 +1632,7 @@ fn draw_help(cx: &mut Ctx<'_, '_>, r: Rect, pending: &mut Option<Act>) {
     while let Some(k) = cx.next_key(id) {
         // **`!k.mods.ctrl()` is load-bearing.** Written as `Code::Char('q')` alone, the arm below
         // also catches `Ctrl+Q` — so the application's quit chord closed the help instead of
-        // quitting, and the help then swallowed it. It is the shape components ticket 38 found one
+        // quitting, and the help then swallowed it. It is the shape a sweep found one
         // crate down: *`Esc` and `Space` are keys and not chords*, and a match on the code alone
         // eats every accelerator built on it.
         //
@@ -1848,7 +1848,7 @@ impl App {
     /// `Ctrl+V`: start a copy, which is what the process bar is for.
     ///
     /// **The process is pushed with a stopped spinner and `App::tick` starts it**, which is the
-    /// only arrangement ADR 0051 leaves: nothing out here has a `Ctx`, so nothing out here has a
+    /// only arrangement left: nothing out here has a `Ctx`, so nothing out here has a
     /// clock to seed an anchor from.
     fn paste(&mut self) {
         if self.clipboard.items.is_empty() {
@@ -2250,7 +2250,7 @@ fn main() {
         // **A focus move owes a frame too, and this loop deliberately no longer counts it.** The
         // ring resolves its walk in `settle`, *after* the draw, so the frame that consumed a `Tab`
         // painted the old focus ring with an empty `unhandled` — and this file used to compare
-        // `Driver::inspect().focused()` across frames because nothing else asked. Register entry 50
+        // `Driver::inspect().focused()` across frames because nothing else asked. The award's own wake
         // put the ask where the decision is made: `Frame::resolve_award` calls
         // `wants_another_frame`, which is `deadline(now)`, so `wait` returns at once rather than
         // parking on a screen a keystroke behind. Comparing here as well would be a second spelling

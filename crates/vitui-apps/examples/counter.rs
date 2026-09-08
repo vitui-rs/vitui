@@ -23,7 +23,7 @@
 //!
 //! **The keyboard arrives through one queue.** `cx.key_map` declares the bindings for the frame,
 //! `cx.next_key(id)` drains what this frame's batch carried, and a key nobody wants goes back with
-//! `cx.decline`. A frame consumes at most one routing edge (ADR 0016), so a burst of keystrokes is
+//! `cx.decline`. A frame consumes at most one routing edge, so a burst of keystrokes is
 //! several frames rather than one — which is why holding an arrow key counts up smoothly instead of
 //! jumping.
 //!
@@ -59,7 +59,7 @@ use vitui_runtime::{Ctx, Interest, Role, Themes};
 
 /// Everything this application knows. Two fields.
 ///
-/// **There was a third, and architecture issue 25 removed the need for it.** `Ctx::next_key` answers
+/// **There was a third, and asking whether anything holds the focus removed the need for it.** `Ctx::next_key` answers
 /// only the focused id — *nothing focused, nothing routed*, in its own doctest — and `frame.focused`
 /// starts as `None`, so an application that never calls [`Ctx::focus`] is deaf to the keyboard until
 /// a click awards the focus to something. That is exactly how it was found here: `->` did nothing
@@ -98,7 +98,7 @@ impl App {
         cx.key_map(map);
 
         // The block. `panel_with` returns the interior it handed over **and did not write** — spec
-        // §2's partition rule, which is why there is no second call to clear the inside.
+        // the partition rule, which is why there is no second call to clear the inside.
         let block = panel_with(
             cx,
             cx.area(),
