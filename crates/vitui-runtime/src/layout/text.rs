@@ -73,6 +73,8 @@ pub fn width(s: &str) -> u16 {
 /// zero-column band is reachable by dragging a terminal edge, and one line of nothing is a worse
 /// answer than no lines.
 ///
+/// # Examples
+///
 /// ```
 /// use vitui_runtime::layout::text;
 ///
@@ -110,6 +112,8 @@ pub fn wrap_height(s: &str, w: u16) -> usize {
 ///
 /// A double-width cluster that would straddle the edge is dropped rather than half-drawn: at `w == 3`
 /// the string `"a漢"` truncates to `"a"`, not to `"a漢"` overhanging by one nor to a broken cell.
+///
+/// # Examples
 ///
 /// ```
 /// use vitui_runtime::layout::text;

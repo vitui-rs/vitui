@@ -215,6 +215,8 @@ impl<T: Copy> Tween<T> {
     /// component's opinion about smoothness. The last frame of a tween returns `None`, which is what
     /// lets the screen sleep.
     ///
+    /// # Examples
+    ///
     /// ```
     /// # use std::time::{Duration, Instant};
     /// # use vitui_runtime::anim::Tween;

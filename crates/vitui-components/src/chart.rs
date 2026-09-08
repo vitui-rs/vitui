@@ -265,6 +265,8 @@ pub fn series_paint(theme: &Theme, i: usize, role_series: bool) -> Paint {
 /// definition of it, so the third repertoire rung buys a bar chart **nothing** — 0 cells differ
 /// between Unicode and Extended on `crate::series`' screen.
 ///
+/// # Examples
+///
 /// ```
 /// use vitui_components::chart::{Series, chart, raster::PlotState};
 /// use vitui_runtime::ctx::Driver;
@@ -335,6 +337,8 @@ pub fn chart_into<I: Ink>(
 /// ladder is **1x1 / 2x2 / 2x4** — 2, 16 and 256 states — and the third rung is `plot`'s alone,
 /// buying exactly one bit of vertical resolution and paying for it in series colour on the cells
 /// where two series meet.
+///
+/// # Examples
 ///
 /// ```
 /// use vitui_components::chart::{Series, plot, raster::PlotState};

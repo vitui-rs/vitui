@@ -1436,6 +1436,8 @@ impl KeyText {
     /// the only thing it could build is text nothing can match — and it would carry the overflow
     /// case this one does not have.
     ///
+    /// # Examples
+    ///
     /// ```
     /// use vitui_engine::KeyText;
     /// assert_eq!(KeyText::of('+').as_str(), "+");

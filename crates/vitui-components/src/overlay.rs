@@ -176,6 +176,8 @@ pub const MARK: u16 = 2;
 /// it are drawn, clipped, and reachable by nothing. Capping here is what turns *off the bottom* into
 /// *scrollable*, and [`gutter`] is the other half.
 ///
+/// # Examples
+///
 /// ```
 /// use vitui_components::overlay::popup_size;
 ///
@@ -238,6 +240,8 @@ impl Gutter {
 ///
 /// That is the whole of *0 passes against ≤ 3*, and it is why the decision has to be made here
 /// rather than owner-side: the owner does not know what it will be granted.
+///
+/// # Examples
 ///
 /// ```
 /// use vitui_components::overlay::gutter;
@@ -555,6 +559,8 @@ pub struct Shell {
 /// [`crate::popup::TABS`] `Tab`s walk straight out of the modal, and that is gated rather than
 /// assumed. Neither is reachable from [`ShellOpts`]: a constructor that could put down a barrier
 /// would have to run during the draw.
+///
+/// # Examples
 ///
 /// ```
 /// use vitui_components::overlay::{Kind, ShellOpts, overlay, overlay_with};

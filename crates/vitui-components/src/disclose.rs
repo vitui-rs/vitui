@@ -542,6 +542,8 @@ pub struct Disclosure {
 /// are 0 cells over 0 rows apart, because `Ctx::interact` appends to the hit index and to the ring
 /// before either looks at the rectangle. See [`defective::zero_rect`] and [`crate::accordion`].
 ///
+/// # Examples
+///
 /// ```
 /// use vitui_components::disclose::{Collapse, collapsible};
 /// use vitui_runtime::ctx::Driver;

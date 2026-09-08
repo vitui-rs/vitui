@@ -117,6 +117,8 @@ impl Default for BlockOpts<'_> {
 
 /// **Draw a frame with a title, and return the interior it did not write.**
 ///
+/// # Examples
+///
 /// ```
 /// use vitui_runtime::Rect;
 /// use vitui_components::frame::block;
@@ -446,6 +448,8 @@ pub const fn face_role(face: Face) -> Role {
 /// which is the whole defect C02's `Sel` enum was an instance of. A caller that needs the role —
 /// to hand to [`crate::text::fit_with`]'s two role fields, say — takes `face_role`; a caller that
 /// writes cells itself takes this.
+///
+/// # Examples
 ///
 /// ```
 /// use vitui_components::frame::{Face, face_paint, face_role};

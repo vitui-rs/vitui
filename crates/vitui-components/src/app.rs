@@ -164,6 +164,8 @@ impl Clears {
 
     /// The key the last clear was taken at. `0` for a caller that does not use one.
     ///
+    /// # Examples
+    ///
     /// ```
     /// use vitui_components::app::Clears;
     /// use vitui_components::ink::Direct;

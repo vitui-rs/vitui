@@ -462,6 +462,8 @@ impl<'a> View<'a> {
     /// - The painter's clip stack is a `Vec` that allocates at construction and **again, mid-frame,
     ///   whenever nesting outgrows the capacity someone guessed at.**
     ///
+    /// # Examples
+    ///
     /// ```
     /// use vitui_engine::{Rect, Style, Surface};
     /// let mut surface = Surface::new(6, 2);
@@ -485,6 +487,8 @@ impl<'a> View<'a> {
     /// list's cost proportional to the rows it shows and not to the rows it has.
     ///
     /// A viewport scrolled `n` rows down is `scrolled(0, -n)`: content row `n` is drawn at the top.
+    ///
+    /// # Examples
     ///
     /// ```
     /// use vitui_engine::{Rect, Style, Surface};
@@ -524,7 +528,9 @@ impl<'a> View<'a> {
 
     /// The rows of **this view's** coordinate space that the clip can show.
     ///
-    /// The visibility query, and the primitive that makes a virtualised component affordable:
+    /// The visibility query, and the primitive that makes a virtualised component affordable.
+    ///
+    /// # Examples
     ///
     /// ```
     /// # use vitui_engine::{Style, Surface};

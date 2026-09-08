@@ -220,6 +220,8 @@ impl Placement {
 ///    off the far edge at its stated size rather than being silently shrunk to fit, because a
 ///    component that was told it has forty columns and got twelve draws a lie.
 ///
+/// # Examples
+///
 /// ```
 /// use vitui_engine::Rect;
 /// use vitui_runtime::overlay::{Align, Placement, Side, place};

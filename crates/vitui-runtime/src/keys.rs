@@ -787,6 +787,8 @@ impl Matches {
 /// once.** That is a refusal rather than a limitation: the alternative is inventing a layout table,
 /// and the terminal already knows the answer this process cannot ask for.
 ///
+/// # Examples
+///
 /// ```
 /// use vitui_runtime::keys::{Chord, write_chord};
 /// use vitui_engine::KeyCode;

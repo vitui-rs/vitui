@@ -145,6 +145,8 @@ pub fn thumb(track: u16, span: Span) -> (u16, u16) {
 /// of its rectangle, so the return value would always be empty — and the one rectangle a caller
 /// needs afterwards is the thumb, which is the drag target.
 ///
+/// # Examples
+///
 /// ```
 /// use vitui_runtime::Rect;
 /// use vitui_components::scroll::{Span, bar};
@@ -620,6 +622,8 @@ pub fn reserved(free: (u16, u16), shown: Shown) -> (u16, u16) {
 /// that stacks two fields per row when it is narrow — flips the decision every frame with no
 /// input, which is why [`Hide::WhenItFits`] is not the default and why the extent is declared.
 ///
+/// # Examples
+///
 /// ```
 /// use vitui_components::scroll::{Hide, Shown, decide};
 ///
@@ -792,6 +796,8 @@ impl Band {
 /// the caller's, and a frame with four bands standing has exactly as many hit entries as the same
 /// frame with none.
 ///
+/// # Examples
+///
 /// ```
 /// use vitui_components::scroll::{Shares, sticky};
 /// use vitui_runtime::{Rect, ctx::Driver};
@@ -909,6 +915,8 @@ impl Default for ScrollbarOpts {
 /// inside one wins the wheel from the body it is a bar of. What it publishes is `Interest::CLICK`
 /// and `Interest::HOVER` and **never** `Interest::SCROLL`, so a wheel click over the bar chains
 /// outward to the area.
+///
+/// # Examples
 ///
 /// ```
 /// use vitui_components::scroll::{Span, scrollbar};
@@ -1264,6 +1272,8 @@ pub struct WhyAnAutoHidingBarNeedsADeclaredExtent;
 /// 999 999** over a million rows one in eight of which is three cells tall — a fifth of the content
 /// unreachable, with *time, writes, verbs, marked cells, regions and allocations all identical*.
 /// See [`crate::area::Unit`].
+///
+/// # Examples
 ///
 /// ```
 /// use vitui_components::scroll::{AreaState, scroll_area};

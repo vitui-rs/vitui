@@ -837,6 +837,8 @@ pub const SEARCH_BUDGET: usize = 4_096;
 /// *undeclared* about a component that is right there. A `&mut dyn FnMut` allocates nothing, which
 /// is the only thing the frame budget has an opinion about.
 ///
+/// # Examples
+///
 /// ```
 /// use vitui_components::collect::{CollOpts, CollState, collection};
 /// use vitui_components::frame::face_paint;
@@ -3524,6 +3526,8 @@ pub struct TableOpts {
 /// cell selection reads [`TableState::cells`], which is the caller's to consult and the caller's to
 /// gesture on.
 ///
+/// # Examples
+///
 /// ```
 /// use vitui_components::collect::{Column, TableOpts, TableState, table};
 /// use vitui_components::frame::face_paint;
@@ -4209,6 +4213,8 @@ impl Default for TreeOpts {
 /// the tree's own two facts — folded, leaf — are on the [`Node`], because they are facts about the
 /// caller's index rather than about the selection.
 ///
+/// # Examples
+///
 /// ```
 /// use vitui_components::collect::{TreeOpts, TreeState, tree};
 /// use vitui_components::frame::face_paint;
@@ -4696,6 +4702,8 @@ fn fits(room: u16, cell: u16) -> u16 {
 /// That is not a weaker claim than `table`'s, and `tests::a_pager_and_a_collection_land_on_the_same_index`
 /// is why: the same key sequence over the same length moves both to the same index, at every length
 /// and for every key in the vocabulary.
+///
+/// # Examples
 ///
 /// ```
 /// use vitui_components::collect::{CollState, pagination};

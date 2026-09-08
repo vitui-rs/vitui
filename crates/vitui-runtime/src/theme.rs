@@ -325,7 +325,9 @@ impl Roles {
     /// quantiser they all consult — runs at compile time, so [`crate::theme::Scheme`] holds a
     /// finished [`Roles`] rather than sixteen numbers waiting for an importer. There is no parser in
     /// this crate, no `Vec` on the path, and the heap-free requirement is met by construction rather
-    /// than by care:
+    /// than by care.
+    ///
+    /// # Examples
     ///
     /// ```
     /// use vitui_runtime::theme::Roles;
@@ -1202,6 +1204,8 @@ impl Theme {
     /// The correct shape is both, in that order: `shows(Hover)` decides whether there is a hover
     /// state at all, and `shows(Fade)` decides whether to animate into it or to snap.
     ///
+    /// # Examples
+    ///
     /// ```
     /// use vitui_engine::ColorDepth;
     /// use vitui_runtime::theme::{Distinction, Theme};
@@ -1256,6 +1260,8 @@ impl Theme {
     /// The obligation is [`Theme::roles_differ_on_wire`]'s, verbatim: a component reading `false`
     /// owes a **second axis** — a glyph, a rule, a position — and never a darker colour, because a
     /// darker colour is the same axis again and collapses in the same place.
+    ///
+    /// # Examples
     ///
     /// ```
     /// use vitui_runtime::{ColorDepth, Rgb, Theme};
@@ -1319,6 +1325,8 @@ impl Theme {
     /// data-keyed memo answers with the **previous theme's output** — because the data did not
     /// change. If the value is made of paints, that is a stale picture that persists until the data
     /// happens to move, which on a settings pane is never.
+    ///
+    /// # Examples
     ///
     /// ```
     /// use vitui_runtime::data::{Memo, Revision, Versioned};

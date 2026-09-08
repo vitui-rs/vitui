@@ -1337,7 +1337,9 @@ impl Frame {
     /// `E0599` for *the method you must not have was never built* are the same diagnostic. This pair
     /// was the one case in the corpus written without a twin, so both halves below would have gone
     /// on passing through a rename of either [`Frame::tab_walk`] or [`Frame::ring`]. The twin names
-    /// both by path first, and a rename now fails **here**:
+    /// both by path first, and a rename now fails **here**.
+    ///
+    /// # Examples
     ///
     /// ```
     /// use vitui_engine::Rect;
@@ -1400,7 +1402,9 @@ impl Frame {
     ///
     /// A lone `compile_fail` also passes when the item has been renamed, so the shape that ships is
     /// pinned here first — a rename fails *this* half rather than making the half below pass for the
-    /// wrong reason:
+    /// wrong reason.
+    ///
+    /// # Examples
     ///
     /// ```
     /// use vitui_runtime::ctx::{Ctx, Driver};
@@ -2215,6 +2219,8 @@ impl<'f, 'v> Ctx<'f, 'v> {
     /// **before** the offset is known, and the window is opened **after**. One verb would have to
     /// return both a [`Response`] and the body's value.
     ///
+    /// # Examples
+    ///
     /// ```
     /// use vitui_runtime::ctx::{Driver, Interest};
     /// use vitui_runtime::scroll::Scrollable;
@@ -2305,7 +2311,9 @@ impl<'f, 'v> Ctx<'f, 'v> {
     /// holds no position, and a component asking it *where is this area scrolled to* is asking the
     /// wrong object. The item this pair protects is named by path, so a rename fails **here** and not
     /// silently in the `compile_fail` below — which would go on passing for the wrong reason, a
-    /// method that no longer exists also being a method that does not compile:
+    /// method that no longer exists also being a method that does not compile.
+    ///
+    /// # Examples
     ///
     /// ```
     /// use vitui_runtime::ctx::{Ctx, Driver};
@@ -2573,7 +2581,9 @@ impl<'f, 'v> Ctx<'f, 'v> {
     /// # There is one queue, and no per-id inbox
     ///
     /// This is the whole keyboard API, and the item it protects is named here by path so that a
-    /// rename fails this twin rather than quietly changing what the negative case below is about:
+    /// rename fails this twin rather than quietly changing what the negative case below is about.
+    ///
+    /// # Examples
     ///
     /// ```
     /// use vitui_runtime::ctx::{Ctx, Driver};
@@ -2660,10 +2670,23 @@ impl<'f, 'v> Ctx<'f, 'v> {
     ///
     /// **Focus on the first frame, guarded by [`Ctx::focused`]:**
     ///
-    /// ```ignore
-    /// if cx.focused().is_none() {
-    ///     cx.focus(sink);
-    /// }
+    /// # Examples
+    ///
+    /// ```
+    /// # use vitui_runtime::ctx::Driver;
+    /// # use vitui_runtime::{Id, Rect};
+    /// # use vitui_runtime::ctx::Interest;
+    /// # let mut d = Driver::headless(20, 3).expect("sink");
+    /// let sink = Id::from_raw(1);
+    /// d.frame(|cx| {
+    ///     // The widget has to be drawn this frame: an id nothing drew is cleared at `end` by the
+    ///     // vanish rule, so seating the focus on a bare id leaves the frame with none.
+    ///     cx.interact(sink, Rect::new(0, 0, 4, 1), Interest::FOCUS);
+    ///     if cx.focused().is_none() {
+    ///         cx.focus(sink);
+    ///     }
+    /// });
+    /// assert_eq!(d.inspect().focused(), Some(sink), "the first frame seated it");
     /// ```
     ///
     /// **Not `if !cx.is_focused(id) { cx.focus(id) }`**, which reads as the same thing and is not:
@@ -2694,12 +2717,37 @@ impl<'f, 'v> Ctx<'f, 'v> {
     /// obligation [`Ctx::focus`] documents — *focus something on the first frame* — could be
     /// satisfied correctly only by a flag the application keeps outside the frame.
     ///
-    /// With this, it is one line inside the draw and there is no flag:
+    /// With this, it is one line inside the draw and there is no flag.
     ///
-    /// ```ignore
-    /// if cx.focused().is_none() {
-    ///     cx.focus(sink);
-    /// }
+    /// # Examples
+    ///
+    /// ```
+    /// # use vitui_runtime::ctx::Driver;
+    /// # use vitui_runtime::{Id, Rect};
+    /// # use vitui_runtime::ctx::Interest;
+    /// # let mut d = Driver::headless(20, 3).expect("sink");
+    /// let sink = Id::from_raw(1);
+    /// let other = Id::from_raw(2);
+    /// # let draw = |cx: &mut vitui_runtime::ctx::Ctx<'_, '_>| {
+    /// #     cx.interact(sink, Rect::new(0, 0, 4, 1), Interest::FOCUS);
+    /// #     cx.interact(other, Rect::new(0, 1, 4, 1), Interest::FOCUS);
+    /// # };
+    /// d.frame(|cx| {
+    ///     draw(cx);
+    ///     if cx.focused().is_none() {
+    ///         cx.focus(sink);
+    ///     }
+    /// });
+    /// // The user tabs away. A later frame does not take it back, which is the whole difference
+    /// // from the `is_focused` form.
+    /// d.frame(|cx| {
+    ///     draw(cx);
+    ///     cx.focus(other);
+    ///     if cx.focused().is_none() {
+    ///         cx.focus(sink);
+    ///     }
+    /// });
+    /// assert_eq!(d.inspect().focused(), Some(other), "the guard did not steal it back");
     /// ```
     ///
     /// **Read the difference from `if !cx.is_focused(sink)` carefully, because they look alike and
@@ -2756,7 +2804,13 @@ impl<'f, 'v> Ctx<'f, 'v> {
     /// # A decline ends this widget's turn at the queue
     ///
     /// [`Ctx::next_key`] answers `None` after it, however many keys are left, until the routing
-    /// target moves outward. So the obvious loop terminates:
+    /// target moves outward, so the obvious drain loop terminates rather than spinning.
+    ///
+    /// **That is a contract and not a limitation.** The queue is ordered and shared: a widget that
+    /// declined key *k* and then took *k+1* would leave the level above it seeing the two the wrong
+    /// way round.
+    ///
+    /// # Examples
     ///
     /// ```
     /// # use vitui_runtime::ctx::Driver;
@@ -2769,10 +2823,6 @@ impl<'f, 'v> Ctx<'f, 'v> {
     ///     }
     /// });
     /// ```
-    ///
-    /// **That is a contract and not a limitation.** The queue is ordered and shared: a widget that
-    /// declined key *k* and then took *k+1* would leave the level above it seeing the two the wrong
-    /// way round.
     pub fn decline(&mut self, k: vitui_engine::Key) {
         self.frame.keys.put_back(k);
     }
@@ -2824,6 +2874,8 @@ impl<'f, 'v> Ctx<'f, 'v> {
     /// `opts.z` at the base pass. Inside another overlay it is the **parent's** layer plus
     /// [`Z::NESTED`], because a dropdown inside a modal sorted into its own band would draw below
     /// the barrier that exists to protect it.
+    ///
+    /// # Examples
     ///
     /// ```
     /// use vitui_engine::Rect;
@@ -3007,6 +3059,8 @@ impl<'f, 'v> Ctx<'f, 'v> {
     /// **`&self`, deliberately.** The measured world cannot touch this frame, and the signature is
     /// where that is said: there is no `&mut` for it to write through.
     ///
+    /// # Examples
+    ///
     /// ```
     /// use vitui_runtime::ctx::Driver;
     /// use vitui_runtime::Role;
@@ -3077,6 +3131,8 @@ impl<'f, 'v> Ctx<'f, 'v> {
     /// deviation. Tied to `&self` instead, this would be `E0502` the moment a caller bound the theme
     /// once and held it across two verbs — which is exactly what *a component names a role, never a
     /// colour* pushes an author to write.
+    ///
+    /// # Examples
     ///
     /// ```
     /// use vitui_runtime::ctx::Driver;
@@ -3260,6 +3316,10 @@ impl Driver {
     /// arrival order and interleaved — the batch split is over the interleaving, so
     /// there is nothing here for a caller to take and nothing it could do with it if there were.
     ///
+    /// # Examples
+    ///
+    /// `no_run`, because the loop parks until a terminal wakes it and a doctest has no terminal.
+    ///
     /// ```no_run
     /// use vitui_runtime::ctx::Driver;
     /// use vitui_runtime::work::Wake;
@@ -3272,6 +3332,7 @@ impl Driver {
     ///     }
     ///     driver.frame(|cx| { let _ = cx.area(); });
     /// }
+    ///
     /// ```
     pub fn wait(&mut self) -> Wake {
         self.screen.wait()
@@ -3385,6 +3446,10 @@ impl Driver {
     /// A frame drawn while suspended composites nothing and answers `submitted: false` **with the
     /// damage kept**, so it is a frame deferred rather than lost. Twice in a row is once.
     ///
+    /// # Examples
+    ///
+    /// `no_run`, because it stops this process: nothing after it runs until a shell resumes it.
+    ///
     /// ```no_run
     /// use vitui_runtime::ctx::Driver;
     /// use std::process::Command;
@@ -3397,6 +3462,7 @@ impl Driver {
     ///     .args(["-TSTP", &std::process::id().to_string()])
     ///     .status();
     /// driver.resume();
+    ///
     /// ```
     pub fn suspend(&mut self) {
         self.screen.suspend();

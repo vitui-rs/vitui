@@ -1221,6 +1221,8 @@ impl Screen {
     /// so a configured 120 Hz yields about 110 fps under load. Undershooting a ceiling is safe by
     /// construction, and the number is written down so nobody spends a day rediscovering it.
     ///
+    /// # Examples
+    ///
     /// ```
     /// use vitui_engine::{Config, Engine, Output, Wake};
     ///
@@ -1275,6 +1277,8 @@ impl Screen {
     /// The layers keep their rectangles — the runtime brings a rectangle and a draw for every layer
     /// every frame, so a layer whose shape must change is
     /// [`LayerStack::set_rect`](crate::LayerStack::set_rect)'s business and not this one's.
+    ///
+    /// # Examples
     ///
     /// ```
     /// use vitui_engine::{Config, Engine, Output};
@@ -1383,6 +1387,8 @@ impl Screen {
     /// already knows. SGR encoding is switched on with the mouse and never separately — without it
     /// coordinates stop at column 223, and the performance budget is written against 300 columns.
     ///
+    /// # Examples
+    ///
     /// ```
     /// use vitui_engine::{Config, Engine, MouseMode, Output};
     ///
@@ -1414,6 +1420,8 @@ impl Screen {
     /// one a screen reader or an IME can follow.
     ///
     /// A caret off the edge of the screen is clamped, not refused.
+    ///
+    /// # Examples
     ///
     /// ```
     /// use vitui_engine::{Config, Cursor, CursorShape, Engine, Output};
@@ -1474,6 +1482,8 @@ impl Screen {
     /// It is the *lintable subset* of the offence and never the offence: `thread::sleep` is on the
     /// list and a `for` loop that takes 400 ms is not, because no lint can see it. That is what the
     /// detector above is for.
+    ///
+    /// # Examples
     ///
     /// ```
     /// use vitui_engine::{Config, Engine, Output, Rect, Style};
@@ -1593,6 +1603,8 @@ impl Screen {
     /// has its modes back. Every byte of it is a no-op there, and the alternative is a `Drop` that
     /// decides for itself whether the terminal is owed anything, which is the decision that atomic
     /// exists to take away from it.
+    ///
+    /// # Examples
     ///
     /// ```
     /// use vitui_engine::{Config, Engine, Output};

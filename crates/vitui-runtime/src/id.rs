@@ -137,6 +137,8 @@ impl Id {
     /// than noticed**: it escaped detection until a test failed, because it was derived without a
     /// parent and so could not collide with anything by construction.
     ///
+    /// # Examples
+    ///
     /// ```
     /// use vitui_runtime::id::Id;
     ///

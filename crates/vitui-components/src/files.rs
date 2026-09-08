@@ -374,6 +374,8 @@ impl<F> Question<F> {
     /// which names neither the closure nor the parameter. Write `move |cancel: &Cancel| …`, which
     /// [`asking`] does for a caller who would rather not.
     ///
+    /// # Examples
+    ///
     /// ```
     /// use vitui_runtime::work::Cancel;
     /// use vitui_components::files::Question;
@@ -461,6 +463,8 @@ impl PaneOpts {
 ///
 /// **The landing is not taken here.** Call [`PaneState::land`] at the top of the view first; see its
 /// documentation for the twenty torn frames that is about.
+///
+/// # Examples
 ///
 /// ```
 /// use vitui_components::files::{PaneState, Preview, asking, file_preview_pane};
@@ -837,6 +841,8 @@ impl Default for PickerOpts {
 /// than once and may capture nothing that dies with the frame. A `fn(u64, &Cancel) -> T` is `Copy`,
 /// `Send`, `Sync` and `'static` by construction, which is exactly the set. A decode is a free
 /// function over an identity in every application that has one.
+///
+/// # Examples
 ///
 /// ```
 /// use vitui_components::files::{

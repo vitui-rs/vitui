@@ -60,6 +60,8 @@ pub enum Edge {
 /// **Everything not named here folds**, which is the majority: ordinary keys, key releases, pointer
 /// moves and wheel notches all cost a frame nothing.
 ///
+/// # Examples
+///
 /// ```
 /// use vitui_runtime::route::{Edge, edge_of};
 /// use vitui_engine::{Button, Buttons, Event, Key, KeyCode, KeyKind, KeyText, Mods, Mouse, MouseKind};
@@ -114,6 +116,8 @@ pub fn edge_of(event: &Event) -> Option<Edge> {
 /// **The batch splitter.** The remainder stays queued for the next frame, and the frame that took a
 /// short prefix asks for another one — which is what makes sixteen edges cost sixteen frames with
 /// nothing lost.
+///
+/// # Examples
 ///
 /// ```
 /// use vitui_runtime::route::batch_len;

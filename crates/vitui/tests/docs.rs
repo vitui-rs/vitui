@@ -74,19 +74,19 @@ const STANDING: &[Standing] = &[
     Standing {
         dir: "vitui-engine",
         citations: 0,
-        examples: 1,
+        examples: 13,
         comments: 0,
     },
     Standing {
         dir: "vitui-runtime",
         citations: 0,
-        examples: 1,
+        examples: 28,
         comments: 0,
     },
     Standing {
         dir: "vitui-components",
         citations: 0,
-        examples: 9,
+        examples: 56,
         comments: 0,
     },
 ];
@@ -391,5 +391,328 @@ fn the_examples_a_caller_can_run_never_get_fewer() {
         "an example a caller can run is the half of this rule that cannot be satisfied by \
          deletion.\n  {}",
         wrong.join("\n  ")
+    );
+}
+
+// ── the other half of the rule: an example a caller can run ──────────────────────────────────────
+//
+// The half above is a prohibition — a doc line may not point at a document the reader does not
+// have. Satisfying it by deleting prose is the failure mode the example floor exists to catch, and
+// a floor is a count: it cannot say *which* items are documented, only how many headings there
+// are. The three gates below say which.
+//
+// They are derived and not declared. Two of them read every rustdoc block in the four crates — one
+// asks that an example the compiler sees is labelled, the other that a page opens by saying what
+// the item does. The third reads `INVENTORY`, which is the freeze itself and already the population
+// every other obligation joins on. None carries a hand-written list of items, because a
+// hand-written population is a second declaration of something the crate already states, and an
+// equality between two derivations of one declaration holds for ever.
+//
+// The first and the third are not substitutes, and the difference is worth keeping: deleting an
+// example outright leaves the labelling gate green, because it has nothing left to look at, and
+// fails the freeze gate. That is O1-and-O2's argument on a new pair, and it was watched both ways
+// rather than reasoned about.
+
+/// Whether a fence tag names a block the compiler sees.
+///
+/// `text` is an illustration, `ignore` is not compiled at all, and `compile_fail` is a gate whose
+/// whole point is that it does not build. Everything else — the bare tag, `rust`, `no_run`,
+/// `should_panic` — reaches the compiler, and reaching the compiler is what makes an example a
+/// promise rather than a picture of one.
+fn compiles(tag: &str) -> bool {
+    let tag = tag.trim();
+    tag.is_empty()
+        || tag == "rust"
+        || tag
+            .split(',')
+            .any(|t| matches!(t.trim(), "no_run" | "should_panic"))
+}
+
+/// What one rustdoc block says about its example.
+#[derive(Default, Clone, Copy)]
+struct Block {
+    /// The item is a free function at the top level of its module, rather than a method.
+    ///
+    /// The freeze's id is *the function a caller writes*, and a builder constructor or an accessor
+    /// may share that name — `ChartOpts::chart()` and `field(&self)` both do — so the join that
+    /// finds a component's page has to say which of the two it means.
+    free: bool,
+    /// It carries at least one fence the compiler sees.
+    running: bool,
+    /// It carries an examples heading, **outside** every fence — a heading inside a `text` block is
+    /// a picture of a heading.
+    labelled: bool,
+    /// Its first line is a description, rather than a section heading or a code fence.
+    opens_with_prose: bool,
+    /// Its block had a first line at all, so [`Block::opens_with_prose`] means something.
+    has_prose: bool,
+}
+
+/// Every documented `pub fn` in one file, with what its block says.
+///
+/// Items inside a top-level `#[cfg(test)]` module are skipped whole: they are not compiled into a
+/// shipped crate, so a fence there belongs to a gate and not to a caller.
+fn documented_items(text: &str) -> Vec<(usize, String, Block)> {
+    let lines: Vec<&str> = text.lines().collect();
+    let mut out = Vec::new();
+    let (mut block, mut have_doc, mut open) = (Block::default(), false, false);
+    let mut attr = 0i32;
+    let mut i = 0;
+    while i < lines.len() {
+        let line = lines[i];
+        if line.starts_with("#[cfg(test)]") {
+            while i < lines.len() && !lines[i].starts_with('}') {
+                i += 1;
+            }
+            i += 1;
+            block = Block::default();
+            have_doc = false;
+            open = false;
+            continue;
+        }
+        if let Some(doc) = doc_text(line) {
+            have_doc = true;
+            if let Some(tag) = doc.strip_prefix("```") {
+                match open {
+                    true => open = false,
+                    false => {
+                        open = true;
+                        if compiles(tag) {
+                            block.running = true;
+                        }
+                    }
+                }
+            } else if !open && opens_examples(&doc) {
+                block.labelled = true;
+            }
+            if !block.has_prose && !doc.is_empty() {
+                block.has_prose = true;
+                block.opens_with_prose = !doc.starts_with('#') && !doc.starts_with("```");
+            }
+            i += 1;
+            continue;
+        }
+        let trimmed = line.trim();
+        if have_doc && (attr > 0 || trimmed.starts_with("#[")) {
+            attr += trimmed.matches('[').count() as i32 - trimmed.matches(']').count() as i32;
+            attr = attr.max(0);
+            i += 1;
+            continue;
+        }
+        if have_doc && let Some(name) = item_name(trimmed) {
+            block.free = !line.starts_with(char::is_whitespace);
+            out.push((i + 1, name, block));
+        }
+        if !trimmed.is_empty() {
+            block = Block::default();
+            have_doc = false;
+            open = false;
+        }
+        i += 1;
+    }
+    out
+}
+
+/// The name of a public function, from the line that declares it.
+fn item_name(trimmed: &str) -> Option<String> {
+    let rest = trimmed
+        .strip_prefix("pub fn ")
+        .or_else(|| trimmed.strip_prefix("pub const fn "))?;
+    let end = rest.find(['(', '<']).unwrap_or(rest.len()).min(rest.len());
+    Some(rest[..end].trim().to_owned())
+}
+
+/// The modules a crate hides from rustdoc, read off its own `lib.rs`.
+///
+/// A `#[doc(hidden)]` module is the crate saying this is not the surface a reader is offered, and
+/// `vitui-components` says it of twenty-four: the scene screens, the registers, the defective arms
+/// a gate plays against a correct one. A fence in one of those is a gate's reference — often a
+/// deliberately *wrong* build — so labelling it as an example would be false on the one page where
+/// it would be read. Derived rather than listed, so hiding a module exempts it in the same edit.
+fn hidden_modules(dir: &str) -> Vec<String> {
+    let lib = std::fs::read_to_string(root().join("crates").join(dir).join("src/lib.rs"))
+        .unwrap_or_default();
+    let mut out = Vec::new();
+    let mut marked = false;
+    for line in lib.lines() {
+        let t = line.trim();
+        if t == "#[doc(hidden)]" {
+            marked = true;
+            continue;
+        }
+        if let Some(rest) = t.strip_prefix("pub mod ") {
+            if marked {
+                out.push(rest.trim_end_matches(';').trim().to_owned());
+            }
+            marked = false;
+            continue;
+        }
+        if !t.is_empty() && !t.starts_with("//") {
+            marked = false;
+        }
+    }
+    out
+}
+
+/// **Every example the compiler sees is labelled.**
+///
+/// An unlabelled fence still compiles and still runs, so nothing else in this workspace can see the
+/// difference — and on the page a reader lands on, an unlabelled fence is a code block hanging off
+/// the end of a paragraph rather than a section they can scroll to. The rule is *documentation
+/// shows how to use the library*, and a section heading is what makes the showing findable.
+#[test]
+fn every_example_the_compiler_sees_is_labelled() {
+    let mut bare: Vec<String> = Vec::new();
+    let mut seen = 0usize;
+    for standing in STANDING {
+        let src = root().join("crates").join(standing.dir).join("src");
+        let hidden = hidden_modules(standing.dir);
+        for file in sources(&src) {
+            let rel = file.strip_prefix(&src).unwrap_or(&file).to_path_buf();
+            let top = rel
+                .components()
+                .next()
+                .map(|c| {
+                    c.as_os_str()
+                        .to_string_lossy()
+                        .trim_end_matches(".rs")
+                        .to_owned()
+                })
+                .unwrap_or_default();
+            if hidden.contains(&top) {
+                continue;
+            }
+            let text = std::fs::read_to_string(&file)
+                .unwrap_or_else(|e| panic!("{}: {e}", file.display()));
+            let short = file
+                .strip_prefix(root())
+                .unwrap_or(&file)
+                .display()
+                .to_string();
+            for (line, name, block) in documented_items(&text) {
+                if !block.running {
+                    continue;
+                }
+                seen += 1;
+                if !block.labelled {
+                    bare.push(format!("{short}:{line} `{name}`"));
+                }
+            }
+        }
+    }
+    assert!(
+        seen > 50,
+        "only {seen} compiled examples found across four crates — this gate is reading nothing"
+    );
+    assert!(
+        bare.is_empty(),
+        "an example the compiler sees carries a heading, so a reader can find it on the page.\n  {}",
+        bare.join("\n  ")
+    );
+}
+
+/// **Every component the freeze declares carries an example a caller can run.**
+///
+/// The population is [`INVENTORY`](vitui::components::inventory::INVENTORY) itself — the freeze,
+/// which already names what a caller draws, homes each row in a module and is what every
+/// obligation in `vitui-components` joins on. Nothing is listed here twice: a component added to
+/// the freeze arrives in this gate owing an example, and one whose entry point is renamed fails on
+/// the join rather than going quietly absent.
+#[test]
+fn every_component_the_freeze_declares_shows_how_to_use_it() {
+    use vitui::components::inventory::INVENTORY;
+
+    let mut wrong: Vec<String> = Vec::new();
+    let mut over = 0usize;
+    for c in INVENTORY.iter().filter(|c| c.built) {
+        over += 1;
+        let module = c.module().expect("every built row is homed in a module");
+        let path = root()
+            .join("crates/vitui-components/src")
+            .join(format!("{module}.rs"));
+        let text =
+            std::fs::read_to_string(&path).unwrap_or_else(|e| panic!("{}: {e}", path.display()));
+        let found: Vec<Block> = documented_items(&text)
+            .into_iter()
+            .filter(|(_, name, b)| name == c.id && b.free)
+            .map(|(_, _, b)| b)
+            .collect();
+        match found.as_slice() {
+            [b] if b.running && b.labelled => {}
+            [b] => wrong.push(format!(
+                "{module}::{} — compiled example: {}, labelled: {}",
+                c.id, b.running, b.labelled
+            )),
+            [] => wrong.push(format!(
+                "{module}::{} — the freeze homes it here and no documented `pub fn` of that name is",
+                c.id
+            )),
+            many => wrong.push(format!(
+                "{module}::{} — {} documented functions of that name, so the join is ambiguous",
+                c.id,
+                many.len()
+            )),
+        }
+    }
+    assert_eq!(
+        over, 29,
+        "the freeze declares 29 built components and this gate saw {over}"
+    );
+    assert!(
+        wrong.is_empty(),
+        "a component a caller draws shows how to draw it.\n  {}",
+        wrong.join("\n  ")
+    );
+}
+
+/// **A page opens by saying what the item does.**
+///
+/// *What it does, what the caller must guarantee, what it costs* is the order these pages are
+/// written in, and only the first third of it is gateable. The other two thirds are left to review
+/// on purpose, and the reason is a measurement: of 709 section headings in the three shipped
+/// crates, 68 are `# Panics` and 2 are `# Errors` — the rest are **narrative**, in the crate's own
+/// words rather than in rustdoc's fixed vocabulary. A gate over section order would therefore not
+/// be checking that a page answers the three questions; it would be pushing 550 headings towards a
+/// vocabulary chosen for a different kind of library, and the pages would get worse to make the
+/// gate green.
+///
+/// What is left is the part with no vocabulary in it. An item whose page opens with a heading or a
+/// code block has buried the sentence a reader came for under the first thing the author felt like
+/// explaining. All 1 948 documented functions in the three crates already open with a description,
+/// so this is a property the code has rather than a target it is moving towards — which is the only
+/// kind of thing worth an equality.
+#[test]
+fn a_page_opens_by_saying_what_the_item_does() {
+    let mut buried: Vec<String> = Vec::new();
+    let mut seen = 0usize;
+    for standing in STANDING {
+        let src = root().join("crates").join(standing.dir).join("src");
+        for file in sources(&src) {
+            let text = std::fs::read_to_string(&file)
+                .unwrap_or_else(|e| panic!("{}: {e}", file.display()));
+            let short = file
+                .strip_prefix(root())
+                .unwrap_or(&file)
+                .display()
+                .to_string();
+            for (line, name, block) in documented_items(&text) {
+                if !block.has_prose {
+                    continue;
+                }
+                seen += 1;
+                if !block.opens_with_prose {
+                    buried.push(format!("{short}:{line} `{name}`"));
+                }
+            }
+        }
+    }
+    assert!(
+        seen > 1_000,
+        "only {seen} documented functions found across four crates — this gate is reading nothing"
+    );
+    assert!(
+        buried.is_empty(),
+        "a page opens with what the item does, not with a section or a code block.\n  {}",
+        buried.join("\n  ")
     );
 }

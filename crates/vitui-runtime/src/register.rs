@@ -1490,10 +1490,23 @@ pub const NEGATIVE_CASES: usize = 31;
 /// the verb: two colours one unit of blue apart, separate at truecolor and one colour at sixteen.
 ///
 /// **Sixty-one since the suspend forward**, whose addition is the second `no_run` block in the
-/// crate — [`Driver::suspend`](crate::ctx::Driver::suspend)'s, giving the terminal to `vi` — and it
-/// is `no_run` for a reason unrelated to [`Driver::wait`](crate::ctx::Driver::wait)'s: a doctest
-/// that ran it would hand the test harness's terminal to an editor.
-pub const RUNNABLE_EXAMPLES: usize = 62;
+/// crate — [`Driver::suspend`](crate::ctx::Driver::suspend)'s, giving the terminal back to the
+/// shell — and it is `no_run` for a reason unrelated to
+/// [`Driver::wait`](crate::ctx::Driver::wait)'s: the block stops this process, so a doctest that
+/// ran it would stop the test harness and nothing after it would run.
+///
+/// **Sixty-two since the front pages**, whose addition is this crate's own root example — the step
+/// the paragraphs above did not record when it was made, recovered from the commit rather than
+/// guessed, because a narrative that stops one short of its own value is the defect it exists to
+/// prevent.
+///
+/// **Sixty-four since the examples were labelled**, and both additions are conversions rather than
+/// new prose: [`Ctx::focus`](crate::ctx::Ctx::focus) and
+/// [`Ctx::focused`](crate::ctx::Ctx::focused) carried `ignore` fences, which compile nothing. Both
+/// asserted the wrong thing — an id nothing drew is cleared at `end` by the vanish rule, so seating
+/// the focus on a bare id leaves the frame with none — and neither could have been caught while the
+/// fence was `ignore`d.
+pub const RUNNABLE_EXAMPLES: usize = 64;
 
 #[cfg(test)]
 mod tests {

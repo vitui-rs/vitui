@@ -112,6 +112,8 @@ pub struct Panel {
 /// the flag would buy O5 a second scene for one defect, which is the opposite of what a per-axis
 /// scene count is for.
 ///
+/// # Examples
+///
 /// ```
 /// use vitui_runtime::Rect;
 /// use vitui_components::structure::panel;
@@ -224,6 +226,8 @@ impl Default for RuleOpts {
 /// The line is [`Glyph::HLine`] or [`Glyph::VLine`] — the `rule` family, two entries — and every
 /// other cell of the rectangle is padding, because the rule is that *a component handed a rectangle
 /// writes all of that*.
+///
+/// # Examples
 ///
 /// ```
 /// use vitui_components::structure::rule;
@@ -471,6 +475,8 @@ impl Default for StatusOpts {
 /// on whatever is beside it, is overdrawn by that neighbour, and **re-damages those cells on every
 /// steady frame for ever** — `crate::scroll::defective::arithmetic_band`. The band is a *view*, so
 /// the overrun costs its own cells and nothing else's.
+///
+/// # Examples
 ///
 /// ```
 /// use vitui_components::structure::status_bar;

@@ -347,7 +347,9 @@ impl Agreement {
 ///
 /// This is the gate every component that publishes a sizing function owes. It draws the component
 /// into a discard surface of **exactly the claimed size** and compares the drawn extent with the
-/// claim, at every width:
+/// claim, at every width.
+///
+/// # Examples
 ///
 /// ```
 /// use vitui_runtime::layout::text;
@@ -434,7 +436,9 @@ where
 /// This function does not memoise, and the memo does not live in a container. A measure pass would
 /// have hidden this fold inside one — a container calling `measure` on a column has no idea it just
 /// walked a million rows — and the whole of exit (a) is that the caller can see what it is asking
-/// for:
+/// for.
+///
+/// # Examples
 ///
 /// ```
 /// use vitui_runtime::data::{Memo, Versioned};

@@ -116,6 +116,8 @@ impl Default for Faces {
 
 /// **The face to draw, and the same value has already been declared to the award.**
 ///
+/// # Examples
+///
 /// ```
 /// use vitui_runtime::Rect;
 /// use vitui_components::state::{Faces, press};

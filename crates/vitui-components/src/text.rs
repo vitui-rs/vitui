@@ -99,6 +99,8 @@ impl Default for FitOpts {
 ///
 /// The ninety-per-cent spelling: left-justified, [`Role::Body`] for both halves.
 ///
+/// # Examples
+///
 /// ```
 /// use vitui_runtime::Rect;
 /// use vitui_components::text::fit;
@@ -256,6 +258,8 @@ impl Default for TextOpts {
 /// three-cell `...` where one cell was reserved moves **468 cells over 78 rows** with writes, verbs
 /// and marked identical at 23 402 / 2 163 / 0 either way.
 ///
+/// # Examples
+///
 /// ```
 /// use vitui_runtime::Rect;
 /// use vitui_components::text::text;
@@ -377,6 +381,8 @@ impl Default for ChipOpts {
 ///
 /// The partition rule names the defect in the axis's own word: *a chip that does not narrow, whose
 /// label runs into its sibling's rectangle* — **432 cells re-damaged every steady frame**.
+///
+/// # Examples
 ///
 /// ```
 /// use vitui_runtime::Rect;

@@ -229,6 +229,8 @@ fn luma(v: Rgb) -> u32 {
 /// **A picture, filling the rectangle it was handed.** The pure drawer, and the one component
 /// on this map whose every cell is outside the theme.
 ///
+/// # Examples
+///
 /// ```
 /// use vitui_components::media::{Pixels, picture};
 /// use vitui_runtime::ctx::Driver;
@@ -476,6 +478,8 @@ impl Modules {
 /// and a cell is not, so one module a cell is a third kind of degradation the matrix has no column
 /// for — **not worse, invalid**. See [`crate::picture::module_aspect`].
 ///
+/// # Examples
+///
 /// ```
 /// use vitui_components::media::{Modules, qr};
 /// use vitui_runtime::ctx::Driver;
@@ -590,6 +594,8 @@ fn draw_qr<I: Ink>(
 /// information across a cell's own height, so nothing inside a cell varies and nothing along a row
 /// of one bar does either.
 ///
+/// # Examples
+///
 /// ```
 /// use vitui_components::media::barcode;
 /// use vitui_runtime::ctx::Driver;
@@ -676,6 +682,8 @@ fn bar_cluster(sub: u8, filled: u8) -> char {
 /// one bucket, so the frame costs the rectangle and the bucketing costs the data. That is
 /// [`crate::chart`]'s own split, and the reason a waveform over an hour of audio is not an hour of
 /// work a frame.
+///
+/// # Examples
 ///
 /// ```
 /// use vitui_components::media::waveform;

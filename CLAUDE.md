@@ -135,10 +135,34 @@ MSRV **1.88** — `Cargo.toml` is the authority and the `msrv` CI job is what ke
   whether it was written for a reader. **Twenty-four of `vitui-components`' fifty-three public
   modules are now `#[doc(hidden)]`**, chosen by scanning what the applications import, so the
   front page is fourteen families and fifteen helpers rather than fifty-three modules with the
-  components buried among them. **20 is the half 19 did not close** — an example on every public
-  item, over 3,391 documented ones of which twelve carry a heading and every one of those is a
-  *module* header — and it is **not** on 15's line, because an added example is a compatible
-  change.
+  components buried among them. **20 is resolved** (2026-09-08) and **its premise was wrong in the direction
+  that mattered**: it was written as *writing an example is a small design exercise per item* over
+  3,391 documented items, and the examples were largely already written — 82 fences the compiler
+  sees, **not one labelled**, the twelve headings it counted all being *module* headers. A reader
+  landing on `collection` found no Examples section not because nobody wrote one but because the
+  fence hung off the end of a paragraph. The population is **two derived halves and no hand-written
+  list**: *a fence the compiler sees* (`text`, `ignore` and `compile_fail` are not examples), and
+  `INVENTORY` itself for *every component shows how to use it* — the freeze, already what every
+  obligation joins on, so a component added to it arrives owing an example and a renamed entry point
+  fails on the join. **The two are not substitutes and that is watched both ways**: deleting an
+  example leaves the labelling gate green with nothing to look at while the freeze gate fails, which
+  is O1-and-O2's argument on a new pair. **The ordering rule is one third gated and two thirds left
+  to review**, argued from a measurement rather than a taste: of 709 section headings in the shipped
+  crates 68 are `# Panics`, 2 `# Errors`, 0 `# Safety` and ~550 are **narrative**, so a gate over
+  section order would push 550 headings towards a vocabulary chosen for a different kind of library
+  and the pages would get worse to make it green. What is gated has no vocabulary in it — *a page
+  opens by saying what the item does*, never a heading or a fence — and **1,948 of 1,948 already
+  did**. **`ignore` is gone from the shipped crates**: both instances were `Ctx::focus` and
+  `Ctx::focused` avoiding compilation, and making them run found that an id nothing drew is cleared
+  at `end` by the vanish rule — so the shipped example of *seat the focus on the first frame*
+  asserted the wrong thing for as long as it was never compiled. The example floor moved 1/1/1/9 →
+  1/13/28/56, and **a second ratchet caught the two conversions**: `vitui-runtime`'s own
+  `register::RUNNABLE_EXAMPLES` moved 62 → 64 while the engine's `audit::RUNNABLE_EXAMPLES` stayed
+  at 50, which is two counters agreeing from opposite directions that a heading is not a fence. That
+  constant's doc narrated every step — 58, 59, 60, 61 — above a value of **62**; the missing step was
+  19's own front-page example, recovered from `git log -L` rather than guessed, and the same
+  paragraph called `Driver::suspend`'s block *giving the terminal to `vi`* four tickets after the
+  `$EDITOR` arm was removed. It is `no_run` because it **stops this process**.
   **21 is what a re-check of 19 found outside the gate's population** (2026-09-08): the rule holds
   in exactly what `docs.rs` reads — rustdoc lines and ordinary comments — and **a citation written
   as a string literal is invisible to it.** Six sites a user meets were fixed in that session: two
@@ -155,8 +179,8 @@ MSRV **1.88** — `Cargo.toml` is the authority and the `msrv` CI job is what ke
   struct field. 298 non-comment lines in the shipped crates, plus 937 in `tests/` and `examples/`
   which 19 put out of scope by design. Not on 15's line either.
   **One ticket on the release path can start today and it is still 02**, which is `ready-for-human`
-  — it needs a public repository; by number the frontier for an agent is 17, with 18, 20 and 21
-  beside it. **15 is the release frontier and it cannot start**: its one edge is 02, the five
+  — it needs a public repository; by number the frontier for an agent is 17, with 18 and 21 beside
+  it. **15 is the release frontier and it cannot start**: its one edge is 02, the five
   components architecture questions it also waited on — that map's 19, 22, 23, 24 and 25, not this
   backlog's numbers — having all resolved by 2026-09-05, and what they decided is listed below.
   **Windows is last, as 16**, blocked by the publish — which carries the consequence that no shipped

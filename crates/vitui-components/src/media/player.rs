@@ -150,6 +150,8 @@ pub const SHIPPED: usize = 7;
 /// stored anchor, no *was I dragging last frame*, and therefore nothing for a caller to keep in
 /// sync. A component that owns a value calls this and assigns; that is the whole grab.
 ///
+/// # Examples
+///
 /// ```
 /// use vitui_components::media::player::scrub;
 /// use vitui_runtime::{Id, Rect, Response};
@@ -275,6 +277,8 @@ const BUTTON_W: u16 = 4;
 ///
 /// Every cell of `area` is written exactly once, so nothing is owed back and the return value is
 /// free to be the one thing a caller needs.
+///
+/// # Examples
 ///
 /// ```
 /// use vitui_components::media::player::{Chapter, Player, chrome, scrub};

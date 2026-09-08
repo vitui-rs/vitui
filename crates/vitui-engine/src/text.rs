@@ -15,6 +15,8 @@ use crate::ucd;
 /// A borrowing iterator over slices of the caller's string. Never a `Vec<&str>`, which is what makes
 /// zero-allocation text structural rather than disciplined.
 ///
+/// # Examples
+///
 /// ```
 /// let family = "\u{1F468}\u{200D}\u{1F469}\u{200D}\u{1F467}";
 /// let clusters: Vec<_> = vitui_engine::graphemes(family).collect();
@@ -35,16 +37,18 @@ pub fn graphemes(s: &str) -> impl Iterator<Item = (&str, u16)> {
 
 /// The columns `s` occupies when written to a terminal.
 ///
+/// A string wider than `u16::MAX` columns saturates rather than overflowing: the return type is
+/// `u16` and no terminal has 65 536 columns, so the answer is already meaningless there — but the
+/// clamp is what every other verb does, and a plain `sum` would panic in a debug build on an input
+/// a caller is allowed to hand us.
+///
+/// # Examples
+///
 /// ```
 /// assert_eq!(vitui_engine::width_of("hello"), 5);
 /// assert_eq!(vitui_engine::width_of("漢字"), 4);
 /// assert_eq!(vitui_engine::width_of("e\u{301}"), 1, "a combining acute is not a column");
 /// ```
-///
-/// A string wider than `u16::MAX` columns saturates rather than overflowing. The return type is
-/// the type is `u16` and no terminal has 65 536 columns, so the answer is already meaningless there — but
-/// the clamp is what every other verb does, and a plain `sum` would panic in a debug
-/// build on an input a caller is allowed to hand us.
 pub fn width_of(s: &str) -> u16 {
     ucd::clusters(s)
         .map(ucd::cluster_width)

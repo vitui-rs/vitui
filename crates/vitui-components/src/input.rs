@@ -124,6 +124,8 @@ impl Default for ButtonOpts {
 /// One rectangle, one face out of [`crate::state::press`] and one tab stop. Nothing about its
 /// construction is a function of its width, and it holds no offset and no content of its own.
 ///
+/// # Examples
+///
 /// ```
 /// use vitui_runtime::Rect;
 /// use vitui_components::input::button;
@@ -468,6 +470,8 @@ pub struct WhyBlockSelectionIsNotBuilt;
 /// `input` and `textarea` are not two functions with two states — they are one machine under two
 /// break rules, and the rule is [`WrapKind`] on the state rather than an argument here. Everything
 /// else is shared: the caret pair, the anchored selection, the undo ring and the wrap index.
+///
+/// # Examples
 ///
 /// ```
 /// use vitui_components::edit::{Text, WrapKind};
@@ -1216,6 +1220,8 @@ pub struct WhyThePopupIsRequestedLast;
 /// gone. And blur is qualified by a **position**: `begin` hands out an optimistic focus a frame
 /// before the body can speak, so `focus_left` alone dismisses a popup the pointer is standing on.
 /// [`PopupState::over`] is the qualification, and it is a hover and never a press.
+///
+/// # Examples
 ///
 /// ```
 /// use vitui_components::input::{SelectState, select};
@@ -2031,6 +2037,8 @@ impl Default for ToggleOpts {
 /// The signature is written out by name — `fn(&mut Ctx, Rect, &str, &mut bool) -> Response` —
 /// and rule 2 is what the `&mut bool` is: *the widget's own value, never application data*.
 ///
+/// # Examples
+///
 /// ```
 /// use vitui_components::input::checkbox;
 /// use vitui_runtime::Rect;
@@ -2059,6 +2067,8 @@ pub fn checkbox(cx: &mut Ctx<'_, '_>, area: Rect, label: &str, on: &mut bool) ->
 /// A radio *set* is [`crate::collect::collection`] at [`Mode::Options`] and is a different call
 /// entirely — see [`Toggle::Radio`]. **A standalone radio is the caller's own `bool`**, and two of
 /// them side by side are two `bool`s the caller keeps exclusive; nothing here does that for anybody.
+///
+/// # Examples
 ///
 /// ```
 /// use vitui_components::input::radio;
@@ -2101,6 +2111,8 @@ pub fn radio(cx: &mut Ctx<'_, '_>, area: Rect, label: &str, on: &mut bool) -> Re
 /// is carried on three axes and only one of them is the palette: the two words, the side the knob
 /// sits on, and the face. A checkbox and a radio differ in exactly **1** cell between on and off and
 /// that cell came out of the theme's glyph table; a switch differs in **3** and none of them did.
+///
+/// # Examples
 ///
 /// ```
 /// use vitui_components::input::switch;
@@ -2397,6 +2409,8 @@ impl Default for SliderOpts {
 /// pointer rises, which is a `scroll_area`'s convention arriving in a component that has no content
 /// to scroll.
 ///
+/// # Examples
+///
 /// ```
 /// use vitui_components::input::grab;
 /// use vitui_components::scroll::Orient;
@@ -2514,6 +2528,8 @@ pub fn stepped(k: &Pressed, value: f32, opts: &SliderOpts) -> Option<f32> {
 /// unit rule rather than a simplification: a component that owned a minimum and a maximum would own
 /// a *unit*, and the one thing no layer of this library does for its caller is decide what a number
 /// means. A slider over `0..=11` is `*v = f * 11.0` at the call site, in the caller's own unit.
+///
+/// # Examples
 ///
 /// ```
 /// use vitui_components::input::slider;
@@ -2825,6 +2841,8 @@ pub const FORM_IS: [&str; 3] = ["field", "nav::cursor", "the focus ring"];
 /// declared, and `tests::the_same_form_stands_fewer_fields_at_cosy_and_neither_writes_a_cell_twice`
 /// is where both columns are printed.
 ///
+/// # Examples
+///
 /// ```
 /// use vitui_components::edit::Text;
 /// use vitui_components::input::{FormState, form};
@@ -2994,6 +3012,8 @@ pub fn form_into<I: Ink>(
 /// It does not weaken *identity comes from the call site and may never be persisted*: the
 /// `form` argument is a [`Response::id`] read back from the frame that just drew, so the identity is
 /// still the call site's and this is arithmetic over it.
+///
+/// # Examples
 ///
 /// ```
 /// use vitui_components::edit::Text;

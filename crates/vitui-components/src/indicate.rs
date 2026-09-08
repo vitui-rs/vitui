@@ -138,6 +138,8 @@ impl Default for MeterOpts {
 /// the only one of the six that is. `crate::INVENTORY`'s own doc comment carries the marking and
 /// `crate::inventory::tests::the_six_collapses_are_recorded_and_the_judgement_is_marked` reads it.
 ///
+/// # Examples
+///
 /// ```
 /// use vitui_components::indicate::meter;
 /// use vitui_runtime::Rect;
@@ -297,6 +299,8 @@ pub struct SparkOpts {
 ///
 /// The memo is the caller's [`PlotState`], exactly as [`crate::chart::chart`]'s is — rule 2 puts the
 /// data behind a shared reference and the state in a `&mut` beside it.
+///
+/// # Examples
 ///
 /// ```
 /// use vitui_components::chart::{Series, raster::PlotState};
@@ -598,6 +602,8 @@ impl Default for SpinOpts {
 /// **clipped** spinner is the case that is not the same: it runs, writes nothing, and can still ask.
 /// Both screens look identical and one of them keeps the terminal awake, so the rule is one line and
 /// [`defective::spinner_asking_always_into`] is the arm it replaced.
+///
+/// # Examples
 ///
 /// ```
 /// use std::time::Duration;
