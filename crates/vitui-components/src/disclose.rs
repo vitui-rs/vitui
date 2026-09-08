@@ -1,110 +1,54 @@
-//! **F4 disclosure**, 21 entries, expressed by `collapsible` alone.
+//! Collapsibles: a header that can be clicked, and a body that is drawn only when it is open.
 //!
-//! The reduction is R1, and **the family exists in order to say so**: the sentence is
-//! *every one of these is the same state machine*, which is the shape of claim that has to be
-//! measured rather than asserted.
+//! [`collapsible`] is the whole module. An accordion is a column of them, a details row is one, and
+//! a sidebar section is one — the difference is what you draw in the body and how you lay the
+//! headers out.
 //!
-//! # One machine, and the split is not between the four components
+//! # Examples
 //!
-//! Accordion, tree node, code folding and inplace edit are one machine. What separates them is
-//! **what their collapsed content is**, and that is [`SPLIT`] — a value the tests iterate rather
-//! than a table in a comment, because the rule is that every obligation stated as a sentence
-//! has been broken by someone who had read it.
+//! ```
+//! use vitui_components::disclose::{Collapse, collapsible};
+//! use vitui_components::text::text;
+//! use vitui_runtime::Rect;
+//! use vitui_runtime::ctx::Driver;
 //!
-//! | the collapsed content is | who collapses it | example |
-//! |---|---|---|
-//! | rows in a caller-owned index | the caller, on request | tree node, code folding |
-//! | a region of components | the component, on the frame | accordion, panel minimise |
-//! | both | both | inplace edit |
+//! let mut state = Collapse::open_at(3);
+//! let mut drawn = 0u32;
+//! let mut driver = Driver::headless(30, 8).expect("a sink attaches");
 //!
-//! [`Collapses`] is that column as a configuration, and it is the **only** thing that differs
-//! between the four: one [`Collapse`], one [`Collapse::set`], one draw. `Collapses::OnRequest`
-//! leaves the state untouched and reports the gesture; `Collapses::OnTheFrame` applies it before it
-//! draws. **A component may not perform an edit; a collapse of a region is not one** — the rule,
-//! narrowed by C05's two forced reasons (`Vec::splice` allocates, and `&mut` while the draw holds
-//! the index shared is `E0502`), both of which belong to the index and neither of which a region
-//! has.
+//! driver.frame(|cx| {
+//!     let area = cx.area();
+//!     let d = collapsible(
+//!         cx,
+//!         area,
+//!         &mut state,
+//!         "details",
+//!         // How tall the body wants to be, given the width it is offered.
+//!         &mut |_w| 3,
+//!         // The body runs only while the section is open.
+//!         &mut |cx| {
+//!             drawn += 1;
+//!             text(cx, Rect::new(0, 1, 30, 1), "the body");
+//!         },
+//!     );
+//!     assert_eq!(d.body.h, 3);
+//! });
 //!
-//! **The index row already ships, one family over.** [`crate::collect::tree`] is the first row
-//! expressed through the collection lineage: a fold leaves `order::Ask::Collapse` in a one-slot
-//! request and the caller splices after the draw. What `Collapses::OnRequest` is for is
-//! the same configuration reached from *this* side — a section **header** over rows in a
-//! caller-owned index, which is code folding rather than a tree node — and it is the same machine
-//! rather than a second one, which is what makes the split checkable instead of a claim.
+//! assert_eq!(drawn, 1);
+//! ```
 //!
-//! # There is no transition state, and the gate is a scan
+//! # Two states, and never a third
 //!
-//! No `Collapsing` and no `Expanding`. A transition state has to be **stored**, which means the
-//! machine can be found halfway between two states with no clock running — the shape R11 refused
-//! when it refused an animation object. [`Collapse::set`] flips `open` **at the instant the gesture
-//! lands** and starts a tween from the current height, so `open` is never ambiguous and only the
-//! height moves.
+//! Open and closed, with no `Collapsing` or `Expanding` between them. A transition state would
+//! have to be stored, and stored state is state that can be wrong: a section interrupted halfway
+//! is a section that is neither open nor closed until something remembers to finish it. An
+//! animation here is a **height**, driven by the caller's own tween, and the two states stay two.
 //!
-//! The invariant is registered twice, from two sides: behaviourally, over every frame of a 200 ms
-//! collapse, and as a **source scan** for a stored third state — which is why the two
-//! words above appear in this file only inside comments, and why
-//! [`third_state_declarations`] is watched finding one.
+//! # A closed body is not drawn at all
 //!
-//! **An animated fold is refused**, and the reason is in the doc comment rather than left as a
-//! silent absence: the removed rows would have to still be in the index while they shrink, and the
-//! splice is an edit a frame may not perform. **A fold steps; a region animates.** See
-//! [`Collapses::OnRequest`].
-//!
-//! # The height is an argument, and the watermark is the finding on the other axis
-//!
-//! The runtime has no measure pass, so a section's open height comes from a **sizing
-//! function beside the body** — [`sizing::check`]'s own `FnMut(u16) -> u16`, which is the shape the
-//! runtime already gates a component against.
-//!
-//! [`Height::Watermark`] is the spelling a reader writes instead: hand the body a rectangle and read
-//! how far it reached. It is priced at *83 cells, 8 rows wrong, settled in 3 frames* against the
-//! sizing function's *22, 0, 2*, and **those three figures are a prototype's body and do not
-//! reproduce here** — see [`SPEC_WATERMARK_ROWS_WRONG`]. What reproduces is stronger, and it is the original's
-//! sentence one axis over:
-//!
-//! > A measured extent is taken **inside the rectangle the decision produced**.
-//!
-//! Fed back into itself over a body that fills what it is handed — which is what a padding ring
-//! *is* — the watermark **latches at the first rectangle it ever saw and never comes down**:
-//! [`WATERMARK_LATCHED_ROWS`] rows where [`CONTENT_ROWS`] are right, permanently, on a screen that
-//! looks correct. Over a body that draws only its content the two arms are indistinguishable, which
-//! is what makes the rule unconditional rather than a preference — the identical shape stated for
-//! a hideable reserved bar.
-//!
-//! It is **off by default** for that reason and for its price: one dry run through
-//! [`Ctx::measured`] a frame, reported by `examples/collapsible_numbers.rs`.
-//!
-//! # Focus, and the vanish rule that no header gesture can reach
-//!
-//! **A collapsible closed by a gesture on its own header focuses that header** — which is what a
-//! focusable widget does on a click anyway — and then R08's vanish rule never fires: left to it, the
-//! focus lands on the *next surviving entry*, one section too far, while the section the user acted
-//! on is still on screen one row above.
-//!
-//! Following the parenthesis to the end is this module's finding. **All three self-close
-//! gestures leave the focus off the body before the vanish rule looks**, each for a different
-//! reason: a click on a focusable header is awarded the focus; a click on a header that is *not* a
-//! tab stop **defocuses**, because a press that lands on nothing interested is read as intent; and
-//! `Enter` needs the header to hold the focus already. So the zero is the gate and the figure beside
-//! it ([`SPEC_VANISH_PROBES`]) is **not reachable from a header gesture at all** — the arm that pays
-//! it is a section closed by something that is not one, which is exclusive mode, and
-//! [`crate::accordion`] runs it at the scale.
-//!
-//! What [`Focus::Header`] buys is measured rather than argued, and it is not the probe count: on a
-//! header that is not a tab stop the runtime's answer is `None`, so **the click loses the keyboard
-//! entirely** — the same finding one component over — and the rule is what puts
-//! it somewhere.
-//!
-//! **`Stash` does not generalise to a region, and [`Drop`](Focus::Drop) is this component's
-//! answer.** C05 could stash a selection because a selection is positions in an index the component
-//! was handed. A region collapsible is handed a **closure**, and the ids inside it are minted at
-//! that closure's own call sites — `Ctx::id` mints from `Location::caller()` — so the component has
-//! nothing to key a stash on. The caller can, and does, by capturing `Frame::focus`. There is no
-//! region `Stash` and [`WhyThereIsNoRegionStash`] keeps it unwritable.
-//!
-//! [`sizing::check`]: vitui_runtime::sizing::check
-//! [`Ctx::measured`]: vitui_runtime::Ctx::measured
-//! [`Frame::vanish_probes`]: vitui_runtime::ctx::Frame::vanish_probes
+//! Not drawn and clipped — not drawn. That is the whole reason a column of closed sections costs
+//! nothing, and it is why the body takes a closure rather than a rectangle: there is nothing to
+//! call it with when the section is shut.
 
 use std::time::{Duration, Instant};
 

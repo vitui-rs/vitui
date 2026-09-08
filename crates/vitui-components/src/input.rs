@@ -1,42 +1,52 @@
-//! **F6 input**, ~110 entries — the largest family — expressed by `field`, `button`, `chip`,
-//! `select`, `collection` and `slider`.
+//! Fields, buttons, checkboxes, radios, switches, sliders, steppers and selects.
 //!
-//! # `slider` is frozen at Tier 3, and this file is where the column stops lying
+//! The largest family, and the one where a component holds the least: every one of these takes the
+//! value it edits as a `&mut` argument, so the state is the caller's and nothing here has to be
+//! kept in step with it.
 //!
-//! Drag capture was measured over the video player's seek bar, and the conclusion was *`slider` leaves
-//! Tier 3* — so `INVENTORY`'s `built` column read `true` and `MEMBERS` listed the name for two
-//! tickets before anything here declared a `slider`. **Nothing could see it**: the `MEMBERS`
-//! join compares the module's list against the `families` column and never against the source,
-//! and the tier/built gate accepts any row that appears in `MOVED`. This file ships
-//! the component *and* the join that would have caught it —
-//! `inventory::tests::every_built_row_is_declared_in_the_module_that_homes_it`.
+//! # Examples
 //!
-//! The reductions are R1, R2 and R3. The one flag absorbs sixteen named input
-//! variants including `textarea`; the `Mode` absorbs the radio set and the segmented control;
-//! a `Role` absorbs every button variant. The colour wheel, the dial and the font picker are R4 —
-//! sub-cell rasterisation, one rasteriser and a different mapping.
+//! ```
+//! use vitui_components::input::{button, checkbox, slider};
+//! use vitui_runtime::Rect;
+//! use vitui_runtime::ctx::Driver;
 //!
-//! **~~Two entries are open rather than reduced~~ — since closed.** It read:
-//! *ctrl-click and shift-click, because `rt::Input` carries no modifier byte on a pointer event.
-//! The keyboard half of multi-select is complete; the pointer half is inexpressible, and that is
-//! the runtime map's to change.* `Response` carries `mods: Mods` — one byte on a sixteen-byte
-//! hit entry — `crate::collect::from_click` reads it, and the three
-//! modified clicks as bindings like any other (`crate::contract`). The engine had been reporting
-//! modifiers on every pointer event all along; dropping them was a runtime omission and not a
-//! terminal limit.
-
-//! # `button` is the example, and the shape is the rule with one substitution
+//! let mut agreed = false;
+//! let mut volume = 0.5;
+//! let mut driver = Driver::headless(30, 5).expect("a sink attaches");
 //!
-//! The shape is `pub fn button(cx: &mut Ctx, area: Rect, label: &str) -> Response`. When this
-//! module was written **`Rect` could not be named from this package** — it is `vitui_engine::Rect`,
-//! `reachable_as: None`, and C6 says the dependency table is `vitui-runtime` and nothing else — so
-//! what ships takes [`Rect`], this crate's own rectangle in the `Ctx`'s coordinates, swept operator
-//! for operator against `vitui_runtime::layout::rect`. See [`vitui_runtime::layout::rect`] for the four candidates
-//! and why this was the one; the rule is obeyed with `Rect` in `Rect`'s place, not set aside.
+//! driver.frame(|cx| {
+//!     let pressed = button(cx, Rect::new(0, 0, 12, 1), "Run").clicked;
+//!     assert!(!pressed);
 //!
-//! **`Rect` is nameable here now** (`vitui_runtime::Rect`),
-//! which removes the reason and not the code. Whether the signature goes back to the spelling
-//! is decided elsewhere, and not in this file.
+//!     // The value is the caller's; the component edits it in place and says what happened.
+//!     checkbox(cx, Rect::new(0, 1, 20, 1), "I agree", &mut agreed);
+//!     slider(cx, Rect::new(0, 2, 20, 1), &mut volume);
+//! });
+//! ```
+//!
+//! # A text field owns a [`Text`], and that is the one exception
+//!
+//! [`field`] takes `&mut Text` rather than `&mut String`, because a field is a caret, a selection
+//! and an undo history as well as a string — and all three have to survive the frame. Everything
+//! else in this module takes the plain value.
+//!
+//! # A focused field consumes the keyboard
+//!
+//! While a [`field`] holds the focus it takes every text-bearing key, which is what makes typing
+//! work and what makes a single-letter quit key stop working. Bind `Ctrl+Q` beside `q` in any
+//! application with a field in it.
+//!
+//! # A slider takes a fraction
+//!
+//! `0.0..=1.0`, for the reason [`crate::indicate::meter`] gives: converting once at the call site
+//! keeps the caller's units out of the component's rounding.
+//!
+//! # A select opens a popup, and the popup is a collection
+//!
+//! [`select`] draws the closed control and, when it is open, an overlay whose body is a
+//! [`crate::collect::collection`] over the options. The list is the same component a list anywhere
+//! else is, which is why it has the same keyboard, the same type-ahead and the same one hit entry.
 
 use vitui_runtime::focus::ScopeKind;
 use vitui_runtime::keys::{Code, Edge, Pressed};

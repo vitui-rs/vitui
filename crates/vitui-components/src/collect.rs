@@ -1,107 +1,115 @@
-//! **F7 collections**, ~50 entries, expressed by [`collection`] plus columns, an index or tiles.
+//! Lists, tables, trees, menus, tabs and multi-select — one component and one [`Mode`].
 //!
-//! The reduction is R1 and R5. R5 is this family's own and it is the sharpest of the
-//! six: twenty-one of the survey's twenty-two data-grid features are caller state or layout, and
-//! the twenty-second — variable row height — is a fourth field on the record. **The index is the
-//! caller's**, which is what makes R5 a reduction rather than a deferral: an entry in that class
-//! needs no library mechanism at all, only a documented shape.
+//! [`collection`] is the whole family. A `list`, an option list, a menu, a multi-select, a tab
+//! strip, a radio group and a segmented control differ by the [`Mode`] you pass and by what you
+//! draw in a row, not by which function you call. [`table`] adds columns, [`tree`] adds an indent
+//! and a chevron, and [`pagination`] is the strip beneath a page of rows.
 //!
-//! Org charts, mind maps and pivot tables are layout research, four families away from a mechanism.
+//! # Examples
 //!
-//! # `collection` — one component, one [`Mode`], thirteen match arms
+//! ```
+//! use vitui_components::collect::{CollOpts, CollState, Mode, collection};
+//! use vitui_components::frame::face_paint;
+//! use vitui_components::order::Rows;
+//! use vitui_runtime::ctx::Driver;
 //!
-//! `list`, option list, menu, multi-select, tabs, radio
-//! group and segmented control are **one component and one `Mode`**, and the whole difference
-//! between a radio group and a file manager is the thirteen arms of [`apply`] — counted by opening
-//! this file, because a constant naming its own arm count is a number nothing evaluates
-//! ([`ARMS`], [`arms_in_apply`]).
+//! let rows = ["alpha", "beta", "gamma"];
+//! let mut state = CollState::new();
+//! let mut driver = Driver::headless(30, 6).expect("a sink attaches");
 //!
-//! ## Three facts, not one
+//! driver.frame(|cx| {
+//!     let area = cx.area();
+//!     let opts = CollOpts { mode: Mode::Single, ..CollOpts::default() };
+//!     collection(
+//!         cx,
+//!         area,
+//!         &mut state,
+//!         &opts,
+//!         // A row count, never the rows themselves.
+//!         Rows::of(rows.len()),
+//!         // Type-ahead: the buffer the user has typed, and the rows it may match.
+//!         &mut |typed, range: std::ops::Range<usize>| {
+//!             range.into_iter().find(|&i| rows[i].starts_with(typed))
+//!         },
+//!         // One call per *visible* row, with the rectangle it owns and the five state bits.
+//!         &mut |cx, r, i, face| {
+//!             let paint = face_paint(cx.theme(), face);
+//!             cx.text(r.x, r.y, rows[i], paint);
+//!         },
+//!     );
+//! });
+//!
+//! // The cursor and the selection live in the state you own, so they survive the frame.
+//! assert_eq!(state.sel.lead, 0);
+//! ```
+//!
+//! # A frame costs what is on screen
+//!
+//! You pass a row *count*, and the component works out which rows the rectangle admits and calls
+//! your drawer for those. A million-row list costs what a thirty-row list costs, and nothing here
+//! ever walks your data: it never indexes past the window, and it holds no per-row state.
+//!
+//! # Three facts, not one
 //!
 //! The store is the **cursor** ([`Selection::lead`]), the **anchor** ([`Selection::anchor`]) and
-//! **what is selected** ([`Selection::spans`]). A menu keeps only the first; options and
-//! single-select keep the third at one element; multi-select uses all three.
+//! **what is selected** ([`Selection::spans`]). A menu keeps only the cursor; single-select keeps a
+//! selection of one; multi-select uses all three.
 //!
-//! **What is selected is a sorted, disjoint [`Span`] list**, and the property that decides it is
-//! that *select-all is one span whatever the length* while every other gesture adds at most one —
-//! so the store is proportional to the number of gestures and never to the number of rows.
-//! [`stores`] carries the three that were measured and refused.
+//! What is selected is a sorted, disjoint list of [`Span`]s rather than a set of indices, and that
+//! is what keeps the state small: select-all is one span whatever the length, and every other
+//! gesture adds at most one. The store is proportional to the number of gestures the user made,
+//! never to the number of rows.
 //!
-//! **The word is `Span` and not `Run`, and that is `CONTEXT.md`'s ruling rather than a preference**:
-//! *`Run` is the engine's word and is not available for anything else — a contiguous interval of
-//! selected indices in a collection is a `Span`, never a run, and the components map's "run list" is
-//! a span list.* Two meanings of one word, both carrying measurements, is the collision that
-//! glossary exists to prevent.
-//!
-//! **And the word collides anyway, one module over.** [`crate::scroll::Span`] is components ticket
-//! 07's *viewport / extent / offset* triple, minted after `CONTEXT.md` had already spent the word
-//! here. Nothing is renamed from this ticket — a resolved ticket's vocabulary is not edited from a
-//! later one — and the collision is recorded as a finding rather than settled. The practical
-//! consequence is that this module never imports `scroll::Span`, so no line in the crate can read
-//! *expected `Span`, found `Span`*.
-//!
-//! ## One hit entry per collection
-//!
-//! `Response::local` is computed inside the runtime's `declare` from *this frame's* pointer, unlike
-//! `hovered` — so resolving the row by arithmetic (`offset + local.1`) gives per-row hover with
-//! **no frame lag and no per-row index entry**. [`collection`] therefore declares **exactly one**
-//! hit entry however many rows it stands. A row with a target of its own declares it, per target,
-//! for visible rows only, and that is the row drawer's call rather than the component's.
-//!
-//! ## Identity: the row loop is wrapped, and `#[track_caller]` is not enough
-//!
-//! `Ctx::scroll_scope` roots no identity, deliberately, so rows drawn through a line
-//! *inside* this function would derive their ids from `(screen, key, that line)` — identical in
-//! every collection on the screen, first claimant wins, and the rest inert. The fix is one call and
-//! it is [`Ctx::with_id`](vitui_runtime::Ctx::with_id) around the row loop, taking the collection's
-//! own id. **Marking this function `#[track_caller]` does not do it**: the attribute does not cross
-//! a closure, so `Location::caller()` evaluated inside the row body is the line in `collection`.
-//! [`defective::unkeyed_rows`] is that build, kept runnable, and `merges` is the counter that sees
-//! it.
-//!
-//! ## Per-row state is one slot, never a map
+//! # Per-row state is one slot, never a map
 //!
 //! > **Per-row state is either derived from the row's data, or it is one slot on the collection
 //! > naming the row that has it.**
 //!
-//! [`CollState`] is offset, selection, type-ahead buffer and `editing: Option<usize>`, because only
-//! one row can hold an inline editor. Nothing keyed by row index may exist, and the runtime enforces
-//! the other half: a row that did not draw cannot be clicked, focused or hovered, so
-//! state for an undrawn row is state nothing can reach. [`COLL_STATE_BYTES`] is the measured size
-//! and it does **not** reproduce the 208 — see that constant, which says why rather than padding
-//! the type to fit.
+//! [`CollState`] is the offset, the selection, the type-ahead buffer and `editing: Option<usize>` —
+//! one slot, because only one row can hold an inline editor. Nothing keyed by row index exists
+//! here, and nothing needs to: a row that did not draw cannot be clicked, focused or hovered, so
+//! state for an undrawn row is state nothing can reach.
 //!
-//! ## The row signature is `(cx, rect, index, Face)` and no `Sel` enum exists
+//! # What you owe the rows, and what the component owes the rest
 //!
-//! Five independent bits, [`crate::frame::Face`], collapsed by [`crate::frame::face_paint`]. C02's
-//! four-variant enum names 4 of the 32 states, and the two it cannot say at all are *selected and
-//! hovered* and *the cursor without the selection* — which is what `Ctrl+↓` does and what every file
-//! manager draws.
+//! Your drawer is handed a rectangle per visible row and owes every cell of it. Everything else in
+//! the collection's rectangle belongs to the collection and it writes it — including the tail below
+//! the last row, which is what stops a shrinking list leaving the previous frame's rows on screen.
 //!
-//! ## The pointer half is not keyboard-only any more
+//! # A row is drawn from five bits, and there is no `Selected` enum
 //!
-//! Ctrl-click and shift-click were once **inexpressible**, because `rt::Input` was `Move`,
-//! `Down`, `Up`, `Wheel` and `Key` and only `Key` carried a modifier byte. That is no longer true:
-//! the engine reports modifiers on every pointer event and `Response::mods` carries them (runtime
-//! 10), so ctrl-click and shift-click route through the **same** [`apply`] as `Space` and
-//! `Shift+↑/↓`. **No component reads a modifier from anywhere else** — [`from_click`] is the one
-//! function that turns a pointer press into a [`Gesture`] and it takes a `Response`, and
-//! [`from_key`] is its keyboard twin.
+//! The drawer takes `(cx, rect, index, Face)`, where [`crate::frame::Face`] carries five
+//! independent bits and [`crate::frame::face_paint`] collapses them to a paint. Five bits are
+//! thirty-two states; a four-variant enum can name four of them, and the two it cannot name at all
+//! are *selected and hovered* and *the cursor without the selection* — which is what `Ctrl+↓` does
+//! and what every file manager draws.
 //!
-//! ## What the component draws, and what it does not
+//! # One hit entry, however many rows
 //!
-//! The rows the content admits belong to the **row drawer**, which owes each one the rectangle it
-//! is handed. Every other cell of the collection's rectangle is the collection's own
-//! and it writes them: that is the tail below the last content row, and writing it is the whole of
-//! the *stale tail* axis — 71 of 80 rows on `crate::listing`'s screen when it is left out.
+//! A collection declares **exactly one** pointer region and resolves the row by arithmetic, so
+//! per-row hover costs nothing and has no frame lag. A row that wants a target of its own declares
+//! it, for visible rows only, and that is your call in the drawer rather than the component's.
 //!
-//! ## The reveal is conditional, and this module does not contain the defect
+//! # Identity: wrap the row loop
 //!
-//! `CONTEXT.md`: a scroll-into-view *fires only for a keyboard-driven focus move; a press already
-//! proves the widget was on screen, and an unconditional pull fights the wheel.* [`collection`] asks
-//! for a reveal exactly when a **key** moved the cursor, and [`defective::every_frame`] is the arm
-//! four resolved tickets shipped. Components 20 owns the gate; what this module owes it is a
-//! subject that is on the right side of it.
+//! Two collections on one screen are two widgets, and rows inside them derive their ids from the
+//! call site — which is the same line for both. [`collection`] wraps its row loop in
+//! [`Ctx::with_id`](vitui_runtime::Ctx::with_id) with its own id for that reason. If you write a
+//! container that loops over collections, do the same with
+//! [`Ctx::with_key`](vitui_runtime::Ctx::with_key): `#[track_caller]` does not help, because the
+//! attribute does not cross a closure.
+//!
+//! # The keyboard, and the pointer through the same door
+//!
+//! [`from_key`] turns a key into a [`Gesture`] and [`from_click`] turns a pointer press into one,
+//! so ctrl-click and shift-click take the same path as `Ctrl+A` and `Shift+↑`. No component here
+//! reads a modifier from anywhere else. A collection owns a key exactly when it would do something
+//! with it — it declines the rest — so a container above it keeps the keys it needs, and `Esc` reaches a
+//! dialog once there is no selection left to clear.
+//!
+//! A cursor moved by a **key** asks to be scrolled into view; a cursor moved by a press does not,
+//! because the press already proves the row was on screen and an unconditional pull fights the
+//! wheel.
 
 use std::ops::Range;
 use std::time::Instant;

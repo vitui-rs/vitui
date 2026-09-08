@@ -1,17 +1,36 @@
-//! **F10 charts**, ~55 entries, expressed by `chart`, `plot`, axes and two memos.
+//! Charts and plots: a series in cells, at whatever resolution the terminal allows.
 //!
-//! The reduction is R4 alone, and it is the cleanest of the six: **every warning mark in
-//! this family means one thing** — a shape that is not axis-aligned costs sub-cell rasterisation —
-//! so the donut, the pie, the radar, the violin, the sankey, the treemap and the globe are all the
-//! same rasteriser with a different mapping from data to sub-cells. The ladder is priced exactly:
-//! 2 / 16 / 256 states a cell for marks, 2 / 9 / 9 for prefixes.
+//! [`chart`] is the framed one — axes, labels, a plotting area — and [`plot`] is the plotting area
+//! on its own. Both take a [`Series`] and a [`raster::PlotState`], and both draw through the same
+//! rasteriser: the difference between them is the chrome, not the marks.
 //!
-//! This is the family the `constructions` column exists for. Unicode was measured against Extended
-//! on the rendered surface: **0 cells differ in the chart pane and 882 in the plot pane**, so the
-//! third rung is `plot`'s alone.
+//! # Examples
 //!
-//! `meter` and `sparkline` declare this family and are homed under F5 — they are
-//! `chart`'s prefix construction at two rungs and `chart` at a small rectangle with no axes.
+//! ```
+//! use vitui_components::chart::raster::PlotState;
+//! use vitui_components::chart::{Series, plot};
+//! use vitui_runtime::ctx::Driver;
+//!
+//! let data = Series::build(1_000, 2);
+//! let mut state = PlotState::new();
+//! let mut driver = Driver::headless(40, 10).expect("a sink attaches");
+//!
+//! driver.frame(|cx| {
+//!     plot(cx, cx.area(), &data, &mut state);
+//! });
+//! ```
+//!
+//! # The marks degrade with the terminal
+//!
+//! A cell can carry one mark, four quadrants or eight braille dots depending on what the terminal
+//! can draw, and the same data is rasterised into whichever is available. A chart therefore has
+//! more resolution on a modern terminal and the same *shape* on an old one, with no branch in the
+//! calling code.
+//!
+//! # A plot is not a picture
+//!
+//! There is no pixel path here and no image protocol: the marks are text, they compose with
+//! everything else on the screen, and they cost what the cells they cover cost.
 
 /// The components homed in this module. See [`crate::Family::members`].
 pub const MEMBERS: &[&str] = &["chart", "plot"];

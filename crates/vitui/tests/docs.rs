@@ -77,7 +77,7 @@ const STANDING: &[Standing] = &[
     Standing {
         dir: "vitui-components",
         citations: 937,
-        examples: 1,
+        examples: 9,
     },
 ];
 

@@ -1,45 +1,29 @@
-//! **F8 navigation**, ~35 entries, expressed by `collection` + `overlay`, and **no v1 component of
-//! its own** — plus the [`cursor`], the helper that decides *what a `Group` moves with*.
+//! Cursor movement, type-ahead, and the tab stops a container opens.
 //!
-//! The reduction is R1 and R3: the `Mode` absorbs tabs, the content switcher, the menu
-//! bar, the submenu and the command palette body, and the two axes absorb the popup that carries
-//! them. The dock is v2.
+//! Nothing here draws. This is the arithmetic every list, menu and tab strip shares: [`step`] turns
+//! a key into a cursor move, [`matched`] resolves a type-ahead buffer against a set of labels,
+//! [`seek`] is the search behind it, and [`cursor`] is what a group of focusable widgets moves with.
 //!
-//! **An empty module is a claim and it is checked.** [`MEMBERS`] being empty is counted by
-//! `inventory::tests::the_module_tree_and_the_families_column_agree`, which runs the join in both
-//! directions. The one entry this family owes a ticket rather than a reduction is `command
-//! palette` — R3 over
-//! Two families with **no mechanism named as new**, which needs a decision rather than an
-//! assertion. It is one of the two exemplars that were not built.
+//! # Type-ahead is a buffer with a deadline
 //!
-//! # `nav::cursor`'s placement is the decision, not its contents
+//! Typing `ba` selects the first row starting with `ba`, and the buffer is cleared after a pause
+//! rather than after a keystroke — otherwise `b`, `a` is two searches instead of one. The deadline
+//! is armed by the component that owns the buffer, which is why a collection asks the frame for a
+//! wake-up and a plain list of buttons does not.
 //!
-//! Arrows, `Home`/`End`, `PageUp`/`PageDown` and type-ahead are four lines of arithmetic that every
-//! list would otherwise write for itself. What the helper decides is **where they live**: in the
-//! family module, called by a collection that has opened its own
-//! [`Group`](vitui_runtime::focus::ScopeKind::Group) scope — so *a list is one tab stop* is true of
-//! every list rather than of the lists whose author remembered. The number is:
-//! **266 tab stops become 69** on C02's screen. [`STOPS_UNGROUPED`] and [`STOPS_GROUPED`] are what
-//! that measurement is on the screen this crate can actually stand up, and [`fixture`]'s
-//! documentation says why the two are not the same screen.
+//! # A group is one tab stop, and its members are not
 //!
-//! **A `Group` keeps everything in the ring and collapses only the walk**, which is what makes the
-//! helper coherent: `Tab` reaches the list once, and once inside it the arrows move over entries the
-//! ring still knows about. [`stops`] reports all three counts side by side for exactly that reason —
-//! a reading that only took the walk would report a list whose contents had vanished.
+//! A radio group, a tab strip and a segmented control take **one** stop in the focus ring, and the
+//! arrows move inside them. That is what a keyboard user expects and it is not free: a container
+//! that forgets to open a group leaves every member in the ring, which is a `Tab` per row rather
+//! than a `Tab` per control.
 //!
-//! # The deadline is `cx.deadline_for`, and the `id` is not what attributes it
+//! # The arrows are read as vertical
 //!
-//! Type-ahead needs one deadline or **the buffer expires at the next keypress — the keypress whose
-//! meaning depends on it.** Runtime 06 attributes every deadline to its call site under both verbs;
-//! what the `id` buys is the *census*, [`WakeLedger::asked_by`](vitui_runtime::anim::WakeLedger::asked_by),
-//! the counter that proves which widget asked. A collection has an id to count against, so
-//! type-ahead takes the `_for` half.
-//!
-//! The distinction is measured rather than asserted:
-//! `tests::the_id_is_the_census_and_not_the_attribution`
-//! runs both verbs on fresh drivers and reads **1 against 0** out of the census, with the same
-//! wakeup arriving either way. That is the ticket's own correction to itself, as a number.
+//! [`step`] treats `←`/`→` the way it treats `↑`/`↓`, so a focused collection consumes both. A
+//! container that needs the horizontal arrows for itself — a menu bar walking its pull-downs —
+//! has to bind them with a modifier, because a collection declines a chord and swallows a plain
+//! arrow.
 
 use std::time::{Duration, Instant};
 

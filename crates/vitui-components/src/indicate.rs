@@ -1,34 +1,37 @@
-//! **F5 indicators**, ~46 entries, expressed by `meter`, `chart`, `plot`, `overlay` and deadlines.
+//! Meters, sparklines, spinners and badges — the small components that report a value.
 //!
-//! The reduction is R2 and R4. R2 is the larger half and it is `Role`:
-//! status LEDs, health pills, dot indicators, badge variants, inline messages, banners, alerts and
-//! callouts are an **argument**, not a component, and [`ROLE_VARIANTS`] is that list as a value with
-//! `tests::no_role_variant_is_a_component_row` as the gate over [`crate::INVENTORY`].
+//! [`meter`] is a fraction as a bar, [`sparkline`] is a series in one row of cells, [`spinner`] is
+//! a running indicator, and the badge shapes are in [`crate::text`] as chips. All of them degrade
+//! with the terminal rather than assuming a glyph is available.
 //!
-//! `chart`, `plot` and `overlay` declare this family and are homed under F10 and F9.
+//! # Examples
 //!
-//! # The two components here are one sentence each, and each sentence is a call into `chart`
+//! ```
+//! use vitui_components::indicate::{MeterOpts, meter, meter_with};
+//! use vitui_runtime::Rect;
+//! use vitui_runtime::ctx::Driver;
 //!
-//! `crate::INVENTORY`'s `COMPOSITIONS` carries both edges:
+//! let mut driver = Driver::headless(20, 3).expect("a sink attaches");
+//! driver.frame(|cx| {
+//!     // A fraction, never a range: 0.0 is empty and 1.0 is full.
+//!     meter(cx, Rect::new(0, 0, 20, 1), 0.42);
 //!
-//! - [`meter`] is **`chart`'s prefix construction at 2 rungs** — the ladder comes from
-//!   [`geom`]`(Kind::Bars, …)` and nothing here decides how many sub-cells a rung has;
-//! - [`sparkline`] is **`chart` at a small rectangle, no axes, no gutter, no axis loop** — the same
-//!   raster memo and the same body loop, with the chrome deleted rather than reimplemented.
+//!     let opts = MeterOpts::default();
+//!     meter_with(cx, Rect::new(0, 1, 20, 1), 1.0, &opts);
+//! });
+//! ```
 //!
-//! # The prefix ladder is shared and the prefix *spelling* is not, and that is a fact about Unicode
+//! # `value` is a fraction, and that is not a simplification
 //!
-//! `chart`'s bars grow **upward**, so its partial cell is one of the lower eighth blocks —
-//! U+2581…U+2588, one contiguous run, and [`crate::chart::raster::cluster`] is the lookup.
-//! A horizontal [`meter`] grows **rightward**, and the left eighth blocks are a *different*
-//! contiguous run — U+258F…U+2588, running the other way. So [`meter`]'s vertical arm **reaches**
-//! `cluster` and its horizontal arm cannot, and `LEFT8` — this module's own private run — is what
-//! the horizontal arm spells instead.
+//! A meter takes `0.0..=1.0` and never a range, because a component that took `(value, min, max)`
+//! would be doing the caller's arithmetic in the caller's units and then rounding it into cells.
+//! Convert once, at the call site, where the units are known.
 //!
-//! That is a spelling and not a ladder: how many sub-cells a rung offers is
-//! [`geom`]`(Kind::Bars, set).sy` in both arms, which is the number `constructions: 2` is derived
-//! from, and `tests::the_two_prefix_runs_are_one_ladder_and_two_spellings` sweeps the two runs
-//! against each other at every eighth.
+//! # Three ladders, and the terminal decides which one you get
+//!
+//! A meter, a sparkline and a spinner each have an ASCII rung, a Unicode rung and an extended rung,
+//! and the theme's glyph set picks between them. That is why a bar looks like eighths on one
+//! terminal and like `#` on another, with no branch in the calling code.
 
 use std::time::{Duration, Instant};
 

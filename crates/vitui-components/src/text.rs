@@ -1,25 +1,39 @@
-//! **F1 text**, ~48 entries, expressed by `text`, `chip`, `field` and the [`fit`] helper.
+//! Text, chips and the fitting helper every component narrows through.
 //!
-//! The reduction is R1 and R5: markdown needs its own wrap pass and is out of scope, and there
-//! is no bidi — a stated non-goal with the engine's tables named as the reason.
+//! [`text`] draws a string into a rectangle, wrapping or truncating as its options say. [`chip`] is
+//! a short label on its own face, the shape a tag or a badge is drawn as. [`fit`] is the helper
+//! underneath both: it answers *what rectangle does this string actually occupy here*, and it is
+//! what makes a label narrow with its container instead of spilling out of it.
 //!
-//! `field` declares this family and is **not** homed here: its first family is F6, which is where
-//! the caret, the wrap index and the keyboard live. Spelled out because `text` and `field` sharing
-//! `layout::text` is the reason a reader would expect otherwise.
+//! # Examples
 //!
-//! # `fit` is the partition primitive
+//! ```
+//! use vitui_components::text::{Justify, TextOpts, text, text_with};
+//! use vitui_runtime::Rect;
+//! use vitui_runtime::ctx::Driver;
 //!
-//! The table gives it one job — *truncation, alignment, padding* — and one shape: **text, then
-//! the remainder; there is no verb on it that fills first.** That sentence is the whole helper. A
-//! label centred in a rectangle is three writes that touch every cell of its row exactly once — the
-//! lead, the text, the trail — and never a fill followed by a draw, which is R07's original defect
-//! and 26 of 48 cells on a steady dropdown frame.
+//! let mut driver = Driver::headless(24, 4).expect("a sink attaches");
+//! driver.frame(|cx| {
+//!     text(cx, Rect::new(0, 0, 24, 1), "one line, truncated if it must be");
 //!
-//! **Routing through it costs nothing against the discipline**, and that is the measurement spec
-//! the table owed rather than a claim about ergonomics: `crate::form` renders one screen twice, once
-//! through `fit` and once with the same order written out by hand, and compares them cell for cell.
-//! The helper is not a convenience over hand-written correctness — it is the only form of it anybody
-//! keeps.
+//!     // Alignment is an option rather than a second function.
+//!     let centred = TextOpts { justify: Justify::Middle, ..TextOpts::default() };
+//!     text_with(cx, Rect::new(0, 1, 24, 1), "centred", &centred);
+//! });
+//! ```
+//!
+//! # Truncation is measured in cells, not in characters
+//!
+//! A string is segmented into grapheme clusters and each cluster occupies the columns the terminal
+//! gives it, so an emoji costs two and a combining mark costs none. When a label does not fit, the
+//! last cell that survives carries the ellipsis — which is why a one-cell-wide label shows the
+//! marker and nothing else, rather than half a glyph.
+//!
+//! # A chip narrows with its room
+//!
+//! A chip that cannot narrow is a chip that writes outside its rectangle, so [`chip`] fits its
+//! label the same way [`text`] does. What that costs is one width walk per call, and it is what
+//! keeps a row of tags from overrunning the panel they are in.
 
 use vitui_runtime::layout::text as measure;
 use vitui_runtime::{Ctx, Interest, Paint, Response, Role};

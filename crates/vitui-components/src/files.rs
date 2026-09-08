@@ -1,38 +1,29 @@
-//! **F12 files**, ~35 entries, expressed by `collection` + `scroll_area` + a worker + the preview
-//! pane.
+//! A file picker, and the preview pane behind it.
 //!
-//! The reduction is R3, and R3 is the class that requires the most care: *composition
-//! with no new mechanism* is exactly the claim that turns out to be false when it is false, which
-//! is why C16 was a ticket rather than an assertion. It resolved having built both rows —
-//! [`file_preview_pane`] and [`file_picker`] — and every defect it found was **at a seam between
-//! two of the five pieces**, not inside one.
+//! [`file_picker`] is the dialog: a listing on the left, a preview on the right, and an answer when
+//! the user chooses. [`file_preview_pane`] is the right-hand half on its own, for an application
+//! that has its own idea of what a listing looks like.
 //!
-//! # The five pieces, and what each seam cost
+//! # The preview is a question, not a read
 //!
-//! | seam | what it decided |
-//! |---|---|
-//! | the answer and the question | [`Preview::shows`] — **eight bytes on the payload**, and a landing that does not match is dropped without a cell written |
-//! | the answer and the offset | [`Reset::OnTheLanding`], and the other four spellings each produce their own defect |
-//! | the answer and the extent | *unclamped* is **not a spelling of the offset at all** — see [`Extent`] |
-//! | the answer and the revision | [`Bump::OnTheLanding`]: a landing that did not happen is still a drop |
-//! | the answer and the frame | [`PaneState::land`] is a **top-of-view verb**, because [`Task::take`] is destructive |
+//! A preview pane never opens a file on the drawing thread. It asks — [`asking`] builds the
+//! question, keyed by whatever identifies the file — and a worker answers on its own thread. The
+//! pane draws what it has: nothing, a spinner, or the answer that landed. That is why an arrow key
+//! held down through a directory of large files does not stall a frame.
 //!
-//! # What this module does not own
+//! # The keyboard is the list's
 //!
-//! **A job's lifetime is the question's, a memo's is the data's, and neither is the widget's.**
-//! Nothing here mints a [`Task`], hires a [`Worker`](vitui_runtime::work::Worker) or holds a
-//! [`Memo`](vitui_runtime::data::Memo): all three are the application's, handed in by reference,
-//! and `crate::preview::mints_its_own_task` is the scan that keeps it that way. R02's sweep
-//! releases what an [`Id`] stopped drawing, and a pending decode swept that way costs **10 spawns
-//! and 10 decodes over ten tab switches against 1 and 1**.
+//! An open picker focuses the **listing**: the arrows move the cursor, `Enter` answers the file
+//! under it, and `Esc` cancels and answers nothing. The preview pane has no keyboard and will not
+//! get one — its document is replaced by the next arrow press, so there is nothing there to
+//! navigate. It is scrolled with the pointer.
 //!
-//! # `Worker` is `Send`, and the auto trait that matters is `!Sync`
+//! # A landing is a shrink
 //!
-//! An earlier statement named the wrong one, and **the correction is itself half wrong**:
-//! a `Worker` is an `Arc<Inbox>` and is `Sync` as well as `Send`, which `crate::gates`'s row 31
-//! already recorded. [`WhyTheAutoTraitIsSync`] is the half the correction adds and the original did not
-//! have — with the `compile_fail` halves over `Task` and a compiling twin naming `Cell`, `RefCell`,
-//! `Task` and `Worker` by path, so that neither half can go green by the other's mechanism.
+//! When an answer arrives, the pane's content usually changes size, and a pane that let its offset
+//! stand would show a window past the end of a shorter document. The offset is clamped on the
+//! frame the answer lands, which is the same rule [`crate::scroll`] applies to any content that
+//! stops reaching its viewport.
 
 use vitui_runtime::data::{Revision, Versioned};
 use vitui_runtime::keys::{Code, Edge, Pressed};

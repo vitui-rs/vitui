@@ -1,47 +1,22 @@
-//! **F11 media**, 16 entries, expressed by a picture as `Solid`/`Half`, QR, barcode, the audio
-//! three, and six parts of a video player's chrome — and **no v1 component**.
+//! Pictures, codes and audio shapes — the family that draws with cells where a graphic would go.
 //!
-//! The reduction is R4 with the one correction, which is the correction that matters: **a
-//! picture's ladder is a colour ladder, not a glyph ladder**, so the image, the gallery, the
-//! lightbox and the avatar degrade along a different axis and reach a floor of *nothing* rather
-//! than a floor of *worse*.
+//! [`qr`] draws a QR code, [`barcode`] a barcode, [`waveform`], [`spectrum`] and [`vu_meter`] the
+//! three shapes an audio application needs, and [`player::chrome`] the transport row under a
+//! video. What is deliberately absent is the picture itself: this crate emits no out-of-band
+//! graphics bytes, so an image is the terminal's business and not this library's.
 //!
-//! Terminal-native fidelity, video and camera preview are the residue and the engine map owns them:
-//! the engine emits no out-of-band bytes, and the reason splits in two — **a preview pane's
-//! picture fails for fidelity and a video's for bandwidth**, 24.6 MB/s at truecolor as a lower
-//! bound.
+//! # Two modules a cell, or one
 //!
-//! `file_preview_pane` declares this family — F12 row says picture fidelity inherits F11 —
-//! and is homed under F12.
+//! A code is drawn as solid blocks or as half blocks, which is the difference between one module a
+//! cell and two: a QR that fits in eleven rows at half resolution needs twenty-one at full. The
+//! choice is the caller's, because it is a legibility decision about a particular terminal and a
+//! particular scanner rather than a capability question.
 //!
-//! # Nothing here is a row of the freeze, and that is why [`MEMBERS`] is empty
+//! # An audio shape is a series, not a stream
 //!
-//! [`crate::INVENTORY`] has **no media row at all**, which is the original's *no v1 component* as a
-//! value: F11's sixteen survey entries reduce to constructions rather than to components, and
-//! `file_preview_pane` — the one row that names this family — is homed under F12. So this module
-//! ships the family and [`MEMBERS`] stays empty, and
-//! `crate::inventory`'s `the_module_tree_and_the_families_column_agree` is the join that keeps those
-//! two statements one statement.
-//!
-//! # The census is the component's own obligation, and it is why every `_into` takes one
-//!
-//! [`Theme::custom`] asks in as many words for *a component that calls it at all to publish its own
-//! call census*, and that census is what the family is legible as a count by: a picture
-//! spends one a cell, a QR spends [`QR_CUSTOMS`], a barcode [`BARCODE_CUSTOMS`], and the audio three
-//! spend **zero**, because their colours are roles. A [`Census`] is threaded through the `_into`
-//! forms for the same reason an [`Ink`] is — *a number a gate cannot read is a number nobody is
-//! keeping* — and the four figures are one gate rather than four, because what is stated is the
-//! **contrast**.
-//!
-//! # None of these declares an interactive region except the chrome
-//!
-//! A picture, a symbol and a meter are pure drawers: they return [`Response::inert`] and cost the
-//! frame **no hit entry**, which is `crate::picture::REGIONS` as a number. [`player::chrome`] is
-//! the one construction here that interacts, and what it declares is a button a part and one track.
-//!
-//! # What is not built, and the seam it is on the wrong side of
-//!
-//! See [`WhyThereIsNoWallpaper`].
+//! [`waveform`] and [`spectrum`] take the samples you already have. Nothing here reads a device,
+//! keeps a buffer or owns a clock: a frame draws what the application has decided is current, which
+//! is the same contract every other component in this crate works under.
 
 /// The components homed in this module. See [`crate::Family::members`].
 ///

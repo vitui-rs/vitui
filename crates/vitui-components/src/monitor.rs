@@ -1,9 +1,12 @@
-//! **F13 system**, ~30 entries, expressed by `meter`, `table`, `plot` and a log `collection`, and
-//! **no v1 component of its own**.
+//! Gauges and meters over a live value.
 //!
-//! The reduction is R3 and R5. The exemplar is the screen: **a million-row process
-//! table is `table` + `plot` + a memo**, and it was built. Topology and service maps are layout
-//! research.
+//! The system family: the shapes an application draws when it is reporting on something that keeps
+//! changing — load, throughput, temperature, queue depth. There is no v1 component of its own here,
+//! because every one of those screens is a [`crate::indicate::meter`], a
+//! [`crate::chart::plot`] or a [`crate::collect::table`] over data the application already has.
+//!
+//! The module exists so that the family has a home when one of those screens turns out to need a
+//! mechanism the three above cannot express.
 
 /// The components homed in this module. See [`crate::Family::members`].
 pub const MEMBERS: &[&str] = &[];

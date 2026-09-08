@@ -1,107 +1,34 @@
-//! **F9 overlays**, ~35 entries, expressed by `overlay`, layers, placement, scopes and `Trap`.
+//! Dialogs, popovers, toasts and the scrim behind them.
 //!
-//! The reduction is R1 and R2: modality is a `bool`, and the eighteen named popup,
-//! dialog, drawer, sheet and toast entries are two axes of one component.
+//! [`overlay`] is how a component puts something *in front of* the screen it is drawing on. You
+//! request it during the draw, the runtime satisfies it after the draw, and the body runs in a
+//! second pass over its own layer — so a popup can cover anything, including the component that
+//! opened it.
 //!
-//! `select` declares this family and is homed under F6, because the finding is that the popup is
-//! the *owner's* — [`crate::input::SelectState`] is written only by the owner and
-//! [`PopupState`] only by the body, and `&'f mut` is what makes *request the overlay last* a borrow
-//! error rather than a comment.
+//! # Request during the draw, satisfy after it, answer next frame
 //!
-//! # Three kinds on two axes, and the axes are not "modal"
+//! A body cannot run inline, because the layer it draws into cannot be opened while the base pass
+//! holds the layer stack. So an overlay's body sees the frame it was requested in, and what the
+//! *user does to it* arrives on the frame after. That is not a delay to work around: it is what
+//! makes a dialog able to draw over the thing that owns it.
 //!
-//! [`FAMILY`] is the table as a value a test iterates, three rows and three [`Kind`] arms with no
-//! fourth on either side. **Modality is one `bool` on the request** —
-//! [`OverlayOpts::scrim`](vitui_runtime::overlay::OverlayOpts::scrim) being `Some` — and forces no
-//! construction here at all: [`Kind::Dialog`] is a kind because it needs a **host owner, a barrier
-//! and a trap**, none of which is modality.
+//! # What an overlay costs
 //!
-//! | axis | question | who is on the far side |
-//! |---|---|---|
-//! | A | does it declare anything | [`Kind::Transient`] — a tooltip and a toast are cells and nothing else |
-//! | B | is its owner guaranteed to be drawing | [`Kind::Dialog`] — owned by the menu row that opened it, it lives 3 of 8 frames |
+//! One allocation per body, per frame — **n** overlays standing cost **n + 1** allocations, and a
+//! frame with no overlay costs nothing at all. The `+ 1` is forced rather than sloppy: a body
+//! borrowed for the frame cannot live inside the thing that is borrowed for the frame.
 //!
-//! Axis A is not a preference. An overlay that declares **and** covers its own anchor takes the
-//! anchor's hover away, which closes it, which uncovers the anchor, which opens it again:
-//! [`crate::popup::FLIPS`] flips in [`crate::popup::FLIP_FRAMES`] frames, for ever.
+//! # Placement is a request, and the screen has the last word
 //!
-//! # The rectangle is three parties and the component never hears what it was granted
+//! [`Placement`] says where you would like it — under an anchor, centred, at an edge — and the
+//! placement is then clamped to the screen. A popover under a control near the bottom of the
+//! terminal opens upwards, and the caller does not have to notice.
 //!
-//! The **anchor** is the component's, in its own coordinates, during its own call. The **size** is
-//! the component's too, from a sizing function beside it — [`popup_size`], `CONTEXT.md`'s shape, no
-//! draw context. The **placement** is the runtime's
-//! [`vitui_runtime::overlay::place`].
+//! # Two mechanisms that look alike and are not
 //!
-//! **The size may not come from the drawn extent.** A popup has no frame before the one it opens
-//! on, so its extent there is 0 and stays 0: granted [`SPEC_GRANTED_FROM_EXTENT`] against
-//! [`SPEC_GRANTED`], for ever, and the arm is [`crate::input::Sizing::FromTheDrawnExtent`].
-//! `CONTEXT.md`'s *one frame old* is survivable for a scroll area and fatal for an overlay.
-//!
-//! # the bar decision moves into the body, and the fixpoint does not arise
-//!
-//! Because the owner asked for a size and the runtime answered, the gutter is decided **inside the
-//! body**, by [`gutter`], in **0 passes** — against [`scroll::MAX_PASSES`] for the fixpoint over
-//! the same two numbers. A popup owns its own viewport: its horizontal extent *is* the viewport it
-//! was granted less the bar, so the two coupled booleans have nothing to couple through.
-//!
-//! Owner-side, the decision is made before the runtime has answered, and on a screen too short
-//! [`SPEC_UNREACHABLE`] of [`SHORT_OPTIONS`] rows is unreachable with no bar — because
-//! [`vitui_runtime::overlay::place`] **clamps and never resizes**, so an overlay asked for
-//! more rows than the screen has hangs off the bottom edge at its stated size and the rows past the
-//! edge are drawn, clipped, and reachable by nothing.
-//!
-//! # One owner is one layer
-//!
-//! The layer is keyed and censused on the **request**, so a second request under one owner this
-//! frame is inert and `Frame::overlays_merged` counts it. A component with two overlays standing
-//! must **mint** a second id with `Ctx::with_key`; shared, the two get one slot resized.
-//! An `Id` is a hash, so nothing recovers the rooting from the value — every workaround on this map
-//! that looks like a hack is that fact.
-//!
-//! # Dismissal is four things, and blur is qualified by a position
-//!
-//! [`Dismissal`] is the four, and the one that needs care is [`Dismissal::Blurred`]:
-//! `Response::focus_left` is what an outside click already produces, but **`begin` hands out an
-//! optimistic focus a frame before the body can speak**, so blur is qualified by a **position** the
-//! body reports through one hit entry over the popup's whole rectangle with [`Interest::HOVER`] only
-//! — never by a press. The alternative, a catcher layer, is [`Blur::Catcher`]: it covers the screen,
-//! declares a click over all of it and **swallows** the click that dismissed it, so the widget the
-//! user was aiming at never hears the press.
-//!
-//! On the way out the owner refocuses **itself** — one id it already has, so no id belonging to
-//! anybody else is named. See [`crate::popup::Dismiss`] for the three answers and what the other
-//! two cost.
-//!
-//! # A modal is three mechanisms and the barrier is one of them
-//!
-//! [`Kind::Dialog`] puts down `Ctx::modal_barrier_here` for the pointer and opens a
-//! [`ScopeKind::Trap`] for the keyboard, and **the two are not one verb**: the barrier stops the
-//! pointer and only the pointer, and without the trap [`crate::popup::TABS`] `Tab`s walk straight
-//! out. The scrim is the third and it is the runtime's operator layer — never a fill. See
-//! [`crate::popup::ScrimSpelling`] for the three spellings and what the fill costs.
-//!
-//! # The sentence `Ctx::overlay` owed is written, and this file is where that is checked
-//!
-//! It is an obligation with an owner:
-//!
-//! > On an overlay body that captures its owner's state by `&mut`, rustc's own `help:` line — *add
-//! > explicit lifetime `'f` to the type of `st`* — **compiles**. What then fails is the caller, with
-//! > `E0503: cannot use st.open because it was mutably borrowed`, naming the caller's own read one
-//! > level away from the mistake and never mentioning the overlay. `Ctx::overlay`'s documentation
-//! > owes: *the body answers through the inbox; a `&'f mut` capture compiles and costs you the state
-//! > for the rest of the frame.*
-//!
-//! The crate that met it could not write it — it does not touch `crates/vitui-runtime/`, and a note
-//! about `Ctx::overlay` written anywhere else is a note nobody hits, because the diagnostic that
-//! sends a reader looking arrives at the **caller** and names `E0503` on a field read. Runtime
-//! a follow-up wrote it, under the heading *The body answers through the inbox, and a
-//! `&'f mut` capture costs you the state*.
-//!
-//! **A sentence owed on another crate's item is checked by opening that crate's file**, which is
-//! [`OWED_SENTENCE`] and [`owed_sentence_is_written`]. A `use` cannot see a doc comment and a
-//! `compile_fail` cannot see one either, so the instrument is a scan — the same arrangement
-//! [`crate::popup::subjects_declared`] uses one direction over, and the same reason: *the item does
-//! not exist* has no expression.
+//! A **modal** bounds the *pointer*: clicks outside it do not reach what is behind it. A
+//! [`vitui_runtime::ScopeKind::Trap`] bounds the *keyboard*: `Tab` cannot walk out
+//! of it. A dialog usually wants both, and asking for one does not give you the other.
 
 use std::time::Instant;
 

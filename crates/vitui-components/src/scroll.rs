@@ -1,34 +1,53 @@
-//! **F3 scrolling**, 18 entries, expressed by `scroll_area`, `scrollbar`, `sticky` and
-//! `collection` — and [`bar`], the helper every one of them draws.
+//! Scroll areas, bars and the offsets a caller owns.
 //!
-//! The reduction is R2 and R5; `pull-to-refresh` is the family's one residue entry, a
-//! touch gesture with no terminal meaning and nobody who could change that.
+//! [`scroll_area`] is a viewport over content larger than itself: you keep the offset in an
+//! [`AreaState`], it clips and translates, and it draws the bars. [`scrollbar`] is the bar on its
+//! own, [`bar`] is the thumb-and-track arithmetic behind it, and [`sticky`] is the four-band
+//! arrangement — a pinned header, a pinned column, the body, and the gutters between them.
 //!
-//! `collection` declares this family and is homed under F7. C21 is why the distinction
-//! is worth the confusion: **a `scroll_area` costs its content and a virtualised `collection` costs
-//! its visible window**, and the wrong pairing is 7 907 us at 100 000 rows — seventy-nine budgets.
+//! # Two mechanisms that must never be conflated
 //!
-//! # `bar` draws the thumb first, and that is the whole helper
+//! A **scroll area** costs what the content costs: everything inside it is drawn and then clipped.
+//! A **virtualised collection** costs what the window costs: only the visible rows are ever drawn.
+//! Put a million rows in a scroll area and you pay for a million rows; put them in a
+//! [`crate::collect::collection`] and you pay for thirty. Both are here on purpose, and choosing
+//! the wrong one is the difference between a frame under budget and a frame that is not.
 //!
-//! The table gives it one job — *the bar every scrollable draws* — and one shape: **thumb,
-//! then the track above and below.** It is the partition rule at the smallest scale it comes
-//! in, and it is a helper rather than a paragraph because the other order is what everybody writes:
-//! fill the groove, then put the thumb on it. That reads correctly, it is one verb shorter, and it
-//! writes every cell of the thumb **twice** — [`TRACK_FIRST_EXCESS`] cells a frame on a two-bar
-//! screen, on every frame, whether anything scrolled or not.
+//! # Examples
 //!
-//! Nothing about it looks like a fill, which is [`crate::frame`]'s fifteen-cell instance again one
-//! helper down: the same shape turned up in five places and three of them were not fills.
+//! ```
+//! use vitui_components::scroll::{AreaState, scroll_area};
+//! use vitui_components::text::text;
+//! use vitui_runtime::Rect;
+//! use vitui_runtime::ctx::Driver;
 //!
-//! # The unit is content cells, and it comes from one place
+//! let mut state = AreaState::default();
+//! let mut driver = Driver::headless(20, 6).expect("a sink attaches");
 //!
-//! Collecting one debt: *the extent, the offset, the thumb and scroll-into-view are all
-//! in content cells and all come from one place.* Measured in **rows** instead, on content where
-//! one row in eight is three cells tall, the extent reads 1 000 000 where it is 1 250 000 — *time,
-//! writes, verbs, marked cells, regions and allocations are all identical*, the area reaches row
-//! 799 999 of 999 999, and the thumb is out by up to **7 cells of 69**, smoothly and plausibly. So
-//! [`Span`] takes three `u32`s in one unit and [`thumb`] is the only arithmetic that turns them
-//! into cells.
+//! driver.frame(|cx| {
+//!     let area = cx.area();
+//!     // The content is forty rows tall; the viewport is six.
+//!     scroll_area(cx, area, &mut state, (20, 40), &mut |cx| {
+//!         for row in 0..40 {
+//!             text(cx, Rect::new(0, row, 20, 1), "a row of content");
+//!         }
+//!     });
+//! });
+//! ```
+//!
+//! # The offset is yours, and the clamp is not
+//!
+//! You own the offset because you are the one who knows what a wheel notch or a `PageDown` means
+//! for your content. What the area owns is the clamp: [`max_offset`] is `extent - viewport`, so an
+//! offset past the end is pulled back and a shrinking content pulls the window with it. A tail
+//! therefore only exists where the content is *smaller* than the viewport, and the area writes it
+//! rather than leaving the previous frame's rows on screen.
+//!
+//! # Bars are reserved, never overlaid
+//!
+//! A bar takes its column or its row out of the rectangle before the body is drawn, so the parts
+//! tile the area exactly and nothing is painted twice. An overlaid bar would be free only where the
+//! body happens to draw nothing, which is not a property a component can rely on.
 
 use vitui_runtime::{Ctx, Glyph, Id, Interest, Rect, Response, Role, Scrollable};
 

@@ -1,30 +1,40 @@
-//! **F2 structure**, ~38 entries, expressed by `panel`, `rule`, `block` and the operator layers.
+//! Panels, rules, splits and status bars — the furniture everything else sits inside.
 //!
-//! The reduction is R2: a container attribute in CSS is a component here and a component
-//! there is an argument here, and an inventory-driven count is structurally blind to both
-//! directions. A scrim is a complement and never a fill, and there is no cut-out — a terminal
-//! cell has no alpha channel, so a scrim cannot have a hole in it.
+//! [`panel`] draws a border with a title and hands back the rectangle **inside** it, so a caller
+//! never has to work out where the frame ended. [`rule`] is a captioned horizontal line,
+//! [`status_bar`] is a row of segments, and [`crate::frame::block`] is the plain filled region a component draws
+//! into when it wants no chrome at all.
 //!
-//! `status_bar` is homed here rather than under F13 because of what it
-//! **is**: the same construction as a sticky header or footer, one rectangle split and one hit
-//! entry. What it is used for is F13's; what it is is F2's.
-
-//! # `panel` is the one of the four primitives that does not write all of its rectangle
+//! # Examples
 //!
-//! The rule is one sentence with two halves — *each cell it is responsible for is
-//! written exactly once, and the cells it does not write are **named in its return value***. For
-//! `text`, `chip` and `button` the second half is empty: they were handed a rectangle and they write
-//! every cell of it. A panel is a container, so the second half is the whole point, and it is why
-//! [`panel`] returns a [`Panel`] rather than a bare `Response`.
+//! ```
+//! use vitui_components::structure::panel;
+//! use vitui_components::text::text;
+//! use vitui_runtime::Rect;
+//! use vitui_runtime::ctx::Driver;
 //!
-//! **That is the second stated substitution on the shape and it is not a loophole.** The first
-//! is `Rect` for `Rect` ([`vitui_runtime::layout::rect`]); this one is *rule 4 with the container's rectangle
-//! beside the `Response`*, because the sentence is unstatable in a bare `Response` and the
-//! alternative that would make it statable — handing the interior to a closure — is **refused on two
-//! measurements** in [`crate::frame`]'s header: it collides the border with the interior in the one
-//! counter this whole rule is measured by (124 false double writes), and it renames the caller's
-//! widgets, which `CONTEXT.md`'s identity rule forbids. So the interior comes back, and the field it
-//! comes back in is named.
+//! let mut driver = Driver::headless(40, 8).expect("a sink attaches");
+//! driver.frame(|cx| {
+//!     let p = panel(cx, cx.area(), " logs ");
+//!
+//!     // The interior is smaller than the panel, and the panel has not written a cell of it.
+//!     assert!(p.interior.w < 40 && p.interior.h < 8);
+//!     text(cx, Rect::new(p.interior.x, p.interior.y, p.interior.w, 1), "nothing to report");
+//! });
+//! ```
+//!
+//! # What a container returns, and why it is not a `Response`
+//!
+//! [`Panel`] carries the response *and* the interior rectangle. A container owes its caller both
+//! halves: what happened to it, and which cells it left alone. A bare `Response` can only say the
+//! first, and a caller who has to guess the second draws over the border.
+//!
+//! # A title is a string, and a border is a role
+//!
+//! Options are a `Default` struct: [`PanelOpts`] carries the roles for the border, the title and
+//! the padding, whether there is a border at all, and what the panel is interested in. Nothing
+//! here takes a colour — a component names a [`vitui_runtime::theme::Role`] and the theme
+//! resolves it for the terminal in hand.
 
 use vitui_runtime::layout::rect;
 use vitui_runtime::layout::text::width;
