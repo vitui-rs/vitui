@@ -83,8 +83,13 @@
 //!
 //! Beside the components, this crate carries the instruments they are checked with — the freeze
 //! itself, the obligation queries, the scene list, the golden screens and the counters behind the
-//! numbers. They are public because the checks live in other crates and in the examples, they are
-//! of no use to an application, and they are the modules not listed under *The families* above.
+//! numbers. Most of them are `pub` and **hidden from this documentation**: the checks live in other
+//! crates and in the examples, so the items have to be reachable, and a reader looking for a list
+//! widget has no use for a scene screen. The ones left visible are the ones an application actually
+//! calls — [`ink`] to reach a drawing seam, [`counters`] to measure a frame, [`order`] and
+//! [`edit`] because a collection and a field take their types, [`frame`], [`keys`], [`state`],
+//! [`series`] and [`picture`] for the same reason, and [`INVENTORY`] with [`obligations`] because
+//! *what does this crate contain* is a fair question to ask of it.
 
 // **No `unsafe` in any shipped crate above the engine** (ticket 21, ADR 0034). `forbid` and not
 // `deny`, so nothing inside the crate can turn it back on with an `allow`; it subsumes the
@@ -92,44 +97,78 @@
 #![forbid(unsafe_code)]
 #![deny(missing_docs)]
 
+// The instruments this crate is checked with are `pub` and **hidden from rustdoc**. They have to
+// be `pub`, because the checks live in other crates, in the examples and in `tests/`, and because a
+// `compile_fail` fence only runs where rustdoc collects doctests. They are hidden because a reader
+// looking for a list widget has no use for a scene screen, a register or an evidence value, and a
+// crate whose front page is fifty-three modules of which fourteen are components is a crate that
+// hides its own components. Nothing here is a component and nothing here is a helper a caller
+// calls: each one's header says which screen or which obligation it exists for.
+//
+// Hiding changes what `cargo doc` renders and nothing else — the items stay public, the doctests
+// inside them still run, and the crate-line gates still count them.
+#[doc(hidden)]
 pub mod accordion;
 pub mod app;
+#[doc(hidden)]
 pub mod area;
+#[doc(hidden)]
 pub mod clusters;
+#[doc(hidden)]
 pub mod composed;
 pub mod consumer;
+#[doc(hidden)]
 pub mod contract;
 pub mod counters;
+#[doc(hidden)]
 pub mod dense;
+#[doc(hidden)]
 pub mod doc;
+#[doc(hidden)]
 pub mod document;
+#[doc(hidden)]
 pub mod dropped;
 pub mod edit;
+#[doc(hidden)]
 pub mod forest;
+#[doc(hidden)]
 pub mod form;
 pub mod frame;
 pub mod gallery;
+#[doc(hidden)]
 pub mod gates;
+#[doc(hidden)]
 pub mod glyphs;
+#[doc(hidden)]
 pub mod golden;
+#[doc(hidden)]
 pub mod grid;
 pub mod ink;
 pub mod inventory;
 pub mod keys;
+#[doc(hidden)]
 pub mod listing;
+#[doc(hidden)]
 pub mod memos;
 pub mod obligations;
 pub mod order;
 pub mod picture;
+#[doc(hidden)]
 pub mod popup;
+#[doc(hidden)]
 pub mod preview;
 pub mod runner;
+#[doc(hidden)]
 pub mod scenes;
 pub mod series;
 pub mod state;
+#[doc(hidden)]
 pub mod surround;
+#[doc(hidden)]
 pub mod volume;
+#[doc(hidden)]
 pub mod wheel;
+#[doc(hidden)]
 pub mod window;
 
 // **One module per family, and the family is the module** (spec §19). The tree follows the survey's
