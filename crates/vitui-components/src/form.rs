@@ -87,7 +87,7 @@ pub const SCREEN: u64 = W as u64 * H as u64;
 //
 // Every figure below is a **count**, not a timing, so it carries no machine: the form is
 // deterministic, the labels are static, and the same numbers come out of a debug build and a
-// release one. §21's rule is satisfied in the strong direction — *a gate is a count, a ratio, an
+// release one. The rule is satisfied in the strong direction — *a gate is a count, a ratio, an
 // equality or a compile outcome* — and there is no headroom to write beside a count that is exact.
 //
 // **Each is recorded beside the figure spec §3 and ticket 06 remember**, and where they differ the
@@ -253,7 +253,7 @@ fn draw<I: Ink>(ink: &mut I, cx: &mut Ctx<'_, '_>, style: Style) -> Shape {
     let screen = cx.area();
     let mut shape = Shape::default();
 
-    // **The screen clear that is a defect.** ADR 0026's largest instance — 6 662 cells a frame —
+    // **The screen clear that is a defect.** The largest instance — 6 662 cells a frame —
     // and the correct build's answer is *once, on the first frame and on a resize*, which is a
     // property of the application loop and not of this frame.
     if style == Style::Naive {

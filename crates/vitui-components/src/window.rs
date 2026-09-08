@@ -343,7 +343,7 @@ pub fn tail() -> Text {
 pub fn scrolled() -> Text {
     let mut st = Text::of(crate::document::text(), WrapKind::Words);
     let _ = st.index(W);
-    // **The caret is placed by a click and not by a byte**, which is §11's rule on the pointer
+    // **The caret is placed by a click and not by a byte**, which is the rule on the pointer
     // path: a column is a boundary by construction. It is called outside a frame, so nothing has
     // asked for a reveal and the offset below is the one the screen is drawn at.
     st.click(W, CARET_ROW, CARET_COL, false);

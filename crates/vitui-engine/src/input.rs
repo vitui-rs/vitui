@@ -494,7 +494,7 @@ pub(crate) mod parse {
             sink: &mut dyn FnMut(Event),
         ) {
             // SGR mouse (mode 1006): `CSI < b ; x ; y M|m`, and it is the only encoding this engine ever
-            // asks for, because without it coordinates stop at column 223 (§9).
+            // asks for, because without it coordinates stop at column 223.
             if payload.first() == Some(&b'<') && (final_byte == b'M' || final_byte == b'm') {
                 if !self.sgr_mouse(&payload[1..], final_byte == b'M', at, sink) {
                     self.unrecognised_csi(payload, final_byte);
@@ -703,7 +703,7 @@ pub(crate) mod parse {
             if self.paste.len() < self.paste_limit {
                 self.paste.push(b);
             } else {
-                // **The flag is on the event, not in a diagnostic** (§9): silent truncation is data loss
+                // **The flag is on the event, not in a diagnostic**: silent truncation is data loss
                 // the user will attribute to the application.
                 self.paste_truncated = true;
             }

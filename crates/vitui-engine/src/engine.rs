@@ -460,13 +460,13 @@ impl Engine {
             (false, Some(_)) => Ground::Tty,
         };
         // **`TERM=dumb` is asked nothing at all**, and that is not an optimisation. It sits at
-        // level 4 of spec §10's precedence, *above* detection, so every answer it could give is
+        // level 4 of the precedence, *above* detection, so every answer it could give is
         // already overruled — and a terminal that says it speaks no escape sequences would answer
         // no DA1 either, which would turn a legitimate `TERM=dumb` into `AttachError::NoAnswer`.
         // The pty is still opened, because size and the single reader are not escape sequences.
         //
         // **Whether the batch went out is also whether the alternate screen is already ours**
-        // (production ticket 12): `detect::batch`'s first bytes are `?1049h`, so on every path that
+        //: `detect::batch`'s first bytes are `?1049h`, so on every path that
         // asks the terminal anything the page is switched before the first question and the
         // negotiation below has no `?1049h` left to write. On every path that asks nothing —
         // `TERM=dumb`, a non-tty, a caller-supplied sink — the negotiation is still the first thing
@@ -584,7 +584,7 @@ impl Engine {
             _not_send: PhantomData,
         };
         // The one thing the handle space has to be told about the terminal, and it is told once:
-        // whether a hyperlink is part of an extended style's identity. Spec §10's narrow exception —
+        // whether a hyperlink is part of an extended style's identity. Spec the narrow exception —
         // a channel the terminal cannot express at all is dropped from the intern *key*, where one it
         // expresses imprecisely is degraded at serialise time. See
         // [`Tables::key`](crate::tables::Tables::key).
@@ -602,7 +602,7 @@ impl Engine {
         // to say until an iteration begins.
         //
         // Only on `Clock::System`, because `Manual` has no thread to interleave with, a
-        // deterministic program does not call `wait` at all (spec §14's test is a straight line), and
+        // deterministic program does not call `wait` at all (the test is a straight line), and
         // a test binary that attaches hundreds of times would otherwise carry a thread per attach.
         //
         // And only in a debug build: the words this thread would print are absent from a release
@@ -1754,7 +1754,7 @@ impl Screen {
         if self.suspended {
             return self.not_submitted(false);
         }
-        // **Sampled here and re-checked at submit** (spec §2's sixth invariant). One load, and what
+        // **Sampled here and re-checked at submit** (the sixth invariant). One load, and what
         // it buys is that a frame composited at 300x80 is never written into a terminal that became
         // 120x40 while it was being composited — which wraps and scrolls, and is worse than a
         // missing frame.
@@ -1796,7 +1796,7 @@ impl Screen {
 
         // **The pacing gate, before the 107 µs composite rather than after it.** While the render
         // thread has not taken the last packet, this frame is not composited at all: damage stays in
-        // §6's structure, which is already the coalescing mechanism and costs 6.6 ns to interrogate,
+        // The structure, which is already the coalescing mechanism and costs 6.6 ns to interrogate,
         // and the next frame that does composite paints all of it at once. That is the whole of the
         // backpressure design — there is no queue to grow and no frame to drop, because a frame that
         // would have been dropped was never composed.
@@ -1838,7 +1838,7 @@ impl Screen {
 
         // The composite answers with the run it actually repainted, which is the damaged one
         // widened by whatever a wide-glyph repair had to reach — a repair damages cells outside the
-        // layer's own rectangle (spec §5), and a repair that is not packed is a blanked half the
+        // layer's own rectangle, and a repair that is not packed is a blanked half the
         // terminal goes on showing.
         for run in &mut self.runs {
             *run = self.layers.composite_run(&mut self.frame, *run, &self.caps);
@@ -1909,7 +1909,7 @@ impl Screen {
             .mouse_may_be_on(self.actuators.mouse() != MouseMode::Off);
         self.mailbox.submit(packet);
         // The gap starts at the submit, not at the write: what is being paced is how often frames are
-        // handed on, and §12's refusal 7 is that the engine cannot say when one was shown.
+        // handed on, and the refusal 7 is that the engine cannot say when one was shown.
         self.frame_clock.submitted();
         // The deterministic path: this thread is the render thread, so it does the render thread's
         // work here, through the same mailbox and the same renderer. `take_now` cannot answer `None`
@@ -2046,7 +2046,7 @@ impl Screen {
         // belongs to the input thread, and the app thread agreeing with it is not harmless: a second
         // resize can land while the application is still draining the first event, and then this
         // would put the *older* size back. The next frame would sample it, agree with itself at
-        // submit, and write a 120x40 frame into an 80x24 terminal — the wrap-and-scroll §2's sixth
+        // submit, and write a 120x40 frame into an 80x24 terminal — the wrap-and-scroll the sixth
         // invariant exists to prevent, with the evidence erased by the thread that was supposed to
         // read it. The surfaces' size is `Screen::size`; the terminal's is nobody here's to say.
         self.layers.forget_damage();
@@ -3016,7 +3016,7 @@ mod tests {
         );
 
         // The layer keeps its cells across a resize and **not** across a `set_rect`, which
-        // reallocates at the new size (ticket 10) — so this is a shrink and a repaint, which is what
+        // reallocates at the new size — so this is a shrink and a repaint, which is what
         // a component whose window narrowed actually does.
         h.screen
             .layers()
@@ -3152,7 +3152,7 @@ mod tests {
 
             let prologue = recording.lock().unwrap().bytes.clone();
             // The alt screen first and auto-wrap immediately inside it, both before any frame. What
-            // follows is ticket 21's negotiation, which `crate::actuate` asserts in full and
+            // follows is the negotiation, which `crate::actuate` asserts in full and
             // [`the_startup_negotiation_asks_for_what_was_declared_and_nothing_else`] asserts
             // through a `Screen`.
             assert!(prologue.starts_with(ENTER_ALT_SCREEN), "before any frame");

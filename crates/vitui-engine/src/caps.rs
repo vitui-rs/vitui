@@ -1212,7 +1212,7 @@ pub(crate) fn assemble(
     // And levels 1 to 4 on top of all of it.
     //
     // **After the blanking above, and every one of the seven is applied here.** The ordering is the
-    // whole of architecture ticket 22's second half: a declared `hyperlinks` on a sink would be
+    // whole of architecture the second half: a declared `hyperlinks` on a sink would be
     // erased by the very branch that made it unreachable if it were applied any earlier, and the
     // door that *is* applied earlier — `Quirks::hyperlinks`, at level 5 — is therefore not the door,
     // however much it looks like one.
@@ -1560,7 +1560,7 @@ mod tests {
         assert_eq!(caps.glyphs, GlyphSet::Extended);
         assert!(!caps.legacy_sgr());
         assert!(caps.report().contains("headless"));
-        // Architecture ticket 22's three, and the reason this test names every field rather than
+        // Architecture the three, and the reason this test names every field rather than
         // spreading `..Default::default()`: a field added to `Overrides` and forgotten in `assemble`
         // is a field that compiles and does nothing, and this is the assertion that would not.
         assert_eq!(caps.default_fg, Some(Rgb::new(0xc5, 0xc8, 0xc6)));
@@ -2151,7 +2151,7 @@ mod tests {
             "`--ascii --no-color` says nothing about SGR"
         );
         assert_eq!(plain.width, None);
-        // Architecture ticket 22's three, and `plain` is deliberately unchanged by them: it names
+        // Architecture the three, and `plain` is deliberately unchanged by them: it names
         // two flags, and a third field inside it would invent a third flag nobody typed.
         assert_eq!(plain.hyperlinks, None);
         assert_eq!(plain.default_fg, None);

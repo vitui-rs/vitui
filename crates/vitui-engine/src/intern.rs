@@ -234,7 +234,7 @@ mod tests {
     #[test]
     fn a_handle_from_one_table_is_meaningless_in_another() {
         // The invariant every surface in a layer stack holds by construction, stated as a test so
-        // that `add_content_with`'s renumbering (ticket 10) has something to violate if it forgets.
+        // that `add_content_with`'s renumbering has something to violate if it forgets.
         let mut ours = Interner::new();
         let mut theirs = Interner::new();
         theirs.handle("a\u{308}");

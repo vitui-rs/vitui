@@ -1805,9 +1805,9 @@ fn a_renumbering_sweep_marks_every_mirror_row_unknown() {
     assert_eq!(h.screen.known_rows(), ROWS as usize);
 
     // A narrow frame after a renumbering sweep leaves every cell it did not write unknown, which is
-    // the half ADR 0006's *written whole rather than compared* does not reach: the sweep marks no
-    // damage, so there is no whole row to write. What impl 14's filter does about it is the reason
-    // the granularity is the cell — see `crate::serial::Mirror` and ADR 0006's amendment.
+    // the half *written whole rather than compared* does not reach: the sweep marks no
+    // damage, so there is no whole row to write. What the filter does about it is the reason
+    // the granularity is the cell — see `crate::serial::Mirror` and the amendment.
     underline_each_row(&mut h.screen, id, ROWS, |y| Color::rgb(y as u8 + 1, 0, 0));
     h.present();
     {
@@ -2021,7 +2021,7 @@ fn a_fading_operator_mints_per_distinct_style_and_never_per_cell() {
     // with the other two, so four underline colours a few units apart collapse into fewer than four
     // after blending — the first draft of this gate measured 3, then 2, and the number it was
     // reporting was `blend`'s truncation rather than the table's growth. A hyperlink is the one
-    // channel the mix never touches (§5's *it is not preserved here, it is simply never named*), so
+    // channel the mix never touches (*it is not preserved here, it is simply never named*), so
     // four links are four distinct results at **every** amount, by construction.
     let distinct = 4usize;
     let links: Vec<String> = (0..distinct)
@@ -2826,7 +2826,7 @@ fn a_packet_is_never_superseded_and_the_pool_of_two_does_not_starve() {
                 break;
             }
             // The only reason a frame with damage in it does not submit: the renderer has not taken
-            // the last one. This is where ticket 19's `wait` goes.
+            // the last one. This is where the `wait` goes.
             screen.wait_for_renderer();
         }
     }
@@ -3310,7 +3310,7 @@ fn packing_density(which: &str) -> Screen {
         }
         match which {
             "plain" => {}
-            // One cell in a hundred carries a cluster and an underline colour: §7's *realistic*.
+            // One cell in a hundred carries a cluster and an underline colour: *realistic*.
             "realistic 1%" => {
                 for y in (0..H as i32).step_by(4) {
                     for x in (0..W as i32).step_by(25) {
@@ -3685,10 +3685,10 @@ fn the_packet_accessor_answers_by_identity_or_not_at_all() {
 }
 
 // ---------------------------------------------------------------------------------------------
-// The frame clock, and an idle that is zero (ticket 19).
+// The frame clock, and an idle that is zero.
 //
 // The gate is on `wait` rather than on `present` — ADR 0004 — so every gate below drives `wait`
-// and reads what it answered. Two of them are counts and the rest are reports, which is §14's own
+// and reads what it answered. Two of them are counts and the rest are reports, which is the original's
 // split: a wake-up latency is a distribution on a shared runner and cannot be a gate, while zero
 // wakeups over an idle window is a number that does not move.
 // ---------------------------------------------------------------------------------------------
@@ -4572,7 +4572,7 @@ fn the_parser_survives_five_adversarial_splits() {
 }
 
 // ---------------------------------------------------------------------------------------------
-// `set_mouse`, the negotiation and the caret (ticket 21).
+// `set_mouse`, the negotiation and the caret.
 //
 // Two counts and one absence. Both counts are about the same obligation read from two ends —
 // *idempotent, and free when the value has not changed* — and the absence is ADR 0005's: the
@@ -4813,7 +4813,7 @@ fn an_idle_application_with_a_caret_on_screen_still_wakes_for_nothing() {
     // The caret is on the wire before the window opens, so what is measured is a caret at rest
     // rather than a caret arriving.
     drained(&screen, 1);
-    // **A baseline rather than a zero**, and the difference is the birth frame. Ticket 19's gate
+    // **A baseline rather than a zero**, and the difference is the birth frame. The gate
     // presents nothing, so its render thread has never parked and its count is zero absolutely; this
     // one hands over a frame first, and whether that costs a park at all is a race between the two
     // threads — a render thread that finds the packet already in the slot never waited for it. What
@@ -4858,7 +4858,7 @@ fn an_idle_application_with_a_caret_on_screen_still_wakes_for_nothing() {
 // ---------------------------------------------------------------------------------------------
 // Shutdown: three exits, one restoration, and the frame that is deliberately not written.
 //
-// Spec §7's *resize, shutdown and panic*, and the property register's entry #15. The three exits
+// Spec *resize, shutdown and panic*, and the property register's entry #15. The three exits
 // below are three **child processes** rather than three in-process cases, and that is forced rather
 // than chosen: the panic hook is process-global and installed once, so an in-process gate about it
 // would be a gate about which test armed `crate::shutdown`'s site last — which under `cargo test`
@@ -4991,7 +4991,7 @@ fn exit_through(mode: &str) {
             assert!(out_of_main(screen).is_err());
         }
         // **The exit that is not one.** The terminal is given back, somebody else uses it, and
-        // then it is taken again — the whole of production ticket 07's first case, in the one
+        // then it is taken again — the whole of production the first case, in the one
         // instrument that can see the order the bytes went out in.
         "suspend" => {
             screen.suspend();
@@ -5298,7 +5298,7 @@ fn escaped(out: &str) -> String {
 // ---------------------------------------------------------------------------------------------
 // The terminal leaves and comes back: suspend, resume, and the two cases neither of them is for.
 //
-// Production ticket 07, and spec §7's *the terminal leaves*. The three cases §15 filed as fog are
+// Production ticket 07, and *the terminal leaves*. The three cases §15 filed as fog are
 // not the same shape and only one of them is a pair of verbs:
 //
 //   1. **The application gives the terminal up on purpose** — Ctrl-Z, or an editor in the same
@@ -5306,7 +5306,7 @@ fn escaped(out: &str) -> String {
 //   2. **The terminal goes away underneath the process.** Nothing here can run: the descriptor is
 //      gone. What the engine owes is to *say so*, and that is `crate::reader`'s quit.
 //   3. **A different terminal on the same process.** `Capabilities` is immutable for the life of a
-//      `Screen` (§10), so the answer is a fresh `attach` on a dropped one — which is gated below,
+//      `Screen`, so the answer is a fresh `attach` on a dropped one — which is gated below,
 //      because *supported* is a claim nobody had checked.
 // ---------------------------------------------------------------------------------------------
 
@@ -5714,7 +5714,7 @@ fn a_resumed_session_writes_frames_from_a_render_thread_that_did_not_exist_befor
     }
     // **Both, and neither alone is enough** — which the gate had to be wrong twice to establish.
     // `wait_for_renderer` returns when the render thread has *taken* the packet, because the take is
-    // what frees the renderer and not the write (spec §7), so a byte count read after it alone is a
+    // what frees the renderer and not the write, so a byte count read after it alone is a
     // race. And a `drop` alone is a different race in the other direction: it sets `quit`, and
     // `Mailbox::take` checks quit before the slot, so a render thread that had not yet reached its
     // first take exits without writing the packet standing in it. The take first, then the join.
@@ -7131,7 +7131,7 @@ fn the_quirk_tables_prose_is_joined_to_its_entries() {
          field*, so this number is load-bearing in `caps.rs`, `serial.rs` and the spec"
     );
 
-    // **And the same number where §10's argument is actually read, which is not this file.** The
+    // **And the same number where the argument is actually read, which is not this file.** The
     // phrase is assembled rather than written, because this file is one of the places that quotes
     // it. The floor per file is what was there when the gate was written: a scan that finds nothing
     // is a scan of a file that moved, which is the one way a join like this reads green on a defect.
@@ -7306,7 +7306,7 @@ fn the_watchdog_iteration_has_one_home() {
 
     // **And the four readers still name the function they gave the digits up for.** `mod ledger`
     // is `#[cfg(test)]`, so a shipped module cannot intra-doc-link into it: these citations are
-    // plain prose, which is production ticket 10's unowned class — 15 sites across the workspace
+    // plain prose, which is production the unowned class — 15 sites across the workspace
     // pointing at no function at all, invisible to `cargo doc` precisely because they are not
     // links. Joined here instead, and the path is spelled once above where it is *called*, so a
     // rename of the function breaks this file's build rather than four sentences.

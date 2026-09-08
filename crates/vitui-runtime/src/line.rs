@@ -138,7 +138,7 @@ pub const MODULES: [Module; 15] = [
         origin: Origin::Spec4,
     },
     // **This row is why `Origin` has two arms, and it is `Spec4` now.** It shipped as
-    // `Origin::Added { by: "R11", … }` because §4's module map had no `route` line for four tickets;
+    // `Origin::Added { by: "R11", … }` because the module map had no `route` line for four tickets;
     // architecture issue 21 added the line, so the row is a spec row like any other. The arm it
     // vacated is kept — see [`Origin::Added`].
     Module {
@@ -166,7 +166,7 @@ pub const MODULES: [Module; 15] = [
         section: "§17",
         origin: Origin::Spec4,
     },
-    // The two rows of §4's map that are not top-level modules, kept here so the table is the whole
+    // The two rows of the map that are not top-level modules, kept here so the table is the whole
     // table and the gate below can say which rows it is not checking against `lib.rs`.
     Module {
         name: "layout::text",
@@ -375,7 +375,7 @@ pub const ENGINE_NAMES: [EngineName; 35] = [
     // carries a `Clock`, an `Output`, an `Overrides` — which carries a `WidthSource` — and an
     // `InputConfig`, and **none of the five was on this list at all**, reachable or not.
     //
-    // It is the *weaker* half of issue 22's finding and the consequence is the sharper one.
+    // It is the *weaker* half of the finding and the consequence is the sharper one.
     // `Config` derives `Default`, so unlike `Mouse` — which needed a `Buttons` and a `MouseKind`
     // and had no nameable box a value could travel inside — a value could always be built. What
     // could not be reached was any **field** of it, which left exactly one headless door above this
@@ -701,7 +701,7 @@ mod tests {
     fn the_engine_names_on_the_surface_are_all_reachable() {
         let mut found = BTreeSet::new();
         for module in modules() {
-            // **A `pub use` is a statement and not a line**, which is the correction issue 22's own
+            // **A `pub use` is a statement and not a line**, which is the correction the original's
             // block forced: twenty names do not fit on one, and a scanner that reads lines reports
             // *the engine is unreachable* about a crate that re-exports all of it. `re_exports` above
             // already held continuations for the same reason; this one had never met one.
@@ -788,7 +788,7 @@ mod tests {
         );
     }
 
-    // ── the in-binary arm of ticket 17's report ──────────────────────────────────────────────────
+    // ── the in-binary arm of the report ──────────────────────────────────────────────────
 
     /// **The dense frame, measured from inside the library.** The other arm of
     /// `examples/crate_line_numbers.rs`, and the reason it is a test rather than a second case in

@@ -286,7 +286,7 @@ pub fn draw_into<I: Ink>(
             let paint = face_paint(cx.theme(), face);
             let written = ink.text(cx, r.x, r.y, ROW, paint);
             // The trailing pad, so the row is a **partition** of its width and not a prefix of
-            // it (§2). `Ink::run` and not a `str::repeat`: under `Direct` it stages once and
+            // it. `Ink::run` and not a `str::repeat`: under `Direct` it stages once and
             // blits once, which is the verb a padding band is supposed to be and costs the
             // frame no allocation.
             let _ = ink.run(
@@ -403,7 +403,7 @@ pub fn across_volumes(kind: Volume) -> Vec<(u64, Shape)> {
     VOLUMES.into_iter().map(|n| (n, volume(kind, n))).collect()
 }
 
-// ── the equality scenes, over components ticket 04's runner ──────────────────────────────────────
+// ── the equality scenes, over the runner ──────────────────────────────────────
 
 /// The listing's content at `rows` rows: [`W`] by [`H`], one [`ROW`] a row.
 ///
@@ -768,7 +768,7 @@ mod tests {
         assert_eq!(diff.first, Some((0, 1)), "row 0 is right by coincidence");
         assert!(!diff.clean());
 
-        // **Every one of §20's nine, and not a chosen three.** The allocation column is inert here
+        // **Every one of the nine, and not a chosen three.** The allocation column is inert here
         // by construction — the same figure on both arms — because this binary installs no probe;
         // `examples/listing_numbers.rs` does and hands in two measured ones.
         let inert = Allocations::over(1, 0);

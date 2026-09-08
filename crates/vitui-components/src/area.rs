@@ -183,7 +183,7 @@ pub fn decide(free: (u16, u16), extent: (u32, u32), bars: Bars) -> Decision {
     // **The overlay arm cannot close the loop**, which is the negative case in one line: a bar that
     // reserves nothing cannot make the other one necessary, so the two decisions are uncoupled and
     // there is no fixpoint to take. It is kept here rather than in `scroll.rs` because
-    // `Bars::Overlay` is not an option any component offers (ADR 0029).
+    // `Bars::Overlay` is not an option any component offers.
     let mut shown = Shown::default();
     let mut passes = 0u8;
     loop {
@@ -866,7 +866,7 @@ pub const THUMB_DRIFT: u16 = 14;
 /// than exactly, because it is a crossing between two floors and not a property of the mechanism.
 pub const DRIFT_REACHES_SEVEN_AT: f64 = 0.456;
 
-// ── the shipped frame, which is components ticket 19's own table ─────────────────────────────────
+// ── the shipped frame, which is the table ─────────────────────────────────
 
 /// **How many rows the shape change removes.** The figure, and `4 × 87 381` exactly, which is
 /// what makes it reproduce digit for digit rather than approximately.
@@ -1968,7 +1968,7 @@ mod tests {
             overlay.cells
         );
         // The two damage models agree about nothing except which cells changed, which is the
-        // finding: §9's 3 535 is the span picture of a double write of about {ADR_CONTESTED}.
+        // finding: the 3 535 is the span picture of a double write of about {ADR_CONTESTED}.
         assert!(overlay.span_cells > overlay.cells);
         assert!(
             REMEMBERED_REDAMAGE.abs_diff(ADR_CONTESTED * 8) < ADR_CONTESTED,

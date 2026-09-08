@@ -310,7 +310,7 @@ impl<'r> Row<'r> {
     ) -> Option<Row<'r>> {
         // A clip with no columns has no `hi`, and a verb that reached one would write at `lo`
         // anyway — the left-edge half of rule 4 does exactly that. Zero-sized surfaces are legal
-        // (spec §4) and a verb against one is discarded, not a panic (ADR 0022).
+        // and a verb against one is discarded, not a panic.
         if clip.is_empty() || y < clip.y || y >= clip.bottom() {
             return None;
         }
@@ -944,7 +944,7 @@ mod tests {
     #[test]
     fn a_full_row_of_cjk_interns_nothing() {
         // Spec §4: a full screen of CJK is *cheaper* than one of Latin, which is only true if no
-        // table is touched. A wide scalar is still its own handle (§3, ticket 19).
+        // table is touched. A wide scalar is still its own handle.
         let mut s = Surface::new(300, 1);
         let row: String = std::iter::repeat_n('漢', 150).collect();
         s.root().text(0, 0, &row, Style::new());
@@ -1207,7 +1207,7 @@ mod tests {
 
     #[test]
     fn a_repair_inside_a_non_opaque_layer_restores_transparency_not_a_space() {
-        // `opaque: false` exists so an overlay does not erase what is under it (spec §5). A repair
+        // `opaque: false` exists so an overlay does not erase what is under it. A repair
         // that blanks half a pair to an opaque space punches exactly the hole the flag was added to
         // prevent — and the caller never asked for that cell at all.
         let mut stack = LayerStack::new();
@@ -1429,7 +1429,7 @@ mod tests {
 
     #[test]
     fn restyle_leaves_a_pair_alone_when_the_clip_forbids_reaching_its_other_half() {
-        // A view may not widen itself (spec §4): the head at column 1 belongs to whoever owns the
+        // A view may not widen itself: the head at column 1 belongs to whoever owns the
         // cells left of the clip, so the continuation at column 2 is left as it is rather than
         // restyled into a pair that disagrees with itself.
         let mut s = Surface::new(8, 1);
@@ -1584,7 +1584,7 @@ mod tests {
 
     #[test]
     fn a_400x400_child_of_a_6x2_parent_touches_exactly_twelve_cells() {
-        // Spec §4's gate, as an equality: the number is a property of the mechanism — an
+        // Spec the gate, as an equality: the number is a property of the mechanism — an
         // intersection — and not of the data, so it may be an equality rather than a relation.
         let mut s = Surface::new(6, 2);
         {

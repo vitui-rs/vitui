@@ -213,7 +213,7 @@ fn popup_stack(screen: &mut Screen) -> Vec<LayerId> {
         // order now disagrees with z order — and a stack sorting on `(seq, z)` instead of `(z, seq)`
         // still passes every gate on this list, because a shadow's painted cells are exactly the
         // ones its own popup does not cover, so the two are never ordered against each other where
-        // anyone can see. No scene of spec §14's twelve discriminates z order; `layer.rs`'s own
+        // anyone can see. No scene of the twelve discriminates z order; `layer.rs`'s own
         // `layers_added_out_of_z_order_still_paint_in_z_order` is what holds that property, and it
         // catches the mutation this comment describes.
         popups.push(

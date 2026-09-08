@@ -466,7 +466,7 @@ pub(crate) struct Serializer {
 impl Serializer {
     pub(crate) fn new(width: u16, height: u16) -> Serializer {
         Serializer {
-            // A realistic full-screen frame is 24 430 bytes (spec §8). Reserving it up front is
+            // A realistic full-screen frame is 24 430 bytes. Reserving it up front is
             // what keeps the steady state free of a growth reallocation.
             out: Vec::with_capacity(32 * 1024),
             mirror: Mirror::new(width, height),
@@ -654,7 +654,7 @@ impl Serializer {
             crate::actuate::write_mouse(&mut self.out, from, to);
         }
 
-        // A packet carries its own size so that a stale one can be refused on its own (spec §2).
+        // A packet carries its own size so that a stale one can be refused on its own.
         // Nothing can produce a stale one until ticket 22 brings the resize that makes sizes move,
         // so this is the debug-only assertion that shape of invariant gets rather than a runtime
         // check on the frame path.
@@ -667,7 +667,7 @@ impl Serializer {
         // Before anything is emitted, **and before the cell-less early return below**: a sweep
         // renumbered a table, so every handle this mirror recorded names an entry that has moved.
         // Nothing about the *screen* changed — the cells still say the same thing — which is exactly
-        // why there is no damage to go with it and a flag is what carries it (spec §3).
+        // why there is no damage to go with it and a flag is what carries it.
         //
         // The placement is load-bearing since impl 21, and it was wrong for one commit. `repaint` is
         // taken out of the `Screen`'s latch at pack time, so a packet that carries it has spent it;
@@ -713,7 +713,7 @@ impl Serializer {
                 self.link = LinkId::NONE;
             }
             // **After the frame's last write and inside its block**, which is the only moment at
-            // which the caret's position is correct and a moment only the engine has (ADR 0005). The
+            // which the caret's position is correct and a moment only the engine has. The
             // frame has just moved the terminal's cursor to wherever its last cell was, so a visible
             // caret is put back here whether or not the application moved it — and in the case that
             // matters it costs nothing, because that is exactly where the caret already is.
@@ -745,7 +745,7 @@ impl Serializer {
         // frame's first move is absolute* and a second rule for one case is a rule that will be
         // wrong once. Five bytes on a caret that moved with nothing else changing.
         //
-        // §10's row flag needs nothing here: `move_to` clears it whenever the row it is moving from
+        // The row flag needs nothing here: `move_to` clears it whenever the row it is moving from
         // is unknown, which an unknown cursor makes true.
         if !self.frame_open {
             self.cursor = None;
@@ -1143,7 +1143,7 @@ impl Serializer {
     fn emit_row(&mut self, row: &Row<'_>, packet: &Packet, caps: &Capabilities) {
         let y = row.y();
         // Whether the mirror is consulted at all, which is a shipping constant and a `cfg(test)`
-        // question — [`Filter::Off`] is §8's `span` column. **What the mirror does not know needs no
+        // question — [`Filter::Off`] is the `span` column. **What the mirror does not know needs no
         // branch here**: it holds `Cell::UNKNOWN`, which no composited frame cell can equal, so the
         // comparison below fails on it exactly as it should. See [`Mirror`].
         let compare = self.compares();
@@ -1577,14 +1577,14 @@ impl Serializer {
         };
         let same_row = y == cy;
         let candidates = [
-            // One byte, and nothing beats it. `CR` is absolute in the column, so §10's rule has no
+            // One byte, and nothing beats it. `CR` is absolute in the column, so the rule has no
             // objection to it.
             (same_row && x == 0).then_some((Move::Cr, 1)),
             same_row.then(|| (Move::Cha, 3 + omissible(x as u32 + 1))),
             (same_row && x > cx && !self.non_ascii_on_row)
                 .then(|| (Move::Cuf(x - cx), 3 + omissible((x - cx) as u32))),
             // `CR` then one `LF` per row, or the feeds alone when the cursor is already in column
-            // zero. One-byte controls against a parameterised CSI, which is where §8's "fewest
+            // zero. One-byte controls against a parameterised CSI, which is where the "fewest
             // bytes" and "fewest sequences" stop pulling in opposite directions.
             (!same_row && x == 0 && y > cy)
                 .then(|| (Move::Feed, usize::from(cx != 0) + (y - cy) as usize)),
@@ -1823,7 +1823,7 @@ fn emit_sgr_delta(
 
     // SGR 22 resets bold *and* dim together. There is no un-bold that leaves dim standing, so
     // removing either means emitting 22 and reapplying the other. A naive per-attribute on/off loop
-    // silently drops dim whenever bold turns off (spec §8).
+    // silently drops dim whenever bold turns off.
     if removed & (crate::style::BOLD | crate::style::DIM) != 0 {
         param(out, &mut params, 22);
         if new.attrs() & crate::style::BOLD != 0 {
@@ -2597,7 +2597,7 @@ mod tests {
     fn a_continuation_cell_emits_no_glyph() {
         // Planted by hand, because no verb can write one until ticket 06. What is pinned is only
         // that the second half of a pair is not printed; the cursor advance over a wide head is
-        // ticket 06's and is deliberately not modelled here.
+        // The original's and is deliberately not modelled here.
         let mut f = Surface::new(6, 1);
         f.root().text(0, 0, "ab", Style::new());
         f.row_mut(0)[1] = Cell::new(GraphemeId::CONTINUATION, Style::DEFAULT);
@@ -3019,7 +3019,7 @@ mod tests {
             let settled = format!(".{gap}{}", ".".repeat(10));
             frame.root().text(0, 0, &settled, Style::new());
             f.present(&mut frame);
-            // Non-ASCII, so §10's rule refuses `CUF` for the rest of the row and the move the gap is
+            // Non-ASCII, so the rule refuses `CUF` for the rest of the row and the move the gap is
             // priced against is a four-byte `CHA` rather than a three-byte `CUF`. A **scalar** rather
             // than a cluster, so that this packet carries no cluster at all and the third fixture's
             // refusal cannot be confused with the packet happening to hold its handle.
@@ -3075,7 +3075,7 @@ mod tests {
                 );
             }
             f.present(&mut frame);
-            // Non-ASCII first, so §10's rule refuses `CUF` and the move is the absolute form.
+            // Non-ASCII first, so the rule refuses `CUF` and the move is the absolute form.
             frame.root().text(97, 0, "⠿", Style::new());
             frame.root().text(99, 0, "Z", Style::new());
             let out = f.present(&mut frame);
@@ -3108,7 +3108,7 @@ mod tests {
         frame.root().text(0, 0, ".a\u{300}.", Style::new());
         f.present(&mut frame);
         // One verb, so one run: the cluster in the middle is damaged and therefore in the packet. The
-        // first column is non-ASCII so that §10's rule refuses `CUF` and the move the gap is priced
+        // first column is non-ASCII so that the rule refuses `CUF` and the move the gap is priced
         // against is a four-byte `CHA`, which is the same geometry the refusal test uses.
         frame.root().text(0, 0, "⠿a\u{300}Y", Style::new());
         let out = f.present(&mut frame);
@@ -3159,7 +3159,7 @@ mod tests {
 
         // A genuine tie, and **a tie goes to the absolute encoding.** From column one to column
         // twenty is a distance of 19 and a target of 21, both two digits, so `CUF` and `CHA` cost
-        // five bytes each. Preferring `CHA` is not arbitrary: §10's rule exists because a relative
+        // five bytes each. Preferring `CHA` is not arbitrary: the rule exists because a relative
         // move compounds an error, so where the price is equal the encoding that cannot compound is
         // the one taken.
         let mut f = Surface::new(40, 1);
@@ -3205,7 +3205,7 @@ mod tests {
             f.root().text(x, 0, "x", Style::new());
         }
         let bytes = bytes_for(&f).len();
-        // What ticket 03's `CUP`-only loop would have spent: four fixed bytes plus the digits of
+        // What the `CUP`-only loop would have spent: four fixed bytes plus the digits of
         // both coordinates, per run, plus one glyph, plus the four-byte reset.
         let cup_only = 4
             + (0..300)
@@ -3359,7 +3359,7 @@ mod tests {
             (bytes, s.cha_rule_bytes())
         }
 
-        // §14's twelve, through the screens they are actually measured on.
+        // The twelve, through the screens they are actually measured on.
         let mut worst = ("", 0usize, 0usize);
         for mut scene in crate::scenes::scenes() {
             let mut harness = crate::testing::Harness::with_overrides(
@@ -3438,7 +3438,7 @@ mod tests {
     /// The twenty bytes of fixed framing, on the frame that is the reason they are counted.
     #[test]
     fn the_frame_is_wrapped_in_mode_2026_where_the_terminal_has_it() {
-        // §8's caret frame: an eight-byte `CUP` and one ASCII cell is the nine bytes of *the
+        // The caret frame: an eight-byte `CUP` and one ASCII cell is the nine bytes of *the
         // caret's own change*, and the framing is the other twenty.
         let mut f = Surface::new(80, 24);
         f.root().text(40, 12, "x", Style::new());
@@ -3456,7 +3456,7 @@ mod tests {
             text(&out)
         );
 
-        // And the model agrees it was one block, which is §8's *the frame is never split on
+        // And the model agrees it was one block, which is *the frame is never split on
         // purpose* read from the other end.
         let mut term = TermModel::new(80, 24);
         let mut tables = crate::tables::Tables::new();

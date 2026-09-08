@@ -377,9 +377,9 @@ pub fn chord_into(arm: Arm, start: &str, c: Chord) -> Typed {
 /// about both. `crate::obligations` is one file over precisely because *a query with no evidence
 /// must fail loudly* is the distinction this map keeps losing.
 pub const TEXT_BEARING: [&str; 7] = [
-    // §11's one flag absorbs sixteen named input variants including `textarea`.
+    // The one flag absorbs sixteen named input variants including `textarea`.
     "field",
-    // Holds fields, and is where §3's `"value 0"` fixture came from.
+    // Holds fields, and is where the `"value 0"` fixture came from.
     "form",
     // Type-ahead is what its closed state is navigated with.
     "select",
@@ -712,7 +712,7 @@ mod tests {
         // with the parameters on their own lines, which is the only form a seven-parameter
         // component has.
         //
-        // **And the third is `<`, which is components ticket 33's either-delimiter rule.** Two of
+        // **And the third is `<`, which is the either-delimiter rule.** Two of
         // the seven have been declared since tickets 26 and 32 and this predicate could not see
         // either: `select` is `pub fn select<'f>(` — spec §1 already says a component that opens an
         // overlay costs two lifetime annotations — and `file_picker` is `pub fn file_picker<'f,

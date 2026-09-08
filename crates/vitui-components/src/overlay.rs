@@ -1660,7 +1660,7 @@ mod tests {
         for h in [RIG_H, SHORT_H] {
             assert_eq!(granted(Sizing::FromTheDrawnExtent, h).1, 0);
         }
-        // §12's own pair, in the widths this rig plays at.
+        // The pair, in the widths this rig plays at.
         assert_eq!(SPEC_GRANTED.0, RIG_W);
         assert_eq!(SPEC_GRANTED_FROM_EXTENT.1, 0);
 
@@ -1714,7 +1714,7 @@ mod tests {
         assert_eq!(shared.merged, 1, "the second request is inert");
         assert_eq!(shared.layers, 1, "one slot for two popups");
         // The screen says nothing: one popup is simply absent, and the regions are the count that
-        // notices. **Three and not two**, and the extra one is §12's *an `Id` is a hash* arriving as
+        // notices. **Three and not two**, and the extra one is *an `Id` is a hash* arriving as
         // an arithmetic fact: a `select`'s own id **is** its overlay's owner, so a component cannot
         // share a layer without sharing its own identity — the second widget's hit entry is merged
         // away too. There is no spelling that shares the one and not the other, which is why a second
@@ -1756,7 +1756,7 @@ mod tests {
             "and it swallows the press it exists to report: {catcher:?}"
         );
 
-        // What the catcher costs, in the unit this crate can count. §12's bytes are recorded beside
+        // What the catcher costs, in the unit this crate can count. The bytes are recorded beside
         // it and not reproduced — see `SPEC_CATCHER_BYTES`.
         assert!(catcher.cells > position.cells);
         assert_eq!(

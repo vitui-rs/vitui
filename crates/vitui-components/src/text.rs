@@ -190,7 +190,7 @@ pub fn fit_into<I: Ink>(
 
 // ── `text` and `chip`, the two components this module homes ──────────────────────────────────────
 //
-// **Spec §1's four rules, with one substitution, and the substitution is stated rather than
+// **Spec the four rules, with one substitution, and the substitution is stated rather than
 // silent.** Rule 1 is `fn(&mut Ctx, Rect, …) -> Response`, and `Rect` **cannot be named in this
 // package at all**: it is `vitui_engine::Rect`, named by twenty-seven of the runtime's public
 // declarations and re-exported by none of them, and constraint C6 says this crate's
@@ -210,11 +210,11 @@ pub fn fit_into<I: Ink>(
 // **helper**: it writes one row and returns the rows below it, so a caller can chain it down a
 // rectangle it owns. [`text`] is a **component**: it was handed a rectangle and it writes every cell
 // of it, padding the rows its one line does not take. A component that wrote only its first row
-// would leave the rest carrying whatever was there before, which is §2's *no cell never* and the
+// would leave the rest carrying whatever was there before, which is *no cell never* and the
 // defect C11's sentinel counted at 9 956 cells of 53 280.
 //
 // [`crate::structure::panel`] is the exception the rule names: it *returns* the interior it did not
-// write, because §2's own sentence is *the cells it does not write are named in its return value*.
+// write, because the sentence is *the cells it does not write are named in its return value*.
 
 /// [`text`]'s options.
 ///

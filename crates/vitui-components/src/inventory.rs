@@ -499,7 +499,7 @@ pub const INVENTORY: &[Component] = &[
         can_shrink: false,
         owns_offset: false,
         scrolled: false,
-        // §16's one-cell rule, which only fires at a width where the label truncates: a three-cell
+        // The one-cell rule, which only fires at a width where the label truncates: a three-cell
         // `...` where one cell was reserved moves **468 cells over 78 rows** with writes, verbs and
         // marked identical at 23 402 / 2 163 / 0 either way. Inside a narrowed context the clip
         // discards the two extra silently and the reader gets a hard cut that looks deliberate;
@@ -512,7 +512,7 @@ pub const INVENTORY: &[Component] = &[
         built: true,
         layer: Layer::L0,
         families: &[Family::F2Structure],
-        // The border. The four corners and the four tees are §16's growth to twenty and are not
+        // The border. The four corners and the four tees are the growth to twenty and are not
         // nameable yet; the two rules are.
         glyphs: &[
             Glyph::HLine,
@@ -535,7 +535,7 @@ pub const INVENTORY: &[Component] = &[
         id: "chip",
         tier: Tier::One,
         built: true,
-        // Its face and its label, and nothing across frames. §2's 2 648-cell re-damage was a fill
+        // Its face and its label, and nothing across frames. The 2 648-cell re-damage was a fill
         // before a draw — a partition defect, not state.
         layer: Layer::L0,
         families: &[Family::F1Text, Family::F6Input],
@@ -578,7 +578,7 @@ pub const INVENTORY: &[Component] = &[
         // which is the wheel defect's own rule, one component over.
         owns_offset: true,
         scrolled: true,
-        // §20's scene 13: a 300 → 120 resize with a wrap memo draws **625 rows where 875 are
+        // scene 13: a 300 → 120 resize with a wrap memo draws **625 rows where 875 are
         // needed**, because the memo key did not carry the width. A width-keyed construction, which
         // is the axis exactly.
         narrow: true,
@@ -624,7 +624,7 @@ pub const INVENTORY: &[Component] = &[
         can_shrink: true,
         owns_offset: true,
         scrolled: true,
-        // §6's own scene: a twelve-column 1M-row table pinned at both edges with horizontal
+        // The scene: a twelve-column 1M-row table pinned at both edges with horizontal
         // overflow — **verbs as the currency, 913 → 2 497**, and the band's 345 re-damaged cells.
         // The pinned-column construction only exists at a width where columns overflow.
         narrow: true,
@@ -644,12 +644,12 @@ pub const INVENTORY: &[Component] = &[
         // component gaining a fifth field.
         glyphs: &[Glyph::ArrowDown, Glyph::ArrowRight, Glyph::Ellipsis],
         constructions: 1,
-        // §20's scene 9: a fold over 349 524 rows, splice against permutation — 1 run / 0.04 us
+        // scene 9: a fold over 349 524 rows, splice against permutation — 1 run / 0.04 us
         // against 297 180 / 24 338.
         can_shrink: true,
         owns_offset: true,
         scrolled: true,
-        // §16's cross-family collapse, which is `tree`'s: the shadow table's ASCII ellipsis was
+        // The cross-family collapse, which is `tree`'s: the shadow table's ASCII ellipsis was
         // `>`, exactly an ASCII `ArrowRight`, so **468 truncated labels ended in the collapsed-node
         // marker**. How many labels truncate is a function of the width.
         //
@@ -659,7 +659,7 @@ pub const INVENTORY: &[Component] = &[
         // separates them is the clamp binding, at 22 and at 21. See `crate::forest::MISDRAWN`.
         //
         // **It does not cover the collapse recorded above, and that is stated rather than implied.**
-        // §16's defect needs a *folded* row and an ASCII rung to put `>` on the end of a truncated
+        // The defect needs a *folded* row and an ASCII rung to put `>` on the end of a truncated
         // label; scene 46 folds nothing and truncates through `layout::text::truncate`, which emits
         // no ellipsis, so neither `Ellipsis` nor `ArrowRight` reaches a cell on it. That join is
         // `crate::glyphs`'s — `the_detector_finds_c09s_collapse_and_not_a_corner_on_a_corner` and
@@ -671,7 +671,7 @@ pub const INVENTORY: &[Component] = &[
         id: "select",
         tier: Tier::One,
         built: true,
-        // It requests an overlay. §12's alternative — a catcher layer — costs 386 912 layer bytes
+        // It requests an overlay. The alternative — a catcher layer — costs 386 912 layer bytes
         // and swallows a click, against 2 592 bytes and two clicks for blur.
         layer: Layer::L4,
         families: &[Family::F6Input, Family::F9Overlays],
@@ -680,7 +680,7 @@ pub const INVENTORY: &[Component] = &[
         // component C09's `>` would have put the collapsed marker on the end of a truncated option
         // in.
         //
-        // **`ArrowUp` went with `tree`'s three** (components architecture 20). §16's *`ArrowUp`/
+        // **`ArrowUp` went with `tree`'s three** (components architecture 20). *`ArrowUp`/
         // `ArrowDown` steps the popup's list* describes `scroll::scrollbar`'s stepper caps, and a
         // popup's gutter is `scroll::bar_into` — `Thumb` and `Track`, no caps. `ArrowDown` stays
         // because it is drawn, as the **chevron** rather than as a stepper.
@@ -692,7 +692,7 @@ pub const INVENTORY: &[Component] = &[
         ],
         constructions: 1,
         can_shrink: false,
-        // §12 states the wheel defect inside its own section: §7's literal `Copy`-only body moves
+        // §12 states the wheel defect inside its own section: the literal `Copy`-only body moves
         // the offset **0 in 20 wheel clicks**.
         owns_offset: true,
         scrolled: true,
@@ -729,12 +729,12 @@ pub const INVENTORY: &[Component] = &[
         // the extent to the end of the viewport is inside the rectangle, and the component that
         // owns the rectangle must write it.
         can_shrink: true,
-        // §9's watermark: over a body that virtualises rows and not columns it reads (400, 69)
+        // The watermark: over a body that virtualises rows and not columns it reads (400, 69)
         // against a (246, 69) viewport — the area is **dead downward, twenty wheel clicks move the
         // offset 0**, and alive sideways.
         owns_offset: true,
         scrolled: true,
-        // §9's reserved auto-hiding bars: a measured extent and a hideable reserved bar are
+        // The reserved auto-hiding bars: a measured extent and a hideable reserved bar are
         // incompatible, because the measurement is taken inside the rectangle the decision
         // produced. Keeping both loses a row and a column permanently, on a screen that looks
         // correct — and what "permanently" costs is a function of how few rows and columns there
@@ -762,7 +762,7 @@ pub const INVENTORY: &[Component] = &[
         // header of. The bar is not a second scroll area and does not own the offset.
         owns_offset: false,
         scrolled: false,
-        // §20's scene 17: the bar fixpoint over **5 475 600 viewport x extent pairs**, 0 failures
+        // scene 17: the bar fixpoint over **5 475 600 viewport x extent pairs**, 0 failures
         // in at most 3 passes. The fixpoint exists because thumb geometry is viewport-dependent,
         // and the unit error that motivated it is out by up to **7 cells of 69**, smoothly and
         // plausibly.
@@ -795,7 +795,7 @@ pub const INVENTORY: &[Component] = &[
         families: &[Family::F4Disclosure],
         glyphs: &[Glyph::ArrowDown, Glyph::ArrowRight],
         constructions: 1,
-        // §20's scene 11: an accordion of twelve sections at 0 / 6 / 12 open — **closed content is
+        // scene 11: an accordion of twelve sections at 0 / 6 / 12 open — **closed content is
         // not drawn, 478 hit entries against 70**. Content shrinking inside a rectangle that does
         // not move, which is the axis's own words.
         can_shrink: true,
@@ -810,7 +810,7 @@ pub const INVENTORY: &[Component] = &[
         // The raster memo is the caller's; what `chart` holds across a frame is one key.
         layer: Layer::L1,
         families: &[Family::F10Charts, Family::F5Indicators, Family::F13System],
-        // The axes. §16's tees and corners are the rest.
+        // The axes. The tees and corners are the rest.
         glyphs: &[Glyph::HLine, Glyph::VLine],
         // **2.** ASCII against Unicode is 7 276 cells over 80 of 80 rows — ADR 0009 literally, a
         // different construction. Unicode against Extended is **0 cells in the chart pane**.
@@ -818,7 +818,7 @@ pub const INVENTORY: &[Component] = &[
         can_shrink: false,
         owns_offset: false,
         scrolled: false,
-        // **The defect that established the axis.** §13's overlap is green at 300x80 and red at
+        // **The defect that established the axis.** The overlap is green at 300x80 and red at
         // 60x20; the frame is 204 us / 21 872 writes wide and 13.8 us / 1 136 writes narrow, flat
         // at 1k, 100k and 1M in both.
         narrow: true,
@@ -840,7 +840,7 @@ pub const INVENTORY: &[Component] = &[
         can_shrink: false,
         owns_offset: false,
         scrolled: false,
-        // §20's scene 15 carries it: two million-point series at 300x80 and 60x20, **and 60x20 is
+        // scene 15 carries it: two million-point series at 300x80 and 60x20, **and 60x20 is
         // where C08's overlap is red**.
         narrow: true,
     },
@@ -849,7 +849,7 @@ pub const INVENTORY: &[Component] = &[
         id: "checkbox",
         tier: Tier::Two,
         built: true,
-        // `state::press` plus a `Glyph` pair plus a `Role` (ticket 34).
+        // `state::press` plus a `Glyph` pair plus a `Role`.
         layer: Layer::L1,
         families: &[Family::F6Input],
         glyphs: &[Glyph::Tick],
@@ -864,7 +864,7 @@ pub const INVENTORY: &[Component] = &[
         tier: Tier::Two,
         built: true,
         // Standalone it is a `press`. **A radio *set* is `collection` at `Mode::Radio`** (ticket
-        // 34) — which is §5's R1 collapse rather than an edge out of this row, so no
+        // 34) — which is R1 collapse rather than an edge out of this row, so no
         // `COMPOSITIONS` entry: the row is the widget, and the set is a different call.
         layer: Layer::L1,
         families: &[Family::F6Input],
@@ -892,7 +892,7 @@ pub const INVENTORY: &[Component] = &[
         id: "meter",
         tier: Tier::Two,
         built: true,
-        // `chart`'s prefix construction at two rungs (ticket 34), so it sits at `chart`'s rung.
+        // `chart`'s prefix construction at two rungs, so it sits at `chart`'s rung.
         layer: Layer::L1,
         families: &[Family::F5Indicators, Family::F13System],
         glyphs: &[Glyph::Thumb, Glyph::Track],
@@ -916,7 +916,7 @@ pub const INVENTORY: &[Component] = &[
         // **2 by `meter`'s argument, and the spec does not name this number.** Ticket 34 says a
         // sparkline is `chart` at a small rectangle with no axes, no gutter and no axis loop; the
         // prefix ladder is 2 / 9 / 9 and the top two rungs are the same block, so the third rung is
-        // §13's and `plot` earns it alone. Recorded here as derived rather than stated.
+        // The original's and `plot` earns it alone. Recorded here as derived rather than stated.
         constructions: 2,
         can_shrink: false,
         owns_offset: false,
@@ -927,13 +927,13 @@ pub const INVENTORY: &[Component] = &[
         id: "rule",
         tier: Tier::Two,
         built: true,
-        // `fit`'s remainder over one row or one column, plus a `Glyph` (ticket 34).
+        // `fit`'s remainder over one row or one column, plus a `Glyph`.
         layer: Layer::L0,
         families: &[Family::F2Structure],
         // **`Ellipsis` arrived with components ticket 35 and it is a correction rather than a
         // change**: `rule_into` has gone through `crate::glyphs::elide` since it was written, so a
         // caption wider than its line has always been able to draw a marker this column did not
-        // declare. Under-declaring is the quiet direction — §16's within-component collapse gate
+        // declare. Under-declaring is the quiet direction — the within-component collapse gate
         // runs over the column, so it was running over two glyphs where the component draws three.
         glyphs: &[Glyph::HLine, Glyph::VLine, Glyph::Ellipsis],
         constructions: 1,
@@ -952,13 +952,13 @@ pub const INVENTORY: &[Component] = &[
         families: &[Family::F2Structure, Family::F13System],
         // **`Ellipsis` beside the separator**, because a segment is written through
         // `crate::text::fit_into` and a segment wider than its share is elided. The demand column
-        // is what §16's within-component collapse gate runs over, so a component that can draw a
+        // is what the within-component collapse gate runs over, so a component that can draw a
         // marker and does not declare one is a gate running over less than the component draws —
         // and `text`, `chip`, `select` and `file_picker` all declare it for the same reason.
         glyphs: &[Glyph::VLine, Glyph::Ellipsis],
         constructions: 1,
         can_shrink: false,
-        // One hit entry, not one per segment (ticket 35), and a band never wins the wheel.
+        // One hit entry, not one per segment, and a band never wins the wheel.
         owns_offset: false,
         scrolled: false,
         narrow: false,
@@ -968,10 +968,10 @@ pub const INVENTORY: &[Component] = &[
         tier: Tier::Two,
         built: true,
         // `collection` at a small length plus `nav::cursor`; no second store and no second
-        // navigation model (ticket 35).
+        // navigation model.
         layer: Layer::L5,
         families: &[Family::F7Collections, Family::F8Navigation],
-        // **`Ellipsis` beside the two arrows**, and this row is where §16's C09 pair would land if
+        // **`Ellipsis` beside the two arrows**, and this row is where C09 pair would land if
         // it came back: a page number elided next to a `›` stepper is `tree`'s `Ellipsis`-spelled-
         // `>` defect on a pager. It does not collide — components ticket 05 spelled `Ellipsis` `~`
         // at ASCII — and `crate::glyphs::within_component_collapses` is what keeps saying so.
@@ -1009,7 +1009,7 @@ pub const INVENTORY: &[Component] = &[
         built: true,
         layer: Layer::L1,
         families: &[Family::F6Input],
-        // **`VLine` joined the demand set when the component was written** (components ticket 33): a
+        // **`VLine` joined the demand set when the component was written**: a
         // vertical slider's groove is a column, and `HLine` stacked down one is a picture of a
         // dashed line. `scroll_area` already demands both, so the pair collapses at no rung.
         glyphs: &[Glyph::HLine, Glyph::VLine, Glyph::Thumb],
@@ -1025,7 +1025,7 @@ pub const INVENTORY: &[Component] = &[
         tier: Tier::Three,
         // **The last row of the freeze to be built, and it left Tier 3's at-risk column before it
         // left the unbuilt column.** Its mechanism — *a component that owns a clock* — was §17's
-        // at-risk entry and §22's *named with an owner and not prototyped*; components ticket 42
+        // at-risk entry and *named with an owner and not prototyped*; components ticket 42
         // prototyped it and ticket 46 shipped it. The rule it lands on is *stored state may be an
         // anchor, never a phase*, which is what §8 and §9 were already obeying rather than a
         // permission granted here: `SpinState` is 32 B against the 40 B tween slot
@@ -1041,7 +1041,7 @@ pub const INVENTORY: &[Component] = &[
         // `chart::raster::RUNGS` is `chart`'s and `crate::media::sub_rows` is the picture's.
         glyphs: &[],
         // **3, and it is derived rather than argued — which is what ticket 46 owed and 42 could
-        // not.** §16's rule points at 1 on the grounds that every spelling is exactly one cell and
+        // not.** The rule points at 1 on the grounds that every spelling is exactly one cell and
         // no spelling is blank; both are true of the shipped ladder and *neither decides it*. What
         // decides it is whether the rung changes what is **built**, and
         // `crate::indicate::constructions` counts the distinct ladders of
@@ -1258,7 +1258,7 @@ mod tests {
         }
         // Twenty-five built, four not. **Thirteen entries have nothing to show**,
         // which would put the built count at sixteen — the Tier 1 count exactly, and it could not
-        // be reached even at nineteen without contradicting §17's own three sentences about
+        // be reached even at nineteen without contradicting the three sentences about
         // `slider`, `file_picker` and `file_preview_pane`. Recorded here rather than resolved by
         // bending a column: ticket 34 built six of Tier 2's nine and ticket 35 the other three, and
         // ticket 46 built `spinner`, the one row that was genuinely at risk rather than merely
@@ -1412,7 +1412,7 @@ mod tests {
             assert!(of.id != on.id, "`{}` is built on itself", of.id);
         }
 
-        // Acyclicity, by repeated removal of sinks. Same-layer edges are legitimate — §6's `table`
+        // Acyclicity, by repeated removal of sinks. Same-layer edges are legitimate — the `table`
         // = `collection` is one — so the rung comparison above cannot carry this on its own.
         let mut edges: Vec<(&str, &str)> = COMPOSITIONS.iter().map(|e| (e.of, e.on)).collect();
         let mut settled: BTreeSet<&str> = BTreeSet::new();
@@ -1478,7 +1478,7 @@ mod tests {
         // **Two rows earn the third rung, and they earn it for the same reason.** §13's
         // measurement is `plot`'s: Unicode against Extended is 0 cells different in the chart pane
         // and 882 in the plot pane, because braille is 256 states a cell where block elements are
-        // 8. `spinner` is components ticket 46's and the same sentence — ten braille frames where
+        // 8. `spinner` is the original's and the same sentence — ten braille frames where
         // the quadrant blocks give four — which is why it is `plot`'s shape and not `meter`'s,
         // whose horizontal ladder gets nothing from the top rung and reads `1 / 8 / 8`.
         //
@@ -1637,7 +1637,7 @@ mod tests {
         }
 
         // Five families ship no v1 component: F8, F11, F13, F14 and F15. **§17 says two** — F11 and
-        // F12 — and that sentence does not reproduce against §17's own table, which puts
+        // F12 — and that sentence does not reproduce against the table, which puts
         // `file_picker` and `file_preview_pane` in F12 and gives F8, F13 and F14 nothing. Asserted
         // rather than quietly worked around.
         let empty: Vec<u8> = Family::ALL

@@ -1027,7 +1027,7 @@ pub fn screens(defect: Defect) -> (Screen, Screen) {
                 let _ = st.index(WIDE);
                 Screen {
                     w: NARROW,
-                    // **One field**, which is §21's own content for this scene, and it is what
+                    // **One field**, which is the content for this scene, and it is what
                     // makes *69 of 80* a count over eighty rows rather than over sixty-one.
                     inputs: 0,
                     st,
@@ -1104,7 +1104,7 @@ pub fn draw_screen<I: Ink>(ink: &mut I, cx: &mut Ctx<'_, '_>, screen: &mut Scree
     let head = truncate(corpus.text(), w).to_string();
 
     // **The one-row inputs across the top, each a shipped `field`.** One call site and a key a row,
-    // which is §4's rule: `Ctx::id` mints from `Location::caller()`, so a loop with no key is one
+    // which is the rule: `Ctx::id` mints from `Location::caller()`, so a loop with no key is one
     // widget and the nineteen would merge into one hit entry on a screen that looks correct.
     //
     // **Rectangles and not `Ctx::child`**, which is `CONTEXT.md`'s identity rule read the other
@@ -1131,7 +1131,7 @@ pub fn draw_screen<I: Ink>(ink: &mut I, cx: &mut Ctx<'_, '_>, screen: &mut Scree
     .id;
     // **A textarea that does not seat the focus places no caret at all.** `Ctx::caret_with` is
     // refused where nothing holds the keyboard, so the two caret gates are unaskable until
-    // something is focused — architecture issue 25's finding arriving on `field`'s own screen. The
+    // something is focused — the finding arriving on `field`'s own screen. The
     // seating is written `if cx.focused().is_none()` rather than `if !cx.is_focused(id)`, because
     // the second drags the keyboard back the moment the user tabs away.
     if cx.focused().is_none() {
@@ -1150,7 +1150,7 @@ pub fn play_field(screen: &mut Screen, allocations: Allocations) -> Played {
     let mut rows_drawn = 0usize;
     // **Two frames, and the second is the one that is read.**
     //
-    // Nothing holds the keyboard on the first frame of any program (architecture issue 25), and
+    // Nothing holds the keyboard on the first frame of any program, and
     // `Ctx::caret_with` refuses a caret then — so a screen played once has no caret at all and the
     // two caret gates are unaskable. [`draw_screen`] seats the focus at the end of its own draw,
     // which is where an application seats it; the frame after is the first one where the textarea
@@ -1424,7 +1424,7 @@ mod tests {
         assert_eq!(corpus.chars(), CORPUS_CHARS);
         assert_eq!(corpus.inside(), CORPUS_INSIDE);
 
-        // The relation §11's third figure is, and it holds for any string at all.
+        // The relation the third figure is, and it holds for any string at all.
         assert_eq!(corpus.inside(), corpus.chars() - corpus.len());
         assert_eq!(
             REMEMBERED_INSIDE,

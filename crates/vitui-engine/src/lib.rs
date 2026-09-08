@@ -151,7 +151,7 @@
 // `crate::scenes` and `crate::register` are `#[path]`-included by `examples/budget.rs` as well as
 // compiled here, so that the twelve scenes and the thirty-one register entries have exactly one
 // definition. They are written against the public API — `use vitui_engine::…` — and this alias is
-// what makes that resolve inside the library too. Spec §14's rule for the comparative suite is that
+// what makes that resolve inside the library too. Spec the rule for the comparative suite is that
 // a scene is defined by what the user sees rather than by what a framework does, and a scene that
 // could reach past the public surface would be defined by what this framework does.
 extern crate self as vitui_engine;
@@ -186,7 +186,7 @@ mod tables;
 
 // The scene list and the register. Both are the instruments spec §14 asks for rather than parts of
 // the engine, and neither is on the public surface: a caller cannot read back what is already on
-// screen (ADR 0023), so an oracle over cells lives inside the crate.
+// screen, so an oracle over cells lives inside the crate.
 #[cfg(test)]
 mod audit;
 #[cfg(test)]
@@ -204,7 +204,7 @@ mod register;
 mod scenes;
 
 // **The reference compositor, and ticket 25 is where it stopped being `cfg(test)`** — as this file
-// predicted it would. It is the oracle for §14's first fuzz target as well as for gate #1, and a
+// predicted it would. It is the oracle for the first fuzz target as well as for gate #1, and a
 // fuzz target lives in another crate: `fuzz/` is its own workspace, because `cargo-fuzz` needs
 // nightly and `libfuzzer-sys`. So the compositor is compiled whenever the tests are **or** the
 // `fuzz` feature is on, and `crate::audit`'s `SOAK_ONLY_MODULES` is the list that keeps a module in
@@ -214,7 +214,7 @@ mod reference;
 
 // **The fuzz door, and the only public module here but the prelude.** It is behind a non-default
 // feature and hidden from rustdoc, so nothing an ordinary caller compiles can reach it and nothing
-// on §12's documented surface names it. `crate::audit`'s
+// on the documented surface names it. `crate::audit`'s
 // `the_fuzz_door_is_behind_a_feature_and_hidden` asserts all three of those, because a second public
 // module is a real widening and *the loophole is closed rather than enjoyed*.
 //
@@ -226,7 +226,7 @@ mod reference;
 pub mod fuzz;
 
 // The round trip is the primary instrument, and the model it replays through is engine-internal:
-// nothing in spec §12's public surface names it. Ticket 25's fuzz targets are what will need it
+// nothing in the public surface names it. The fuzz targets are what will need it
 // outside `cfg(test)`, and that is when it moves.
 // `crate::input`'s unit tests, declared here rather than inside `input.rs` — which is where they
 // would go, and where they were. `tests/alloc.rs` `#[path]`-includes `input.rs` so that the

@@ -368,7 +368,7 @@ impl TermModel {
             b'm' => self.sgr(params),
             // `CHA` — absolute column, same row.
             b'G' => self.cursor.0 = column(first(params).max(1) - 1, self.width),
-            // `CUF` — relative, and the one encoding §10's rule refuses after a non-ASCII cluster.
+            // `CUF` — relative, and the one encoding the rule refuses after a non-ASCII cluster.
             b'C' => {
                 let by = first(params).max(1);
                 self.cursor.0 = column(self.cursor.0 as u32 + by, self.width);
@@ -708,7 +708,7 @@ impl TermModel {
         let row = y as usize * self.width as usize;
         let columns = match self.widths {
             WidthOpinion::Ours => g.columns(),
-            // The disagreement §10's rule is about, and it is one line: this terminal advances by
+            // The disagreement the rule is about, and it is one line: this terminal advances by
             // one column over a cluster our tables call two.
             WidthOpinion::Narrow => 1,
         };

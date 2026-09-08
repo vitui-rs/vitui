@@ -114,7 +114,7 @@ pub(crate) fn run(wiring: Wiring) {
     // safe Rust cancels the blocking `read` this thread is fed by.
     //
     // What the process would otherwise do is worse than a crash and looks like nothing at all.
-    // Every write fails and is discarded — the frame path has no `Result` in it (ADR 0022) — so
+    // Every write fails and is discarded — the frame path has no `Result` in it — so
     // `present` goes on answering `submitted: true` for ever, and an application parked in
     // `Screen::wait` waits on a keyboard that cannot send another byte. **A hang is worse than a
     // failure**, and this is the flag that makes it a failure, exactly as `Mailbox::gone` is for the

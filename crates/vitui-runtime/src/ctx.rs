@@ -376,7 +376,7 @@ pub struct Frame {
     /// The thresholds.
     pointer_config: Pointer,
 
-    // ── routing (ticket 11) ────────────────────────────────────────────────────────────────────
+    // ── routing ────────────────────────────────────────────────────────────────────
     /// **Who may take a key right now**, and it is one id rather than a map.
     ///
     /// `begin` sets it to the focused id; a bubbling scope moves it outward to its own id after its
@@ -390,7 +390,7 @@ pub struct Frame {
     /// the focused widget must not bubble, and this is what tells it apart at O(1).
     focus_draws: u32,
 
-    // ── the id-keyed facts (ADR 0012). Three are swept at `end`; the click record is not ────────
+    // ── the id-keyed facts. Three are swept at `end`; the click record is not ────────
     grab: Option<Id>,
     press_origin: Option<(Id, (i32, i32))>,
     focused: Option<Id>,
@@ -416,7 +416,7 @@ pub struct Frame {
     /// The declared key maps for the open scope, cleared and never freed.
     maps: Matches,
 
-    // ── scrolling (ticket 14) ──────────────────────────────────────────────────────────────────
+    // ── scrolling ──────────────────────────────────────────────────────────────────
     /// **The scroll areas this frame declared**, in draw order, and a *sixth* frame-local structure
     /// where the design says five. It is cleared in `begin` and read once, in `end`, by the step
     /// that resolves scroll-into-view — nothing in it survives the frame, so it bends the count and
@@ -461,7 +461,7 @@ pub struct Frame {
     /// rather than a default.
     key_releases: bool,
 
-    // ── the drawn extent, maintained only while something is asking for it (spec §12) ───────────
+    // ── the drawn extent, maintained only while something is asking for it ───────────
     /// How far the verbs reached, and **`None` in a real frame**: maintaining it costs a display
     /// width measurement per verb — 7% of the frame budget — so a frame pays it only when something
     /// asked. Today the only thing that asks is [`Ctx::measured`]; a scroll area over bounded
@@ -482,7 +482,7 @@ pub struct Frame {
     /// What the body asked a measured world for that a measured world cannot answer.
     consulted: Consulted,
 
-    // ── overlays (ticket 13) ───────────────────────────────────────────────────────────────────
+    // ── overlays ───────────────────────────────────────────────────────────────────
     /// How many overlay bodies were boxed this frame. **One allocation each, and the reported
     /// number.**
     ///
@@ -736,7 +736,7 @@ impl Frame {
         // **This is the split that was invisible for five tickets**, and the reason is worth having
         // in front of whoever edits it next: at `MouseMode::Motion` the unsplit batch *works*. A
         // motion event arrives between any two clicks a human can produce, and a batch that is
-        // mostly moves is a batch whose edges were already one to a frame. Ticket 04's theme switch
+        // mostly moves is a batch whose edges were already one to a frame. The theme switch
         // is what escapes `Motion` — a theme with no visible hover state declares no `HOVER`, the
         // tracking level drops to `Buttons`, **the terminal stops sending motion events entirely**,
         // and `[Down, Up, Down, Up]` arrives as one batch for the first time. A US-layout,
@@ -1116,7 +1116,7 @@ impl Frame {
         {
             self.press_origin = None;
         }
-        // **The focus is not swept here**, and separating it from these two is ticket 12's finding.
+        // **The focus is not swept here**, and separating it from these two is the finding.
         // Answering absence with `None` costs the keyboard entirely — every key afterwards reaches
         // nobody until the user picks the pointer back up — so absence is `vanish` and the `None`
         // that stands is the award's. See [`Frame::vanish`].
@@ -1883,7 +1883,7 @@ impl<'f, 'v> Ctx<'f, 'v> {
             env: self.env,
             rect: self.rect,
             // **The same sense as `view.origin` and not the opposite one**, which is components
-            // ticket 12's correction: `View::at` is `(x + origin.0, y + origin.1)` and this origin
+            // The correction: `View::at` is `(x + origin.0, y + origin.1)` and this origin
             // is read by `hover_style` for exactly the same content-to-root map, so the two cannot
             // take the translation with different signs. Written `- dy` it agreed with a *scroll
             // position* reading that `view` and `pointer` on the two lines below do not take, and
@@ -1892,7 +1892,7 @@ impl<'f, 'v> Ctx<'f, 'v> {
             origin: (self.origin.0 + dx, self.origin.1 + dy),
             pointer: self.pointer.map(|(x, y)| (x - dx, y - dy)),
             // **The reset**: a scrolled context is a content coordinate system, so its own origin is
-            // the content origin. §13's `to_content` resets at the area boundary, and this is it.
+            // the content origin. The `to_content` resets at the area boundary, and this is it.
             content: (0, 0),
             // **Accumulated, because two `scrolled` calls with no child between them are one
             // translation** — and reset by `child`, which is what keeps a clip out of it.
@@ -3428,14 +3428,14 @@ impl Driver {
     /// makes the bound *outlives this frame call*, which is what it should be.
     pub fn frame<'f>(&'f mut self, view: impl FnOnce(&mut Ctx<'f, '_>)) -> Presented {
         // take — a worker landing is the application's write at the top of the view, and the sequence
-        // gains no step for it (ticket 16).
+        // gains no step for it.
 
         // begin. Everything the terminal has to say goes on the back of the one queue, classified
         // by nobody yet: **the split is over the interleaving**, so the queue has to hold it.
         while let Some(event) = self.screen.next_event() {
             self.pending.push(event);
         }
-        // **The clock is sampled once per frame** (spec §1), and `pin_clock` is what lets a loop
+        // **The clock is sampled once per frame**, and `pin_clock` is what lets a loop
         // choose the moment instead.
         if !self.pinned {
             self.env.now = Instant::now();
@@ -4371,7 +4371,7 @@ mod routing_tests {
         }
         // **On the frame the batch arrives**, not the one after: the wheel is the one pointer
         // channel resolved in `begin` rather than awarded at `end`, because the offset it moves is
-        // read during the draw by the widget that owns it (ticket 14).
+        // read during the draw by the widget that owns it.
         let mut scrolled = (0, 0);
         let frames = drain(&mut d, |cx| {
             scrolled = draw(cx).scrolled;
@@ -7985,7 +7985,7 @@ mod loop_tests {
         //
         // **And it declares the seat**, which the first version did not and which cost a red run
         // worth writing down: the focus is dropped for a widget the frame did not declare, by
-        // ADR 0012's ordinary rule, so a frame that only filled unseated it and the case failed
+        // The ordinary rule, so a frame that only filled unseated it and the case failed
         // pointing at the suspension. The frame was the culprit and the suspension was innocent —
         // which is what an application that suspends mid-loop is doing anyway, because a suspended
         // application that keeps drawing is drawing its real screen into a sink.

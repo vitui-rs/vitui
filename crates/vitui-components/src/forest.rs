@@ -1037,7 +1037,7 @@ pub fn draw_into<I: Ink>(
             let mut label =
                 |ink: &mut I, cx: &mut Ctx<'_, '_>, r: Rect, n: crate::collect::Node, _f: Face| {
                     iterated += 1;
-                    // **The row's target, declared by the row and not by the component** (§7's 59
+                    // **The row's target, declared by the row and not by the component** (the 59
                     // regions). The rectangle is the row's whole width — a tree row is clickable
                     // where its label is not — and `Node::id` is what the component minted for it.
                     let _ = cx.interact(n.id, Rect::new(0, r.y, w, 1), Interest::CLICK);
@@ -1290,7 +1290,7 @@ pub fn the_numbers(depth: u16) -> (Shape, Shape) {
     (frame(plan), frame(plan.unclamped()))
 }
 
-// ── the narrow axis: §7's partition read as a function of the width ──────────────────────────────
+// ── the narrow axis: the partition read as a function of the width ──────────────────────────────
 
 /// **The four widths the narrow scene is played at.**
 ///
@@ -1877,7 +1877,7 @@ mod tests {
         // **`MISDRAWN`'s first two entries are what says the two arms are one screen at 300 and at
         // 40**, and a direct `unclamped.diff(clamped)` beside them was **deleted**: both arms are
         // already asserted equal to the reference at every width, so the third comparison holds by
-        // transitivity and cannot fail. Production 09's precedent, and a code review caught this
+        // transitivity and cannot fail. The precedent, and a code review caught this
         // one — *the reading that can fail is the one the runs already make.*
         let cut = narrow_screen(TRUNCATES, Indent::Clamped).0;
         // **The head is derived and not typed**, because a needle written out beside a screen it is
@@ -2077,7 +2077,7 @@ mod tests {
         let mut flat = Flat::expanded(&forest);
         assert_eq!(flat.len(), forest.len());
 
-        // The interval, from the index and from the data, which is §7's own pair.
+        // The interval, from the index and from the data, which is the pair.
         assert_eq!(flat.span(FOLD_AT) as u64, FOLD_ROWS);
         assert_eq!(forest.descendants(FOLD_AT) as u64, FOLD_ROWS);
 
@@ -2304,7 +2304,7 @@ mod tests {
         assert!(component.families[0].members().contains(&SUBJECTS[0]));
         assert_eq!(DECLARATIONS[0].0, "collect.rs");
 
-        // The two axes §21's own rows claim for `tree`, and the freeze sets both.
+        // The two axes the rows claim for `tree`, and the freeze sets both.
         assert!(component.declares(crate::Axis::Scrolled));
         assert!(component.declares(crate::Axis::Shrunk));
     }

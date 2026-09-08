@@ -156,7 +156,7 @@ pub use keys::{ActionId, Binding, Chord, Chords, KeyMap, Match, MatchMode, On};
 pub use overlay::{OverlayOpts, Placement, Scrim, Z};
 pub use scroll::{IntoView, Scrollable};
 pub use theme::{Density, Distinction, Glyph, GlyphSet, Paint, Repaint, Role, Roles, Theme};
-// Ticket 05's two: the shipped palette as data, and the set that holds which one is current. At the
+// The two: the shipped palette as data, and the set that holds which one is current. At the
 // root for the same reason as the four above — an application names both on the line that starts it.
 pub use theme::{Scheme, Themes};
 

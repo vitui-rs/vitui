@@ -950,7 +950,7 @@ impl Gallery {
         let (w, h) = cx.size();
         let whole = cx.area();
 
-        // **The preview pane's landing, taken at the top of the view** (ADR 0039). `Task::take` is
+        // **The preview pane's landing, taken at the top of the view**. `Task::take` is
         // destructive and a view has no `&mut` with which to put back what it took, so the landing
         // is a verb on the state before anything draws — components 31 measured what taking it
         // where a view happens to want it costs: **20 torn frames of 20**, on a screen whose state
@@ -958,11 +958,11 @@ impl Gallery {
         let _ = self.bag.land_here();
 
         // **The screen is repainted when what decides every cell of it changes** — its size, its
-        // page, or its theme (spec §2, ADR 0026).
+        // page, or its theme.
         //
         // A resize is `Clears`'s own trigger and it is not the only one here: this screen pages
         // twenty-eight panels through twelve tiles, so `Ctrl+N` puts a **different component in the
-        // same rectangle**. When this was written §2's second half was not met — 525 cells of 3 000
+        // same rectangle**. When this was written the second half was not met — 525 cells of 3 000
         // at 100x30 written by nobody, and on `Ctrl+N` that was a `radio` panel with a
         // `collection`'s rows still inside it.
         //
@@ -977,7 +977,7 @@ impl Gallery {
         //
         // The theme is in the key rather than read from `Ctx::theme_changed`, because a value that
         // moved is a fact and a flag is a report of one — and the density, which changes rectangles
-        // and is theme data (spec §3), is the one input the key cannot carry, so the flag is ORed in
+        // and is theme data, is the one input the key cannot carry, so the flag is ORed in
         // for it.
         let relaid = self.clears.relaid_into(ink, cx, self.screen_key());
         if !relaid && cx.theme_changed() {
@@ -1467,8 +1467,8 @@ mod draws {
         r: Rect,
     ) {
         let frame = panel_into(ink, cx, r, "General", &PanelOpts::default());
-        // **A `block` returns the rectangle it did not write** (spec §3), and the owner writes it.
-        // This is §2's second half in the one shape the rule states outright, and the panel inside a
+        // **A `block` returns the rectangle it did not write**, and the owner writes it.
+        // This is the second half in the one shape the rule states outright, and the panel inside a
         // panel is where the gallery meets it: 294 cells of a 50x15 tile.
         rest(b, ink, cx, frame.interior);
     }
@@ -1759,7 +1759,7 @@ mod draws {
         // **`Disclosure::used` is the mechanism and this is its one caller on the screen**: a
         // section occupies its header plus its body's height, *every row below is the caller's, and
         // this is how it is named*. A caller that reads its tail from the height the section had
-        // before a collapse leaves 240 cells of the old body standing (§8); a caller that reads it
+        // before a collapse leaves 240 cells of the old body standing; a caller that reads it
         // and does nothing leaves them unwritten, which is the same cells and the other defect.
         rest(
             b,
@@ -2534,7 +2534,7 @@ pub mod defective {
     }
 }
 
-// ── §16's nine cells ─────────────────────────────────────────────────────────────────────────────
+// ── the nine cells ─────────────────────────────────────────────────────────────────────────────
 
 /// One cell of the matrix: the repertoire axis against the colour axis, on this screen.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -2869,7 +2869,7 @@ mod tests {
     #[test]
     fn tiles_by_multiplication_leave_the_remainder_to_nobody() {
         // **The last column, and not the written total.** `panel_into` hands its interior over and
-        // does not write it (§2's second half), so a count over the whole surface is a count of
+        // does not write it (the second half), so a count over the whole surface is a count of
         // frames — which both arms draw. What the multiplication loses is the column past
         // `n * (w / n)`, and a panel's own right border is what would have been in it.
         let last_column = |width: u16, n: u16, multiplied: bool| -> usize {
@@ -3000,7 +3000,7 @@ mod tests {
         }
 
         // The colour axis: the roles collapse and the distinctions go, and neither depends on the
-        // repertoire — which is ADR 0032's two axes being two axes.
+        // repertoire — which is the two axes being two axes.
         for rung in RUNGS {
             let at = |tier: ColorDepth| {
                 let c = cells
@@ -3042,7 +3042,7 @@ mod tests {
         for (tier, on_the_wire) in readings {
             let t = traffic_light(tier);
             assert_eq!(t.on_the_wire, on_the_wire, "{tier:?} on the wire");
-            // **The declared bit and the wire agree**, which is ADR 0032's own claim: a distinction
+            // **The declared bit and the wire agree**, which is the claim: a distinction
             // is one bit resolved at construction and not a guess a component makes at the draw.
             assert_eq!(t.declares, t.on_the_wire, "{tier:?} declares what it shows");
             assert_eq!(t.distinct_paints, 14, "{tier:?} paint equality is blind");
@@ -3199,7 +3199,7 @@ mod tests {
 
         // **And again on a page change and on a theme change**, which are the two other things that
         // decide every cell of this screen — see `Clears::relaid_into`. Steady frames in between are
-        // untouched, which is what keeps register row 7's subject intact.
+        // untouched, which is what keeps the subject intact.
         gallery.next_page(w, h);
         assert!(
             step(&mut gallery, &mut driver),
@@ -3454,7 +3454,7 @@ mod tests {
                     shape.unwritten
                 );
                 // **Both halves at once, or the fix is a trade.** A blanket fill would make the
-                // first number 0 and the second one large, which is the defect §2's rule was
+                // first number 0 and the second one large, which is the defect the rule was
                 // widened to catch.
                 assert_eq!(
                     shape.writes, shape.distinct,
@@ -3625,7 +3625,7 @@ mod tests {
             for page in 0..pages(w, h) {
                 for change in [Change::Scheme, Change::Rung, Change::Tier] {
                     // **Both arms of `Remainder`, so row 7 and row 8 are green at the same time.**
-                    // Ticket 41's own criterion, and the reading is that they are independent here:
+                    // The criterion, and the reading is that they are independent here:
                     // `swap_on` carries one surface across the change, so a cell nobody writes on a
                     // steady frame was still written once, and the reference arm carries its own.
                     for remainder in [Remainder::Written, Remainder::LeftAlone] {

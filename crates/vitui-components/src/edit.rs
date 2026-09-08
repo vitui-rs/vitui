@@ -456,7 +456,7 @@ pub fn step_left_counted(text: &str, caret: Caret, from: Caret, steps: &mut u64)
             byte: at.byte + cluster.len(),
             // **Saturating, and the saturation is the argument.** A caret's column is a *screen*
             // column, reset at every row start; an arm that segments from byte 0 of a megabyte is
-            // accumulating something that is not a column at all, which is §11's own point about
+            // accumulating something that is not a column at all, which is the point about
             // `display_width(&s[..caret])`. What the blind arm is compared on is the byte.
             col: at.col.saturating_add(width(cluster)),
         };
@@ -1128,7 +1128,7 @@ impl Text {
         let end = entry.at + entry.inserted.len();
         self.buf.replace_range(entry.at..end, &entry.removed);
         self.revision += 1;
-        // **The pair, restored rather than recomputed.** §11's 0.0007 µs against 6 109.
+        // **The pair, restored rather than recomputed.** The 0.0007 µs against 6 109.
         self.caret = entry.caret;
         self.anchor = entry.anchor;
         self.index = None;
@@ -1667,7 +1667,7 @@ mod tests {
         assert_eq!(st.revision(), revision, "and it did not move the revision");
 
         // **The width is the second half of the key.** The same revision at another width is a
-        // miss, which is §11's fourth gate: the index's recorded width equals the width drawn.
+        // miss, which is the fourth gate: the index's recorded width equals the width drawn.
         let _ = st.index(120);
         assert_eq!(st.recomputes(), 2);
         assert_eq!(st.indexed().expect("built").built_at(), 120);

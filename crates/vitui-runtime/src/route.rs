@@ -100,7 +100,7 @@ pub fn edge_of(event: &Event) -> Option<Edge> {
             }
             _ => None,
         },
-        // A resize changes geometry, and **no geometry crosses a frame** (ADR 0015) — there is no
+        // A resize changes geometry, and **no geometry crosses a frame** — there is no
         // routing state for it to be an edge in. Focus gain and loss are the terminal window's, not
         // a widget's. A bracketed paste is not delivered by this crate at all yet; a terminal
         // without bracketed paste delivers a pasted megabyte as ordinary keys, which is the case

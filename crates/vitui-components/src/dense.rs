@@ -163,7 +163,7 @@ const UNITS: [&str; 4] = ["req/s", "ms", "%", "MB"];
 // static, the arithmetic is integer, and a debug build and a release build produce the same numbers.
 // The microsecond column of the metric row is a **report** and is gated by nothing (R15).
 //
-// **Where a figure reproduces §2's it says so, and where it does not both columns are printed and
+// **Where a figure reproduces the original's it says so, and where it does not both columns are printed and
 // the arithmetic behind the difference is stated.** The magnitudes in §2 were taken on C01's
 // prototype screen, which this ticket does not own and cannot recover; what a screen owes is that
 // every *direction* and every *structural* number reproduces, and that no figure was aimed at.
@@ -369,7 +369,7 @@ pub fn draw_into<I: Ink>(ink: &mut I, cx: &mut Ctx<'_, '_>, arm: Arm, requested:
         ..Shape::default()
     };
 
-    // **The screen clear that is a defect.** ADR 0026's largest instance, and it is
+    // **The screen clear that is a defect.** The largest instance, and it is
     // [`crate::app::defective::every_frame`] rather than a local wash so that the defect belongs to
     // the helper whose correct spelling is [`Clears`]. The correct arm has nothing for it to fix,
     // because the branches below cover all 24 000 cells between them.
@@ -415,7 +415,7 @@ pub fn draw_into<I: Ink>(ink: &mut I, cx: &mut Ctx<'_, '_>, arm: Arm, requested:
             },
             ..PanelOpts::default()
         };
-        // **`panel`, and it declares its own region.** Ticket 09's stand-in declared the panel
+        // **`panel`, and it declares its own region.** The stand-in declared the panel
         // *after* its rows, which puts the container in front of its children in a reverse-scanned
         // index; the component fixes the order once.
         let stood = cx.with_key(u64::MAX - 2 - u64::from(panel), |cx| {
@@ -449,7 +449,7 @@ pub fn draw_into<I: Ink>(ink: &mut I, cx: &mut Ctx<'_, '_>, arm: Arm, requested:
                 if i < visible {
                     declared += widget_row(ink, cx, arm, line, i);
                 } else {
-                    // **The tail is written by its owner**, which is the other half of §2's rule and
+                    // **The tail is written by its owner**, which is the other half of the rule and
                     // what makes the equality below an equality over 24 000 cells rather than over
                     // the cells somebody happened to draw.
                     text_into(
@@ -1459,7 +1459,7 @@ mod tests {
         assert_eq!(once.first, SCREEN, "the first frame paints the screen");
         assert_eq!(once.steady, 0);
 
-        // The same call written without the state, which is ADR 0026's largest row.
+        // The same call written without the state, which is the largest row.
         let every = steady(Arm::ClearsEveryFrame, 4);
         assert_eq!(every.per_frame, CLEARED_EVERY_FRAME);
         assert_eq!(

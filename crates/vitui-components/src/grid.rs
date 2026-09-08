@@ -198,7 +198,7 @@ pub fn columns(declared: usize) -> Vec<ColSpec> {
     if declared <= 1 {
         // **The list, expressed as a table.** One column, the full width, no pins: the same
         // rectangle, the same rows, the same cells, and one verb pair a row instead of one a cell.
-        // It is the control for §6's headline and what it isolates is the price of the `+`.
+        // It is the control for the headline and what it isolates is the price of the `+`.
         return vec![ColSpec::new(0, "row", Constraint::Weight(1))];
     }
     let mut v = vec![
@@ -1485,7 +1485,7 @@ pub fn shrunk_counters_that_separate(rule: Allocations, refused: Allocations) ->
     separated(&a, &b)
 }
 
-// ── components ticket 15's two measurements over this screen ─────────────────────────────────────
+// ── the two measurements over this screen ─────────────────────────────────────
 
 /// **The two loop structures weighed against each other, as shapes.** `(one row pass, per band)`.
 ///
@@ -1840,7 +1840,7 @@ mod tests {
         // `STALE_ROWS`'s own definition asserted a second time, and `diff.cells < STALE_ROWS * W`
         // after an exact equality is `5_822 < 21_300` — a constant against a constant.
 
-        // §21's refused spelling, and it scores clean.
+        // The refused spelling, and it scores clean.
         assert!(
             stale_by_resize().clean(),
             "a fresh rectangle has nowhere for the residue to survive, which is why §21 will not \
@@ -2153,7 +2153,7 @@ mod tests {
             one.verbs
         );
 
-        // **Two verbs a cell, minus the cells with no padding in them.** §6's floor, refined by the
+        // **Two verbs a cell, minus the cells with no padding in them.** The floor, refined by the
         // count rather than restated: `pid` at eight columns and `cpu` at seven are narrower than
         // the ten characters they carry, so the pad is a zero-length run and `Ink::run` does not
         // issue one. No cell costs three, which is the half of the sentence that matters.
@@ -2182,7 +2182,7 @@ mod tests {
             "`pid` and `cpu`, and they are both pins"
         );
 
-        // §21's row 19, and it is a relation on every arm rather than an equality on any.
+        // row 19, and it is a relation on every arm rather than an equality on any.
         for shape in [one, twelve] {
             assert!(shape.verbs <= shape.writes);
             assert_ne!(shape.verbs, shape.writes);
@@ -2362,7 +2362,7 @@ mod tests {
         assert_eq!(clip_only.columns, 120, "every declared column drawn");
         assert_eq!(virtualised.columns, COLUMNS_DRAWN);
 
-        // **Which of §20's nine separate them. One, and it is `verbs`.**
+        // **Which of the nine separate them. One, and it is `verbs`.**
         let inert = Allocations::over(1, 0);
         assert_eq!(
             counters_that_separate(Opts::correct(), Opts::clip_only(), inert, inert),
@@ -2433,7 +2433,7 @@ mod tests {
             (correct.regions, correct.stops)
         );
 
-        // **Which of §20's nine separate the arms.** One, and it is not one anybody was running:
+        // **Which of the nine separate the arms.** One, and it is not one anybody was running:
         // §21 files `writes == distinct` as a report per component.
         let inert = Allocations::over(1, 0);
         let separating =
@@ -2491,7 +2491,7 @@ mod tests {
         );
 
         // **And the correct arm at the same offset is not clean, which is a fact about the
-        // recorder.** The band's clip discards a prefix here, and ADR 0022's clamp-and-discard
+        // recorder.** The band's clip discards a prefix here, and the clamp-and-discard
         // makes `Pen` wrong by exactly that prefix — it is the reason `HOFF` is a column boundary,
         // asserted rather than described so that the day an instrument learns the frame's origin
         // this line fails and says so.
@@ -2538,7 +2538,7 @@ mod tests {
              sentinel's question and the one gate this crate cannot write"
         );
 
-        // **Two of §20's nine separate these arms**, and they are the two the band defect has one
+        // **Two of the nine separate these arms**, and they are the two the band defect has one
         // of. That is the contrast the scene is for: a defect that draws *less* is visible to a
         // counter and a defect that draws the same cells twice is visible to a pair.
         let inert = Allocations::over(1, 0);

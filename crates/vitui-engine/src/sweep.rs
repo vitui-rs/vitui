@@ -502,7 +502,7 @@ mod tests {
 
     #[test]
     fn freeing_only_above_the_last_live_entry_frees_without_renumbering() {
-        // Spec §3's cheap case, and the half of register entry #11 that is about `renumbered`.
+        // Spec the cheap case, and the half of register entry #11 that is about `renumbered`.
         let r = remap(&[true, true, false, false]).expect("two entries were freed");
         assert!(!r.renumbered);
         assert_eq!(r.map, vec![0, 1, DEAD, DEAD]);

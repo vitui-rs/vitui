@@ -636,7 +636,7 @@ pub fn draw_into<'f, I: Ink>(
     let mut declared = 0usize;
 
     // **The bar is the region that is not a stop.** `Interest::HOVER` and nothing else, so that
-    // moving the pointer along an open bar switches menus — §12's blur shape, arriving in the base
+    // moving the pointer along an open bar switches menus — the blur shape, arriving in the base
     // pass and settling 317 against 316.
     let bar = Rect::new(0, 0, W, 1);
     let _ = cx.interact(BAR, bar, Interest::HOVER);
@@ -811,7 +811,7 @@ pub fn draw_into<'f, I: Ink>(
         let _ = ink.run(cx, 0, i32::from(row), " ", W, body);
     }
 
-    // **Nothing holds the focus until an application says so** (architecture issue 25). The screen
+    // **Nothing holds the focus until an application says so**. The screen
     // seats it once, in the form that issue settled — `focused()` asked from inside the draw — and
     // the arm that says *this is not the same question as a dismissal* is [`Dismiss::LetItVanish`],
     // where this clause is present and does not fire.
@@ -874,7 +874,7 @@ fn request_menu<'f>(
                 );
                 opens_at = menu.list.sel.lead;
             });
-            // **A second overlay from one component mints a second id** (§12, §4). Shared, the two
+            // **A second overlay from one component mints a second id**. Shared, the two
             // get one slot resized and `Shape::merged` is what would say so.
             //
             // `sub.take()` and not `sub`: this closure is `FnMut`, so moving a capture out of it

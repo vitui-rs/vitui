@@ -99,7 +99,7 @@ pub const TIER_TWO: &[Row] = &[
         file: "crates/vitui-components/src/input.rs",
         banner: TOGGLES,
         // The same machine and one different glyph. **A radio *set* is not this** — it is
-        // `collection` at `Mode::Options`, which is §5's collapse and a different call.
+        // `collection` at `Mode::Options`, which is the collapse and a different call.
         uses: &["pub fn radio(", "Glyph::Bullet", "Toggle::Radio"],
         mints: TOGGLE_MINTS,
     },
@@ -161,7 +161,7 @@ pub const TIER_TWO: &[Row] = &[
         id: "status_bar",
         file: "crates/vitui-components/src/structure.rs",
         banner: STATUS_BAR,
-        // **§9's one band construction, with the axis argument taken verbatim.** The clip is the
+        // **The one band construction, with the axis argument taken verbatim.** The clip is the
         // whole of what a band buys over arithmetic, so `sticky` is the needle rather than
         // `Shares`: a bar that read the axis and drew by hand would satisfy a scan for the enum.
         uses: &[
@@ -251,7 +251,7 @@ pub const TIER_TWO: &[Row] = &[
 ];
 
 /// The toggles' banner. One section for three components, because they are one machine.
-const TOGGLES: &str = "// `checkbox`, `radio` and `switch` — §17's three Tier 2 toggles";
+const TOGGLES: &str = "// `checkbox`, `radio` and `switch` — the three Tier 2 toggles";
 
 /// `meter`'s banner.
 const METER: &str = "// `meter` — `chart`'s prefix construction at two rungs";
@@ -260,18 +260,18 @@ const METER: &str = "// `meter` — `chart`'s prefix construction at two rungs";
 const SPARKLINE: &str = "// `sparkline` — `chart` at a small rectangle";
 
 /// `rule`'s banner.
-const RULE: &str = "// `rule` — §17's Tier 2 divider";
+const RULE: &str = "// `rule` — the Tier 2 divider";
 
 /// `status_bar`'s banner.
-const STATUS_BAR: &str = "// `status_bar` — §17's Tier 2 band: `sticky`'s one construction, an axis argument, one hit entry";
+const STATUS_BAR: &str = "// `status_bar` — the Tier 2 band: `sticky`'s one construction, an axis argument, one hit entry";
 
 /// `pagination`'s banner.
 const PAGINATION: &str =
-    "// `pagination` — §17's Tier 2 pager: `collection` at a small length, on the other axis";
+    "// `pagination` — the Tier 2 pager: `collection` at a small length, on the other axis";
 
 /// `form`'s banner.
 const FORM: &str =
-    "// `form` — §18's R3 example: `field` + `nav::cursor` + the focus ring the draw builds";
+    "// `form` — R3 example: `field` + `nav::cursor` + the focus ring the draw builds";
 
 /// **What the three toggles may not mint.** One list, because they are one machine and a
 /// per-component list would be three places for the same claim to drift.
@@ -528,7 +528,7 @@ mod tests {
         for row in TIER_TWO {
             // **A shared banner cannot answer for one of its rows.** `checkbox`, `radio` and
             // `switch` are one machine in one section, and the freeze separates them on exactly this
-            // axis — `switch`'s empty `glyphs` column is components ticket 34's finding rather than
+            // axis — `switch`'s empty `glyphs` column is the finding rather than
             // a hole, and a section-level answer would put a glyph in it on behalf of the two rows
             // beside it. The three are excluded by construction rather than by name.
             if TIER_TWO.iter().filter(|r| r.banner == row.banner).count() > 1 {

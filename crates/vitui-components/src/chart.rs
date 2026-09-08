@@ -605,7 +605,7 @@ pub(crate) fn body_into<I: Ink>(
                 (cluster(b.kind, b.geom, bits), owner)
             } else if let Some((_, ch, _)) = b.threshold.filter(|&(t, _, _)| t == y) {
                 // **The threshold's second axis.** A rule the terminal can draw whatever the palette
-                // did, which is what §16's *carried on both axes* asks for.
+                // did, which is what *carried on both axes* asks for.
                 (ch, OWNER_THRESHOLD)
             } else {
                 (' ', 0u8)
@@ -988,8 +988,8 @@ mod tests {
         // # The second file is components ticket 30's, and it is the exception §14 states
         //
         // This assertion read `["chart.rs"]` for one ticket, and widening it is a deliberate edit
-        // rather than a loosening — §21's refinement 3, the same procedure row 26 uses for the
-        // repertoire branch. §14's own sentence is *a picture is the first caller whose every cell
+        // rather than a loosening — refinement 3, the same procedure row 26 uses for the
+        // repertoire branch. The sentence is *a picture is the first caller whose every cell
         // is outside the theme*: a chart calls `custom` once to build a **palette** of six series
         // colours, and `crate::media` calls it once to build a **pixel**, a QR's four and a
         // barcode's two. Those are different claims, and the thing this gate protects — one
@@ -1069,7 +1069,7 @@ mod tests {
             diff.rows
         );
 
-        // **The palette's own answer, and half of §13's sentence does not reproduce.**
+        // **The palette's own answer, and half of the sentence does not reproduce.**
         //
         // §13 states `roles_differ_on_wire(Danger, Warn)` and `(Warn, Ok)` **both false** at
         // sixteen colours. On the shipped Catppuccin Mocha palette the first is **true** and only

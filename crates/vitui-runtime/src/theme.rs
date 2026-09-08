@@ -126,7 +126,7 @@ impl Paint {
     // expectation is itself an error. The engine's `budget.rs` makes the same choice for the same
     // shape: different callers use different parts.
     //
-    // **The caller is ticket 08's `Ctx` and it does not exist yet.** This is the seam — a component
+    // **The caller is the `Ctx` and it does not exist yet.** This is the seam — a component
     // writes a `Repaint` over roles and the crate lowers it — and until the draw context lands there
     // is nothing above it to call. Made `pub(crate)` rather than `pub` deliberately: a public `lower`
     // would hand a component an `engine::Restyle` with `Color`s in it, which is the thing ADR 0018
@@ -900,7 +900,7 @@ impl<'a> Repaint<'a> {
     // expectation is itself an error. The engine's `budget.rs` makes the same choice for the same
     // shape: different callers use different parts.
     //
-    // **The caller is ticket 08's `Ctx` and it does not exist yet.** This is the seam — a component
+    // **The caller is the `Ctx` and it does not exist yet.** This is the seam — a component
     // writes a `Repaint` over roles and the crate lowers it — and until the draw context lands there
     // is nothing above it to call. Made `pub(crate)` rather than `pub` deliberately: a public `lower`
     // would hand a component an `engine::Restyle` with `Color`s in it, which is the thing ADR 0018
@@ -1894,7 +1894,7 @@ mod tests {
     fn the_table_is_twenty_entries_and_the_distinction_set_is_nine() {
         assert_eq!(Glyph::ALL.len(), 20);
         assert_eq!(Distinction::ALL.len(), 9);
-        // No entry appears twice, which the four arrows make a live risk: §9's steppers and §7's
+        // No entry appears twice, which the four arrows make a live risk: the steppers and §7's
         // disclosure markers are one family, and entering them twice under two names is a collapse
         // rather than two entries.
         let mut spelled: Vec<&'static str> = Glyph::ALL

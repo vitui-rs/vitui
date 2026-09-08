@@ -580,7 +580,7 @@ fn draw_with<I: Ink>(
     let w = area.w;
     let rows = area.h;
 
-    // **One hit entry for the widget.** §11's *79 regions against 621*: the alternative is one
+    // **One hit entry for the widget.** *79 regions against 621*: the alternative is one
     // region per visible cluster, which is `Regions::PerCluster` and is what a field that wanted a
     // per-cluster hover would write.
     let mut resp = cx.interact(id, area, opts.interest);
@@ -588,7 +588,7 @@ fn draw_with<I: Ink>(
     // **A click places the caret by a column, which is a boundary by construction.**
     // `Response::local` is the press's position inside the widget's own rectangle, so the row is a
     // row of the viewport and the column is a screen column — neither is a byte offset, and that is
-    // the whole of §11's *there is no such thing as "put the caret at byte N"* on the pointer path.
+    // the whole of *there is no such thing as "put the caret at byte N"* on the pointer path.
     let mut asked = false;
     if resp.clicked {
         cx.focus(id);
@@ -623,13 +623,13 @@ fn draw_with<I: Ink>(
         // **A chord is not a motion and is not an edit**, and this guard is components ticket 38's
         // finding rather than a tidy-up. Without it the arms beneath read `k.code` alone, so
         // `Ctrl+Left` moved the caret **one cluster** — the widget swallowed the accelerator *and*
-        // did the wrong thing with it, which is worse than either half: §21's *a chord pressed into
+        // did the wrong thing with it, which is worse than either half: *a chord pressed into
         // every focusable types nothing* is green either way, because a caret move types nothing.
         // Word motion is exactly what a user pressing `Ctrl+Left` means, and it is
         // `crate::contract::ABSENT`'s one row — the engine exports no word iterator — so the honest
         // answer is to hand the key back rather than to answer it with a cluster.
         //
-        // **Shift is not in `SIGNIFICANT` and that is the whole point of the predicate** (spec §3):
+        // **Shift is not in `SIGNIFICANT` and that is the whole point of the predicate**:
         // a capital is what Shift is for, and `Shift+Left` is this widget's own selection step.
         // The two chords the widget owns are read below, in their own arm; every other one is the
         // application's. One list and not two, so a third owned chord is one edit.
@@ -660,11 +660,11 @@ fn draw_with<I: Ink>(
                 let before = st.caret();
                 st.step_row(w, up, shift);
                 // **A cursor key this widget cannot act on belongs to whatever is above it.** A
-                // one-row `input` — §11's flag at `WrapKind::Ruler`, which is most fields anybody
+                // one-row `input` — the flag at `WrapKind::Ruler`, which is most fields anybody
                 // writes — has no row to step to, and a field that consumed `Up`/`Down` anyway
                 // leaves every container above it **deaf**: a `crate::input::form` is a `Group`
                 // whose `crate::nav::cursor` never sees an arrow, on a screen that renders
-                // perfectly. That is components ticket 20's *declared and consumed nothing*
+                // perfectly. That is *declared and consumed nothing*
                 // arriving on the keyboard axis, and it is why the answer is the caret's own
                 // position rather than a flag: the same line is right at the top of a textarea and
                 // at the bottom of one.
@@ -737,7 +737,7 @@ fn draw_with<I: Ink>(
     // **And there is no horizontal axis to be wrong on**, which is a fact about the component
     // rather than an omission: both break rules wrap to the rectangle's width, so a row never
     // overflows it and `resp.scrolled.0` has nothing to move. That is the other half of components
-    // ticket 20's finding — *a body dead downward is alive sideways* — answered by construction
+    // The finding — *a body dead downward is alive sideways* — answered by construction
     // instead of by arithmetic, and it is why `Text::wheel` takes rows and not a pair.
     if resp.scrolled.1 != 0 {
         // **The sign is the runtime's**, and `crate::collect` is the one that establishes it:
@@ -762,7 +762,7 @@ fn draw_with<I: Ink>(
 
     // ── the drawing ──────────────────────────────────────────────────────────────────────────────
     //
-    // **The face is resolved before a cell is written and never restyled after** (ADR 0026), and
+    // **The face is resolved before a cell is written and never restyled after**, and
     // the hover award is declared through the ink so an instrument can see it.
     // **The face comes out of [`crate::state::press_into`] and the award with it**, which is that
     // helper's whole criterion: the face drawn and the face awarded are one expression evaluated
@@ -802,7 +802,7 @@ fn draw_with<I: Ink>(
     // **How many rows of the rectangle are written, and it is all of them.** The shipped answer
     // ignores the content's length: a row past the last one draws its pad, because the previous
     // frame's content is what is there otherwise. [`defective::Window::ContentRowsOnly`] is the
-    // obvious saving, and it is §17's `shrunk` axis — the stale tail, from the direction no counter
+    // obvious saving, and it is the `shrunk` axis — the stale tail, from the direction no counter
     // watches, and *cheaper* on every one of them.
     let painted = match refused.window {
         defective::Window::ContentRowsOnly => u16::try_from(index.rows().saturating_sub(offset))
@@ -812,7 +812,7 @@ fn draw_with<I: Ink>(
     };
     for r in 0..painted {
         let y = area.y + i32::from(r);
-        // **The window's sign**, and `defective::Window::Inverted` is §17's `scrolled` axis: the
+        // **The window's sign**, and `defective::Window::Inverted` is the `scrolled` axis: the
         // content is at `offset + r` and the refusal reads `offset - r`, which was found three
         // times independently and which every counter in the stack approved of.
         let row = match refused.window {
@@ -959,7 +959,7 @@ fn declare_per_cluster(cx: &mut Ctx<'_, '_>, st: &Text, area: Rect, opts: &Field
 }
 
 // ═════════════════════════════════════════════════════════════════════════════════════════════════
-// `select` — the owner of a popup, and the second half of §12's two structs
+// `select` — the owner of a popup, and the second half of the two structs
 // ═════════════════════════════════════════════════════════════════════════════════════════════════
 
 /// **What the owner owns and the body never writes.**
@@ -1427,7 +1427,7 @@ fn select_shaped<'f, I: Ink>(
     if let Some(chosen) = popup.take() {
         st.chosen = chosen.min(options.len().saturating_sub(1));
         st.close();
-        // **On the way out the owner refocuses itself** (§12) — one id it already has, so no id
+        // **On the way out the owner refocuses itself** — one id it already has, so no id
         // belonging to anybody else is named. It has to: the keyboard is on a list id minted inside a
         // body that will not run again, so left alone the **vanish rule** picks a ring neighbour. On a
         // screen with one widget that is invisible; on a screen with two it is the *other* `select`,
@@ -1442,7 +1442,7 @@ fn select_shaped<'f, I: Ink>(
     let role = crate::state::press_into(ink, cx, area, &resp, &opts.faces);
     let paint = cx.theme().paint(role);
     // **The chevron pair is `ArrowDown`/`ArrowRight`**, which is the same family as the popup's
-    // steppers — §16's reason for four arrow ends and not eight.
+    // steppers — the reason for four arrow ends and not eight.
     let chevron = cx.theme().glyph(if st.is_open() {
         Glyph::ArrowDown
     } else {
@@ -1474,7 +1474,7 @@ fn select_shaped<'f, I: Ink>(
         area.w.saturating_sub(MARK),
         paint,
     );
-    // **And the rows below the face, because the face is the rectangle** — §2's second half, which
+    // **And the rows below the face, because the face is the rectangle** — the second half, which
     // components 40 found unmet here and in `crate::files::file_picker` and nowhere else on the
     // freeze: twenty-six of the twenty-eight write every cell of any rectangle they are handed, and
     // the two that did not are the two overlay owners. **A remainder cannot be named in a
@@ -1509,7 +1509,7 @@ fn select_shaped<'f, I: Ink>(
         if k.kind == Edge::Release {
             continue;
         }
-        // **A chord belongs to the application** (spec §3), and components ticket 38 found this
+        // **A chord belongs to the application**, and components ticket 38 found this
         // loop reading `k.code` alone: `Ctrl+Down` and `Alt+Enter` opened the list, so a shut
         // `select` ate every accelerator built on the four keys it owns — silently, on a screen
         // where nothing had visibly happened.
@@ -1546,7 +1546,7 @@ fn select_shaped<'f, I: Ink>(
     // `Response::focus_left` is not in it. That is this ticket's application talking: the moment the
     // popup takes the keyboard the owner no longer holds the focus, so it has none to *lose*, and a
     // clause built on the owner's `focus_left` either never fires or fires on the handover itself.
-    // §12's *`focus_left` is what an outside click already produces* is true of the **popup's** id
+    // *`focus_left` is what an outside click already produces* is true of the **popup's** id
     // and not of its owner's.
     //
     // `seated` is the latch that makes it safe on the frame the popup opens: before the body has run,
@@ -1684,7 +1684,7 @@ pub(crate) fn popup_body<I: Ink>(
     // entries first and looks afterwards. Both arms then fall through to the shell, which is what
     // makes the difference one branch rather than two bodies.
     if shape.closed == Closed::Declare {
-        // **`cx.id()` and not a named root**, and the difference is §12's own sentence arriving
+        // **`cx.id()` and not a named root**, and the difference is the sentence arriving
         // inside a body: two `select`s standing at once are two overlays whose bodies are one
         // function, so a named root gives both popups the same ids, `Ctx::interact` makes the
         // second claim **inert**, and the frame reports one popup's worth of entries where two
@@ -1695,7 +1695,7 @@ pub(crate) fn popup_body<I: Ink>(
         let _ = cx.interact(list, area, Interest::CLICK.with(Interest::FOCUS));
     }
 
-    // **The shell goes through the seam and not through `Direct`**, which is production 08's one
+    // **The shell goes through the seam and not through `Direct`**, which is the one
     // change to this function. `overlay_with` hard-codes [`Direct`], so everything a popup drew was
     // invisible to a [`Pen`](crate::runner::Pen) and the only picture of a popup's interior this
     // crate had was `crate::popup::popup_cells_into` — *the same two orders written where a `Pen`
@@ -1705,7 +1705,7 @@ pub(crate) fn popup_body<I: Ink>(
     //
     // **What it does not reach is a `Ctx::overlay` body**, and that is unchanged: a body is
     // `FnMut(&mut Ctx<'f, '_>) + 'f` and a `&mut I` borrowed for the call cannot travel into one
-    // (spec §1's fifth component, components 26's `'f`). So a `Pen` reaches this function only when
+    // (the fifth component, components 26's `'f`). So a `Pen` reaches this function only when
     // a caller invokes it **in the base pass** — `crate::popup`'s own named substitution, and it is
     // on both arms of every comparison there.
     //
@@ -1762,7 +1762,7 @@ pub(crate) fn popup_body<I: Ink>(
             // it nothing and one that read it after would find the queue closed. `Esc` and `Enter` are
             // the popup's two, and `crate::nav::step` owns the rest.
             let mut mine = |k: &Pressed, cursor: usize| {
-                // **A chord belongs to the application**, here as much as at the owner (spec §3).
+                // **A chord belongs to the application**, here as much as at the owner.
                 // Components ticket 38 found this closure reading `k.code` alone: `Ctrl+Enter`
                 // committed and `Alt+Esc` dismissed, so an open popup ate every accelerator built
                 // on its own two keys — and unlike the owner's, this one is *inside* a trapless
@@ -1842,7 +1842,7 @@ pub(crate) fn popup_body<I: Ink>(
                 shape.list,
             );
             // **A click on a row is a choice**, and it is the collection's own response rather
-            // than a second hit entry per row: §5's *one hit entry per collection* is what keeps
+            // than a second hit entry per row: *one hit entry per collection* is what keeps
             // the closed popup at `crate::popup::CLOSED_DECLARES` and not thirteen entries more.
             //
             // The **edge** and not `Response::clicked`: a row selects on the press, so by the time a
@@ -1853,7 +1853,7 @@ pub(crate) fn popup_body<I: Ink>(
             }
             // **The popup takes the keyboard from its owner, exactly once.** `if cx.is_focused(owner)`
             // and never `if !cx.is_focused(list)`: the second drags the keyboard back every frame the
-            // user has tabbed away, which is architecture issue 25's refused spelling one family over.
+            // user has tabbed away, which is the refused spelling one family over.
             // The list is what the arrows, the type-ahead and `Esc` are addressed to, and it is seated
             // a frame before the key it enables — `next_key` answers the *previous* frame's focus.
             if cx.is_focused(owner) {
@@ -1886,7 +1886,7 @@ pub(crate) fn popup_body<I: Ink>(
 }
 
 // ═════════════════════════════════════════════════════════════════════════════════════════════════
-// `checkbox`, `radio` and `switch` — §17's three Tier 2 toggles, and one machine between them
+// `checkbox`, `radio` and `switch` — the three Tier 2 toggles, and one machine between them
 // ═════════════════════════════════════════════════════════════════════════════════════════════════
 
 /// **Which of the three toggles a call is**, and the whole difference between them.
@@ -2161,7 +2161,7 @@ pub fn toggle_into<I: Ink>(
     on: &mut bool,
     opts: &ToggleOpts,
 ) -> Response {
-    // **The id, taken outside every closure** (ADR 0027), and `#[track_caller]` all the way up so
+    // **The id, taken outside every closure**, and `#[track_caller]` all the way up so
     // that two toggles at two call sites are two widgets — `crate::media::player` shipped both
     // halves of that wrong once, on a screen that rendered perfectly.
     let id = cx.id();
@@ -2295,7 +2295,7 @@ fn mark_into<I: Ink>(
 }
 
 // ═════════════════════════════════════════════════════════════════════════════════════════════════
-// `slider` — spec §14's drag capture, and the row §17 froze at Tier 3
+// `slider` — the drag capture, and the row §17 froze at Tier 3
 // ═════════════════════════════════════════════════════════════════════════════════════════════════
 
 /// **How many steps the keyboard divides the track into. A hundred.**
@@ -2572,7 +2572,7 @@ fn slider_shaped<I: Ink>(
     opts: &SliderOpts,
     stepping: defective::Stepping,
 ) -> Response {
-    // **The id, taken outside every closure** (ADR 0027), and `#[track_caller]` all the way up so
+    // **The id, taken outside every closure**, and `#[track_caller]` all the way up so
     // that two sliders at two call sites are two widgets. `crate::media::player` shipped both
     // halves of that wrong once, on a screen that rendered perfectly.
     let id = cx.id();
@@ -2716,7 +2716,7 @@ fn thumb_cell(value: f32, length: u16) -> u16 {
 }
 
 // ═════════════════════════════════════════════════════════════════════════════════════════════════
-// `form` — §18's R3 example: `field` + `nav::cursor` + the focus ring the draw builds
+// `form` — R3 example: `field` + `nav::cursor` + the focus ring the draw builds
 // ═════════════════════════════════════════════════════════════════════════════════════════════════
 
 /// **Everything a form keeps across frames, and it is [`crate::nav::cursor`]'s own parameter.**
@@ -2884,7 +2884,7 @@ pub fn form_into<I: Ink>(
     texts: &mut [Text],
     opts: &FormOpts,
 ) -> Response {
-    // **The id, taken outside every closure** (ADR 0027), and it is also the base every row's id is
+    // **The id, taken outside every closure**, and it is also the base every row's id is
     // keyed from — see [`field_keyed`].
     let id = cx.id();
     let mut resp = Response::inert(id, area);
@@ -2935,7 +2935,7 @@ pub fn form_into<I: Ink>(
                 },
             );
             // A label column taller than one row, and the gap between it and the field, are the
-            // form's own cells: §2's rule is that the owner of a rectangle writes all of it.
+            // form's own cells: the rule is that the owner of a rectangle writes all of it.
             crate::text::pad_rows(ink, cx, rect::shrink(label, 0, 1, 0, 0), pad);
             crate::text::pad_rows(ink, cx, gap, pad);
             let fid = form_row_id(id, i);
@@ -2944,7 +2944,7 @@ pub fn form_into<I: Ink>(
         changed
     };
     resp.changed = match opts.group {
-        // The scope's id is the form's own: `scope` roots no identity of its own (spec §4), and it
+        // The scope's id is the form's own: `scope` roots no identity of its own, and it
         // is what makes the after-the-body moment deliver this form's declined keys to this form.
         true => cx.scope(id, ScopeKind::Group, |cx| draw(cx, ink, texts)),
         false => draw(cx, ink, texts),
@@ -4061,7 +4061,7 @@ mod field_tests {
         let _ = st.index(w);
         let mut driver = Driver::headless(w, h).expect("a sink attaches");
         // **A real notch, posted and routed through the previous frame's hit index** — components
-        // ticket 20's arrangement and not a delta added to the offset, which has no second axis to
+        // The arrangement and not a delta added to the offset, which has no second axis to
         // be wrong on. The pointer needs a position before anything is `over` it, and the index it
         // is resolved against is the previous frame's, so one frame with no click opens the run.
         let mouse = |kind: MouseKind| Mouse {
@@ -4457,7 +4457,7 @@ mod slider_tests {
         // **And the seam is deterministic**, which is all a second `Pen` can say. This assertion was
         // labelled *the `_into` seam is not the shipped draw* and could not have been: arms 0 and 1
         // draw through `Direct`, only arm 2's canvas is captured, and `Direct` writes into the
-        // engine where **nothing reads a cell back** (ADR 0023) — so the equality compared
+        // engine where **nothing reads a cell back** — so the equality compared
         // `slider_into` with `slider_into` and held whatever `slider` did. Found by the review of
         // components ticket 34, which had copied the shape into two more components.
         let mut driver = Driver::headless(40, 1).expect("a sink attaches");
@@ -4479,7 +4479,7 @@ mod slider_tests {
             .expect("this file");
         let section = crate::composed::section(
             &source,
-            "// `slider` — spec §14's drag capture, and the row §17 froze at Tier 3",
+            "// `slider` — the drag capture, and the row §17 froze at Tier 3",
         );
         assert!(!section.is_empty());
         for owed in [
@@ -4511,7 +4511,7 @@ mod slider_tests {
             .expect("this file");
         // Only the slider's own half of the file: `select` legitimately holds a popup's state.
         let from = source
-            .find("// `slider` — spec §14's drag capture")
+            .find("// `slider` — the drag capture")
             .expect("the slider's own banner");
         let to = source[from..]
             .find("#[cfg(test)]")
@@ -5158,7 +5158,7 @@ mod slider_tests {
 
         // **The stored answer works**, which is what makes this a cost rather than an impossibility:
         // one `Which` kept across frames and the same two drags move one value. That `Which` is the
-        // fifth cross-frame fact §14's headline is that drag capture does not need.
+        // fifth cross-frame fact the headline is that drag capture does not need.
         let mut range = Range {
             low: 0.2,
             high: 0.8,
@@ -5286,7 +5286,7 @@ mod toggle_tests {
             }
 
             // **And the seam is deterministic**, which is all a second `Pen` can say: `Direct`
-            // writes into the engine and *nothing reads a cell back* (ADR 0023), so there is no
+            // writes into the engine and *nothing reads a cell back*, so there is no
             // surface to compare the shipped path against. Two `Pen`s compared is one path
             // compared with itself, and that is what the assertion below is — kept as the
             // determinism check it actually is rather than as the equality it was labelled.
@@ -5316,7 +5316,7 @@ mod toggle_tests {
             .expect("this file");
         let toggles = crate::composed::section(
             &source,
-            "// `checkbox`, `radio` and `switch` — §17's three Tier 2 toggles",
+            "// `checkbox`, `radio` and `switch` — the three Tier 2 toggles",
         );
         assert!(!toggles.is_empty());
         for owed in [
@@ -5444,7 +5444,7 @@ mod toggle_tests {
         let mut glyphless = 0usize;
         for kind in Toggle::ALL {
             // **The rungs come from `chart::raster::RUNGS` rather than being named here**, which is
-            // that constant's own purpose: §16's exception for naming a repertoire is worth exactly
+            // that constant's own purpose: the exception for naming a repertoire is worth exactly
             // one file, and this is not it.
             for set in RUNGS {
                 let painted = |on: bool| {
@@ -5506,7 +5506,7 @@ mod toggle_tests {
         };
 
         // **A warm frame builds the index the pointer is resolved against** — nothing can be over a
-        // region that has not been declared yet (ADR 0012) — and the `Move` is what puts the pointer
+        // region that has not been declared yet — and the `Move` is what puts the pointer
         // there, because the runtime reads its position once a frame before it walks the batch. A
         // `Down` at a position nothing has moved to is a press over nothing, which is
         // `crate::collect`'s own finding.
@@ -5584,7 +5584,7 @@ mod toggle_tests {
             .expect("this file");
         let toggles = crate::composed::section(
             &source,
-            "// `checkbox`, `radio` and `switch` — §17's three Tier 2 toggles",
+            "// `checkbox`, `radio` and `switch` — the three Tier 2 toggles",
         );
         assert!(!toggles.is_empty());
         assert!(
@@ -5776,7 +5776,7 @@ mod form_tests {
         // A textarea with somewhere to go keeps it — the same line, the other answer.
         let mut many = Text::textarea();
         many.insert(20, "one\ntwo\nthree");
-        // The caret is placed by a **gesture**, which is §11's rule and the only way to place one:
+        // The caret is placed by a **gesture**, which is the rule and the only way to place one:
         // row 0, column 0, so there is a row below it.
         many.click(20, 0, 0, false);
         let mut driver = Driver::headless(20, 4).expect("a sink cannot fail to attach");
@@ -5824,7 +5824,7 @@ mod form_tests {
             .expect("this file is here");
         let section = crate::composed::section(
             &source,
-            "// `form` — §18's R3 example: `field` + `nav::cursor` + the focus ring the draw builds",
+            "// `form` — R3 example: `field` + `nav::cursor` + the focus ring the draw builds",
         );
         assert!(!section.is_empty());
         for used in [

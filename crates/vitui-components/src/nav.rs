@@ -382,7 +382,7 @@ pub fn fixture(cx: &mut Ctx<'_, '_>, group: bool) {
             };
             match group {
                 // The scope's id is the panel's own, so twelve scopes are twelve identities —
-                // `scope` roots no identity of its own (spec §4), and one shared name would make
+                // `scope` roots no identity of its own, and one shared name would make
                 // the twelve collide.
                 true => {
                     let sid = cx.id();

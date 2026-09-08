@@ -314,7 +314,7 @@ impl Subject {
             Subject::Pane => &[Along::Rows, Along::Columns],
             // **A tree owns one offset and it is in rows**, for [`Subject::Table`]'s reason and
             // not a second one: `TreeState::coll` *is* a `CollState`, so `collection_shaped` is
-            // where the notch is consumed. §7's own sentence is *no second offset*, and naming a
+            // where the notch is consumed. The sentence is *no second offset*, and naming a
             // second axis here would make `wheeled` report a motionless offset as a dead wheel.
             Subject::Tree => &[Along::Rows],
         }
@@ -559,7 +559,7 @@ pub fn revealed(subject: Subject, reveal: Reveal, from: (i32, i32)) -> (i32, i32
     // runtime's own statement that an event is a thing a frame *finds*.
     match subject {
         // **A table's cursor is a collection's**, so the gesture is the same one and reaches it
-        // through the same drain loop. That is the third instance of §6's sentence being checked
+        // through the same drain loop. That is the third instance of the sentence being checked
         // rather than trusted.
         Subject::Collection | Subject::Table | Subject::Tree => run.press(REVEAL_CHORD),
         // **A pane's reveal is its body's**, exactly as an area's is, because the pane hands its
@@ -887,7 +887,7 @@ fn collection_frame(cx: &mut Ctx<'_, '_>, st: &mut CollState, play: Play) {
     // **Give it the keyboard while nobody has it, and do it from the id the component answered.**
     //
     // Two facts, both of them the runtime's and both of them load-bearing here. Nothing holds the
-    // focus until an application says so (runtime architecture issue 25), and `next_key` answers
+    // focus until an application says so, and `next_key` answers
     // nobody but the routing target — so a gate that posts a key and seats no focus measures a
     // keyboard nobody is listening to. And the id is **`Response::id` and not a name this module
     // chose**: `collection`'s id is minted from `Location::caller()`, so the only spelling of *that
@@ -1498,7 +1498,7 @@ mod tests {
         );
 
         // **The three arms agree with `collection`'s, arm for arm**, and the press clause with it:
-        // a tree adds a *second* pointer gesture on the chevron column (§7's fold-by-press), so
+        // a tree adds a *second* pointer gesture on the chevron column (the fold-by-press), so
         // *does a press still select a row and still refuse to pull the viewport* is a question the
         // table arm did not have to ask.
         for reveal in [Reveal::WhenAsked, Reveal::EveryFrame, Reveal::Never] {

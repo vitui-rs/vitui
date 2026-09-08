@@ -871,7 +871,7 @@ mod tests {
             diff.rows - down.rows
         );
 
-        // **§21's refused spelling, as a number.** Played into a rectangle the shrink has already
+        // **The refused spelling, as a number.** Played into a rectangle the shrink has already
         // resized, the same refusal is clean.
         stale_by_resize().assert_clean(
             "the resize spelling scores the omitted tail clean, which is why §21 refuses it",
@@ -1179,7 +1179,7 @@ mod tests {
             );
         }
 
-        // **And `sticky` declares one axis and only one**, which is §9's own rule rather than an
+        // **And `sticky` declares one axis and only one**, which is the rule rather than an
         // omission: a band shares one of the two offsets and pins the other, so there is no second
         // axis for it to be wrong on, and it declares nothing — so no notch reaches it and its
         // extent is its caller's.

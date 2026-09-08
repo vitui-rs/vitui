@@ -714,7 +714,7 @@ fn ask_into<I: Ink>(
     let theme = cx.theme();
     let (mark_paint, label_paint) = (theme.paint(opts.mark), theme.paint(opts.label));
 
-    // **The rectangle is a partition** (spec §2): the mark, the label padded to what is left, and a
+    // **The rectangle is a partition**: the mark, the label padded to what is left, and a
     // run for every row below the first.
     let mut written = u32::from(ink.text(cx, area.x, area.y, mark, mark_paint));
     if area.w > 1 {
@@ -812,7 +812,7 @@ mod tests {
         let by_count: std::collections::BTreeSet<usize> = counts.iter().copied().collect();
         assert_eq!(by_count.len(), 2, "the reading that gives the wrong answer");
 
-        // **Every spelling is one cell and no spelling is blank** — §16's two rules, true of all
+        // **Every spelling is one cell and no spelling is blank** — the two rules, true of all
         // three ladders and deciding none of them.
         for &set in &RUNGS {
             let l = ladder(set);
@@ -828,7 +828,7 @@ mod tests {
             assert_eq!(distinct.len(), l.len(), "a ladder repeats a frame");
         }
 
-        // **And braille is at the top rung and nowhere below it**, which is ticket 42's correction:
+        // **And braille is at the top rung and nowhere below it**, which is the correction:
         // the engine's `GlyphSet` says `Unicode` is *Unicode a normal text font covers*, so a
         // braille frame there is tofu on a terminal that kept its promise.
         let braille = |l: &[&str]| {
@@ -1106,7 +1106,7 @@ mod tests {
         modules.dedup();
         assert_eq!(modules.len(), 10, "the modules the freeze homes a row in");
         // **The media family is the stated exception, and it is two files.** `crate::media` is *no
-        // row of the freeze at all* — §14's own *no v1 component* — so a population derived from
+        // row of the freeze at all* — the original's *no v1 component* — so a population derived from
         // the freeze's `families` column reaches none of its six drawers, and the chrome under it
         // is not at a family module's top level either. A rule about what draws that skipped seven
         // drawers because a column has no row for them is a rule with a hole in it, which is
@@ -1508,7 +1508,7 @@ mod tests {
             assert_eq!(st.misses(), 1, "{n} points folded {} times", st.misses());
             counted.push((tally.writes(), tally.verbs()));
         }
-        // **The writes are flat and the verbs are not**, and that is §21's own sentence rather than
+        // **The writes are flat and the verbs are not**, and that is the sentence rather than
         // a shortfall: *`verbs <= writes`, never verb equality across sizes*. A verb here is a
         // **run**, and a run ends where the cell's owner changes — which is a property of where the
         // data's empty cells fall and not of how many points there are. Measured on this fixture:

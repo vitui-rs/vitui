@@ -239,7 +239,7 @@ pub const SPEC_ROWS: usize = 15;
 /// here when it is a gate somebody can break; a bullet that restates a neighbour is not a second
 /// row.
 pub const REGISTER: [Entry; 50] = [
-    // ── spec §20's table, in its order ───────────────────────────────────────────────────────────
+    // ── the table, in its order ───────────────────────────────────────────────────────────
     Entry {
         number: 1,
         on_spec_table: true,
@@ -555,7 +555,7 @@ pub const REGISTER: [Entry; 50] = [
             ],
         },
     },
-    // ── the backlog's gates, which §20's table does not have a row for ───────────────────────────
+    // ── the backlog's gates, which the table does not have a row for ───────────────────────────
     Entry {
         number: 16,
         on_spec_table: false,
@@ -722,7 +722,7 @@ pub const REGISTER: [Entry; 50] = [
                     file: "crates/vitui-runtime/src/theme.rs",
                     name: "the_glyph_table_has_two_rows_and_not_three",
                 },
-                // Components ticket 05's half: the table is twenty and the distinction set is
+                // Components the half: the table is twenty and the distinction set is
                 // **nine**, and **six of the nine are carried by a glyph pair whose two halves must
                 // stay apart at every rung**. A carrier collapsing is how a bit a component reads
                 // goes quiet with no spelling missing and no width wrong — which is the failure the
@@ -1919,7 +1919,7 @@ mod tests {
             "the backlog's gates, deduplicated against §20's fifteen, plus issues 23's, 25's, \
              26's, 28's, 29's, 31's, 33's, 35's and 36's, and the applications' two"
         );
-        // And §20's fifteen come first, so the table reads in the spec's order.
+        // And the fifteen come first, so the table reads in the spec's order.
         for (index, entry) in REGISTER.iter().enumerate() {
             assert_eq!(
                 entry.on_spec_table,

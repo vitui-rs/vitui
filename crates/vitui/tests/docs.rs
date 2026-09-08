@@ -54,6 +54,12 @@ struct Standing {
     citations: usize,
     /// Rustdoc example headings. A floor: it may grow, and may not shrink.
     examples: usize,
+    /// Ordinary `//` comment lines carrying a citation. Exact, like the rustdoc count.
+    ///
+    /// A separate number rather than one total, because the two populations answer different
+    /// questions: a rustdoc line is what a stranger reads on docs.rs, and a comment is what the
+    /// next person to edit the file reads. Both are held, and the first was swept first.
+    comments: usize,
 }
 
 /// **The ratchet.** Both numbers were measured, never chosen, and the whole point of the pair is
@@ -63,21 +69,25 @@ const STANDING: &[Standing] = &[
         dir: "vitui",
         citations: 0,
         examples: 1,
+        comments: 0,
     },
     Standing {
         dir: "vitui-engine",
         citations: 0,
         examples: 1,
+        comments: 89,
     },
     Standing {
         dir: "vitui-runtime",
         citations: 0,
         examples: 1,
+        comments: 32,
     },
     Standing {
         dir: "vitui-components",
         citations: 0,
         examples: 9,
+        comments: 455,
     },
 ];
 
@@ -124,6 +134,15 @@ fn doc_text(line: &str) -> Option<String> {
         .strip_prefix("///")
         .or_else(|| line.strip_prefix("//!"))?;
     Some(rest.trim().to_lowercase())
+}
+
+/// The text of one ordinary `//` comment line — never a rustdoc one.
+fn comment_text(line: &str) -> Option<String> {
+    let line = line.trim_start();
+    if line.starts_with("///") || line.starts_with("//!") {
+        return None;
+    }
+    Some(line.strip_prefix("//")?.trim().to_lowercase())
 }
 
 /// Whether a rustdoc line points at something a reader outside this repository cannot open.
@@ -190,10 +209,11 @@ fn sources(dir: &Path) -> Vec<PathBuf> {
 
 /// One crate's two numbers as they are now, with the citing lines themselves for the failure
 /// message — a count that cannot say *where* sends the next session to grep for it.
-fn measure(dir: &str) -> (usize, usize, Vec<String>) {
+fn measure(dir: &str) -> (usize, usize, usize, Vec<String>) {
     let src = root().join("crates").join(dir).join("src");
     let mut citations = 0;
     let mut examples = 0;
+    let mut comments = 0;
     let mut worst: Vec<String> = Vec::new();
     for file in sources(&src) {
         let text =
@@ -205,6 +225,16 @@ fn measure(dir: &str) -> (usize, usize, Vec<String>) {
             .to_string();
         let local_scenes = short.ends_with(SCENE_NUMBERS_ARE_LOCAL);
         for (n, line) in text.lines().enumerate() {
+            if let Some(ordinary) = comment_text(line) {
+                let ordinary = match local_scenes {
+                    true => scene_free(&ordinary),
+                    false => ordinary,
+                };
+                if cites(&ordinary) {
+                    comments += 1;
+                }
+                continue;
+            }
             let Some(doc) = doc_text(line) else { continue };
             if opens_examples(&doc) {
                 examples += 1;
@@ -221,7 +251,7 @@ fn measure(dir: &str) -> (usize, usize, Vec<String>) {
             }
         }
     }
-    (citations, examples, worst)
+    (citations, examples, comments, worst)
 }
 
 /// The table covers the four crates that publish, and no more.
@@ -261,7 +291,7 @@ fn the_ratchet_covers_every_publishable_crate() {
 fn no_shipped_doc_comment_points_at_a_document_the_reader_does_not_have() {
     let mut wrong: Vec<String> = Vec::new();
     for standing in STANDING {
-        let (citations, _, worst) = measure(standing.dir);
+        let (citations, _, _, worst) = measure(standing.dir);
         if citations != standing.citations {
             wrong.push(format!(
                 "{}: {citations} citing rustdoc lines against a table that says {}{}",
@@ -293,10 +323,33 @@ fn a_swept_crate_carries_no_citation_budget_at_all() {
             .unwrap_or_else(|| panic!("{dir} is swept and is not in the table"));
         assert_eq!(
             standing.citations, 0,
-            "{dir} is listed as swept and still carries a budget of {}",
+            "{dir} is listed as swept and still carries a rustdoc budget of {}",
             standing.citations
         );
     }
+}
+
+/// **The comment count, as an equality.** A comment is not on docs.rs and is held anyway: the
+/// person it is written for is the next one to edit the file, and a pointer into a document they
+/// have no copy of wastes their time in exactly the way it wastes a stranger's.
+#[test]
+fn no_ordinary_comment_points_at_a_document_the_reader_does_not_have() {
+    let mut wrong: Vec<String> = Vec::new();
+    for standing in STANDING {
+        let (_, _, comments, _) = measure(standing.dir);
+        if comments != standing.comments {
+            wrong.push(format!(
+                "{}: {comments} citing comment lines against a table that says {}",
+                standing.dir, standing.comments
+            ));
+        }
+    }
+    assert!(
+        wrong.is_empty(),
+        "an ordinary comment may not point at a document the reader does not have either. Lower a \
+         number in this table when prose leaves; raise nothing.\n  {}",
+        wrong.join("\n  ")
+    );
 }
 
 /// **The example floor.** Deleting prose satisfies the equality above; it does not satisfy this.
@@ -306,7 +359,7 @@ fn a_swept_crate_carries_no_citation_budget_at_all() {
 fn the_examples_a_caller_can_run_never_get_fewer() {
     let mut wrong: Vec<String> = Vec::new();
     for standing in STANDING {
-        let (_, examples, _) = measure(standing.dir);
+        let (_, examples, _, _) = measure(standing.dir);
         if examples < standing.examples {
             wrong.push(format!(
                 "{}: {examples} example headings, down from {}",

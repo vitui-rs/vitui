@@ -229,7 +229,7 @@ pub(crate) fn apply(
         e.link = l;
     }
     // **The key, not the entry**, and on a terminal with no OSC 8 the two differ by a hyperlink —
-    // spec §10's one narrow exception to *degrade at serialise time*. A cell that was extended only
+    // The one narrow exception to *degrade at serialise time*. A cell that was extended only
     // because of a link then goes back **inline**, which is `is_extended` asked of the key rather
     // than of the descriptor's result: *extended is a cost, not a state*, and a link the terminal
     // cannot express is not a cost worth paying. See [`Tables::key`](crate::tables::Tables::key).
@@ -494,7 +494,7 @@ mod tests {
     #[test]
     fn an_underline_value_that_names_no_style_selects_nothing() {
         // `UNDERLINE_DOUBLE | UNDERLINE_DOTTED` is 6 and `UNDERLINE_ANY` is 7; SGR 4:6 and 4:7 are
-        // undefined, so neither may reach the wire. Discarded rather than refused (ADR 0022), and
+        // undefined, so neither may reach the wire. Discarded rather than refused, and
         // in both build profiles rather than asserting in one and ignoring in the other.
         let mut t = Tables::new();
         let old = Style::new().underline_curly();

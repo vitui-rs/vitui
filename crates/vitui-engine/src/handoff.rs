@@ -254,7 +254,7 @@ impl Mailbox {
     pub(crate) fn take(&self) -> Option<Box<Packet>> {
         let mut shared = self.lock();
         loop {
-            // **Quit first, and the last frame is not flushed** (spec §7): showing state that is
+            // **Quit first, and the last frame is not flushed**: showing state that is
             // already stale buys nothing and costs exit latency. Asserted here as an absence, and
             // as a write count on the wire at
             // `crate::gates::the_last_frame_is_not_flushed_on_quit`.

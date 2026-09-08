@@ -623,7 +623,7 @@ mod live {
                 st
             },
             |pen: &mut Pen, cx: &mut Ctx<'_, '_>, st: &mut CollState| {
-                // **`Mode::Multi`, which is where §5's pointer half is whole.** The default is
+                // **`Mode::Multi`, which is where the pointer half is whole.** The default is
                 // `Mode::Single`, where `apply` answers `Plain` and `Toggle` with the same call —
                 // so a ctrl-click and a plain click leave the same picture and the sweep reports a
                 // component deaf to the modifier byte. `Mode` decides three of the twenty-three
@@ -707,7 +707,7 @@ mod live {
         probe(
             t,
             move || {
-                // **The index is state and not a local**, which is ADR 0031's own rule arriving in
+                // **The index is state and not a local**, which is the rule arriving in
                 // a gate: `Order::built` stamps `Revision::fresh()`, and a collection handed a
                 // revision it has not seen **clears the selection**, because every field of the
                 // store is a position in an order that has been replaced. Rebuilt inside the draw
@@ -790,7 +790,7 @@ mod live {
                 // **A textarea, and the caret on a row with one above it and one below.** §11's
                 // one flag is a break rule and it decides three of the eighteen binds: at
                 // `WrapKind::Ruler` a one-row `input` has no row to step to, so `Up` and `Down` are
-                // declined (ADR 0042), and `Enter` is the caller's submit rather than a cluster.
+                // declined, and `Enter` is the caller's submit rather than a cluster.
                 // Probed there, three declared binds would read dead — and probed at the last row,
                 // `Down` would too. See `super::tests::the_break_rule_decides_three_of_a_fields_binds`.
                 let mut st = Text::textarea();
@@ -1286,7 +1286,7 @@ const COLLECTION_FULL: &[Bind] = &[
     // arithmetic, so a modified click on a page number is a plain one (components 35).
     //
     // **`Escape` is the fifth and it joined this group by being answered rather than by being
-    // declared** (architecture issue 22). A pager is `Mode::Options` — *exactly one, and it can
+    // declared**. A pager is `Mode::Options` — *exactly one, and it can
     // never become zero* — so `apply` ignores `Gesture::Nothing` there and there has never been
     // anything for the key to clear. It was declared, swallowed and did nothing for the whole of
     // this crate's life, which is the defect issue 22 is about in its purest form: the sweep could
@@ -1612,7 +1612,7 @@ pub const REGISTERED: [(&str, usize); 13] = [
     // could perform.
     ("pagination", 26),
     // **Thirty-three, and the popup's are most of it**: open, the list takes the keyboard from its
-    // owner and answers §5's collection at `Mode::Single`. Thirty-five until the applications, and
+    // owner and answers the collection at `Mode::Single`. Thirty-five until the applications, and
     // the two that went are `Ctrl+A`'s — `Mode::Single` ignores `Gesture::All` for the same reason
     // it answers `Plain` and `Toggle` with one call, which is the fact that already took
     // `Ctrl+Click` off this contract.

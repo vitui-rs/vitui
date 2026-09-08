@@ -152,7 +152,7 @@ fn paint_row(layers: &[LayerRef<'_>], row: &mut [Cell], painter: &mut [Option<us
             let src = surface.row(ly as u16)[lx as usize];
             // An opaque layer paints every cell it covers; a non-opaque one paints only the
             // cells its caller actually wrote, and `EMPTY` is the sentinel for "skip this one"
-            // (spec §5). One condition rather than two identical branches, because clippy is
+            //. One condition rather than two identical branches, because clippy is
             // right that they were identical.
             if opaque || !src.grapheme.is_empty() {
                 *cell = src;

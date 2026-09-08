@@ -432,7 +432,7 @@ fn a_frame_the_filter_emptied_is_no_write_at_all() {
 
 #[test]
 fn a_frame_reassembles_through_a_sink_that_takes_seven_bytes_at_a_time() {
-    // Spec §8's honest partial-write test: the fragmentation is deterministic, because whether a
+    // Spec the honest partial-write test: the fragmentation is deterministic, because whether a
     // real pipe fragments a write is the kernel's business.
     let mut h = Harness::with_sink(300, 80, Recorder::awkward(7, 5));
     let id = h
@@ -675,7 +675,7 @@ fn a_donated_surface_of_clusters_survives_the_round_trip() {
 }
 
 // -------------------------------------------------------------------------------------------------
-// The scroll region (impl 15). Every one of these closes the round trip, which is the point: the
+// The scroll region. Every one of these closes the round trip, which is the point: the
 // defect a scroll optimisation ships is a column nobody put back, and only a replayed screen sees it.
 // -------------------------------------------------------------------------------------------------
 

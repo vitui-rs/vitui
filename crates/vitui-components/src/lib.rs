@@ -91,7 +91,7 @@
 //! [`series`] and [`picture`] for the same reason, and [`INVENTORY`] with [`obligations`] because
 //! *what does this crate contain* is a fair question to ask of it.
 
-// **No `unsafe` in any shipped crate above the engine** (ticket 21, ADR 0034). `forbid` and not
+// **No `unsafe` in any shipped crate above the engine**. `forbid` and not
 // `deny`, so nothing inside the crate can turn it back on with an `allow`; it subsumes the
 // `unsafe_op_in_unsafe_fn` this line used to carry.
 #![forbid(unsafe_code)]
@@ -171,7 +171,7 @@ pub mod wheel;
 #[doc(hidden)]
 pub mod window;
 
-// **One module per family, and the family is the module** (spec §19). The tree follows the survey's
+// **One module per family, and the family is the module**. The tree follows the survey's
 // fifteen families so that a reader who knows what they want finds it without a search, and
 // `INVENTORY`'s `families` column is the join that makes the mapping checkable rather than a naming
 // convention. Four of them are empty today and each says why in its own header — F8 navigation, F11
@@ -179,7 +179,7 @@ pub mod window;
 // module here at all because its twenty-three entries emit no cells and are the runtime's.
 //
 // **The directory names are a spelling and not a decision.** §19 is explicit that no ticket
-// ratified `architecture.md` §2's list and that renaming one reopens nothing. What is settled is
+// ratified `architecture.md` the list and that renaming one reopens nothing. What is settled is
 // the join.
 pub mod canvas;
 pub mod chart;

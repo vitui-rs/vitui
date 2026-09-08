@@ -173,7 +173,7 @@ fn block_opts<'a>(title: &'a str, opts: &PanelOpts) -> BlockOpts<'a> {
 }
 
 // ═════════════════════════════════════════════════════════════════════════════════════════════════
-// `rule` — §17's Tier 2 divider: `fit`'s remainder over one row or one column, plus a `Glyph`
+// `rule` — the Tier 2 divider: `fit`'s remainder over one row or one column, plus a `Glyph`
 // ═════════════════════════════════════════════════════════════════════════════════════════════════
 
 /// [`rule`]'s options.
@@ -378,7 +378,7 @@ fn pad_columns<I: Ink>(ink: &mut I, cx: &mut Ctx<'_, '_>, cells: Rect, st: vitui
 }
 
 // ═════════════════════════════════════════════════════════════════════════════════════════════════
-// `status_bar` — §17's Tier 2 band: `sticky`'s one construction, an axis argument, one hit entry
+// `status_bar` — the Tier 2 band: `sticky`'s one construction, an axis argument, one hit entry
 // ═════════════════════════════════════════════════════════════════════════════════════════════════
 
 /// **How wide each segment is.**
@@ -533,7 +533,7 @@ pub fn status_bar_into<I: Ink>(
     offset: (i32, i32),
     opts: &StatusOpts,
 ) -> Response {
-    // **The id, taken outside every closure** (ADR 0027). `#[track_caller]` all the way down, or two
+    // **The id, taken outside every closure**. `#[track_caller]` all the way down, or two
     // bars in one application are one bar and the second one's `Response` is inert.
     let id = cx.id();
     if area.is_empty() {
@@ -877,7 +877,7 @@ mod tests {
             2,
             "a caption against the end has nothing after it"
         );
-        // **And §16's one-cell ellipsis rule holds on a rule as it does on a label**: the caption
+        // **And the one-cell ellipsis rule holds on a rule as it does on a label**: the caption
         // goes through `glyphs::elide`, which reserves exactly one cell for the marker.
         //
         // **This block asserted nothing until a review said so.** It drew and dropped the tally,
@@ -977,7 +977,7 @@ mod tests {
         );
 
         // **And the seam is deterministic**, which is all a second `Pen` can say: `Direct` writes
-        // into the engine and *nothing reads a cell back* (ADR 0023), so there is no surface to
+        // into the engine and *nothing reads a cell back*, so there is no surface to
         // compare the shipped path against and two `Pen`s compared is one path compared with
         // itself. Labelled as the equality it is not, this assertion held whatever `rule` did —
         // found by review, and the same shape is in `crate::input`'s toggles and its slider.
@@ -1238,7 +1238,7 @@ mod tests {
                 .expect("this file is here");
         let section = crate::composed::section(
             &source,
-            "// `status_bar` — §17's Tier 2 band: `sticky`'s one construction, an axis argument, one hit entry",
+            "// `status_bar` — the Tier 2 band: `sticky`'s one construction, an axis argument, one hit entry",
         );
         assert!(!section.is_empty());
         assert!(crate::dense::declares(section, "crate::scroll::sticky("));

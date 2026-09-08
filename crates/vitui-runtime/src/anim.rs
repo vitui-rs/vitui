@@ -1340,7 +1340,7 @@ mod tests {
         assert_eq!(lines.len(), 1);
         assert!(lines[0].at.file().ends_with("ctx.rs"), "{}", lines[0].at);
 
-        // The `Tab` went to the ring rather than to the widget, which is §8's rule and not this
+        // The `Tab` went to the ring rather than to the widget, which is the rule and not this
         // ticket's — so what frame one delivered is nothing.
         assert!(seen.is_empty(), "the ring took the Tab: {seen:?}");
 

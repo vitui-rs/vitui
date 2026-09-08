@@ -551,7 +551,7 @@ impl Quirks {
         // trust this table needs both, and taking one for the other reads a whole terminal as
         // observed or a whole suite as inference.
         //
-        // *Terminals run*: scene 01 has been driven against **six of spec §10's seven tier-1
+        // *Terminals run*: scene 01 has been driven against **six of the seven tier-1
         // terminals** — kitty, Ghostty, WezTerm, Alacritty, tmux and iTerm2. **The one that
         // remains is Windows Terminal**, and production ticket 16 is what owns it. Its eleven
         // attribute facts are still inference from libvaxis's three entries, none of which names

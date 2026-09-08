@@ -1383,7 +1383,7 @@ mod tests {
             live.window_domain(wide).bits()
         );
 
-        // The ladder, asserted rather than assumed, because §13's illustration needs a rung it does
+        // The ladder, asserted rather than assumed, because the illustration needs a rung it does
         // not have.
         assert_eq!(nice_step(10.0, 5), 2.0);
         assert_eq!(nice_step(10.0, 3), 5.0);

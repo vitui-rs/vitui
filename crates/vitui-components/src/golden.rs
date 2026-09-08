@@ -302,7 +302,7 @@ impl<'t> Legend<'t> {
 
     fn write(&self, out: &mut String) {
         // **The customs are numbered, and that is not decoration.** A picture's cells and a chart's
-        // palette are all outside the thirteen roles (§13, §14), so without an ordinal a screen
+        // palette are all outside the thirteen roles, so without an ordinal a screen
         // with two of them carries two legend lines a reviewer cannot tell apart — which is the
         // one thing a legend exists to prevent. The number is first-appearance order, the same
         // order the keys are in, and it names no colour.
@@ -943,7 +943,7 @@ pub const SCREENS: &[Screen] = &[
     },
     // **Three, and it is the only row of the twenty-nine whose every rung is a different screen.**
     // `plot`'s three are three rasters; `spinner`'s are three ladders, and the middle one is
-    // components ticket 46's correction to the prototype — braille is `Extended` by the engine's own
+    // The correction to the prototype — braille is `Extended` by the engine's own
     // `GlyphSet`, so the `Unicode` rung is the quadrant blocks.
     Screen {
         id: "spinner",

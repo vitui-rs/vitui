@@ -653,7 +653,7 @@ pub fn from_key(k: &Pressed, lead: usize, moved: Option<usize>) -> Option<Gestur
     // **`Esc` and `Space` are keys and not chords**, and the two guards are components ticket 38's
     // finding: written as `k.code == Code::Escape` alone, `Ctrl+Esc` and `Alt+Esc` cleared the
     // selection and `Alt+Space` toggled a row, so a focused collection ate every accelerator built
-    // on either. `crate::keys::is_chord` is the one predicate that decides it (spec §3), and it
+    // on either. `crate::keys::is_chord` is the one predicate that decides it, and it
     // leaves `Shift` alone deliberately — `Shift+Space` is this component's own toggle.
     if crate::keys::is_chord(k) {
         return None;
@@ -1181,7 +1181,7 @@ where
     F: FnMut(&str, Range<usize>) -> Option<usize>,
     R: FnMut(&mut I, &mut Ctx<'_, '_>, Rect, usize, Face),
 {
-    // **The id is taken here, outside every closure** (ADR 0027). `#[track_caller]` on this
+    // **The id is taken here, outside every closure**. `#[track_caller]` on this
     // function makes it the *caller's* line; taken inside the row body it would be the line below,
     // and every collection in the application would be one collection.
     let id = cx.id();
@@ -1204,7 +1204,7 @@ where
     // the order it belongs to loses its selection on its first frame, and the caller's only repair
     // would be a `CollState::reconciled` call asserting something it has not done.
     if st.rev.is_known() && rows.rev.is_known() && st.rev != rows.rev {
-        // **Every field cleared here is a position**, which is the whole of ADR 0031's sentence:
+        // **Every field cleared here is a position**, which is the whole of the sentence:
         // the spans, the anchor and the editing slot are positions in an order that has been
         // replaced, and the cursor is one too — it is clamped rather than dropped, because a
         // collection with no cursor at all has nowhere to put the keyboard.
@@ -1472,7 +1472,7 @@ where
         }
         match from_key(&k, st.sel.lead, moved) {
             // **`Escape` is the container's key until this collection has a selection to clear**,
-            // which is architecture issue 22. Every other key in §5's table is the widget's by
+            // which is architecture issue 22. Every other key in the table is the widget's by
             // default; `Esc` is the one whose default owner is whatever the widget is *inside*, and
             // a collection that swallowed it unconditionally made `cx.overlay` + `Kind::Dialog` a
             // modal no keypress could dismiss — found by running `crates/vitui-apps/examples/
@@ -3751,12 +3751,12 @@ where
     F: FnMut(&str, Range<usize>) -> Option<usize>,
     C: FnMut(&mut I, &mut Ctx<'_, '_>, Rect, Cell, Face),
 {
-    // **The table's own id, taken outside every closure** (ADR 0027). `#[track_caller]` all the
+    // **The table's own id, taken outside every closure**. `#[track_caller]` all the
     // way down makes it the *application's* call site, so two tables on one screen are two tables;
     // every cell's id is minted from it and handed over — see [`Cell::id`] for why it is minted
     // rather than pushed.
     let tid = cx.id();
-    // **Once a frame, over the declared columns, touching no row** (§6). Above the row loop and
+    // **Once a frame, over the declared columns, touching no row**. Above the row loop and
     // above `collection`, so there is nowhere for a row to reach it.
     let solved = solve_columns(area.w, cols);
     st.hoff = st.hoff.clamp(0, solved.max_hoff());
@@ -3779,7 +3779,7 @@ where
         st.cells.clear();
     }
 
-    // The header, and the body's rectangle beneath it. §6's one `cut`.
+    // The header, and the body's rectangle beneath it. The one `cut`.
     let body = if opts.header {
         let (head, rest) = split_header(area);
         header_row(
@@ -3977,7 +3977,7 @@ fn header_row<I: Ink>(
         for slot in range.0..range.1 {
             write(ink, &mut view, slot, at + s.x[slot] - shift);
         }
-        // **The header's band owes its slack too** (architecture issue 24). One row, and it is the
+        // **The header's band owes its slack too**. One row, and it is the
         // row a reader looks at first — a header that stopped short of the band while the body
         // filled it would be the same defect wearing a smaller number.
         let end = band_end(at, w, s, range, shift);
@@ -4370,7 +4370,7 @@ where
     F: FnMut(&str, Range<usize>) -> Option<usize>,
     R: FnMut(&mut I, &mut Ctx<'_, '_>, Rect, Node, Face),
 {
-    // **The tree's own id, taken outside every closure** (ADR 0027), and every row's id is minted
+    // **The tree's own id, taken outside every closure**, and every row's id is minted
     // from it and handed over — see [`Cell::id`] for why `Ctx::with_key` is not available inside a
     // scroll scope.
     let tid = cx.id();
@@ -4420,7 +4420,7 @@ where
             let Some(e) = index.at(i) else {
                 return;
             };
-            // **§7's first verb.** One run whatever its width, and the width is the one decision.
+            // **The first verb.** One run whatever its width, and the width is the one decision.
             //
             // **`r.w` and `r.x`, never `area`.** `collection` hands over one row of its own
             // rectangle in its own coordinates, and a component that reached past that for the
@@ -4447,14 +4447,14 @@ where
             // **The label rectangle collapses when the indent has eaten it**, which only the
             // unclamped arm can do: a clamped indent reserves two columns by construction. The
             // chevron is then skipped and the row drawer is handed an **empty** rectangle rather
-            // than not called — §2's contract is *the cells it does not write are named in its
+            // than not called — the contract is *the cells it does not write are named in its
             // return value*, and *none* is an answer. Not calling it would make *rows the body
-            // iterated* a second counter that separates the two arms, and §7's whole claim is that
+            // iterated* a second counter that separates the two arms, and the whole claim is that
             // only the ask does.
             let collapsed = ind >= usize::from(r.w);
             let indent = i32::try_from(ind.min(usize::from(r.w)))
                 .expect("an indent inside the rectangle fits an i32");
-            // **§7's second verb**, and a space on a leaf rather than nothing at all, so that every
+            // **The second verb**, and a space on a leaf rather than nothing at all, so that every
             // row of the tree is the same partition of its rectangle.
             let folded = e.is_folded();
             let leaf = !folded && !has_children(index, i);
@@ -4608,7 +4608,7 @@ pub fn edit_follow_costs(len: usize, entries: usize) -> (u128, u128) {
 }
 
 // ═════════════════════════════════════════════════════════════════════════════════════════════════
-// `pagination` — §17's Tier 2 pager: `collection` at a small length, on the other axis
+// `pagination` — the Tier 2 pager: `collection` at a small length, on the other axis
 // ═════════════════════════════════════════════════════════════════════════════════════════════════
 
 /// [`pagination`]'s options.
@@ -4744,7 +4744,7 @@ pub fn pagination_into<I: Ink>(
     pages: usize,
     opts: &PageOpts,
 ) -> Response {
-    // **The id, taken outside every closure** (ADR 0027), and `#[track_caller]` all the way down.
+    // **The id, taken outside every closure**, and `#[track_caller]` all the way down.
     let id = cx.id();
     if area.is_empty() {
         return Response::inert(id, area);
@@ -4753,7 +4753,7 @@ pub fn pagination_into<I: Ink>(
     let coll = page_opts(opts);
 
     // **One hit entry for the strip, never one per page**, and no `Interest::SCROLL`: a pager does
-    // not own an offset the wheel may move (spec §17's own column), so a notch over it chains
+    // not own an offset the wheel may move (the column), so a notch over it chains
     // outward to whatever is beneath.
     let mut resp = cx.interact(
         id,
@@ -4768,7 +4768,7 @@ pub fn pagination_into<I: Ink>(
     let shown = usize::from(fits(room, cell)).min(len);
 
     // **The window's first page is `CollState::offset`**, which is the store's own field read on the
-    // axis this component lays out on. A second field for it would be ADR 0028's *two stores of one
+    // axis this component lays out on. A second field for it would be *two stores of one
     // fact* with the count as the argument rather than the shape.
     let max = i32::try_from(len - shown).unwrap_or(i32::MAX);
     st.offset = st.offset.clamp(0, max);
@@ -4782,7 +4782,7 @@ pub fn pagination_into<I: Ink>(
     // **The edge, read from the response** — `collection`'s own reading, one axis over.
     if resp.press_began {
         // **`from_click` and not a `Gesture` written here**, which is the pointer half of *no second
-        // navigation model*: `from_click` and `from_key` are two readings of one vocabulary (§5),
+        // navigation model*: `from_click` and `from_key` are two readings of one vocabulary,
         // and at `Mode::Options` `apply` collapses ctrl and shift onto `select_only` in one arm. A
         // pager that spelled `Gesture::Plain` directly would be right today and would stop being
         // right the day that arm moves.
@@ -4800,7 +4800,7 @@ pub fn pagination_into<I: Ink>(
     }
 
     // **The keyboard is `collection`'s own drain loop and there is no second one.** `nav::step`
-    // reads `←`/`→` as `↑`/`↓` — components ticket 17's finding, which is a collision for a `tree`
+    // reads `←`/`→` as `↑`/`↓` — the finding, which is a collision for a `tree`
     // and is exactly right here, because a pager's axis *is* the horizontal one.
     // **The caller's search, which for a pager is a prefix over its own page numbers** — and it
     // allocates nothing, because a label is [`Digits`] on the stack. `collection` owns the buffer,
@@ -4996,13 +4996,13 @@ fn strip_into<I: Ink>(
         // **`elided_row_into` and not `pad_to`**, and the difference is a partition: `pad_to` pads a
         // short label and writes a long one **whole**, so a page cell narrower than its own number
         // writes past its share — a `137` in a one-cell strip is two cells, one of them the
-        // neighbour's. Elided, §16's one-cell marker rule holds here as it does on a label, and the
+        // neighbour's. Elided, the one-cell marker rule holds here as it does on a label, and the
         // cell is exactly `room` wide whatever the number is.
         crate::glyphs::elided_row_into(ink, cx, x, strip.y, Digits::of(i).as_str(), room, paint);
         x += i32::from(room);
     }
     // **The gap between the last page and the trailing stepper is the pager's own**, and writing it
-    // is the same half of §2's rule that `collection`'s tail is: the cells the content does not
+    // is the same half of the rule that `collection`'s tail is: the cells the content does not
     // reach belong to the component that was handed the rectangle.
     if x < stop {
         let w = u16::try_from(stop - x).unwrap_or(0);
@@ -5445,7 +5445,7 @@ mod tests {
                 .expect("this file is here");
         let section = crate::composed::section(
             &source,
-            "// `pagination` — §17's Tier 2 pager: `collection` at a small length, on the other axis",
+            "// `pagination` — the Tier 2 pager: `collection` at a small length, on the other axis",
         );
         assert!(!section.is_empty());
         for used in [
@@ -6842,7 +6842,7 @@ mod tests {
         // The margin is on the **left** here and it used to be read on the right, because until
         // components ticket 19 `Pen` recorded a verb where it was *called* rather than where it
         // landed: a component narrowed to `x == MARGIN` recorded its first cell at column 0. That
-        // is runtime issue 32's whole subject, and this test is where the correction is visible —
+        // is the whole subject, and this test is where the correction is visible —
         // the assertion did not change its meaning, it changed which columns satisfy it.
         for y in 0..H {
             for x in 0..MARGIN {
@@ -7284,7 +7284,7 @@ mod tests {
         }
 
         // And the cell store is not one of them: it *holds* `Selection`, which is the whole of
-        // §6's *no second store*.
+        // *no second store*.
         let mut cells = CellSel::new();
         let sel: &mut Selection = cells.column_mut(0);
         sel.select_all(9);
@@ -7431,7 +7431,7 @@ mod tests {
         st.follow(|_| None);
         assert_eq!(st.editing(), None);
 
-        // And the slot is one slot: there is nowhere here to put a value per row (ADR 0028).
+        // And the slot is one slot: there is nowhere here to put a value per row.
         st.edit(1, 3);
         st.edit(2, 4);
         assert_eq!(st.editing(), Some((2, 4)));

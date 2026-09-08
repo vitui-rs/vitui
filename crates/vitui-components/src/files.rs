@@ -608,7 +608,7 @@ where
         }
     }
 
-    // **The extent is a field of the answer.** `OfTheAnswerBefore` is §15's *unclamped* row, and it
+    // **The extent is a field of the answer.** `OfTheAnswerBefore` is *unclamped* row, and it
     // is on this axis rather than on the offset's: the clamp runs every frame against whatever it is
     // handed, so the only way to a body that draws nothing is to hand it a stale one.
     let extent = match st.shape.extent {
@@ -1059,12 +1059,12 @@ where
     //
     // **Two slots, and cancelling leaves `chosen` alone** — which is how a dismissal *restores*
     // rather than clears here, where `select`'s popup has to say the previous index out loud to get
-    // the same effect (architecture issue 23).
+    // the same effect.
     let dismissed = std::mem::take(&mut body.cancelled);
     if let Some(chosen) = body.answer.take() {
         st.chosen = Some(chosen);
         st.close();
-        // **On the way out the owner refocuses itself** (§12): the keyboard is on an id minted
+        // **On the way out the owner refocuses itself**: the keyboard is on an id minted
         // inside a body that will not run again, so left alone the vanish rule picks a neighbour.
         cx.focus(id);
     } else if dismissed {
@@ -1241,7 +1241,7 @@ pub(crate) fn picker_body<'f, I: Ink, T>(
     // **What the body reports and the owner reads a frame later.** `Response::local` and not
     // `Response::hovered`: `hovered` is a *previous*-frame guess and reads false on the frame the
     // layer is placed, which is the frame the optimistic focus arrives on — so a popup dismisses
-    // itself out from under a pointer standing on it. §12's finding, one family over.
+    // itself out from under a pointer standing on it. The finding, one family over.
     body.over = shell.response.local.is_some();
 
     let list_w = list_w.min(interior.w);
@@ -1274,7 +1274,7 @@ pub(crate) fn picker_body<'f, I: Ink, T>(
         if !seated {
             return false;
         }
-        // **A chord belongs to the application**, here as much as at the owner (spec §3), and
+        // **A chord belongs to the application**, here as much as at the owner, and
         // components ticket 38 found both of this family's loops missing the guard together.
         if crate::keys::is_chord(k) {
             return false;
@@ -1309,14 +1309,14 @@ pub(crate) fn picker_body<'f, I: Ink, T>(
         shape.list,
     );
     // **The body takes the keyboard from its owner, exactly once**, and the id it goes to is the
-    // **list** — architecture issue 23's first decision. The pane is not a candidate: its document
+    // **list** — the first decision. The pane is not a candidate: its document
     // is a function of the cursor, so it has nothing of its own to answer, and `body.inside` is
     // already defined as *the list has the focus*, which the owner's blur clause reads to decide
     // whether the popup is still wanted. Seating anywhere else would leave `inside` false while the
     // body held the keyboard and shut the popup under the user on the frame after.
     //
     // `if cx.is_focused(owner)` and never `if !cx.is_focused(list)`: the second drags the keyboard
-    // back every frame the user has tabbed away, which is architecture issue 25's refused spelling.
+    // back every frame the user has tabbed away, which is the refused spelling.
     if seated && cx.is_focused(owner) {
         cx.focus(list_resp.id);
     }

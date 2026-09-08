@@ -939,7 +939,7 @@ mod tests {
         // its halves. A carrier nobody draws is a bit nobody reads, which is the mirror of an entry
         // nobody demands.
         //
-        // **It is not vacuous any more, and that is components architecture 25's other half.** The
+        // **It is not vacuous any more, and that is the other half.** The
         // loop reads the freeze's `glyphs` column, which since architecture 20 means *draws* and
         // since 25 means it for every row: `table`'s eleven undrawn entries are in [`DELEGATED`] and
         // out of the column, so a distinction can no longer be carried by a declaration nobody
@@ -1048,7 +1048,7 @@ mod tests {
             distinctions_of(tree).contains(&Distinction::Truncation),
             "`tree` draws both halves of the carrier and the join does not report the dependency"
         );
-        // It needs no entry of its own: the chevron pair *is* `ArrowDown`/`ArrowRight` (§16).
+        // It needs no entry of its own: the chevron pair *is* `ArrowDown`/`ArrowRight`.
         for g in [Glyph::ArrowDown, Glyph::ArrowRight, Glyph::Ellipsis] {
             assert!(tree.glyphs.contains(&g), "`tree` no longer draws {g:?}");
         }
@@ -1380,7 +1380,7 @@ mod tests {
         let theme = declared();
         assert_eq!(text::width(theme.glyph(Glyph::Ellipsis)), 1);
 
-        // 78 rows, which is §16's own row count, each with a label too long for its column.
+        // 78 rows, which is the row count, each with a label too long for its column.
         const ROWS: usize = 78;
         const W: u16 = 24;
 

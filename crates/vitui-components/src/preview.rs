@@ -475,7 +475,7 @@ impl Preview for Doc {
         let cols = match self.kind {
             Kind::Text => u32::from(LINE_COLUMNS),
             // **As wide as the body**, which is what makes a photograph 198 x 74 = 14 652 cells and
-            // §15's custom count a partition of the pane's viewport rather than a coincidence.
+            // The custom count a partition of the pane's viewport rather than a coincidence.
             Kind::Photograph => u32::from(BODY_W),
         };
         (cols, self.rows)
@@ -1001,9 +1001,9 @@ impl Screen {
                         // that spends them rather than this screen.
                         //
                         // That is the F11/F12 join `INVENTORY` already declares — `file_preview_pane`
-                        // names both families — and it is also what keeps §16's one-palette rule at
+                        // names both families — and it is also what keeps the one-palette rule at
                         // two calling lines: a picture's cells are outside the theme *by
-                        // construction*, which is §14's stated exception, and a screen that spelled
+                        // construction*, which is the stated exception, and a screen that spelled
                         // `Theme::custom` itself would be a third palette rather than a second use
                         // of the exception.
                         Kind::Photograph => {
@@ -2744,7 +2744,7 @@ mod tests {
         // **The relation and not the figure.** The shipped map is 35 651 584 bytes here, and that
         // number is the standard library's rather than this crate's — gating it would be gating
         // somebody else's implementation. What is a property of the mechanism is that the map is
-        // *larger* than §15's estimate, so the refusal does not get easier when it is checked.
+        // *larger* than the estimate, so the refusal does not get easier when it is checked.
         let measured = measured_map_bytes(1_000_000);
         assert!(
             measured > MAP_AT_A_MILLION,

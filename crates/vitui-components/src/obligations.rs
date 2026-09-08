@@ -444,7 +444,7 @@ pub const AXIS_SCENES: &[(&str, Axis)] = &[
     // Scene 28 — components 09's narrow axis over the dense screen, at 300x80 and at 120x40. Not a
     // row of §21: the first two scenes of that table are the dense screen and its twin and neither
     // names an axis, and the defect this one is about — *a label that runs into its sibling's
-    // rectangle* — is §2's third re-damage instance rather than §21's.
+    // rectangle* — is the third re-damage instance rather than §21's.
     ("text", Axis::Narrow),
     ("chip", Axis::Narrow),
     // Scene 33 — components 20's, and the pair §21 had no way to state. Its wheel row is one
@@ -459,12 +459,12 @@ pub const AXIS_SCENES: &[(&str, Axis)] = &[
     // Scenes 34, 35 and 36 — production 05's, and the three axes §21 stated over one row.
     //
     // **§21 carries one `field` row and it is the narrow one.** The freeze declares all four for
-    // this component and three had no scene at all, which is the shape ticket 20's entry above
+    // this component and three had no scene at all, which is the shape the entry above
     // describes one component over: a table written while a defect was not yet expressible states
     // the axes it could state. Here nothing was unexpressible — the pairs were simply never
     // scheduled, which is `.scratch/vitui-production/README.md`'s whole argument.
     //
-    // **Their position is scene order and not importance**, for the reason scene 33's entry gives:
+    // **Their position is scene order and not importance**, for the reason the entry gives:
     // `crate::scenes::axis_scenes` derives this list from the scene list and the test that compares
     // the two is an equality over ordered vectors.
     ("field", Axis::Scrolled),
@@ -475,11 +475,11 @@ pub const AXIS_SCENES: &[(&str, Axis)] = &[
     // **§21 carries one `table` row and it is scene 7**, which covers `scrolled` and `narrow` in
     // one screen. The other two were expressible from the day components 15 declared the component
     // — the shrink is `collection`'s tail and the wheel is `collection`'s reveal, both reached by
-    // calling it — and nothing had scheduled them, which is production 05's entry above one
+    // calling it — and nothing had scheduled them, which is the entry above one
     // component over.
     //
-    // **They are two files where production 05's three were one**, and the two entries here are
-    // adjacent for the same reason scene 33's is where it is: this list is scene order, and
+    // **They are two files where the three were one**, and the two entries here are
+    // adjacent for the same reason the original's is where it is: this list is scene order, and
     // `crate::scenes::axis_scenes` derives it from the scene list.
     ("table", Axis::Shrunk),
     ("table", Axis::Wheeled),
@@ -489,14 +489,14 @@ pub const AXIS_SCENES: &[(&str, Axis)] = &[
     // that screen measures what a layer costs the frame and plays no wheel and no scroll, and
     // `crate::popup` says so beside the assertion that `select` declares two of the four axes.
     // So all four pairs here were expressible from the day both components were declared — both
-    // bodies draw §5's collection and both specs say *reached by calling it* — and nothing had
-    // scheduled the question, which is production 05's and 06's entries above for the third time.
+    // bodies draw the collection and both specs say *reached by calling it* — and nothing had
+    // scheduled the question, which is the original's and 06's entries above for the third time.
     //
     // **All four are one file** where 06's two were two, and the reason is that one thing decides
     // all four: the list is behind a **layer**, which changes who can see the arithmetic rather
     // than the arithmetic. See `crate::dropped`.
     //
-    // **Their position is scene order and not importance**, for scene 33's entry's reason.
+    // **Their position is scene order and not importance**, for the entry's reason.
     ("select", Axis::Scrolled),
     ("select", Axis::Wheeled),
     ("file_picker", Axis::Shrunk),
@@ -511,12 +511,12 @@ pub const AXIS_SCENES: &[(&str, Axis)] = &[
     // the five spellings draw the same screen, and the pane's did not exist because the wheel gate
     // had three subjects and the pane was not one of them.
     //
-    // **Two files and three scenes**, which is production 06's rule rather than a new one: a wheel
+    // **Two files and three scenes**, which is the rule rather than a new one: a wheel
     // is a posted notch and belongs where the drive loop is — `crate::wheel::Subject::Pane`, the
     // fourth arm — because a fourth copy of that loop would be the substitution components 20 spent
     // a ticket removing.
     //
-    // **Their position is scene order and not importance**, for scene 33's entry's reason.
+    // **Their position is scene order and not importance**, for the entry's reason.
     ("scroll_area", Axis::Shrunk),
     ("sticky", Axis::Scrolled),
     ("file_preview_pane", Axis::Wheeled),
@@ -534,10 +534,10 @@ pub const AXIS_SCENES: &[(&str, Axis)] = &[
     // one §7 always described: one `Ink::run` of spaces, one chevron cell and the label taking the
     // rest.
     //
-    // **Two files and two scenes**, production 06's rule: a screen is `crate::forest`, where this
+    // **Two files and two scenes**, the rule: a screen is `crate::forest`, where this
     // component's other two already live, and a wheel is `crate::wheel::Subject::Tree`.
     //
-    // **Their position is scene order and not importance**, for scene 33's entry's reason.
+    // **Their position is scene order and not importance**, for the entry's reason.
     ("tree", Axis::Narrow),
     ("tree", Axis::Wheeled),
 ];
@@ -1160,7 +1160,7 @@ mod tests {
         // twenty-nine.
         assert_eq!(o1(DOC_TESTED), Verdict::Met { over: 29 }, "O1");
         assert_eq!(DOC_TESTED.len(), 29);
-        // **The two halves of O2 differ in population, and that is exactly ADR 0033's point that
+        // **The two halves of O2 differ in population, and that is exactly the point that
         // they do not substitute for each other** — so both are asserted from the other side now,
         // and the two numbers are different on purpose. The first is over the **gallery** and reads
         // 28 because that is how many panels there are; the second is over the twenty-eight
@@ -1191,8 +1191,8 @@ mod tests {
             Verdict::Met { over: 13 },
             "O4"
         );
-        // **O5 has moved five times and it is still red.** Ticket 04's scene list covered twelve
-        // of the thirty-four `(component, axis)` pairs from §21's own rows, ticket 09's narrow axis
+        // **O5 has moved five times and it is still red.** The scene list covered twelve
+        // of the thirty-four `(component, axis)` pairs from the rows, the narrow axis
         // added `text` and `chip`, and ticket 20 added `(scroll_area, wheeled)` — the pair §21 had
         // no way to state, because its single wheel row was written while a click was an arithmetic
         // substitution and a delta added to an offset has no second axis to be wrong on. Components
@@ -1222,7 +1222,7 @@ mod tests {
         // **O6 is `Met` over the seven rows that take a volume**, so it is asserted from the other
         // side too. The population is derived rather than written out — the `Layer::L2` column plus
         // the rows that keep a memo keyed on a data revision — and it answered **seven** where
-        // ticket 44's own parenthesis named six: `sparkline` is `chart`'s body with the chrome
+        // The parenthesis named six: `sparkline` is `chart`'s body with the chrome
         // deleted and folds the same million points through the same `Raster`. A query whose
         // population moves without an edit here is a query that is measuring something.
         assert_eq!(o6(VOLUME_MEASURED), Verdict::Met { over: 7 }, "O6");
@@ -1264,7 +1264,7 @@ mod tests {
         // distinct(...)` against a shipped table; `spinner`'s table was the prototype's and lived
         // on a branch, so nothing here would have noticed its ladder changing shape.
         // `crate::indicate::constructions` is that derivation, and running it moved the number:
-        // **2 became 3**, because ticket 42's ladder put the braille spinner at the `Unicode` rung
+        // **2 became 3**, because the ladder put the braille spinner at the `Unicode` rung
         // and the engine's own `GlyphSet` says braille is `Extended`. The middle rung is the
         // quadrant blocks, so the three ladders are three distinct tables.
         let owed: u32 = INVENTORY.iter().map(|c| u32::from(c.constructions)).sum();

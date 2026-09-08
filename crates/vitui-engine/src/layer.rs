@@ -701,7 +701,7 @@ impl LayerStack {
         }
 
         // **The second of the two intern sites, and the collapse is applied at both.** A donor
-        // surface knows no terminal (spec §3, architecture ticket 19), so its entries were interned
+        // surface knows no terminal, so its entries were interned
         // with a hyperlink in the key whatever this screen's terminal can do — and here is where the
         // screen's answer applies. An entry that was extended *only* because of a link therefore
         // comes back **inline** on a terminal with no OSC 8, so what a donor handle becomes is a
@@ -921,7 +921,7 @@ impl LayerStack {
         // The target's own ground, not a space. The frame is opaque so the two are the same cell
         // today, and taking it from the surface is what keeps that a fact rather than a coincidence
         // — a repair that punched an opaque space into a non-opaque target would be the exact hole
-        // `opaque: false` exists to prevent, in a cell the caller never wrote (spec §5).
+        // `opaque: false` exists to prevent, in a cell the caller never wrote.
         let ground = frame.ground();
         let span = Run {
             y: run.y,
@@ -966,7 +966,7 @@ impl LayerStack {
                     //
                     // Skipped **outright** at `ColorDepth::None`, for the identity, and for a
                     // `toward` this terminal cannot resolve — one `Option` rather than a branch
-                    // inside the per-cell loop: worth 78.2 µs of §10's 107 µs worst screen.
+                    // inside the per-cell loop: worth 78.2 µs of the 107 µs worst screen.
                     if let Some(mixer) = Mixer::new(*mix, caps) {
                         // The layers **below** this one, which is the picture it acts on. Not
                         // `layers[from..from + i]`: the floor covers the whole span, but the reach
@@ -1262,7 +1262,7 @@ fn glyph_below(below: &[Layer], x: i32, y: i32) -> Option<GraphemeId> {
         }
         let g = surface.row(ly as u16)[lx as usize].grapheme;
         // An opaque layer paints every cell it covers; a non-opaque one paints only what its caller
-        // wrote, and `EMPTY` is the sentinel for the rest (spec §5).
+        // wrote, and `EMPTY` is the sentinel for the rest.
         (*opaque || !g.is_empty()).then_some(g)
     })
 }
@@ -1587,7 +1587,7 @@ mod tests {
 
     #[test]
     fn a_layer_larger_than_the_frame_is_intersected_not_rejected() {
-        // The other half of §5's first degenerate case: too big rather than out to the left.
+        // The other half of the first degenerate case: too big rather than out to the left.
         let mut stack = LayerStack::new();
         let id = stack.add_content(0, Rect::new(0, 0, 400, 400), true);
         stack
@@ -1821,7 +1821,7 @@ mod tests {
 
     #[test]
     fn two_layers_with_identical_z_stay_stable_under_any_later_reordering() {
-        // §5's third degenerate case. `b` goes up and comes back; `c` goes down and comes back;
+        // The third degenerate case. `b` goes up and comes back; `c` goes down and comes back;
         // the order is the one insertion gave.
         let mut stack = LayerStack::new();
         let a = stack.add_content(0, Rect::new(0, 0, 4, 1), true);
@@ -2017,7 +2017,7 @@ mod tests {
 
     #[test]
     fn an_operator_below_an_opaque_layer_is_painted_over_rather_than_subtracted() {
-        // §5's whole argument for having no region arithmetic: **the window occludes its own
+        // The whole argument for having no region arithmetic: **the window occludes its own
         // shadow by painting over it.** No rectangle-minus-rectangle, no L-shapes.
         let (mut stack, mut frame) = one_white_row(8, "");
         stack.add_operator(1, Rect::new(0, 0, 8, 1), Mix::darken(Mix::FULL / 2));
@@ -2129,9 +2129,9 @@ mod tests {
 
     #[test]
     fn an_operator_over_a_default_background_is_left_alone_where_osc_11_was_silent() {
-        // §5's silent path: a shadow clipped to the explicitly-coloured area is a visible
+        // The silent path: a shadow clipped to the explicitly-coloured area is a visible
         // imperfection, and an inverted shadow is a bug. Ticket 16 supplies the capability; until
-        // something can declare one headless (architecture ticket 22) this is the tested path.
+        // something can declare one headless this is the tested path.
         let mut stack = LayerStack::new();
         let base = stack.add_content(0, Rect::new(0, 0, 4, 1), true);
         stack
@@ -2949,7 +2949,7 @@ mod tests {
     #[test]
     fn a_donated_link_only_cell_comes_back_inline_where_the_terminal_has_no_osc_8() {
         // **The other half of `renumber`'s intern, and the reason it answers a `Reborn` rather than
-        // a handle.** A donor surface knows no terminal (architecture ticket 19), so it interned its
+        // a handle.** A donor surface knows no terminal, so it interned its
         // entry with the hyperlink in the key; this stack's terminal has no OSC 8, so the link leaves
         // the key — and the entry then has *no extended channel left*, which puts the cell back
         // inline. *Extended is a cost, not a state*, one axis further along than `restyle` says it.
@@ -3473,7 +3473,7 @@ mod tests {
 
     #[test]
     fn a_layers_damage_translates_into_the_frame_and_is_clipped_not_dropped() {
-        // Spec §6's two operations, at the level that has layers rather than bitsets: translate
+        // Spec the two operations, at the level that has layers rather than bitsets: translate
         // into the frame's coordinates, and clip a layer that hangs off an edge.
         let mut stack = LayerStack::new();
         let off = stack.add_content(0, Rect::new(-4, -1, 10, 3), true);
@@ -3492,7 +3492,7 @@ mod tests {
 
     #[test]
     fn two_popups_a_hundred_columns_apart_are_180_cells_and_not_280() {
-        // The case that chose the bitset over per-row spans (spec §6), driven through the stack
+        // The case that chose the bitset over per-row spans, driven through the stack
         // rather than through `RowBits` directly: the gap between two layers survives the union.
         let mut stack = LayerStack::new();
         for x in [0, 190] {

@@ -434,7 +434,7 @@ pub(crate) fn negotiation(config: &InputConfig, caps: &Capabilities, page: Page)
     // untouched, and leaving it puts their shell back exactly as they left it rather than eight
     // hundred lines further down.
     //
-    // **And it is written here only when nobody has entered it yet** (production ticket 12). On a
+    // **And it is written here only when nobody has entered it yet**. On a
     // real terminal the page is already ours — [`crate::detect::batch`] enters it ahead of the first
     // question, because a terminal that *prints* a sequence it does not implement would otherwise
     // leave the probe's text on the user's shell screen, where nothing this engine does afterwards
@@ -466,7 +466,7 @@ pub(crate) fn negotiation(config: &InputConfig, caps: &Capabilities, page: Page)
         // the terminal this whole ticket is about, demonstrably implements 1049.
         out.extend_from_slice(ERASE_PAGE);
     }
-    // Auto-wrap off, once, for the lifetime of the session (spec §8). Every `shortest` move in the
+    // Auto-wrap off, once, for the lifetime of the session. Every `shortest` move in the
     // serializer is priced on the assumption that nothing wrapped.
     out.extend_from_slice(DISABLE_AUTO_WRAP);
     write_visibility(&mut out, false);

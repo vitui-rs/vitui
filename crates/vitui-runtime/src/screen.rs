@@ -130,7 +130,7 @@ pub const ROWS: [&str; LIST_ROWS] = [
 
 // ── the dense screen, drawn rather than only laid out ────────────────────────────────────────────
 //
-// Ticket 13's obligation needs a screen that *writes cells*, not one that only computes rectangles:
+// The obligation needs a screen that *writes cells*, not one that only computes rectangles:
 // the number it turns on is how many cells a frame writes **twice**, and `screen_frame` above writes
 // none at all. The two live in one file because they are one screen — a report that measured layout
 // over one shape and drawing over another would be two screens with one name, which is the defect

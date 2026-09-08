@@ -848,7 +848,7 @@ mod tests {
     /// **Scroll-into-view fires for a `Tab` and not for a press.**
     #[test]
     fn into_view_fires_for_a_keyboard_move_and_a_press_does_not_pull() {
-        // Forty one-row fields in a six-row viewport — spec §20's scene.
+        // Forty one-row fields in a six-row viewport — the scene.
         let field = |i: i32| Id::keyed(Id::ROOT, u64::try_from(i).unwrap_or(0));
         let area = Id::named("form");
         let mut d = driver(20, 6);
@@ -1051,7 +1051,7 @@ mod tests {
             outside.push(cx.interact_here(Rect::new(0, 1, 4, 1), Interest::CLICK).id);
         });
         // The two call sites differ, so compare the *shape*: the same two ids either way is what a
-        // scope-free scroll area means, and ticket 09's equality gate is the general form.
+        // scope-free scroll area means, and the equality gate is the general form.
         assert_eq!(inside.len(), 2);
         assert_ne!(inside[0], inside[1]);
         assert_ne!(outside[0], outside[1]);

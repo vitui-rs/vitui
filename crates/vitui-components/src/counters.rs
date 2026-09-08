@@ -257,7 +257,7 @@ impl Tally {
         self.writes += u64::from(columns);
         self.reported += u64::from(columns);
         self.asked += vitui_runtime::layout::text::width(s) as u64;
-        // **Root coordinates**, which is components ticket 19's correction: the union used to be
+        // **Root coordinates**, which is the correction: the union used to be
         // taken where the verb was *called*, so a header at `(0, 0)` inside a band and a body row
         // at content `(0, 0)` inside the scroll scope beside it counted as one cell. See
         // [`Tally::distinct`].

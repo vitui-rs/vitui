@@ -394,7 +394,7 @@ impl<'a> Iterator for Clusters<'a> {
             return None;
         }
 
-        // The ASCII fast path (spec §4). Nearly every cell ever written takes it, and it costs one
+        // The ASCII fast path. Nearly every cell ever written takes it, and it costs one
         // compare against the byte after: the tables, the cursor and the UTF-8 decode are all
         // skipped, and what is skipped is what made a screen of Latin cost 20.8 ns a cell.
         //

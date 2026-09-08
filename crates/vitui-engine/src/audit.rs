@@ -2597,7 +2597,7 @@ mod tests {
     #[test]
     fn no_public_verb_takes_a_closure_or_an_iterator() {
         // Bare, because `impl Fn` is only the shorthand: `restyle` took `impl Fn(Style) -> Style`
-        // in ticket 12's skeleton, and `fn probe<F: Fn(Style) -> Style>(&mut self, f: F)` is the
+        // in the skeleton, and `fn probe<F: Fn(Style) -> Style>(&mut self, f: F)` is the
         // same parameter written the other way. A `where F: Fn(…)` clause is a third spelling and is
         // why `bindings_of` reaches past the return type to pick the clause up.
         for (target, verbs) in verbs_in_source() {

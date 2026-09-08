@@ -118,7 +118,7 @@ pub(crate) fn batch() -> Vec<u8> {
     // one capability and no other — a wider use of it would be terminfo through a different door.
     out.push_str("\x1bP+q524742\x1b\\");
 
-    // The terminal's real default foreground and background (§5).
+    // The terminal's real default foreground and background.
     out.push_str("\x1b]10;?\x1b\\");
     out.push_str("\x1b]11;?\x1b\\");
 

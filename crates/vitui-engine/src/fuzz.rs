@@ -318,7 +318,7 @@ pub fn draw_sequence(data: &[u8]) {
                             clear: u16::from(input.byte()) << 3,
                             ul: (flags & 4 != 0).then(|| Color::indexed(input.byte())),
                             // The extended bit from both ends: a link put on, and — when the same
-                            // byte says so — taken off again, which is §3's *extended is a cost,
+                            // byte says so — taken off again, which is *extended is a cost,
                             // not a state* and the one path that puts a cell back inline.
                             link: (flags & 8 != 0).then_some(match flags & 16 {
                                 0 => crate::restyle::Link::Uri(URI),
@@ -328,7 +328,7 @@ pub fn draw_sequence(data: &[u8]) {
                         view.restyle(rect, &restyle);
                     }
                     // A clipped, offset child, which is the case a whole-layer verb cannot reach:
-                    // `child` may not widen a clip (§4), so a pair it bisects keeps the half inside
+                    // `child` may not widen a clip, so a pair it bisects keeps the half inside
                     // it and the composite is handed a broken pair it did not break.
                     _ => {
                         let rect = input.rect(w, h);
@@ -368,7 +368,7 @@ fn checkpoint(screen: &mut Screen, before: &Surface, data: &[u8], frame: u32) ->
     screen.present();
 
     // **There is no allowance here any more, and its absence is the assertion.** This used to skip
-    // every column at which the oracle's own picture violated §3's pairing invariant, because
+    // every column at which the oracle's own picture violated the pairing invariant, because
     // architecture ticket 20 was open and a frame whose layers handed the composite a broken pair
     // had no defined content there. Ticket 20 is answered: the drawing verbs' repair is bounded by
     // the surface rather than by the clip, so a layer surface cannot arrive at the composite
@@ -392,7 +392,7 @@ fn checkpoint(screen: &mut Screen, before: &Surface, data: &[u8], frame: u32) ->
         for x in 0..w {
             // **The allowance, turned the right way up.** Where this file used to skip a column at
             // which the oracle's own picture left a pair in halves, it now asserts that no such
-            // column exists. That is architecture ticket 20's answer read as a gate: the only way
+            // column exists. That is architecture the answer read as a gate: the only way
             // to build one was a `View::child` whose clip bisected a pair, and the drawing verbs'
             // repair is bounded by the surface rather than by the clip, so there is no longer a
             // way. Asserted of the **oracle** and not of the frame, because the oracle is the one

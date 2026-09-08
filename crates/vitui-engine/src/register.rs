@@ -778,7 +778,7 @@ mod tests {
         // is the session's lifecycle, 30 is what the user's own page is allowed to see and 31 is
         // what this process still holds while somebody else has the terminal; all four are
         // properties §14 had no way to state, and all four were added by the production backlog
-        // rather than by an implementation ticket. 30 is the sharpest case of it: §14's every
+        // rather than by an implementation ticket. 30 is the sharpest case of it: the every
         // instrument is a statement about a *frame*, and this is a statement about the bytes that go
         // out before there is one. 31 is the sharpest case of the *other* thing this end of the
         // register collects — a property no instrument inside this crate can reach at all, because

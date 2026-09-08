@@ -848,7 +848,7 @@ fn sticky_shaped(
     // the shared axis back into content coordinates and leaves the pinned one at the band's own
     // origin. Drawn by arithmetic into the caller's context instead, a band's overrun lands on
     // whatever is beside it, is overdrawn by that neighbour, and re-damages those cells on every
-    // steady frame for ever — `defective::arithmetic_band`, and it is spec §6's pinned-column
+    // steady frame for ever — `defective::arithmetic_band`, and it is the pinned-column
     // finding on the other axis.
     if shape.clips() {
         let mut clipped = cx.child(band);
@@ -962,10 +962,10 @@ pub fn scrollbar_into<I: Ink>(
         Orient::Horizontal => area.w,
     };
     let caps = opts.caps && length > CAPS;
-    // **The steppers, and they are the four arrow glyphs spec §17's freeze declares for this
+    // **The steppers, and they are the four arrow glyphs the freeze declares for this
     // component.** `tree` had to file an issue for declaring three it could not draw; a bar's two
     // ends are where the other four belong, and drawing them here rather than in [`bar`] leaves
-    // ticket 07's helper — and every number measured on it — untouched.
+    // The helper — and every number measured on it — untouched.
     let track = if caps {
         let theme = cx.theme();
         let paint = theme.paint(opts.cap);
@@ -982,7 +982,7 @@ pub fn scrollbar_into<I: Ink>(
             }
             // **Every row of the cap column, and not just the first.** A `scrollbar` is public and
             // takes an arbitrary rectangle: a horizontal bar two rows tall would otherwise leave
-            // rows `1..h` of its two end columns unwritten, which is spec §2's partition rule
+            // rows `1..h` of its two end columns unwritten, which is the partition rule
             // broken in the one place `scroll_area` never looks — `parts` only ever hands it a bar
             // one row tall.
             Orient::Horizontal => {
@@ -1406,7 +1406,7 @@ where
 
     // **The reveal the frame before asked for**, applied by the widget that owns the offset. A
     // delta and not a position, because the offset may have moved in between — and it is in the
-    // same content cells the extent is, which is the fourth of spec §9's four sites.
+    // same content cells the extent is, which is the fourth of the four sites.
     if let Some((dx, dy)) = cx.take_into_view(id) {
         st.offset = (st.offset.0 + dx, st.offset.1 + dy);
     }
@@ -1434,7 +1434,7 @@ where
         // policy value arrived this id was minted from the `sticky(` call site; it is minted from
         // *this* line now, which is a different `Location` and therefore **a different `Id`**.
         //
-        // A review of production 09's first draft caught a comment here claiming the value was
+        // A review of the first draft caught a comment here claiming the value was
         // unchanged. It is not, and what makes the change harmless is stated instead of assumed:
         // a band **declares nothing** (§9 — *one hit entry for all four*, because a band that were
         // a second scroll area would win the wheel from the body it is a header of), so the
@@ -1463,7 +1463,7 @@ where
     cx.with_id(id, |cx| {
         cx.scroll_scope(id, p.view, st.offset, max, |cx| {
             body(&mut *ink, cx);
-            // **The tail is the area's own, and every cell of it is written** (spec §2). The range
+            // **The tail is the area's own, and every cell of it is written**. The range
             // `[extent, offset + viewport)` is inside the rectangle, and the component that owns
             // the rectangle must write it — spec §9 assigns that line by name. It is not free and
             // the offset clamp is: `max` is recomputed every frame, and a shrunk extent leaves
@@ -1475,7 +1475,7 @@ where
     });
 
     // **The bars, and their span is the body's viewport against the declared extent.** The third of
-    // spec §9's four sites, and it reads the same two numbers the first two did.
+    // The four sites, and it reads the same two numbers the first two did.
     if !p.vbar.is_empty() {
         let mut o = opts.bar;
         o.bar.orient = Orient::Vertical;

@@ -211,7 +211,7 @@ fn resolve(caps: &Capabilities, c: Color, side: Side) -> Option<Rgb> {
             let p = c.payload();
             Some(Rgb::new((p >> 16) as u8, (p >> 8) as u8, p as u8))
         }
-        // Tag 3 is reserved and no builder produces one (spec §3). Refusing to mix is the same
+        // Tag 3 is reserved and no builder produces one. Refusing to mix is the same
         // answer the silent OSC 11 path gets, for the same reason: an invented channel is worse
         // than an unmixed cell.
         _ => None,
@@ -494,7 +494,7 @@ mod tests {
 
     #[test]
     fn the_first_sixteen_come_from_the_terminal_and_fall_back_to_xterms_own() {
-        // §10's silence asymmetry, as two assertions: OSC 4 silence *defaults* where OSC 11 silence
+        // The silence asymmetry, as two assertions: OSC 4 silence *defaults* where OSC 11 silence
         // *refuses*, because a themed palette is wrong in degree and a guessed background is wrong
         // in direction.
         assert_eq!(indexed(&silent(), 1), Rgb::new(0xcd, 0x00, 0x00));
@@ -551,8 +551,8 @@ mod tests {
 
     #[test]
     fn a_cell_with_a_default_background_is_left_alone_where_osc_11_was_silent() {
-        // §5's silent path, which is the tested one until something can declare a default
-        // background headless (architecture ticket 22).
+        // The silent path, which is the tested one until something can declare a default
+        // background headless.
         let mut t = Tables::new();
         let old = Style::new().fg(Color::rgb(200, 200, 200));
         assert_eq!(mixed(&silent(), Mix::darken(128), &mut t, old), old);

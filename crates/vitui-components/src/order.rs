@@ -1293,7 +1293,7 @@ pub fn policy_costs(len: usize, removed: Range<usize>, rounds: u32) -> (u128, u1
     (clear, drop, stash)
 }
 
-// ── §7's four measurements over the flatten index ────────────────────────────────────────────────
+// ── the four measurements over the flatten index ────────────────────────────────────────────────
 
 /// **A forest as a pre-order depth array**, which is the data side of the index.
 ///
@@ -1459,7 +1459,7 @@ pub fn row_at_costs(heights: &Heights, y: u32, rounds: u32) -> (f64, f64) {
 
     // **A thousand calls inside one bracket, and the *minimum* of `rounds` such brackets.** One
     // call is under twenty nanoseconds and `Instant::now()` costs about as much, so a bracket
-    // around a single call measures the clock. That is not a nicety here: §7's own pair is 0.019 µs
+    // around a single call measures the clock. That is not a nicety here: the pair is 0.019 µs
     // against 0.0006, and both are below the resolution of the obvious instrument.
     const CALLS: u32 = 1_000;
     let mut searched = f64::MAX;
@@ -1603,11 +1603,11 @@ mod tests {
             );
         }
         // And the record really is four scalars and no `Id`. **Eight bytes**, which is spec §7's
-        // own figure and components ticket 17's criterion 1 — see [`ENTRY_BYTES`] for why it was
+        // own figure and criterion 1 — see [`ENTRY_BYTES`] for why it was
         // sixteen until that ticket asked.
         assert_eq!(ENTRY_BYTES, 8, "spec §7: `{{ node, depth, flags, h }}`");
         assert_eq!(size_of::<Entry>(), ENTRY_BYTES);
-        // §7's *the index grows 57% (7 → 11 MB at a million rows)*, to the megabyte.
+        // *the index grows 57% (7 → 11 MB at a million rows)*, to the megabyte.
         let (index, with_heights) = index_bytes(1_000_000);
         assert_eq!((index, with_heights), (8_000_000, 12_000_000));
     }
@@ -2061,7 +2061,7 @@ mod tests {
     #[test]
     fn depth_finds_the_interval_a_collapse_removes_without_touching_the_forest() {
         // Row 0 is a leaf, row 1 is the folded node, and four subtrees of 87 380 hang under it —
-        // `crate::forest::Forest::folded`'s own shape, which is §21's 349 524 exactly.
+        // `crate::forest::Forest::folded`'s own shape, which is the 349 524 exactly.
         let mut forest = vec![0u16, 0];
         for _ in 0..4 {
             forest.push(1);

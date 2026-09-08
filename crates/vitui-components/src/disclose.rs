@@ -64,7 +64,7 @@ use crate::text::{FitOpts, Justify, fit_into};
 pub const MEMBERS: &[&str] = &["collapsible"];
 
 // ═════════════════════════════════════════════════════════════════════════════════════════════════
-// §8's three-row split, as a value
+// The three-row split, as a value
 // ═════════════════════════════════════════════════════════════════════════════════════════════════
 
 /// **Who performs the collapse.** The middle column.
@@ -695,7 +695,7 @@ where
     S: FnMut(u16) -> u16,
     B: FnMut(&mut I, &mut Ctx<'_, '_>),
 {
-    // **The id, taken outside every closure** (ADR 0027).
+    // **The id, taken outside every closure**.
     let id = cx.id();
     let now = cx.now();
     let (head, below) = split_head(rect);
@@ -752,7 +752,7 @@ where
             open: want,
             applied: opts.collapses.applies(),
         });
-        // §1's rule 4 and the runtime's own convention: *a component sets it to say its own value
+        // rule 4 and the runtime's own convention: *a component sets it to say its own value
         // changed; nothing here can know that*.
         resp.changed = true;
     }
@@ -783,7 +783,7 @@ where
     }
 
     // **The header is a partition of its row**: one cell of chevron, the title in the rest. The face
-    // is resolved *before* a cell is written and never restyled after (ADR 0026).
+    // is resolved *before* a cell is written and never restyled after.
     let theme = cx.theme();
     let chevron = theme.glyph(if st.open() {
         Glyph::ArrowDown
@@ -1068,7 +1068,7 @@ impl Inplace {
 //
 // **Every number this module is gated or reported on has one home and it is here** — the runtime's
 // ledger rule (`crates/vitui-runtime/src/ledger.rs`), inherited by `crate::scroll` and
-// `crate::state`. §8's own screen is `crate::accordion`'s; what is priced here is the machine.
+// `crate::state`. The screen is `crate::accordion`'s; what is priced here is the machine.
 
 /// The fixture section's width. Sixty columns, wide enough that a title is not the subject.
 pub const W: u16 = 60;
@@ -1266,7 +1266,7 @@ mod tests {
                 *gesture = d.gesture;
                 *wake = d.wake;
                 // **The tail, and it is the caller's** — every row of the rectangle below the
-                // section is inside it and no section owns it (§2). Spec §9 assigns that line by
+                // section is inside it and no section owns it. Spec §9 assigns that line by
                 // name: *the component that owns the rectangle must write it.*
                 let from = match tail {
                     Tail::Fresh => d.used,
@@ -1468,7 +1468,7 @@ mod tests {
         }
     }
 
-    // ── criterion 2: what it costs, and neither of §8's two numbers ──────────────────────────────
+    // ── criterion 2: what it costs, and neither of the two numbers ──────────────────────────────
 
     /// **A `Collapse` is four bytes live and forty-eight with the slot, and `5 / 72` is
     /// neither.**
@@ -1493,7 +1493,7 @@ mod tests {
         assert_eq!(COLLAPSE_BYTES, LIVE_BYTES + TWEEN_BYTES + PADDING_BYTES);
         assert_eq!(COLLAPSE_BYTES, 48);
 
-        // §8's pair, and both halves of the disagreement.
+        // The pair, and both halves of the disagreement.
         assert_ne!(LIVE_BYTES, SPEC_LIVE_BYTES);
         assert_ne!(COLLAPSE_BYTES, SPEC_TWEEN_BYTES);
 
@@ -1588,7 +1588,7 @@ mod tests {
         );
         assert_eq!(heights.iter().copied().max(), Some(10));
 
-        // **§8's own fourteen is a cadence and not a count**, and the relation under it is what is
+        // **The fourteen is a cadence and not a count**, and the relation under it is what is
         // gated: the tween is quiet exactly at `start + dur`, whatever the cadence.
         let mut c = Collapse::open_at(10);
         c.set(now, false, 0, DUR);
@@ -1692,7 +1692,7 @@ mod tests {
         assert_eq!(f.st.height(), 0);
         assert_eq!(f.wake, None, "the screen may sleep");
         // **A collapsing body is still drawn, and that is the point of the mid-transition case**:
-        // §8's *halfway down a collapse, a body that does not cull declares 273 ring entries against
+        // *halfway down a collapse, a body that does not cull declares 273 ring entries against
         // 247*. What is never called is a body whose height has reached zero, and every one of the
         // shrinking frames called it exactly once.
         assert_eq!(

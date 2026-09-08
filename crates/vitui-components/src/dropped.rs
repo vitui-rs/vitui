@@ -1155,7 +1155,7 @@ mod tests {
             "the first row it is wrong about is the first row the content no longer reaches"
         );
 
-        // **§21's refused spelling, as a number.** Played into a rectangle the shrink has already
+        // **The refused spelling, as a number.** Played into a rectangle the shrink has already
         // resized, the same refusal is clean: a fresh rectangle has nowhere for the residue to
         // survive, so the arm that leaves fifteen rows standing draws the same screen as the rule.
         stale_by_resize().assert_clean(
