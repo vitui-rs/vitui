@@ -129,7 +129,7 @@ impl Paint {
     // **The caller is the `Ctx` and it does not exist yet.** This is the seam — a component
     // writes a `Repaint` over roles and the crate lowers it — and until the draw context lands there
     // is nothing above it to call. Made `pub(crate)` rather than `pub` deliberately: a public `lower`
-    // would hand a component an `engine::Restyle` with `Color`s in it, which is the thing ADR 0018
+    // would hand a component an `engine::Restyle` with `Color`s in it, which is the thing the role rule
     // keeps out of a component's hands.
     #[allow(dead_code)]
     pub(crate) const fn style(self) -> Style {
@@ -140,11 +140,11 @@ impl Paint {
 // ── the `Link` newtype is not here, and it has nothing left to wrap ──────────────────────────────
 //
 // It was `Link(LinkId)`, a runtime newtype over the engine's opaque handle, and its whole reason was
-// *no `u32` crosses the seam*. Engine architecture ticket 21 put the URI at the drawing verb, so the
+// *no `u32` crosses the seam*. The URI is at the drawing verb, so the
 // engine's own `Link<'a>` is `None | Uri(&str)` — there is no handle, no number, and nothing for a
 // newtype to hide. Wrapping it would only mean a component could not write the URI it already has.
 //
-// So the engine's type is re-exported here under the name this crate's own spec §3 uses for it. The
+// So the engine's type is re-exported here under the name this crate uses for it. The
 // name was taken by the newtype and this frees it, which is why `Hyperlink<'a>` — the sanctioned
 // fallback spelling — is not needed.
 pub use vitui_engine::Link;
@@ -630,7 +630,7 @@ impl Distinction {
     }
 }
 
-// `Interest` used to be defined here, and it is `ctx`'s — spec §4 puts it there, and ticket 08 grew
+// `Interest` used to be defined here, and it is `ctx`'s — that is where it belongs, and it grew
 // it from two bits to five plus `tracking()`. Re-exported rather than redefined, because **two types
 // with one name across a module boundary is the review finding `GlyphSet` already carries**, and
 // because `hover_interest` returns one: a theme answers *what should be declared*, and what a
@@ -903,7 +903,7 @@ impl<'a> Repaint<'a> {
     // **The caller is the `Ctx` and it does not exist yet.** This is the seam — a component
     // writes a `Repaint` over roles and the crate lowers it — and until the draw context lands there
     // is nothing above it to call. Made `pub(crate)` rather than `pub` deliberately: a public `lower`
-    // would hand a component an `engine::Restyle` with `Color`s in it, which is the thing ADR 0018
+    // would hand a component an `engine::Restyle` with `Color`s in it, which is the thing the role rule
     // keeps out of a component's hands.
     #[allow(dead_code)]
     pub(crate) fn lower(self, theme: &Theme) -> Restyle<'a> {
@@ -1894,7 +1894,7 @@ mod tests {
     fn the_table_is_twenty_entries_and_the_distinction_set_is_nine() {
         assert_eq!(Glyph::ALL.len(), 20);
         assert_eq!(Distinction::ALL.len(), 9);
-        // No entry appears twice, which the four arrows make a live risk: the steppers and §7's
+        // No entry appears twice, which the four arrows make a live risk: the steppers and the
         // disclosure markers are one family, and entering them twice under two names is a collapse
         // rather than two entries.
         let mut spelled: Vec<&'static str> = Glyph::ALL

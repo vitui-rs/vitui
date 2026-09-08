@@ -845,7 +845,7 @@ fn observe(watch: &Watch, restore: fn(), poll: Duration, generation: u64) {
 // comment — `cargo test --release … --nocapture`. Impl 26 went to re-measure the ledger against the
 // shipped engine and could not run a single one of those commands.
 //
-// This is the shape engine ticket 16 met twice and impl 25 met once more, arriving through a third
+// This is a shape met three times, arriving through a third
 // door: **a check that is weaker than the gate is not a check** — and here the *gate* was fine and
 // the thing nobody ran was the instrument. It is the same argument as `.gitlab-ci.yml`'s
 // `cargo clippy -p vitui-engine --features fuzz` line, which exists because a feature-on,

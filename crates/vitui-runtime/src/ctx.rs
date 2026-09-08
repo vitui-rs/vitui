@@ -2038,7 +2038,7 @@ impl<'f, 'v> Ctx<'f, 'v> {
     // through `LayerStack::view`, so the call that minted and the type that draws could not be held
     // at once, by construction rather than by oversight.
     //
-    // Engine architecture ticket 21 answered it by deleting the mint. There is no handle to get, so
+    // It was answered by deleting the mint. There is no handle to get, so
     // there is no verb to put anywhere: a component writes `Repaint { link: Some(Link::Uri(uri)) }`
     // and `Ctx::restyle` lowers it, which is a field a component was already writing rather than a
     // borrow it could not obtain. `Driver::link` went with `Screen::link` for the same reason.
@@ -2097,7 +2097,7 @@ impl<'f, 'v> Ctx<'f, 'v> {
             // **A reborrow and not a child.** Narrowing is not part of what this verb does: it
             // pushes an id, and the rectangle the caller draws into is unchanged. Written
             // `self.view.child(self.area())` it *was* the identity at offset zero and a clip of
-            // nothing anywhere else — runtime architecture issue 31.
+            // nothing anywhere else.
             let mut inner = self.reborrow();
             f(&mut inner)
         };
@@ -2170,7 +2170,7 @@ impl<'f, 'v> Ctx<'f, 'v> {
         let r = {
             // A reborrow, for [`Ctx::with_id`]'s reason: a scope narrows neither the rectangle nor
             // the identity, and `child(self.area())` narrowed to content rows `0..h` inside a
-            // scroll scope. Issue 31 found it on `with_key` and this is the same two lines.
+            // scroll scope. It was found on `with_key` and this is the same two lines.
             let mut inner = self.reborrow();
             f(&mut inner)
         };
@@ -2263,7 +2263,7 @@ impl<'f, 'v> Ctx<'f, 'v> {
             // eight-row view, `-5..3` and **0 cells** written at content row 5. Nothing saw it
             // because no consumer had drawn a scrolled window yet — `crate::scroll`'s own tests all
             // play at offset 0, and the wheel harness one crate up measures where the offset ended
-            // up rather than what landed on the screen. Found by components ticket 12, the first
+            // up rather than what landed on the screen. Found by a components gate, the first
             // virtualised collection.
             let mut inner = clipped.scrolled(-offset.0, -offset.1);
             f(&mut inner)
@@ -2549,7 +2549,7 @@ impl<'f, 'v> Ctx<'f, 'v> {
         // Root coordinates, because `end` runs after every `Ctx` is dropped and a widget's own
         // coordinates mean nothing to it by then.
         //
-        // **From `origin` and not from `rect`**, which is the correction ticket 15 brought with it:
+        // **From `origin` and not from `rect`**, which is the correction that came with it:
         // `rect` is this context's rectangle in its *parent's* coordinates, so adding one of them
         // was right at the root and at one level down, and wrong at every level after that — a
         // widget two containers deep had its hover painted at the offset of the inner container
@@ -3441,7 +3441,7 @@ impl Driver {
             self.env.now = Instant::now();
         }
 
-        // **The batch split**, and it is the whole of ADR 0016 in three lines: take events from the
+        // **The batch split**, and it is the whole of *one routing edge a frame* in three lines: take events from the
         // front until one of them is a routing edge, take that edge too, and leave the rest for the
         // next frame. Moves, wheel notches and ordinary keys are not edges and all of them fold
         // into this one frame at 5.0 ns each.
@@ -4035,7 +4035,7 @@ mod routing_tests {
             }
         });
         assert_eq!(frames, 1, "both events, one frame");
-        // **Ticket 12 corrected the second half of this gate.** Ticket 11 had the widget take the
+        // **The second half of this gate was corrected.** An earlier version had the widget take the
         // `Tab` and decline it, because nothing yet consumed one; the ring now withholds it, so a
         // widget cannot drain the key that is about to move the focus off it.
         assert_eq!(got, vec![KeyCode::Char('a')], "the Tab was never offered");
@@ -4471,7 +4471,7 @@ mod tests {
     /// failure because `cargo test` has no per-test timeout.
     #[test]
     fn a_claim_terminates_rather_than_spinning() {
-        // **The probe is bounded**, so a claim is a value however wrong the stamp is. Since ticket 09
+        // **The probe is bounded**, so a claim is a value however wrong the stamp is. Since the sweep
         // gave the table growth, a *full* table is no longer reachable — which is why this asserts
         // termination under load rather than a `None` from a full one, and why the first version of
         // this test stopped being right the moment growth landed.
@@ -4559,7 +4559,7 @@ mod tests {
         let d = driver();
         let (grab, origin, focus, click) = d.inspect().id_keyed_facts();
         // All absent on a fresh frame; the point of the gate is the arity and the naming, since the
-        // sweep of three of them is ticket 09's.
+        // sweep of three of them is the identity sweep's.
         assert_eq!((grab, origin, focus, click), (false, false, false, false));
     }
 

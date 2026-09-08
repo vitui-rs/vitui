@@ -552,12 +552,12 @@ fn the_scroll_region_over_spec_8s_two_arms() {
         arm_totals.push((flat, total));
     }
 
-    // **The finding, as a gate.** §8 has the two arms 24x apart after the filter and one of them
+    // **The finding, as a gate.** The two arms are 24x apart after the filter and one of them
     // refused by the pre-pass. Here they are *equal* on both, and that is not a defect: the two arms
     // of a list that is blank past its label produce the same screen and leave the same mirror, so
     // nothing distinguishes them for either mechanism — only for the damage structure, where the
     // cleared arm is 13.7x more span bytes (72 504 against 5 304, printed by
-    // `the_equality_filter_reproduces_spec_8s_table`) and 15x more damaged cells. Filed against §8,
+    // `the_equality_filter_reproduces_spec_8s_table`) and 15x more damaged cells. Filed as a finding,
     // and what the contract on `Surface` says had to change with it.
     assert_eq!(
         arm_totals[0], arm_totals[1],
@@ -1099,7 +1099,7 @@ fn what_the_reference_compositor_costs_against_the_fast_path() {
 }
 
 // ---------------------------------------------------------------------------------------------
-// Ticket 11 — the pairing invariant, over the composited frame rather than over one surface.
+// The pairing invariant, over the composited frame rather than over one surface.
 // ---------------------------------------------------------------------------------------------
 
 /// The gate, and an equality against the reference compositor rather than a hand-written
@@ -1241,7 +1241,7 @@ fn the_pairing_invariant_survives_twelve_bisecting_layers_over_cjk() {
 }
 
 // ---------------------------------------------------------------------------------------------
-// Ticket 12 — the atomic glyph rule, over the composited frame and against the oracle.
+// The atomic glyph rule, over the composited frame and against the oracle.
 // ---------------------------------------------------------------------------------------------
 
 /// The gate: twelve **operators** bisecting a screen of mixed CJK, walking a column a frame.
@@ -1322,7 +1322,7 @@ fn the_atomic_glyph_rule_survives_twelve_bisecting_operators_over_cjk() {
     h.present();
     assert_pairing_holds(h.screen.frame());
     assert_pairs_share_one_style(&h, 0);
-    // The operators ran. Without this the whole gate passes at `ColorDepth::None`, where §5 skips
+    // The operators ran. Without this the whole gate passes at `ColorDepth::None`, which skips
     // them and every assertion below is about a screen nothing recoloured. A floor rather than an
     // exact count, because the number belongs to the fixture's rectangles and would be edited every
     // time one of them moved — but a floor in the thousands cannot be met by an accident.
@@ -2388,7 +2388,7 @@ fn a_default_background_is_mixed_only_where_the_terminal_said_what_it_is() {
             .layers()
             .view(id)
             .expect("just added")
-            // **Explicit foreground, default background.** §5 refuses the whole cell when *either*
+            // **Explicit foreground, default background.** The whole cell is refused when *either*
             // channel is a default the terminal did not name, so a cell default on both would be
             // left alone in the answered arm too — for a reason that is about the foreground, and
             // this gate is about the background.
@@ -3388,7 +3388,7 @@ fn what_pack_costs_at_four_densities() {
         let mut packet = crate::packet::Packet::new();
         let mut generation = 0u64;
         // A pack of the whole screen per iteration, and the tables are warm: every handle the cells
-        // name already exists, which is the state register entry #6 is about.
+        // name already exists, which is the state that row is about.
         let mut once = || {
             generation += 1;
             packet.pack_cells(
@@ -3687,7 +3687,7 @@ fn the_packet_accessor_answers_by_identity_or_not_at_all() {
 // ---------------------------------------------------------------------------------------------
 // The frame clock, and an idle that is zero.
 //
-// The gate is on `wait` rather than on `present` — ADR 0004 — so every gate below drives `wait`
+// The gate is on `wait` rather than on `present`, so every gate below drives `wait`
 // and reads what it answered. Two of them are counts and the rest are reports, which is the original's
 // split: a wake-up latency is a distribution on a shared runner and cannot be a gate, while zero
 // wakeups over an idle window is a number that does not move.
@@ -4575,7 +4575,7 @@ fn the_parser_survives_five_adversarial_splits() {
 // `set_mouse`, the negotiation and the caret.
 //
 // Two counts and one absence. Both counts are about the same obligation read from two ends —
-// *idempotent, and free when the value has not changed* — and the absence is ADR 0005's: the
+// *idempotent, and free when the value has not changed* — and the absence is the caret rule's: the
 // terminal blinks the caret, so nothing here does.
 // ---------------------------------------------------------------------------------------------
 
@@ -5298,7 +5298,7 @@ fn escaped(out: &str) -> String {
 // ---------------------------------------------------------------------------------------------
 // The terminal leaves and comes back: suspend, resume, and the two cases neither of them is for.
 //
-// Production ticket 07, and *the terminal leaves*. The three cases §15 filed as fog are
+// *The terminal leaves.* The three cases left open are
 // not the same shape and only one of them is a pair of verbs:
 //
 //   1. **The application gives the terminal up on purpose** — Ctrl-Z, or an editor in the same
@@ -6280,7 +6280,7 @@ fn the_restoration_stops_the_renderer_before_the_terminal_is_given_back() {
 // ---------------------------------------------------------------------------------------------
 // The unblockable app thread: the two runtime rungs, and the negative corpus's runtime companions.
 //
-// Spec §11, and register entries #18 and #22. Four of the five rungs cost nothing and are checked by
+// The observer and overrun gates. Four of the five rungs cost nothing and are checked by
 // the compiler — the paired `compile_fail` doctests on `Screen`, `View` and `Permit`, and the absence
 // of any blocking accessor on `Slot` — so what is left here is what runs: the in-loop detector, the
 // escape hatch, and the observer thread whose sanction ends the process.
@@ -6288,7 +6288,7 @@ fn the_restoration_stops_the_renderer_before_the_terminal_is_given_back() {
 // **No gate here asserts a scheduler property.** A test that spends a realistic iteration and then
 // insists the operating system gave the thread back inside 8.3 ms is a flaky test wearing a
 // budget's clothes,
-// which is exactly what §14 refuses. So the numbers live in `crate::perf`'s unit tests, where the
+// which is exactly what is refused. So the numbers live in `crate::perf`'s unit tests, where the
 // instants are arguments rather than measurements, and what is driven through the public API here is
 // the *wiring*: that the iteration begins at `wait` and ends at `present`, on every path out of it,
 // with a threshold taken from the rate the application declared.
@@ -6460,7 +6460,7 @@ fn a_permit_that_ended_does_not_excuse_what_came_after_it() {
 }
 
 // ---------------------------------------------------------------------------------------------
-// A report may not be failed by a timing, and the watchdog is what was doing it (production 11).
+// A report may not be failed by a timing, and the watchdog was doing it.
 // ---------------------------------------------------------------------------------------------
 
 /// **What a timing report declares, and the string says why rather than merely that.**

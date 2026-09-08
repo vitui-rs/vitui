@@ -490,8 +490,8 @@ impl Engine {
             _ => self.config.size,
         };
         // **The one thing that can wake the app thread**, minted here so that both halves of the
-        // split — `Screen`'s `wait` and `WakeHandle`'s `post` — are the same source. ADR 0003's
-        // split handles are internal after ticket 12: what stays public is `Screen` (`!Send`) and
+        // split — `Screen`'s `wait` and `WakeHandle`'s `post` — are the same source. The
+        // split handles are internal: what stays public is `Screen` (`!Send`) and
         // `WakeHandle` (`Send + Sync + Clone`, two verbs).
         let wakes = Arc::new(WakeSource::new());
         let terminal_size = Arc::new(TerminalSize::new((w, h)));
@@ -606,7 +606,7 @@ impl Engine {
         // a test binary that attaches hundreds of times would otherwise carry a thread per attach.
         //
         // And only in a debug build: the words this thread would print are absent from a release
-        // binary altogether, which is register entry #18 and what `scripts/observer-gate.sh` reads a
+        // binary altogether, which is the observer gate and what `scripts/observer-gate.sh` reads a
         // binary to check.
         #[cfg(debug_assertions)]
         if self.config.clock == Clock::System {
@@ -1238,7 +1238,7 @@ impl Screen {
     pub fn wait(&mut self) -> Wake {
         let wake = self.wakes.wait(self.frame_clock.next_allowed());
         // **After it returns, and this is the one place it happens.** The app thread's iteration is
-        // whatever it does between coming back from here and finishing a `present`, and spec §11's
+        // whatever it does between coming back from here and finishing a `present`, and the
         // offence is that interval overrunning a frame budget — whatever caused it. `Perf::enter` is
         // not merely unforgettable, it is uncallable: nothing outside this crate can reach it, so a
         // runtime author cannot omit it, reorder it, or measure the wrong span with it.
@@ -1815,7 +1815,7 @@ impl Screen {
                 self.wakes.owe_frame();
                 return self.not_submitted(false);
             }
-            // Unreachable at a pool of two, and register entry #8 is the count that says so over
+            // Unreachable at a pool of two, and the starvation counter says so over
             // 10 000 cycles. Answering with a frame nobody asked for would be worse than answering
             // with nothing — but a caller retrying an unsubmitted frame would then turn on the spot,
             // and a hang is worse than a failure. So a debug build says which invariant broke and a
@@ -2054,7 +2054,7 @@ impl Screen {
 
     // ── `Screen::link` is not here, and it is not missing ────────────────────────────────────────
     //
-    // It minted a `LinkId` and was the only mint, which is what architecture ticket 21 deleted: the
+    // It minted a `LinkId` and was the only mint, and that mint was deleted: the
     // URI travels at the drawing verb now — `Restyle { link: Some(Link::Uri(uri)), .. }` — and the
     // `View` interns it into whatever handle space it draws into, exactly as `text` has always done
     // with a grapheme cluster.
@@ -2481,7 +2481,7 @@ fn render_loop(mailbox: &Mailbox, wakes: &WakeSource, renderer: &mut Renderer) {
 
     let _guard = Guard(mailbox, wakes);
     while let Some(packet) = mailbox.take() {
-        // **The take is what frees the renderer, not the write** (spec §7, and it is what fixes the
+        // **The take is what frees the renderer, not the write** (and it is what fixes the
         // pool at two). So the app thread is told here, before a 200 ms write rather than after it,
         // and the composite of the next frame overlaps this one's bytes.
         wakes.mark_renderer_free();
@@ -3161,7 +3161,7 @@ mod tests {
                 "auto-wrap is switched off on the page this session owns"
             );
 
-            // And **once**, not once per frame: ten bytes of every frame is what §8 prices this at.
+            // And **once**, not once per frame: ten bytes of every frame is what this costs.
             let id = screen
                 .layers()
                 .add_content(0, crate::geom::Rect::new(0, 0, 8, 1), true);

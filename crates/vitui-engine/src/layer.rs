@@ -1478,7 +1478,7 @@ mod tests {
     #[test]
     fn a_layer_is_forty_bytes_so_that_the_ordered_scan_stays_cheap() {
         // The reason `Kind` boxes the surface. A `Surface` inline would put every layer on its own
-        // cache line, and §5 chose a contiguous `Vec` precisely because the dominant operation is
+        // cache line, and the stack is a contiguous `Vec` precisely because the dominant operation is
         // a traversal of the whole stack. The number is asserted rather than argued because it is
         // the only thing the decision rests on, and adding one `Vec` to `Layer` would undo it
         // silently.
@@ -1602,7 +1602,7 @@ mod tests {
 
     #[test]
     fn a_shadow_falling_off_the_edge_is_the_same_intersection() {
-        // An operator hanging off two edges at once. It paints nothing until ticket 12; what is
+        // An operator hanging off two edges at once. It painted nothing at first; what is
         // asserted here is that placing it is not a panic and that it damages only what is on
         // screen.
         let mut stack = LayerStack::new();
@@ -1651,7 +1651,7 @@ mod tests {
     #[test]
     fn an_opaque_layer_drawn_only_at_its_border_erases_what_is_under_it() {
         // The other half of the same decision: `opaque` is a promise the caller makes, and this is
-        // what it costs when it is made carelessly. Spec §5 names it as the real degenerate case.
+        // what it costs when it is made carelessly: the real degenerate case.
         let mut stack = LayerStack::new();
         let low = stack.add_content(0, Rect::new(0, 0, 4, 1), true);
         let high = stack.add_content(1, Rect::new(0, 0, 4, 1), true);
@@ -1948,7 +1948,7 @@ mod tests {
         );
     }
 
-    // --- ticket 12: the operator layer -------------------------------------------------------
+    // --- the operator layer -------------------------------------------------------
     //
     // What a `Mix` does to a style word is `crate::mix`'s and is tested there. What is here is
     // **where it lands**: which cells, in what order, and at which column it stops.
@@ -2040,7 +2040,7 @@ mod tests {
 
     #[test]
     fn two_overlapping_operators_at_a_half_leave_the_overlap_at_a_quarter() {
-        // §5: **operators compound and are therefore not idempotent**, which is visually right and
+        // **Operators compound and are therefore not idempotent**, which is visually right and
         // is why the order of operators among themselves matters and not only their order relative
         // to content. A quarter of 255 truncates to 63.
         let (mut stack, mut frame) = one_white_row(8, "");
@@ -2065,7 +2065,7 @@ mod tests {
 
     #[test]
     fn an_identity_operator_marks_no_damage_and_never_reaches_a_cell() {
-        // §5: `amount == 0` is skipped entirely and the identity never reaches a cell.
+        // `amount == 0` is skipped entirely and the identity never reaches a cell.
         let mut stack = LayerStack::new();
         let op = stack.add_operator(0, Rect::new(0, 0, 4, 1), Mix::darken(0));
         let mut frame = Surface::new(4, 1);
@@ -2085,7 +2085,7 @@ mod tests {
 
     #[test]
     fn at_no_colour_an_operator_layer_is_skipped_outright() {
-        // §10: a `Mix` provably changes no byte on the wire when there is no colour on it. Worth
+        // A `Mix` provably changes no byte on the wire when there is no colour on it. Worth
         // 78.2 us of the 107 us worst screen, and asserted as an **equality on the picture plus a
         // count on the table** — the second half is what says the operator did not run, where the
         // first alone would only say it was invisible.
@@ -2130,7 +2130,7 @@ mod tests {
     #[test]
     fn an_operator_over_a_default_background_is_left_alone_where_osc_11_was_silent() {
         // The silent path: a shadow clipped to the explicitly-coloured area is a visible
-        // imperfection, and an inverted shadow is a bug. Ticket 16 supplies the capability; until
+        // imperfection, and an inverted shadow is a bug. Detection supplies the capability; until
         // something can declare one headless this is the tested path.
         let mut stack = LayerStack::new();
         let base = stack.add_content(0, Rect::new(0, 0, 4, 1), true);
@@ -2226,7 +2226,7 @@ mod tests {
         );
 
         // And a second frame over the same content is a settled operator: the entry it needs is
-        // already there. (Register entry #7's *fading* half is impl 08's, with the sweep.)
+        // already there. (The *fading* half belongs with the sweep.)
         let settled = stack.tables().exts.len();
         stack.composite_run(
             &mut frame,
@@ -2256,7 +2256,7 @@ mod tests {
 
     #[test]
     fn a_left_edge_landing_on_a_continuation_leaves_that_glyph_alone() {
-        // §5: **a glyph is atomic and belongs to its head cell.** The pair occupies columns 2 and
+        // **A glyph is atomic and belongs to its head cell.** The pair occupies columns 2 and
         // 3; the rectangle covers 3, 4 and 5, so it starts on the continuation — the head is
         // outside, neither half moves, and only two of the three columns change. Snapping *outward*
         // instead would have darkened column 2, which is invisible for a shadow and floods a column
@@ -3025,7 +3025,7 @@ mod tests {
 
     #[test]
     fn a_link_on_a_standalone_surface_is_minted_there_and_renumbered_at_donation() {
-        // **Architecture ticket 21, as the property that replaced a holding position.** This test
+        // **The property that replaced a holding position.** This test
         // used to pin the opposite: `Screen::link` was the only mint, so a hyperlink on a standalone
         // surface arrived with the *stack's* id on a surface whose own link table was empty, and
         // `remapped` passed it through because clearing would have deleted a hyperlink silently.
@@ -3162,7 +3162,7 @@ mod tests {
         );
     }
 
-    // --- ticket 11: the wide-glyph hazard at a layer edge -----------------------------------
+    // --- the wide-glyph hazard at a layer edge -----------------------------------
 
     #[test]
     fn a_layer_hanging_off_the_left_edge_leaves_no_bare_continuation() {
@@ -3427,7 +3427,7 @@ mod tests {
                 "the damage-tracked frame and the reference compositor disagree at ({x}, 0)"
             );
         }
-        // What this test could not assert before architecture ticket 20, and the reason it is
+        // What this test could not assert before the repair was bounded by the surface, and the reason it is
         // kept: the head at column 3 lost its continuation to the child's write and was blanked
         // with it, inside the layer's own surface, before either compositor saw the row.
         assert_pairing_holds(&frame);

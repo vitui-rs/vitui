@@ -277,7 +277,7 @@ mod tests {
 
     // ---- the four corners --------------------------------------------------------------------
     //
-    // The gate ticket 07 asks for: `restyle` rewrites what the descriptor names and preserves every
+    // The gate: `restyle` rewrites what the descriptor names and preserves every
     // channel it does not, asserted on all four corners of the extended bit.
 
     #[test]

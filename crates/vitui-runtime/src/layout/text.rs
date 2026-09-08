@@ -209,7 +209,7 @@ impl<'a> Iterator for Wrap<'a> {
         // `["ab", "cde fg"]` where `["ab cde", "fg"]` is the greedy answer. All four break
         // characters are one byte, and the loop breaks at the first cluster that does not fit, so
         // the only non-fitting space it can have seen is the adjacent one — which is why `end + 1`
-        // is exact rather than slack. Found by components ticket 23, whose wrap index over a cluster
+        // is exact rather than slack. Found by a wrap index over a cluster
         // corpus was drawing three rows where two were needed.
         if last_break > 0 && last_break <= end + 1 {
             let (line, rest) = self.rest.split_at(last_break);

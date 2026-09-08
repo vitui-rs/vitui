@@ -454,7 +454,7 @@ mod tests {
 
     #[test]
     fn the_packet_carries_the_extended_style_its_cells_name() {
-        // ADR 0011: the render thread holds no handle into an engine table, so every handle a cell
+        // The render thread holds no handle into an engine table, so every handle a cell
         // carries is resolved at pack time into a side table the packet owns — keyed by the handle,
         // never written into the cell.
         let mut p = Packet::new();

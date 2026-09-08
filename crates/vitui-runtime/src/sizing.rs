@@ -565,7 +565,7 @@ mod tests {
         // the wrap fixed the same prose and the same one-column gutter disagree at **15 of 87**
         // widths against **43 of 87**: twenty-eight of the forty-three were the wrap and not the
         // gutter. The claim is unchanged — *broad rather than a single boundary width* — and 15
-        // against a floor of 11 is the headroom. Found by components ticket 23.
+        // against a floor of 11 is the headroom.
         assert!(
             found.disagreements.len() * 8 > found.widths as usize,
             "the drift is broad rather than a single boundary width: {} of {}",

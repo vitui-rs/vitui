@@ -162,7 +162,7 @@ pub use theme::{Scheme, Themes};
 
 // **The engine's vocabulary, re-exported so a crate that may not name `vitui_engine` can name it.**
 //
-// Runtime architecture issue 22. The rule is checkable and is gated in `crate::line` in both
+// The rule is checkable and is gated in `crate::line` in both
 // directions: *every engine type this crate's public surface names is reachable through this crate*,
 // together with every type needed to **construct** one that the surface accepts. `Driver::post_mouse`
 // takes a `Mouse`, so `Mouse`'s field types are here too — a name a consumer can write but not build
@@ -191,7 +191,7 @@ pub use theme::{Scheme, Themes};
 // not theoretical. The only headless door above this crate was `Driver::headless`, whose tier is
 // hard-coded to truecolor and whose sink is a `Vec` moved into the engine and never returned — so a
 // crate on the far side could neither read a byte the engine wrote nor resolve a driver at any other
-// tier, and components spec §14 asks for both by number. Runtime architecture issue 34.
+// tier, and the media family asks for both by number.
 pub use vitui_engine::{
     AttachError, Button, Buttons, Capabilities, Clock, ColorDepth, Config, Cursor, CursorShape,
     Event, InputConfig, Mods, Mouse, MouseKind, MouseMode, Output, Overrides, Permit, Presented,

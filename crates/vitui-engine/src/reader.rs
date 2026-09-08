@@ -79,7 +79,7 @@ pub(crate) fn run(wiring: Wiring) {
 
     while let Ok(bytes) = reads.recv() {
         // **The size is re-sampled here**, on a thread that just woke anyway, and the store is the
-        // one packed word spec §7 makes authoritative. See `resize` below for what this does not
+        // one packed word that is authoritative. See `resize` below for what this does not
         // catch and why the alternative was not available.
         let before = size.get();
         if let Some(now) = measure()

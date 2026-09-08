@@ -314,7 +314,7 @@ mod tests {
             let mut h = Harness::with_overrides(W, H, scene.overrides());
             scene.build(&mut h.screen);
             // Counted from **before** the first present, because the mixed results the first
-            // composite mints are 96 of the 96 spec §3 attributes to the settled arm.
+            // composite mints are 96 of the 96 attributed to the settled arm.
             let start = h.screen.extended_styles_minted();
             for t in 1..=FRAMES {
                 if fading {
@@ -502,7 +502,7 @@ mod tests {
 
     #[test]
     fn freeing_only_above_the_last_live_entry_frees_without_renumbering() {
-        // Spec the cheap case, and the half of register entry #11 that is about `renumbered`.
+        // The cheap case, and the half of the sweep oracle that is about `renumbered`.
         let r = remap(&[true, true, false, false]).expect("two entries were freed");
         assert!(!r.renumbered);
         assert_eq!(r.map, vec![0, 1, DEAD, DEAD]);

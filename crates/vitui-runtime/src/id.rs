@@ -219,7 +219,7 @@ impl IdTable {
     pub fn new() -> IdTable {
         IdTable {
             slots: vec![Slot::default(); 512],
-            // One, not zero: see ticket 08. A fresh table is already past the value an untouched slot
+            // One, not zero. A fresh table is already past the value an untouched slot
             // carries.
             stamp: 1,
             live: 0,

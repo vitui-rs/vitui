@@ -234,7 +234,7 @@ pub fn draw_sequence(data: &[u8]) {
     // One hyperlink for the whole program. It is how a cell becomes extended without an operator's
     // arithmetic also being in the picture — the same fixture choice `crate::testing::pinned_extended`
     // exists for, and the reason OSC 8 is pinned above. The URI travels at the verb (architecture
-    // ticket 21), so there is nothing to mint here and the table is reached by the first `restyle`
+    // the URI moved to the verb), so there is nothing to mint here and the table is reached by the first `restyle`
     // that names it.
     const URI: &str = "https://example.invalid/fuzz";
     let mut ids: Vec<LayerId> = Vec::new();
@@ -369,10 +369,10 @@ fn checkpoint(screen: &mut Screen, before: &Surface, data: &[u8], frame: u32) ->
 
     // **There is no allowance here any more, and its absence is the assertion.** This used to skip
     // every column at which the oracle's own picture violated the pairing invariant, because
-    // architecture ticket 20 was open and a frame whose layers handed the composite a broken pair
-    // had no defined content there. Ticket 20 is answered: the drawing verbs' repair is bounded by
+    // the question was open and a frame whose layers handed the composite a broken pair
+    // had no defined content there. It is answered: the drawing verbs' repair is bounded by
     // the surface rather than by the clip, so a layer surface cannot arrive at the composite
-    // already violating §3 and the case the allowance covered cannot be constructed. Four corpus
+    // already violating the pairing invariant, and the case the allowance covered cannot be constructed. Four corpus
     // entries were kept for exactly this moment — 18, 19, 20 and 21 — and they are the gate on the
     // answer rather than a record of the question.
     for (x, y) in crate::reference::differences(before, &after) {

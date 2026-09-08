@@ -139,7 +139,7 @@ pub const MODULES: [Module; 15] = [
     },
     // **This row is why `Origin` has two arms, and it is `Spec4` now.** It shipped as
     // `Origin::Added { by: "R11", … }` because the module map had no `route` line for four tickets;
-    // architecture issue 21 added the line, so the row is a spec row like any other. The arm it
+    // the line was added, so the row is a design row like any other. The arm it
     // vacated is kept — see [`Origin::Added`].
     Module {
         name: "route",
@@ -217,7 +217,7 @@ pub struct EngineName {
 /// whole design — a component names a role and can never construct a paint.
 pub const ENGINE_NAMES: [EngineName; 35] = [
     // **Every row carries a path**, and `the_engine_names_on_the_surface_are_all_reachable` is what
-    // makes that a gate rather than a claim. Nine of them predate issue 22 and sit in the module that
+    // makes that a gate rather than a claim. Nine of them predate the re-export and sit in the module that
     // owns the concept; the twenty that arrived with it sit at the crate root, which owns none.
     EngineName {
         name: "GlyphSet",
@@ -233,7 +233,7 @@ pub const ENGINE_NAMES: [EngineName; 35] = [
     },
     // **Both halves of the handoff, and they arrived together.** `Driver::wait` returns a `Wake` and
     // `Worker::hire` takes a `WakeHandle`, so a crate that cannot name them can write no loop and hire no
-    // worker. Architecture issue 23.
+    // worker.
     EngineName {
         name: "Wake",
         reachable_as: Some("vitui_runtime::work::Wake"),
@@ -254,7 +254,7 @@ pub const ENGINE_NAMES: [EngineName; 35] = [
         name: "KeyKind",
         reachable_as: Some("vitui_runtime::keys::Edge"),
     },
-    // **Reachable since issue 22 and *constructible* only since issue 28**, which is the rule's own
+    // **Reachable since the re-export and *constructible* only since the typed chord**, which is the rule's own
     // second clause arriving on a row that was already green. `Driver::post_key` takes a `Key`, a
     // `Key` carries a `KeyText`, and until `KeyText::of` there was no way to build one that was not
     // `EMPTY` — a name a consumer could write but not fill, which is the barrier this list exists to
@@ -263,7 +263,7 @@ pub const ENGINE_NAMES: [EngineName; 35] = [
         name: "KeyText",
         reachable_as: Some("vitui_runtime::keys::Text"),
     },
-    // ── issue 22: the twenty that arrived at the crate root ───────────────────────────────────────
+    // ── the twenty that arrived at the crate root ───────────────────────────────────────
     //
     // `Rect` first because it is the one that made the issue load-bearing: 27 public declarations name
     // it and `crates/vitui-components/src/cells.rs` exists because none of them re-exported it.
@@ -304,7 +304,7 @@ pub const ENGINE_NAMES: [EngineName; 35] = [
         reachable_as: Some("vitui_runtime::MouseMode"),
     },
     // **`Capabilities` was already reachable and this list said otherwise**, which is the inventory
-    // defect issue 22 found in its own instrument: `ctx.rs` carries `pub type Caps = Capabilities;` in a
+    // defect the rule found in its own instrument: `ctx.rs` carries `pub type Caps = Capabilities;` in a
     // `pub mod`, and the scan below only recognises `pub use vitui_engine::`. A `pub type` alias is
     // reachability by a second mechanism, and the row is now true by a path the scan can see.
     EngineName {
@@ -327,7 +327,7 @@ pub const ENGINE_NAMES: [EngineName; 35] = [
         name: "AttachError",
         reachable_as: Some("vitui_runtime::AttachError"),
     },
-    // **Arrived with `Driver::permit_slow`**, and by the same argument as the twenty issue 22
+    // **Arrived with `Driver::permit_slow`**, and by the same argument as the twenty the re-export
     // added: `perf.rs` names `Screen::permit_slow` in the diagnostic it aborts with, and an
     // application that may not name the engine could read that sentence and not act on it. A name a
     // consumer can be *told to use* but cannot write is the same barrier as one it cannot build.
@@ -381,8 +381,8 @@ pub const ENGINE_NAMES: [EngineName; 35] = [
     // could not be reached was any **field** of it, which left exactly one headless door above this
     // crate: `Driver::headless`, whose tier is hard-coded to truecolor and whose sink is a `Vec`
     // moved into the engine and never returned. So no crate on the far side could read a byte the
-    // engine wrote, and none could resolve a driver at any tier but truecolor. Runtime architecture
-    // issue 34, filed by the layer above; components register row 161 is the measurement it cost.
+    // engine wrote, and none could resolve a driver at any tier but truecolor. The
+    // two-colour question, filed by the layer above; a components register row is the measurement it cost.
     EngineName {
         name: "Clock",
         reachable_as: Some("vitui_runtime::Clock"),

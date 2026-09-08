@@ -943,7 +943,7 @@ mod tests {
 
     #[test]
     fn a_full_row_of_cjk_interns_nothing() {
-        // Spec §4: a full screen of CJK is *cheaper* than one of Latin, which is only true if no
+        // A full screen of CJK is *cheaper* than one of Latin, which is only true if no
         // table is touched. A wide scalar is still its own handle.
         let mut s = Surface::new(300, 1);
         let row: String = std::iter::repeat_n('漢', 150).collect();
@@ -1064,7 +1064,7 @@ mod tests {
 
     #[test]
     fn three_adversarial_overwrite_passes_of_mixed_cjk_keep_every_pair_whole() {
-        // The gate spec §3 asks for. Deterministic rather than random: a property that fails one
+        // The gate. Deterministic rather than random: a property that fails one
         // time in ten is a property nobody fixes.
         let mut s = Surface::new(300, 80);
         let alphabet = [
@@ -1247,7 +1247,7 @@ mod tests {
     #[test]
     fn text_counts_bytes_not_scalars() {
         let mut s = Surface::new(8, 1);
-        // Two scalars, three bytes. Ticket 06 is what makes the second one a cluster with a width.
+        // Two scalars, three bytes. The interner is what makes the second one a cluster with a width.
         let w = s.root().text(0, 0, "a\u{e9}", Style::new());
         assert_eq!(w.cells, 2);
         assert_eq!(w.bytes, 3);
@@ -1300,7 +1300,7 @@ mod tests {
 
     #[test]
     fn a_zero_width_surface_discards_every_verb_instead_of_panicking() {
-        // ADR 0022: out of bounds is discarded silently, and a zero-sized surface is legal
+        // Out of bounds is discarded silently, and a zero-sized surface is legal
         // (`surface::tests::a_zero_sized_surface_is_legal_and_holds_nothing`). The left-edge half of
         // rule 4 wrote its space at the clip's own left column without asking whether the clip had
         // one.
@@ -1369,7 +1369,7 @@ mod tests {
 
     #[test]
     fn restyle_is_clamped_to_the_clip_rather_than_refused() {
-        // ADR 0022: a verb reaching outside is ordinary traffic for a virtualised component.
+        // A verb reaching outside is ordinary traffic for a virtualised component.
         let mut s = Surface::new(4, 1);
         s.root().restyle(
             Rect::new(-100, 0, 1000, 1),
@@ -1579,7 +1579,7 @@ mod tests {
         );
     }
     // ------------------------------------------------------------------------------------------
-    // Ticket 09: `child`, `scrolled`, and the visibility query
+    // `child`, `scrolled`, and the visibility query
     // ------------------------------------------------------------------------------------------
 
     #[test]
@@ -1792,7 +1792,7 @@ mod tests {
 
     #[test]
     fn a_verb_a_million_rows_outside_is_written_none_and_does_not_assert() {
-        // ADR 0022, and the reason there is no `debug_assert` on this path: a virtualised component
+        // Clamp-and-discard, and the reason there is no `debug_assert` on this path: a virtualised component
         // writes far outside a surface as a matter of course. Tests run with `debug_assertions` on,
         // so a `debug_assert` anywhere here fails this test by panicking.
         let mut s = Surface::new(80, 24);
@@ -1859,14 +1859,14 @@ mod tests {
 
     #[test]
     fn a_child_reaches_out_to_blank_the_head_of_a_pair_it_bisected() {
-        // The other half of the same rule, and the half architecture ticket 20 decided. The head at
+        // The other half of the same rule, and the half decided later. The head at
         // column 2 is outside the child's clip and is blanked anyway, because the alternative is a
         // surface holding a wide head with no continuation — which is a picture **no terminal can
         // be made to show**. kitty 0.48.2, Ghostty 1.3.1 and tmux 3.7c were each sent a wide glyph
         // and then a cluster over one of its halves, and all three blanked the orphan themselves,
-        // in both directions, with no notion of a clip to consult. See `conform/` scene 04.
+        // in both directions, with no notion of a clip to consult. See `conform/`'s bisected-pair scene.
         //
-        // What §4 forbids is a caller *directing* a write outside its clip. This is not one: the
+        // What is forbidden is a caller *directing* a write outside its clip. This is not one: the
         // only reachable outcome is the surface's ground in the column the caller's own write just
         // orphaned. See `Row` for the argument in full.
         let mut s = Surface::new(8, 1);
@@ -1898,7 +1898,7 @@ mod tests {
 
     #[test]
     fn the_visibility_query_bounds_a_component_that_has_a_million_rows() {
-        // The shape spec §4 measures as flat at 1k, 100k and 1M rows: the loop is over what the
+        // The shape measured flat at 1k, 100k and 1M rows: the loop is over what the
         // window shows, so nothing is proportional to `rows.len()`. The *culling* — deciding not to
         // draw the rest — is the caller's, which is this loop and not the query.
         let rows: Vec<u32> = (0..1_000_000).collect();

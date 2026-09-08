@@ -439,7 +439,7 @@ mod tests {
 
     #[test]
     fn two_overlapping_operators_at_a_half_leave_the_overlap_at_a_quarter() {
-        // §5: **operators compound and are therefore not idempotent**, which is visually right and
+        // **Operators compound and are therefore not idempotent**, which is visually right and
         // is why the order of operators among themselves matters. Two shadows at 0.5 leave a
         // quarter of the original, and 255/4 truncates to 63 rather than rounding to 64.
         let white = Rgb::new(255, 255, 255);
@@ -561,7 +561,7 @@ mod tests {
 
     #[test]
     fn a_cell_with_a_default_foreground_is_left_alone_for_the_same_reason() {
-        // Not a case §5 enumerates, and the same rule decides it: mixing the background alone
+        // Not an enumerated case, and the same rule decides it: mixing the background alone
         // *raises* contrast, which is the bug "the same factor" exists to prevent.
         let mut t = Tables::new();
         let osc11_only = Capabilities::answering(
@@ -659,7 +659,7 @@ mod tests {
 
     #[test]
     fn a_mix_over_a_hyperlinked_cell_preserves_the_hyperlink() {
-        // The prototype spec §5 records **deleted** it: it rewrote bits 51..0 with two colours,
+        // The prototype **deleted** it: it rewrote bits 51..0 with two colours,
         // clearing bit 63 and the 52-bit handle with it, silently. This goes through the descriptor
         // that names only the colours, so the link is not preserved — it is never named.
         let mut t = Tables::new();

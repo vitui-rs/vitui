@@ -246,7 +246,7 @@ mod tests {
 
     #[test]
     fn rows_are_not_padded_to_a_cache_line() {
-        // Spec §3 measured padding at 4.845 against 4.847 us and refused it, so a row of 297 cells
+        // Padding measured 4.845 against 4.847 us and was refused, so a row of 297 cells
         // is 297 cells and the next row starts immediately after.
         let s = Surface::new(297, 4);
         assert_eq!(s.cells.len(), 297 * 4);

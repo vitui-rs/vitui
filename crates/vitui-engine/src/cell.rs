@@ -193,7 +193,7 @@ mod tests {
 
     #[test]
     fn a_row_of_cells_puts_four_in_a_cache_line() {
-        // Spec §3: this is why rows are not padded to a line boundary.
+        // This is why rows are not padded to a line boundary.
         assert_eq!(64 / size_of::<Cell>(), 4);
     }
 
@@ -209,7 +209,7 @@ mod tests {
 
     #[test]
     fn a_wide_scalar_is_still_its_own_handle_one_bit_away_from_the_narrow_one() {
-        // Spec §3 (19): bit 31 is a flag over the low 31 bits, not a third range. Read as a range,
+        // Bit 31 is a flag over the low 31 bits, not a third range. Read as a range,
         // every cell of a screen of CJK would have to be interned.
         let narrow = GraphemeId::scalar('a');
         let wide = GraphemeId::wide_scalar('漢');

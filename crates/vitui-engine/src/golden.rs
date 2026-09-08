@@ -411,7 +411,7 @@ fn describe_color(c: Color) -> String {
     match c.tag() {
         TAG_INDEXED => format!("idx{}", c.payload()),
         TAG_RGB => format!("#{:06x}", c.payload()),
-        // The two-bit tag has a fourth value spec §3 reserves. A golden is where an accident with
+        // The two-bit tag has a fourth, reserved value. A golden is where an accident with
         // it should be visible rather than rendered as one of the other three.
         other => format!("<colour tag {other}, payload {:#08x}>", c.payload()),
     }

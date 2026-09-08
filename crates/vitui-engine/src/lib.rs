@@ -184,7 +184,7 @@ mod serial;
 mod shutdown;
 mod tables;
 
-// The scene list and the register. Both are the instruments spec §14 asks for rather than parts of
+// The scene list and the register. Both are instruments rather than parts of
 // the engine, and neither is on the public surface: a caller cannot read back what is already on
 // screen, so an oracle over cells lives inside the crate.
 #[cfg(test)]
@@ -203,7 +203,7 @@ mod register;
 #[cfg(test)]
 mod scenes;
 
-// **The reference compositor, and ticket 25 is where it stopped being `cfg(test)`** — as this file
+// **The reference compositor, which stopped being `cfg(test)`** — as this file
 // predicted it would. It is the oracle for the first fuzz target as well as for gate #1, and a
 // fuzz target lives in another crate: `fuzz/` is its own workspace, because `cargo-fuzz` needs
 // nightly and `libfuzzer-sys`. So the compositor is compiled whenever the tests are **or** the

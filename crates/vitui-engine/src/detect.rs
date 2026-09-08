@@ -101,7 +101,7 @@ const BEL: u8 = 0x07;
 pub(crate) fn batch() -> Vec<u8> {
     let mut out = String::with_capacity(512);
 
-    // **The page, before the first question.** Production ticket 12, and the whole of it: everything
+    // **The page, before the first question**, and the whole of it: everything
     // below this line is allowed to be visible, because it is visible on a page that is thrown away.
     //
     // Spelled out rather than reached for through `crate::actuate::ENTER_ALT_SCREEN`, and that is
@@ -349,7 +349,7 @@ impl Parser {
                     // the whole idle ceiling and lose the rest of the batch.
                     //
                     // The truncated payload is **discarded** rather than dispatched: half an OSC 11
-                    // colour that happens to parse is a wrong default background, which §5 says is
+                    // colour that happens to parse is a wrong default background, which is
                     // wrong in *direction*.
                     self.buf.clear();
                     self.state = State::Ground;
@@ -599,10 +599,10 @@ impl Tty {
                     // already in progress. So the loop runs for the life of the process — including
                     // for the whole of a `Screen::suspend`, which is why that verb's first paragraph
                     // refuses an interactive child in the same terminal and why `Screen::resume`
-                    // throws away what arrived. Production ticket 13 priced the four mechanisms that
+                    // throws away what arrived. The four mechanisms that
                     // would change this — a self-pipe and `poll`, crossterm's own event source, a
-                    // non-blocking descriptor, `rustix` — and refused all four; ADR 0052 carries the
-                    // reasoning and `scripts/suspend-reader-gate.sh` is register entry 31, which
+                    // non-blocking descriptor, `rustix` — were priced and all four refused; the decision carries the
+                    // reasoning and `scripts/suspend-reader-gate.sh` is the tripwire, which
                     // goes red if this loop ever learns to stop.
                     loop {
                         match stdin.read(&mut buf) {

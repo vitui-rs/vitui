@@ -655,7 +655,7 @@ impl Serializer {
         }
 
         // A packet carries its own size so that a stale one can be refused on its own.
-        // Nothing can produce a stale one until ticket 22 brings the resize that makes sizes move,
+        // Nothing can produce a stale one until a resize makes sizes move,
         // so this is the debug-only assertion that shape of invariant gets rather than a runtime
         // check on the frame path.
         debug_assert_eq!(
@@ -824,7 +824,7 @@ impl Serializer {
         let (top, bot) = self.changed_band(rows)?;
         // **One candidate, expressed as a loop that runs once.** `from` is where the probe resumes,
         // and in a shipping build nothing resumes it: `verifies_every_match` is a constant `false`, so
-        // this compiles to a probe, a verification and a return. The loop exists because §8's
+        // this compiles to a probe, a verification and a return. The loop exists because the
         // rejected version is reachable from a test, which is how its 27x is *reproduced* rather than
         // quoted — see [`Filter`] for the same argument about the gap merge.
         let mut from = 0;
@@ -1089,7 +1089,7 @@ impl Serializer {
         // in.** Every column of every row the scroll moved had a *known* want equal to its source, so
         // every destination row inherits knowledge rather than a hole; every row it exposed is a
         // blank the terminal wrote. A destination row that inherited a `Cell::UNKNOWN` would be a
-        // false equality for the next frame's filter to skip, which is the one failure ADR 0006 is
+        // false equality for the next frame's filter to skip, which is the one failure the unknown state is
         // written to make unreachable — so the row question is asked here, where it is a row.
         debug_assert!(
             (top..=bot).all(|y| self.mirror.is_known(y)),
@@ -1155,7 +1155,7 @@ impl Serializer {
             base += r.len();
             for (i, &cell) in cells.iter().enumerate() {
                 // The column comes from the index, not from an advance counter. That is what makes
-                // skipping a `CONTINUATION` free of bookkeeping, and spec §8 records the first
+                // skipping a `CONTINUATION` free of bookkeeping, and the first
                 // version getting it wrong in the one case where a run *begins* on a continuation.
                 let x = r.lo + i as u16;
                 // **Narrowed before the comparison, which is the whole placement.** The mirror holds
@@ -1256,7 +1256,7 @@ impl Serializer {
         // clusters.
         //
         // **The forced move is the cheapest one that is not nothing, not a `CUP`.** The first draft
-        // of `shortest` expressed the force by clearing the cursor, which is what ticket 03 did when
+        // of `shortest` expressed the force by clearing the cursor, which is what the first version did when
         // `CUP` was the only encoding — and that quietly spent eight bytes where `CR` spends one. The
         // flag says *move*, and the encoder still says *how*.
         let force = self.cursor == Some((x, y)) && self.joins_left(cell.grapheme, packet);
@@ -1511,7 +1511,7 @@ impl Serializer {
         let was = self.cursor;
         let (best, cost) = self.price_move(x, y);
 
-        // The report §15 is owed: what the rule cost on this move, which is the gap between what
+        // The report that is owed: what the rule cost on this move, which is the gap between what
         // was chosen and the `CUF` that was refused. Zero on every move where `CUF` would not have
         // won anyway, which is most of them.
         #[cfg(test)]
@@ -2595,7 +2595,7 @@ mod tests {
 
     #[test]
     fn a_continuation_cell_emits_no_glyph() {
-        // Planted by hand, because no verb can write one until ticket 06. What is pinned is only
+        // Planted by hand, because no verb could write one at the time. What is pinned is only
         // that the second half of a pair is not printed; the cursor advance over a wide head is
         // The original's and is deliberately not modelled here.
         let mut f = Surface::new(6, 1);
@@ -2610,7 +2610,7 @@ mod tests {
 
     #[test]
     fn a_run_beginning_on_a_continuation_still_places_the_rest_correctly() {
-        // The one case spec §8 records the first version getting wrong: the column comes from the
+        // The one case the first version got wrong: the column comes from the
         // index, so skipping the first cell of a run must not shift what follows.
         let mut f = Surface::new(6, 1);
         f.root().text(2, 0, "ab", Style::new());
@@ -3387,7 +3387,7 @@ mod tests {
         }
         let (cjk_bytes, cjk_cost) = priced(&cjk);
 
-        // Both ingredients: the chart's shape with a wide cluster in place of the `*`. Not on §14's
+        // Both ingredients: the chart's shape with a wide cluster in place of the `*`. Not on the
         // list, and entirely constructible by a component — a braille chart is this.
         let mut dense = Surface::new(300, 80);
         for y in 0..80 {

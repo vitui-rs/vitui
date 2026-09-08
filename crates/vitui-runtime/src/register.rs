@@ -728,7 +728,7 @@ pub const REGISTER: [Entry; 50] = [
                 // goes quiet with no spelling missing and no width wrong — which is the failure the
                 // two counts above structurally cannot see.
                 //
-                // **Ten and seven until components architecture 25**, which struck
+                // **Ten and seven until a later decision**, which struck
                 // `Distinction::Guide`: its drawing is a tree's indent guide and components
                 // architecture 20 established this library does not make one. The **table** stayed
                 // at twenty, and the two denominators moving apart is the finding rather than an

@@ -551,9 +551,9 @@ impl Quirks {
         // trust this table needs both, and taking one for the other reads a whole terminal as
         // observed or a whole suite as inference.
         //
-        // *Terminals run*: scene 01 has been driven against **six of the seven tier-1
+        // *Terminals run*: the attribute scene has been driven against **six of the seven tier-1
         // terminals** — kitty, Ghostty, WezTerm, Alacritty, tmux and iTerm2. **The one that
-        // remains is Windows Terminal**, and production ticket 16 is what owns it. Its eleven
+        // remains is Windows Terminal**, and the Windows run is what owns it. Its eleven
         // attribute facts are still inference from libvaxis's three entries, none of which names
         // it.
         //
@@ -574,7 +574,7 @@ impl Quirks {
         // the join and not the sentence that makes the ordinals above checkable.
         //
         // **The sixth arrived from a user's screen rather than from an instrument**, and that is the
-        // other way this table grows — the one §15 was describing when it called populating it field
+        // other way this table grows — the one being described by *populating it is field
         // work. It is the cheapest evidence here and it is still evidence: three runs, two terminals
         // and a lever that ships.
         Quirks::default()

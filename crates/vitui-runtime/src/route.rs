@@ -88,7 +88,7 @@ pub fn edge_of(event: &Event) -> Option<Edge> {
         // against the index this frame actually drew.
         Event::Mouse(m) => match m.kind {
             MouseKind::Down(_) | MouseKind::Up(_) => Some(Edge::Closing),
-            // ADR 0008: an intermediate position is not intent, and a wheel notch changes nothing
+            // An intermediate position is not intent, and a wheel notch changes nothing
             // routing reads.
             MouseKind::Move | MouseKind::Wheel(_) => None,
         },
@@ -141,7 +141,7 @@ pub fn batch_len_with(batch: &[Event], classify: impl Fn(&Event) -> Option<Edge>
     let mut n = 0;
     for event in batch {
         match classify(event) {
-            // Folds. ADR 0008 measured these at 5.0 ns an event, and a frame takes as many as have
+            // Folds, measured at 5.0 ns an event, and a frame takes as many as have
             // arrived.
             None => n += 1,
             // Closes: it is read after the draw, so it is the last thing this frame takes.

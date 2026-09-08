@@ -401,7 +401,7 @@ impl Harness {
         };
         let mut term = TermModel::new(w, h);
         // **The prologue is replayed here rather than by the first `present`.** The model has to see
-        // those bytes — it tracks DECAWM from ticket 13 and the input modes and the caret from impl
+        // those bytes — it tracks DECAWM and the input modes and the caret from
         // 21 — and replaying them at the first frame made every question about the *negotiation*
         // unanswerable until something had drawn, which is the one thing a floor exists not to
         // require. Same bytes, same order, one frame earlier.

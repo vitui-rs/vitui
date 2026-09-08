@@ -75,7 +75,7 @@ mod tests {
 
     #[test]
     fn a_child_cannot_widen_its_parent() {
-        // Spec §4: a view asking for 400x400 inside a 6x2 parent touches exactly the parent's cells.
+        // A view asking for 400x400 inside a 6x2 parent touches exactly the parent's cells.
         let parent = Rect::new(0, 0, 6, 2);
         let asked = Rect::new(0, 0, 400, 400);
         assert_eq!(parent.intersect(asked), parent);

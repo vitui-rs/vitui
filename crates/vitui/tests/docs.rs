@@ -75,13 +75,13 @@ const STANDING: &[Standing] = &[
         dir: "vitui-engine",
         citations: 0,
         examples: 1,
-        comments: 89,
+        comments: 0,
     },
     Standing {
         dir: "vitui-runtime",
         citations: 0,
         examples: 1,
-        comments: 32,
+        comments: 0,
     },
     Standing {
         dir: "vitui-components",
@@ -91,9 +91,14 @@ const STANDING: &[Standing] = &[
     },
 ];
 
-/// The crates whose sweep is finished. A finished crate's budget is zero and stays zero, which is
-/// the difference between a ratchet and a treadmill.
-const SWEPT: &[&str] = &["vitui", "vitui-engine", "vitui-runtime", "vitui-components"];
+/// The crates whose sweep is finished, in **both** populations: no rustdoc line and no ordinary
+/// comment points at a document the reader does not have.
+///
+/// A finished crate's budgets are zero and stay zero, which is the difference between a ratchet and
+/// a treadmill. `vitui-components` is deliberately absent while its comments are still being swept:
+/// its rustdoc count is zero and saying *swept* on the strength of half of it would be the kind of
+/// summary sentence this whole exercise is about.
+const SWEPT: &[&str] = &["vitui", "vitui-engine", "vitui-runtime"];
 
 /// Citation vocabulary that is a plain substring: a decision-record number, a section mark, a
 /// register row, a path into the backlog, an obligation letter, a map's own name.
@@ -325,6 +330,11 @@ fn a_swept_crate_carries_no_citation_budget_at_all() {
             standing.citations, 0,
             "{dir} is listed as swept and still carries a rustdoc budget of {}",
             standing.citations
+        );
+        assert_eq!(
+            standing.comments, 0,
+            "{dir} is listed as swept and still carries a comment budget of {}",
+            standing.comments
         );
     }
 }

@@ -617,14 +617,14 @@ fn a_donated_surface_of_clusters_survives_the_round_trip() {
     // glyph on someone's terminal.
     //
     // **The extended half of the donation is driven through here since impl 13**, and it was this
-    // file's boundary rather than a gap in ticket 10: until SGR 58/59 and OSC 8 reached the wire an
+    // file's boundary rather than a gap: until SGR 58/59 and OSC 8 reached the wire an
     // extended cell could not close the round trip at all, so what the renumbering did to an
     // underline colour was asserted against the composited frame instead, in `layer::tests`. It is
     // asserted end to end below — the donor's own extended-style entries are re-minted into the
     // stack's table at donation, and the terminal model resolves the bytes back through that same
     // table, so a handle that landed in the wrong row fails here.
     //
-    // The **hyperlink** half is still not driven, and that is architecture ticket 21 rather than this
+    // The **hyperlink** half is still not driven, and that is the handle's move rather than this
     // file: no public door reaches a standalone surface's link table, so the only id a caller can put
     // on a donated surface already belongs to the destination stack, and there is nothing for the
     // donation to renumber. `layer::tests::a_screen_minted_link_survives_a_donation_it_was_not_minted_for`

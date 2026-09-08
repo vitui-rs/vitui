@@ -452,7 +452,7 @@ pub(crate) fn negotiation(config: &InputConfig, caps: &Capabilities, page: Page)
         // written, and an application whose layers do not tile the screen would keep the artefact in
         // its gaps for the whole session.
         //
-        // **This is not the erase production ticket 12 refused**, and the difference is which page.
+        // **This is not the erase that was refused**, and the difference is which page.
         // What was refused is `CSI 2 J` on the *primary* screen, as a substitute for switching pages
         // — it destroys the user's scrollback view and the engine cannot know how many cells to
         // repair because it cannot know which sequences a terminal will print. This is our own page,
@@ -462,7 +462,7 @@ pub(crate) fn negotiation(config: &InputConfig, caps: &Capabilities, page: Page)
         // The one terminal it costs anything on is one that implements neither mode 1049 **nor** the
         // sequences in the batch: it is on its own page, it printed the artefacts there, and this
         // clears it. Stated rather than hidden — it is about to be painted over by the first frame
-        // regardless, spec §15 puts inline rendering out of scope, and Terminal.app 2.15, which is
+        // regardless, inline rendering is out of scope, and Terminal.app 2.15, which is
         // the terminal this whole ticket is about, demonstrably implements 1049.
         out.extend_from_slice(ERASE_PAGE);
     }

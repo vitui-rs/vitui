@@ -263,7 +263,7 @@ impl Mailbox {
             }
             if let Some(packet) = shared.slot.take() {
                 shared.ready = true;
-                // Stamped here rather than after the write: what §7 reports is *app submit to the
+                // Stamped here rather than after the write: what is reported is *app submit to the
                 // render thread holding the packet*, which is a scheduler latency and ends the
                 // moment this thread has it.
                 #[cfg(test)]

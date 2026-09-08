@@ -276,7 +276,7 @@ mod tests {
 
     #[test]
     fn two_spans_on_one_row_stay_two_runs() {
-        // Spec §6: two popups 100 columns apart are 180 emitted cells with the bitset and 280 with
+        // Two popups 100 columns apart are 180 emitted cells with the bitset and 280 with
         // per-row spans. This is the case that decides it.
         let mut d = RowBits::new(300, 80);
         d.mark(0, 0, 89);
@@ -362,7 +362,7 @@ mod tests {
 
     #[test]
     fn an_idle_frames_clear_touches_zero_rows() {
-        // The gate spec §6 asks for. Without the summary this would be 80.
+        // The gate the summary exists for. Without it this would be 80.
         let mut d = RowBits::new(300, 80);
         assert_eq!(d.clear(), 0);
     }

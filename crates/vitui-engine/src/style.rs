@@ -352,7 +352,7 @@ impl Style {
 mod tests {
     use super::*;
 
-    // The gate spec §3 asks for: the bit layout asserted field by field against the diagram, so
+    // The gate: the bit layout asserted field by field against the diagram, so
     // that moving a field is a test failure rather than a wire change nobody notices.
 
     #[test]

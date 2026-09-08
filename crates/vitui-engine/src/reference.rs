@@ -73,7 +73,7 @@ use crate::surface::Surface;
 /// Composite the whole stack into a fresh `w` by `h` surface, bottom-up, one cell at a time.
 pub(crate) fn composite(stack: &mut LayerStack, caps: &Capabilities, w: u16, h: u16) -> Surface {
     let (mut layers, tables) = stack.parts();
-    // Sorted here rather than taken from the stack's storage order. Spec §5 says the stacking order
+    // Sorted here rather than taken from the stack's storage order: the stacking order
     // is `(z, seq)` — z first, insertion order breaking ties, so that raising a layer and dropping
     // it back restores the exact original order — and the oracle applies that rule itself. Reading
     // the fast path's order back would make a defect in `add_content`'s insert invisible to the
