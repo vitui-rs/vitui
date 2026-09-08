@@ -1,5 +1,5 @@
 //! The register: twenty-seven properties, each one either wired or pinned red — and four
-//! more that §14 could not have had.
+//! more that could not have been stated then.
 //!
 //! > **A gate is a count, a ratio, an equality or a compile outcome. A timing is a report, and is a
 //! > gate only at cliff granularity, with the headroom written next to the number.**
@@ -23,7 +23,7 @@
 //!
 //! # Why the list is in the repository rather than in the spec only
 //!
-//! §14 closed with "the gate list has twenty-seven entries and nothing to run them against". A
+//! The design closed with "the gate list has twenty-seven entries and nothing to run them against". A
 //! property that is only in a document is not verified by anything, and — worse — one that quietly
 //! never arrives is indistinguishable from one that was decided against. So every entry is here,
 //! and every entry is in exactly one of two states: **wired**, naming where it runs, or **red**,
@@ -31,16 +31,15 @@
 //! at the bottom of this file is what keeps that true.
 //!
 //! `source` names the **architecture** ticket the property came from
-//! (`.scratch/vitui-engine-architecture/issues/`); `inverted_by` names the **implementation**
-//! ticket that lights it (`.scratch/vitui-engine-impl/issues/`). The two are different numbering
+//! `inverted_by` names the **change** that lights it. The two are different numbering
 //! schemes and confusing them sends a reader to the wrong document.
 //!
 //! # Entries 28 to 31, and why the list is no longer exactly
 //!
 //! Entries 1–27 are the table. **Entry 28 is not**, and it is here rather than in a document
-//! because of what it is about: §14 could enumerate twenty-seven properties of the engine and had
+//! because of what it is about: twenty-seven properties of the engine could be enumerated with
 //! no entry for *whether the engine's bytes mean to a real terminal what they mean to the engine's
-//! model of one*. Architecture ticket 20 is where that gap was noticed, from the inside:
+//! model of one*. That gap was noticed from the inside:
 //!
 //! > Every gate stays green with the pairing invariant **false**, because the serializer and the
 //! > terminal model are wrong in the same direction.
@@ -769,7 +768,7 @@ mod tests {
     /// true here, and this is what keeps it from becoming true again.
     ///
     /// **The assertion is the split, not the total.** Entries 1–27 are the table and 28 is the one
-    /// production ticket 04 added for a property §14 had no way to state — see the module docs. A
+    /// added for a property the design had no way to state — see the module docs. A
     /// bare length check would let a twenty-ninth entry arrive without anyone deciding which of
     /// those two things it is.
     #[test]

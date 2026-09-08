@@ -1,7 +1,7 @@
 //! The shipped set as `.rodata`, and the one type that owns *which theme is current*.
 //!
-//! Spec §15 — *the standard set* and *live switching*; ADR 0007 (nothing here may read the operator's
-//! palette), ADR 0018 (a component names a role, never a colour).
+//! *The standard set* and *live switching*. Nothing here may read the operator's palette, and a
+//! component names a role rather than a colour.
 //!
 //! # Two types, and the split is the whole design
 //!
@@ -331,7 +331,7 @@ mod tests {
     /// **Gate, universal.** `Face`/`FaceHover` is distinct at 256 colours for every shipped theme.
     ///
     /// This is the one number on the map that was already zero across the whole 338-scheme corpus,
-    /// which is why it is the one worth failing a build over: the map's §5 named this pair as the
+    /// which is why it is the one worth failing a build over: this pair was named as the
     /// first casualty of quantisation, `pick` is what stops it being one, and a mapping change that
     /// quietly reverted to slot names would put it back in 73 of 338.
     ///
@@ -490,7 +490,7 @@ mod tests {
     /// **The C16 pair count is a lower bound, and this is the gate that says so.**
     ///
     /// Every count below truecolor compares *indices*, because an index is all a process may know —
-    /// ADR 0007: the engine does not know what `indexed(9)` looks like on this machine. An operator
+    /// The engine does not know what `indexed(9)` looks like on this machine. An operator
     /// whose profile spells two indices with the same colour collapses pairs the index count called
     /// distinct, and half of the ten real profiles the map's research measured do exactly that,
     /// usually the bright half repeating the normal half. The corpus mean moves **10.87 → 16.36**.

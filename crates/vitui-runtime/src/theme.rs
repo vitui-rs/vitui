@@ -550,10 +550,10 @@ impl Density {
 /// not on this list for that reason.
 ///
 /// **A tree used to ask one more and no longer asks anything here.** `Distinction::Guide` was
-/// `VLine` against `TeeLeft`, which crosses a family and survives — and components architecture 20
+/// `VLine` against `TeeLeft`, which crosses a family and survives — and the components decision
 /// then established that no component draws an indent guide at all, because a guide column at depth
 /// *d* is a fact about *d* ancestors and every route to it is refused. A
-/// distinction is a claim about a screen somebody draws; components architecture 25 struck it.
+/// distinction is a claim about a screen somebody draws, and this one was struck.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Distinction {
     /// A face under the pointer looks different from one at rest.
@@ -586,9 +586,9 @@ pub enum Distinction {
 impl Distinction {
     /// Every distinction. **Nine**, which is the denominator the distinction matrix reports against.
     ///
-    /// **It was ten until components architecture 25** (2026-09-05). `Distinction::Guide` was *a
+    /// **It was ten until 2026-09-05.** `Distinction::Guide` was *a
     /// tree's indent guide says this row has a sibling below rather than merely there is depth
-    /// here*, carried by `(VLine, TeeLeft)` — and components architecture 20 established that this
+    /// here*, carried by `(VLine, TeeLeft)` — and it was established that this
     /// library **does not draw an indent guide and cannot**: a guide column at depth *d* is a fact
     /// about *d* ancestors, and all four routes to it are refused. A distinction is a claim
     /// about what a narrowed repertoire can still tell apart on a screen somebody draws; a bit
@@ -1913,8 +1913,8 @@ mod tests {
     /// **Six distinctions name a glyph pair and three do not, and the three are the ones that
     /// die.**
     ///
-    /// Seven until components architecture 25 struck `Distinction::Guide`, whose pair was
-    /// `(VLine, TeeLeft)` and whose drawing — a tree's indent guide — components architecture 20
+    /// Seven until `Distinction::Guide` was struck, whose pair was
+    /// `(VLine, TeeLeft)` and whose drawing — a tree's indent guide — was
     /// established this library does not make.
     ///
     /// The rule as a count. The gate is the *partition*, not the membership: a

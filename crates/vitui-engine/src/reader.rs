@@ -14,7 +14,7 @@
 //!
 //! # It is never joined
 //!
-//! Spec §7: the input thread sits in a blocking `read` with nothing to wake it short of a signal, so
+//! The input thread sits in a blocking `read` with nothing to wake it short of a signal, so
 //! it dies with the process. The render thread **is** joined — it is either parked on a condvar or
 //! inside a bounded write, both finite — and this one is not, and the asymmetry is deliberate rather
 //! than an omission.

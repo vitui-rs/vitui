@@ -14,7 +14,7 @@
 //! - Restoration runs **before** the default panic hook prints. Otherwise the backtrace is painted
 //!   into the alt screen and vanishes with it, which is the one moment a developer needs it most.
 //! - It hangs on a guard's `Drop` as well as on the hook, so a normal return and a `?` out of `main`
-//!   take the same path. That guard is [`Screen`](crate::Screen) itself — §12 can say *Drop
+//!   take the same path. That guard is [`Screen`](crate::Screen) itself — the design can say *Drop
 //!   restores* in one line on the type because [`Screen::drop`](crate::Screen) calls
 //!   [`Site::restore`] with the renderer's own sink.
 //!

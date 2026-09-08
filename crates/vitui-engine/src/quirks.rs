@@ -6,7 +6,7 @@
 //!
 //! # It is a mechanism, and populating it is field work
 //!
-//! §15 put populating this table in the fog on purpose. **A quirk table is field work**: each entry
+//! Populating this table was left open on purpose. **A quirk table is field work**: each entry
 //! is one terminal, one version range and one observed misbehaviour, and none of that can be
 //! established from a document. Three entries shipped on libvaxis's production experience; the sixth
 //! arrived from a user's screen; and the fourth, fifth, seventh and eighth are the ones this
@@ -31,21 +31,21 @@
 //! ConPTY entry is libvaxis's, inherited whole: no run of this engine has ever happened on Windows,
 //! so both halves of it — the legacy SGR spelling and [`Underlines::ConPty`] — are inference. It is
 //! left exactly as it came, because a guess corrected by a second guess is worse than a guess with
-//! its provenance written on it; **production ticket 16 is where it is confirmed, corrected or
+//! its provenance written on it; **the Windows run is where it is confirmed, corrected or
 //! removed**, by the first execution of this engine on Windows. The other two libvaxis entries,
 //! Termux and VSCode, are inherited on the same terms and neither has been run here either — but
 //! neither is a tier-1 terminal, so neither is what the count below is about.
 //!
 //! **Four of the eight force the legacy SGR spelling, and this is where that number lives.**
 //! ConPTY, Termux, VSCode's integrated terminal and JetBrains' — every entry whose quirk column
-//! above reads *legacy SGR*. §10 makes the colon form the default and names three levers that can
+//! above reads *legacy SGR*. The colon form is the default, and three levers can
 //! move it: `Overrides::legacy_sgr`, `VITUI_FORCE_LEGACY_SGR`, and these four entries. That is an
 //! argument about a **one-way** field — [`Quirks::legacy_sgr`] is a `bool` and [`Quirks::apply`]
 //! can only ever set it to `true`, so a default of `true` would need the four to force a value
 //! their terminals already have — and the argument is only as good as the number.
 //!
 //! **Eight sentences across three files said *three*** — `caps.rs` twice, `serial.rs` three times
-//! and the engine spec three times — until production ticket 14 counted them against
+//! and the design three times — until they were counted against
 //! [`Quirks::lookup`]. The sixth entry arrived and none of the eight moved with it, which is why
 //! the number is stated **once**, here, and joined to the arms that set the flag by
 //! `crate::gates::the_quirk_tables_prose_is_joined_to_its_entries`.
@@ -67,7 +67,7 @@
 //! ## A terminal that prints what it cannot parse
 //!
 //! Terminal.app 2.15 emits the XTGETTCAP payload and the final byte of each DECRQM as text rather
-//! than ignoring them (production ticket 12, `conform/`'s Terminal.app arm). That is a misbehaviour,
+//! than ignoring them — `conform/`'s Terminal.app arm. That is a misbehaviour,
 //! it is recognisable by a query — DA2 answers `1;95;0` — and it still does not belong here, for a
 //! reason worth stating once rather than re-deriving.
 //!
@@ -86,7 +86,7 @@
 //! ## A terminal that has synchronised output and reports it reset while it is set
 //!
 //! WezTerm 20240203 answers `CSI ? 2026 $ p` with **`2`** — reset — on a query parsed while the
-//! mode was set (`conform/`'s WezTerm arm, scene 06, production ticket 11). Three control probes
+//! mode was set — `conform/`'s WezTerm arm, on the mode scene. Three control probes
 //! separate that from every innocent reading: it answers `0` for a mode it has never heard of, so
 //! its `2` is a real reset; its DECRQM tracks mode 2004 correctly through an `h` and an `l`; it
 //! genuinely **has** synchronised output, holding every reply for the duration of a block with no
@@ -104,8 +104,8 @@
 //! seconds with no flush is the absence of one rather than a number.
 //!
 //! **Alacritty 0.17.0 does the same thing and it is not a second finding — it is the mechanism of
-//! the first.** Its scene 06 answers `2` for the two rows asked immediately after a `CSI ? 2026 h`,
-//! exactly as WezTerm's does (production ticket 12). Here the cause is readable rather than
+//! the first.** Its mode scene answers `2` for the two rows asked immediately after a `CSI ? 2026 h`,
+//! exactly as WezTerm's does. Here the cause is readable rather than
 //! inferred: `Term::report_private_mode` answers `NamedPrivateMode::SyncUpdate` with a **constant**
 //! `ModeState::Reset`, while synchronised output is implemented one crate down in `vte`'s parser,
 //! which the `Term` never sees. **The flag and the reporter are in different layers**, and that is
@@ -166,7 +166,7 @@
 //! `xterm-ghostty`, which is why the underline styles survive the trip and this does not. Before 3.0
 //! there is no overline output at all. Every tmux therefore drops it **by default**, and the
 //! exception is a user with `set -as terminal-features ",…:overline"` rather than a version — which
-//! is a configuration this engine cannot see and §10 would not read terminfo to find.
+//! is a configuration this engine cannot see and would not read terminfo to find.
 //!
 //! Ghostty renders SGR 53 (the first row of that table), so the loss is tmux's and the terminfo that
 //! omits `Smol` describes a terminal that has it. That is the refusal of terminfo, arriving
@@ -174,7 +174,7 @@
 //!
 //! # The fifth entry, and its evidence is not a screen dump
 //!
-//! kitty 0.48.2 came third to `conform/`'s scene 01 and disagreed on two rows: conceal and overline
+//! kitty 0.48.2 came third to `conform/`'s attribute scene and disagreed on two rows: conceal and overline
 //! come back bare. **A dump alone could not have earned either**, and saying why is the whole of what
 //! makes this entry different from the fourth. *Not stored* and *not serialised* look identical in a
 //! capture, and `conform/FINDINGS.md` had left conceal open on exactly that — kitty could resolve the
@@ -212,8 +212,8 @@
 //!
 //! # The seventh entry, and it is the first where *cannot ask* was ruled out rather than settled for
 //!
-//! Alacritty 0.17.0 came sixth to `conform/`'s scene 01 and answered **nine of eleven** (production
-//! ticket 12). Blink and overline come back bare — kitty's shape, one row over on one and a new row
+//! Alacritty 0.17.0 came sixth to `conform/`'s attribute scene and answered **nine of eleven**.
+//! Blink and overline come back bare — kitty's shape, one row over on one and a new row
 //! on the other — and this is the entry where the difference between a `cannot ask` and a quirk is
 //! at its clearest, because the capture surface here is not a serialiser at all. `--ref-test` writes
 //! the `Term`'s **grid** out as JSON, one object per cell, so *not serialised* is not one of the
@@ -255,8 +255,8 @@
 //!
 //! # The eighth entry, and it is the one where the second source is an absence
 //!
-//! iTerm2 3.6.11 came seventh to `conform/`'s scene 01 and answered **eight of eleven** (production
-//! ticket 13). Two of the three it did not answer are the instrument's — see below — and the third
+//! iTerm2 3.6.11 came seventh to `conform/`'s attribute scene and answered **eight of eleven**.
+//! Two of the three it did not answer are the instrument's — see below — and the third
 //! is overline, which is this entry.
 //!
 //! **The capture surface could not have earned it and the arm says so.** iTerm2's Python API answers
@@ -324,7 +324,7 @@ impl Underlines {
 /// How long a synchronised-output block may stay open before the terminal force-flushes it.
 ///
 /// **Every implementation force-flushes and the limits differ by an order of magnitude** — so this is
-/// not one number with a safe default. §8 is where it binds, and it is private because nothing above
+/// not one number with a safe default. It binds in the serializer, and it is private because nothing above
 /// the engine opens a block.
 ///
 /// | terminal | limit | where the number is from |
@@ -334,7 +334,7 @@ impl Underlines {
 /// | tmux | 1 s | its own documentation |
 /// | **Ghostty 1.3.1** | **1000 ms, no byte limit** | `sync_reset_ms = 1000` in `src/termio/Thread.zig`, *"the number of milliseconds before we reset the synchronized output flag if the running program hasn't already"* |
 ///
-/// Ghostty was added by production ticket 05, which asked for it to be **measured**. It could not be:
+/// Ghostty's entry was added with a request that it be **measured**. It could not be:
 /// a force-flush is a *rendering* event, and nothing a process inside the terminal can ask reports
 /// whether the terminal painted. Only a screen capture can, and this repository's capture is an
 /// AppleScript round trip that four runs on 2026-08-23 put between **136 ms and 623 ms** — the same
@@ -345,7 +345,7 @@ impl Underlines {
 /// hold, and it is worth saying rather than leaving a fourth row blank.
 ///
 /// **Three of the four now have an observation printed beside them, and it is not of the paint.**
-/// `conform/`'s scene 06 (production ticket 04, stage 5, 2026-08-29) opens a block, waits, and asks
+/// `conform/`'s mode scene (2026-08-29) opens a block, waits, and asks
 /// `CSI ? 2026 $ p` — so what it sees is when the terminal stops reporting the mode as **set**, the
 /// event Ghostty's own source calls *reset the synchronized output flag*. A terminal could paint
 /// without clearing the flag or clear it without painting, and no instrument here can separate
@@ -361,7 +361,7 @@ impl Underlines {
 /// were, so a suite built that way would have reported a Ghostty defect that is the probe's.
 ///
 /// **The fourth row has an observation too now, and it arrived through the other channel** —
-/// production ticket 12, 2026-09-03. Alacritty reports the mode reset while it is set, so there is
+/// Measured 2026-09-03. Alacritty reports the mode reset while it is set, so there is
 /// no bracket to take: what it does instead is **hold the reply**. A DECRQM written 50 ms into an
 /// open block was answered **171 ms** after the open, so the question sat in the parser's buffer
 /// for 121 ms and came out when the block force-flushed — against a documented and now shipped-source
@@ -407,7 +407,7 @@ pub(crate) struct Quirks {
     /// field can hold. A terminal that has one needs a new axis, not a wider mask.
     ///
     /// Read on the wire by [`crate::quant::Quantiser::attrs`], which is what makes *dropped
-    /// silently at serialise time* true — production ticket 10, filed by the ticket that populated
+    /// silently at serialise time* true — filed by the change that populated
     /// this field and found nothing reading it.
     pub(crate) attrs_dropped: u64,
     /// Overrule what was inferred about OSC 8, in either direction.

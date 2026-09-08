@@ -18,9 +18,9 @@
 //!
 //! - **Numbers are kept per scene and never summed.** There is no total here and there is no field
 //!   one could go in. The engine records that its 27x scroll-detector regression was visible only
-//!   because numbers were kept per scene; the runtime's own version is scene 19, the chunked data
+//!   because numbers were kept per scene; the runtime's own version is the chunked data
 //!   source at **roughly 230% of the whole frame budget**, which disappears into any average taken
-//!   over the other nineteen. That figure was 321% when §14 measured it, which is the second half of
+//!   over the other nineteen. That figure was 321% when it was first measured, which is the second half of
 //!   the same argument: **a number that moves by a third is not a number to average, and it is not a
 //!   number to gate on either** — see the `decided`.
 //! - **Every scene names where its numbers come from**, and
@@ -33,7 +33,7 @@
 //!   [`State::Wired`] says **it runs**, and this workspace runs `cargo test` and two named
 //!   examples — so a scene whose only instrument is an `examples/*.rs` is compiled and never
 //!   evaluated, and calling that wired is a claim the code contradicts. **Twenty wired, none red.**
-//!   Scene 19 was the exception until R 20 gave it a test rather than a rewording: its microsecond
+//!   The chunked scene was the exception until it got a test rather than a rewording: its microsecond
 //!   figure is still a report, and what is gated beside it is the relation the figure is evidence
 //!   for — `data::tests::a_chunked_source_is_three_orders_off_a_slice_and_doubles_with_the_offset`.
 //!   That is the shape available whenever a scene's headline number is a timing, and it is the
@@ -55,7 +55,7 @@ pub struct Scene {
     pub number: u8,
     /// The scene, in the words.
     pub name: &'static str,
-    /// What it decided, with the figures §20 records.
+    /// What it decided, with the figures recorded beside it.
     pub decided: &'static str,
     /// Where its numbers are produced, or the ticket that will produce them.
     pub state: State,
@@ -448,7 +448,7 @@ mod tests {
 
     /// **Twenty wired, none red**, and that is R 20 closing the last one.
     ///
-    /// This list was nineteen and one from ticket 19 until ticket 20 gave scene 19 — the chunked
+    /// This list was nineteen and one until the chunked scene got a test — the chunked
     /// data source, whose only instrument was a report no CI job runs — a `#[test]` over the
     /// relation its microsecond figure is evidence for. Saying *how many* is what stops a red scene
     /// arriving unremarked, and at all-green it has the second job [`crate::register`]'s count has:

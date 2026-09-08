@@ -6,7 +6,7 @@
 //! nothing to bless and no maintenance, and a golden byte string would have pinned the encoding,
 //! which is exactly the part that is allowed to change.
 //!
-//! Every scene ticket 03 can express is driven through here. Ticket 05 adds the golden frames,
+//! Every scene the tracer bullet can express is driven through here. The golden frames come next,
 //! which cover the one thing this cannot reach: the composited picture itself.
 
 use crate::geom::Rect;
@@ -684,7 +684,7 @@ fn a_donated_surface_of_clusters_survives_the_round_trip() {
 const SW: u16 = 40;
 const SH: u16 = 8;
 
-/// A list whose item `n` is drawn on row `y`, blanking the row first — the idiom §8 found to be
+/// A list whose item `n` is drawn on row `y`, blanking the row first — the idiom found to be
 /// load-bearing rather than a wart.
 fn draw_list(h: &mut Harness, id: crate::layer::LayerId, top_item: u32, clear: bool) {
     let mut v = h.screen.layers().view(id).unwrap();
@@ -1108,14 +1108,14 @@ fn a_scroll_is_taken_at_every_depth_and_not_only_where_nothing_narrows() {
     }
 }
 
-/// **Gate, equality (production ticket 10): the round trip closes on a terminal that drops a flag.**
+/// **Gate, equality: the round trip closes on a terminal that drops a flag.**
 ///
 /// The two gates in `crate::serial` say what goes on the wire and what the model ends up holding.
 /// This one is the instrument itself: `Harness::present` asserts the replayed screen against the
 /// frame *and* the mirror against the frame, both through `quant::OnTheWire`, and a frame asking for
 /// overline against a terminal whose bytes deliberately do not carry it is a real inequality until
 /// the expectation is narrowed too. Without the narrowing this test fails — which is the whole reason
-/// production ticket 10 was a ticket and not a two-character patch.
+/// the fix was a change of its own and not a two-character patch.
 ///
 /// **It narrows the one flag and not the ten**, so this is stronger than an exemption: a serializer
 /// that dropped italic here, or one that kept the overline the quirk table says tmux throws away,
@@ -1165,7 +1165,7 @@ fn the_round_trip_closes_on_a_terminal_that_drops_an_attribute() {
     assert_eq!(shown.underline_style(), all.underline_style());
 }
 
-/// **Gate, equality (production ticket 10): a scroll is still taken on a terminal that drops a
+/// **Gate, equality: a scroll is still taken on a terminal that drops a
 /// flag.**
 ///
 /// The sibling of `a_scroll_is_taken_at_every_depth_and_not_only_where_nothing_narrows`, and it exists

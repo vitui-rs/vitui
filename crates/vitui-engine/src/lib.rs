@@ -255,7 +255,7 @@ mod roundtrip;
 
 /// The nine names an application writes at the top of a file.
 ///
-/// Spec §12 states the list and ticket 24 states it again, which is how a prelude stays a prelude:
+/// The list is stated in two places, which is how a prelude stays a prelude:
 /// nine names is a glance, and the moment it is twenty it is the crate's re-export list with an
 /// extra path segment in front of it. `crate::audit`'s
 /// `the_prelude_re_exports_exactly_nine_names` is what keeps it at nine.

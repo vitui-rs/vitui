@@ -210,7 +210,7 @@ pub enum LegacyCtrl {
 }
 
 /// How much of the keyboard protocol the terminal has. **A test-rig parameter and never a readable
-/// capability** — ADR 0010 refuses a keyboard tier by name, and the middle rungs are not computable.
+/// capability** — a keyboard tier is refused by name, and the middle rungs are not computable.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Tier {
     /// Kitty flag 4: the physical layout is reported alongside what was typed.
@@ -229,7 +229,7 @@ pub enum Tier {
 /// was that a caller able to assemble one could forge a key whose `code` and `text` disagree. That
 /// reason did not survive being looked at: a terminal at kitty flag 4 reports the base layout as
 /// `code` while flag 16 reports what the key produced as `text`, so the two disagreeing is the
-/// design and not a forgery, and runtime architecture issue 28 put `KeyText::of` on the engine's
+/// design and not a forgery, and `KeyText::of` is on the engine's
 /// surface for exactly the key this rig could not build.
 ///
 /// **This rig still models `On::BaseLayout` bindings only**, and now because that is what it is for:

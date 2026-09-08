@@ -14,14 +14,14 @@
 //!
 //! | sequence            | since      |
 //! |---------------------|------------|
-//! | `CUP` — `CSI y;x H` | ticket 03  |
-//! | `SGR` — `CSI … m`   | ticket 03  |
-//! | printable scalars   | ticket 03  |
-//! | grapheme clusters, and the cell pair a wide one occupies | ticket 06 |
-//! | `CHA` — `CSI x G`, `CUF` — `CSI n C`, `CR`, `LF` | ticket 13 |
-//! | `SGR 58`/`59`, in both spellings, and `OSC 8` | ticket 13 |
-//! | `DECAWM` — `CSI ?7 h`/`l`, and mode 2026 — `CSI ?2026 h`/`l` | ticket 13 |
-//! | `DECSTBM` — `CSI t;b r`, `SU` — `CSI n S`, `SD` — `CSI n T` | ticket 15 |
+//! | `CUP` — `CSI y;x H` | the tracer bullet |
+//! | `SGR` — `CSI … m`   | the tracer bullet |
+//! | printable scalars   | the tracer bullet |
+//! | grapheme clusters, and the cell pair a wide one occupies | the interner |
+//! | `CHA` — `CSI x G`, `CUF` — `CSI n C`, `CR`, `LF` | the shortest-move encoding |
+//! | `SGR 58`/`59`, in both spellings, and `OSC 8` | the extended channels |
+//! | `DECAWM` — `CSI ?7 h`/`l`, and mode 2026 — `CSI ?2026 h`/`l` | the prologue |
+//! | `DECSTBM` — `CSI t;b r`, `SU` — `CSI n S`, `SD` — `CSI n T` | the scroll region |
 //!
 //! Not parsed yet, with the ticket that adds it: the pending-wrap state (only reachable if auto-wrap
 //! is ever switched back on inside a session, which nothing plans to do). An unrecognised sequence is
@@ -29,13 +29,13 @@
 //! understands it fails the round trip instead of passing it silently.
 //!
 //! **`DECSLRM` (mode 69) is deliberately absent from both sides.** The serializer does not query it
-//! and does not use it — spec §15 is where that question lives — and a model that quietly accepted it
+//! and does not use it — that question is still open — and a model that quietly accepted it
 //! would let a serializer start relying on horizontal margins without anything saying so. `CSI ?69 h`
 //! is therefore an unrecognised private mode here, and the round trip fails on it.
 //!
 //! Auto-wrap is off for the lifetime of the alt screen, so this model does not wrap: a print in the
 //! last column leaves the cursor in the last column. The state is **tracked** rather than assumed
-//! from ticket 13 on, because the prologue that switches it off is now bytes this model sees, and a
+//! since the prologue that switches it off became bytes this model sees, and a
 //! model that silently accepted `CSI ?7 h` would let the epilogue's restoration go unasserted.
 //!
 //! # An extended cell is read back through the engine's own tables
@@ -68,7 +68,7 @@ use crate::ucd;
 
 /// How this terminal measures a cluster.
 ///
-/// Spec §15 owes a measurement about the `CHA`-after-non-ASCII rule, and the rule is about a terminal
+/// A measurement is owed about the `CHA`-after-non-ASCII rule, and the rule is about a terminal
 /// that disagrees with our UAX #11 tables. This is that terminal: **`Narrow` gives every wide cluster
 /// one column**, which is the `wcwidth`-era answer and the disagreement the rule exists to bound.
 ///
@@ -258,7 +258,7 @@ impl TermModel {
     /// **It is the cursor**, because on a real terminal it is: `DECTCEM` decides whether the cursor
     /// is drawn and nothing else, and the caret has no position of its own to hold. So *the caret is
     /// where the application put it* and *the caret was the last thing the frame said* are one
-    /// assertion, which is the property ADR 0005 turns on and the reason this reads the cursor rather
+    /// assertion, which is the property the caret rule turns on and the reason this reads the cursor rather
     /// than a field beside it.
     pub(crate) fn caret(&self) -> Option<(u16, u16)> {
         self.caret_visible.then_some(self.cursor)

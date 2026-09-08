@@ -2,7 +2,7 @@
 //!
 //! # The clock gates `wait`, not `present`
 //!
-//! `docs/adr/0004-the-frame-clock-gates-the-wait.md`, and it is the decision the rest of this module
+//! The frame clock gates the wait, and that is the decision the rest of this module
 //! is shaped by. Putting the gate on the app thread so a doomed frame is never
 //! *composed* is half a solution: by the time `present` refuses, the runtime has already run its
 //! layout, its reactivity and every drawing verb for a frame nobody will see. Measured against an
@@ -35,7 +35,7 @@
 //!
 //! # The owed frame answers `Wake::Deadline`, and that is a decision rather than a shortcut
 //!
-//! Spec §7 names four things this source multiplexes and §12 names four `Wake` variants, and they
+//! Four things are multiplexed here and there are four `Wake` variants, and they
 //! are not the same four: *the renderer going free* has no variant of its own. Ignoring it is not
 //! available — the case is real and it loses a frame outright. A slow link, the user stops typing
 //! exactly while the renderer is inside a 200 ms write: `present` refused, the damage is still in
@@ -48,7 +48,7 @@
 //! 1. **What released the app thread really is the clock.** An owed frame is one the *pacing gate*
 //!    deferred; it is released when the gap has elapsed **and** the renderer is free, and the gap is
 //!    the same gap every other return here is held to.
-//! 2. **`Deadline` is the variant whose meaning survives it.** Arch ticket 12 maps `Deadline` onto
+//! 2. **`Deadline` is the variant whose meaning survives it.** `Deadline` maps onto
 //!    *re-view, and the animation phase falls out of `elapsed()`* — which is correct for an owed
 //!    frame, because time has genuinely passed. `Posted` maps onto *a background result landed*, and
 //!    would send the runtime looking for one that does not exist.
@@ -154,7 +154,7 @@ struct Wakes {
     /// take is the only thing that makes the mailbox ready. `Screen::present` is where the ordering
     /// that guarantees it lives.
     free: bool,
-    /// How many times the app thread has entered a blocking wait. Register entry #17.
+    /// How many times the app thread has entered a blocking wait, for the idle gate.
     ///
     /// A plain field with a `cfg(test)` accessor, which is the shape `crate::handoff`'s counters
     /// already have: what has to exist in a release build is the *park*, and two increments inside a
@@ -383,7 +383,7 @@ impl WakeSource {
 
     /// How many blocking waits the app thread has entered, and how many have returned.
     ///
-    /// **Register entry #17 is the second number over an idle window**, and it is a count rather
+    /// **The second number over an idle window**, and it is a count rather
     /// than an adjective: a 120 Hz ticker would put 3600 in it over 30 seconds.
     #[cfg(test)]
     pub(crate) fn park_counts(&self) -> (u64, u64) {

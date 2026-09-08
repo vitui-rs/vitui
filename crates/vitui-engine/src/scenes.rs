@@ -1,4 +1,4 @@
-//! The twelve scenes of spec §14, as a normative list rather than an appendix.
+//! The twelve scenes, as a normative list rather than an appendix.
 //!
 //! **Three scenes that score identically on every candidate validate the wrong design while
 //! reporting success**, and that is exactly what happened to the damage model: the ticket named a
@@ -16,11 +16,11 @@
 //!   today" is a statement about the current candidates.
 //! - **The sparse sub-cell chart is not optional.** It has decided three tickets.
 //!
-//! # Where §14 says this lives, and where it actually lives
+//! # Where this was meant to live, and where it actually lives
 //!
 //! The pointer is "the list lives in `crates/vitui-engine/examples/budget.rs`". It lives one
 //! file across from there, and the example `#[path]`-includes it, for a reason the spec could not
-//! have known: **an example cannot assert the reference compositor's equality**, because ADR 0023
+//! have known: **an example cannot assert the reference compositor's equality**, because nothing
 //! keeps cells off the public surface and an example has nothing but the public surface. The
 //! example still owns, prints and times all twelve; the gates that need cells are inside the crate.
 //!
@@ -42,7 +42,7 @@
 //! `step` returns **how many distinct cells its verbs wrote this frame**, and gate #3 divides the
 //! cells the damage structure reported by that number. The ratio is 1.00x for `RowBits` on every
 //! scene because the bitset marks exactly the cells the verbs marked — that is a property of the
-//! **mechanism**, not of the data, which is what spec §14 requires of an equality gate.
+//! **mechanism**, not of the data, which is what an equality gate requires.
 //!
 //! Two things follow, and both are why the count is declared rather than summed from what the
 //! drawing verbs return:
@@ -115,14 +115,14 @@ pub trait Scene {
     /// gap the filter's threshold sweep could argue about, because two cells that differ only in a
     /// colour the depth cannot say are one cell, and `every-cell-a-distinct-style` would have become
     /// *every cell the same style*. That is the trap — a gate that pins nothing measures the
-    /// thing it did not pin — and the fix is the one architecture ticket 22 used on the link axis:
+    /// thing it did not pin — and the fix is the one used on the link axis:
     /// name the terminal.
     ///
     /// Truecolor specifically, because it is the arm that **preserves every number already on the
     /// register**: narrowing at truecolor is the identity, so the bytes are the bytes impl 14
     /// measured, and the depths that do narrow are reached by the gates that are about narrowing.
     ///
-    /// The twelfth scene pins more, and pinned it before this: §5 skips an operator layer
+    /// The twelfth scene pins more, and pinned it before this: an operator layer is skipped
     /// **outright** at [`ColorDepth::None`], and OSC 8 reaches the wire only where the terminal has
     /// it. It is on the trait rather than passed in by each driver so that the pin travels with the
     /// scene: `crate::gates` and `examples/budget.rs` build their own screens, and a scene that only
@@ -160,12 +160,12 @@ fn base(screen: &mut Screen) -> LayerId {
 
 /// Twenty popups, each with a shadow under it, over a base.
 ///
-/// Spec §5 measured 107.3 us for a full-screen composite **at forty layers**, and these are those
+/// 107.3 us was measured for a full-screen composite **at forty layers**, and these are those
 /// forty; the base is the forty-first because a screen has to have something under them.
 ///
-/// # The shadow stays a non-opaque content layer, and ticket 12 is where that was decided
+/// # The shadow stays a non-opaque content layer
 ///
-/// Ticket 04 wrote it as one on the understanding that ticket 12 would convert it. Ticket 12 built
+/// It was written as one on the understanding that it would later be converted. What was built
 /// the operator and did not, for two reasons that are both about this list rather than about the
 /// operator.
 ///
@@ -175,7 +175,7 @@ fn base(screen: &mut Screen) -> LayerId {
 /// transparent corner cells and with them the arm that measured 6.14 against 25.25 us.
 ///
 /// **And it would measure nothing.** A `Harness` is headless, headless is
-/// `ColorDepth::None` unless something pins it, and §5 skips operator layers outright at that depth
+/// `ColorDepth::None` unless something pins it, and operator layers are skipped outright at that depth
 /// — so the converted scene would report the cost of twenty content layers under a heading that
 /// said forty. Pinning the depth and giving the base an explicit background would fix that and is a
 /// change to what the scene *is*.
@@ -305,7 +305,7 @@ impl Scene for CaretBlink {
 /// label-only arm rewrites a 20-column label and nothing else; the cleared arm blanks the whole row
 /// first.
 ///
-/// **What that difference turned out to discriminate is damage and only damage.** §8 expected the
+/// **What that difference turned out to discriminate is damage and only damage.** The design expected the
 /// cleared arm to be the one the scroll region could use; impl 15 measured both taking it, and taking
 /// it to the same byte — because the two arms draw the *same screen* and leave the same mirror, and
 /// neither the equality filter nor the scroll pre-pass can see how the damage was marked. What the
@@ -830,7 +830,7 @@ impl Scene for FullScreenChange {
 
 /// The adversarial wire scene: 24 000 cells, no two sharing a style word.
 ///
-/// Spec §14 records 805 657 bytes and 286 ms on a 4 MB/s link, which is what set the
+/// The recorded figures are 805 657 bytes and 286 ms on a 4 MB/s link, which is what set the
 /// synchronised-output time limit. The differential SGR has nothing to elide here by construction.
 struct EveryCellADistinctStyle {
     layer: Option<LayerId>,
@@ -899,7 +899,7 @@ impl Scene for EveryCellADistinctStyle {
 /// Three things make it measure something rather than nothing, and each of them was a way to get a
 /// beautiful zero:
 ///
-/// - **The depth is pinned to truecolor.** A headless screen is at `ColorDepth::None`, and §5 skips
+/// - **The depth is pinned to truecolor.** A headless screen is at `ColorDepth::None`, which skips
 ///   an operator layer outright there — see [`Scene::overrides`].
 /// - **The page has explicit colours.** A cell with a *default* background is left unmixed on a
 ///   terminal silent on OSC 11, and every headless screen is silent, so a default-coloured page
@@ -922,12 +922,12 @@ impl Scene for EveryCellADistinctStyle {
 /// terminal model held an inline cell where the frame held a handle. That was a fact about the wire
 /// rather than about this scene, and it is no longer true of either.
 ///
-/// **`Scene::overrides` needs two pins now, not one.** Truecolor, because §5 skips an operator layer
+/// **`Scene::overrides` needs two pins now, not one.** Truecolor, because an operator layer is skipped
 /// outright at [`ColorDepth::None`]; and `hyperlinks`, because OSC 8 is emitted only where the
 /// terminal has it and a headless screen is asked nothing — so on a screen that declared only the
 /// depth this scene's links would be dropped from the wire, and under the intern-key collapse
 /// they would be dropped from the *key* as well and the row would report 8 entries where it exists to
-/// report 96 (architecture ticket 22).
+/// report 96.
 pub struct HyperlinkedPageUnderAnOperator {
     page: Option<LayerId>,
     operator: Option<LayerId>,
@@ -935,7 +935,7 @@ pub struct HyperlinkedPageUnderAnOperator {
     row: String,
     /// The page's hyperlink URIs, built once and re-applied every frame.
     ///
-    /// The URIs and not their ids, because architecture ticket 21 put the URI at the verb: the
+    /// The URIs and not their ids, because the URI is at the verb: the
     /// descriptor names `Link::Uri(&str)` and the verb interns it, so what a scene holds between
     /// frames is the string it drew with. Re-applying it costs one hash probe per band per frame
     /// and mints nothing after the first, which is what keeps this scene's own growth the
@@ -1080,7 +1080,7 @@ impl Scene for HyperlinkedPageUnderAnOperator {
 
     /// **Two pins, and each of them is a gate that would otherwise measure something else.**
     ///
-    /// Truecolor, because §5 skips an operator layer outright at [`ColorDepth::None`], which is what
+    /// Truecolor, because an operator layer is skipped outright at [`ColorDepth::None`], which is what
     /// a headless screen is unless something says otherwise — without it this row reports a fade
     /// that mints nothing.
     ///
@@ -1088,7 +1088,7 @@ impl Scene for HyperlinkedPageUnderAnOperator {
     /// sink. Without it the round trip cannot close on this scene at all, and under impl 17's
     /// intern-key collapse the row would report 8 entries where it exists to report 96: a hyperlink
     /// on a screen where OSC 8 is inexpressible stops making a cell extended, and a `Mix` over an
-    /// inline cell reaches no table (architecture ticket 22).
+    /// inline cell reaches no table.
     fn overrides(&self) -> Overrides {
         Overrides {
             colors: Some(ColorDepth::TrueColor),

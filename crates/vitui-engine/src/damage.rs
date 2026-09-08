@@ -6,7 +6,7 @@
 //! # Why a bitset, when the whole field uses rows
 //!
 //! tcell, ghostty, Zellij, notcurses and termwiz all take the row as the unit and call cell-level
-//! tracking more precision than the bookkeeping is worth. Spec §6 declines that, and the reason is
+//! tracking more precision than the bookkeeping is worth. That is declined, and the reason is
 //! the metric rather than taste: **the metric is overdraw, not marking speed.** Marking happens
 //! once per verb and scanning once per frame, and both are nanoseconds. What costs is cells the
 //! serializer emits that did not change, because those are bytes on the wire and per-terminal
@@ -428,7 +428,7 @@ mod tests {
         assert!(d.is_empty());
     }
 
-    /// The five costs spec §6 tabulates, printed beside the numbers it recorded.
+    /// The five costs, printed beside the numbers recorded for them.
     ///
     /// A report, not a gate: the register says a timing is a gate only at cliff granularity, and
     /// none of these is near a cliff. The gates that *are* gates live above — the idle clear's row

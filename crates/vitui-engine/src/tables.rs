@@ -1,6 +1,6 @@
 //! The handle tables, as one thing: what a drawing verb reaches through.
 //!
-//! Spec §3 calls them *the handle tables* in the plural and treats them as a set — **one set per
+//! They are *the handle tables* in the plural and are treated as a set — **one set per
 //! layer stack**, minted by `attach`, reached by the verbs through the draw context.
 //! They travel together everywhere in this crate: `text` needs the interner, `restyle` needs the
 //! extended-style table and the link table, and `pack` needs all three at once. So they are one
@@ -8,8 +8,8 @@
 //! instead of three.
 //!
 //! A `Surface` outside a layer stack carries its own set, because `Surface::new` and
-//! `Surface::root` are public and a `View` from that door has no engine to reach through (spec §3,
-//! architecture ticket 19). Every table in a fresh set is empty and an empty table holds no
+//! `Surface::root` are public and a `View` from that door has no engine to reach through. Every
+//! table in a fresh set is empty and an empty table holds no
 //! allocation, so the field costs a layer's surface nothing.
 
 use crate::exts::{ExtStyles, LinkId, Links};
@@ -41,15 +41,15 @@ pub(crate) struct Tables {
     /// `hyperlinks` is the only capability that is boolean rather than a ladder and the only channel
     /// whose absence makes a cell *stop needing a table entry at all*.
     ///
-    /// What it is worth is **table entries and not bytes**: spec §7 measured 8 against 96 on a page
+    /// What it is worth is **table entries and not bytes**: 8 against 96 was measured on a page
     /// of hyperlinked text, at byte-identical frames, because two style words differing only in a
     /// channel the serializer will not emit produce an SGR delta with nothing in it and the emit loop
     /// already withdraws the escape it speculatively opened. So this is a growth bound rather than a
     /// frame cost, and it is free, which is why it is taken.
     ///
     /// **True in a fresh set, which is the honest default and not the common one.** A set knows no
-    /// terminal — `Surface::new` is public and a standalone surface has no engine to ask (spec §3,
-    /// architecture ticket 19) — and a surface drawn off to one side is reconciled at donation, where
+    /// terminal — `Surface::new` is public and a standalone surface has no engine to ask — and a
+    /// surface drawn off to one side is reconciled at donation, where
     /// `add_content_with` re-mints every entry into the stack's table and the collapse applies there.
     /// `attach` is what tells the stack's own set, through
     /// [`set_links_in_key`](Tables::set_links_in_key).
@@ -120,8 +120,7 @@ impl Tables {
     /// walk is skipped for nearly every donation: a surface of Latin, CJK, box drawing or
     /// single-scalar emoji carries no cluster, and one that is neither hyperlinked nor
     /// coloured-underlined carries no extended style, so there is no handle in it that means
-    /// anything different in the stack's space than it did in its own (spec §3, architecture
-    /// ticket 19).
+    /// anything different in the stack's space than it did in its own.
     pub(crate) fn is_empty(&self) -> bool {
         self.interner.is_empty() && self.exts.is_empty() && self.links.is_empty()
     }

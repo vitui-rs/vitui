@@ -27,7 +27,7 @@ use crate::tables::Tables;
 /// it draws into — a layer's surface into the stack's tables, a standalone
 /// [`Surface`](crate::Surface) into its own — which is exactly what
 /// [`text`](crate::View::text) has always done with a grapheme cluster. That symmetry is the whole of
-/// architecture ticket 21: a handle a caller holds belongs to one table and cannot say which, and a
+/// A handle a caller holds belongs to one table and cannot say which, and a
 /// URI belongs to none of them, so there is no second mint for a surface outside a stack to need.
 ///
 /// The table deduplicates on the URI, so *this hyperlink again* is the same URI again and costs one
@@ -130,7 +130,7 @@ impl Restyle<'_> {
     /// error: a three-bit field in a `u16` cannot be made to reject one, so `UNDERLINE_DOUBLE |
     /// UNDERLINE_DOTTED` is 6, which names no style, and a `set` that lands on 6 or 7 leaves the
     /// underline as it was. Discarded rather than refused, which is
-    /// `docs/adr/0022-drawing-verbs-clamp-and-discard.md`'s rule for every other out-of-range
+    /// clamp-and-discard's rule for every other out-of-range
     /// argument a verb takes.
     pub const UNDERLINE: u16 = 1;
     /// Doubly underlined, emitted as `4:2` — SGR 21 is never emitted.

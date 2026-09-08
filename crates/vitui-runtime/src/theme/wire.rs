@@ -211,7 +211,7 @@ pub(super) const fn at_256(c: Rgb) -> u8 {
 /// through an operator palette.
 ///
 /// **Only ever an instrument, which is why it is `cfg(test)` and not on the public surface.**
-/// ADR 0007 is why it can never be more than one: nothing in this process may read the sixteen
+/// It can never be more than one: nothing in this process may read the sixteen
 /// colours the terminal is configured with, so a count taken at sixteen colours is a lower bound, and
 /// an operator palette is a fixture that says *how much* of one — never a fact a component may read.
 #[cfg(test)]

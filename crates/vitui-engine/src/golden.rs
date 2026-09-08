@@ -3,7 +3,7 @@
 //! The round trip ([`crate::testing::Harness`]) checks that the bytes replay to the frame. It
 //! cannot check that the frame was the **right picture**, and that is a golden's whole job — which
 //! is also why goldens are secondary here rather than primary: a golden byte string would pin the
-//! encoding, and the encoding is exactly the part ticket 15 has still to change.
+//! encoding, and the encoding is exactly the part still allowed to change.
 //!
 //! Four properties of the format are load-bearing:
 //!
@@ -1015,10 +1015,10 @@ mod scene_goldens {
     /// [`Harness`] always uses — makes the *sequence* deterministic. A golden is reproducible only
     /// with both, and `colors: TrueColor` is what makes headless a **declared** tier rather than the
     /// lowest one.
-    /// Architecture ticket 22 added three fields and this names all seven, because a golden that
+    /// Three fields arrived later and this names all seven, because a golden that
     /// spread `..Default::default()` would let a new axis change every blessed picture silently. Two
     /// of the three are pinned to the value they already had: **silence is not declarable and does
-    /// not need to be** — it is what a caller-supplied sink gets, and §5 leaves a default-coloured
+    /// not need to be** — it is what a caller-supplied sink gets, and a default-coloured
     /// cell unmixed rather than mixing it against a guess, which is the behaviour every golden on
     /// the list was blessed under.
     fn pinned() -> crate::caps::Overrides {

@@ -2,7 +2,7 @@
 //!
 //! # The polarity is inverted
 //!
-//! Spec §14 states it, and it is the whole shape of this file:
+//! The shape of this file:
 //!
 //! > **Every crash is minimised and committed as an ordinary unit test, and the committed corpus
 //! > replayed as an ordinary test is the gate. The fuzzer itself is a scheduled soak.**
@@ -34,7 +34,7 @@
 //! damage-tracked frame equals the reference **everywhere**, including outside every damaged run.
 //! Nothing in either sentence mentions how damage is marked.
 //!
-//! **Byte streams** (the second) go into `crate::input::parse`, where §14 concedes the oracle is
+//! **Byte streams** (the second) go into `crate::input::parse`, where the oracle is
 //! weaker — *no panic, every byte consumed, no unbounded growth* — and where the surface is the one
 //! thing in this crate that parses input the engine did not produce.
 //!
@@ -48,7 +48,7 @@
 //! scans for `ESC` with `memchr` instead of stepping byte by byte would break.
 //!
 //! `end_of_read` is deliberately outside that equality. It is the one place a read boundary carries
-//! meaning (§9: a bare `ESC` is flushed as the Escape key), so an arm that ends every chunk is run
+//! meaning — a bare `ESC` is flushed as the Escape key — so an arm that ends every chunk is run
 //! for the other two oracles and not for this one.
 
 use std::time::Instant;
@@ -119,7 +119,7 @@ impl<'a> Bytes<'a> {
 
     /// A coordinate on an axis `span` long, reaching four columns outside it at each end.
     ///
-    /// Outside is the point. ADR 0022 is clamp-and-discard, the wide-glyph hazard lives at an edge,
+    /// Outside is the point. The rule is clamp-and-discard, the wide-glyph hazard lives at an edge,
     /// and a generator that only ever produced coordinates inside the screen would be a generator
     /// that never tested either.
     fn coord(&mut self, span: u16) -> i32 {
@@ -180,7 +180,7 @@ impl std::io::Write for Discard {
 /// A headless screen of `w` by `h`, on a terminal that can express everything.
 ///
 /// **Truecolor and OSC 8 are pinned, and neither is decoration.** A caller-supplied sink is asked
-/// nothing, so §10 leaves it at `ColorDepth::None` — where §5 skips every operator layer outright
+/// nothing, so it stays at `ColorDepth::None` — where every operator layer is skipped outright
 /// and a hyperlink stops making a cell extended. A differential fuzz on an unpinned screen would be
 /// a differential fuzz over the half of the compositor that survives the depth, and both oracles
 /// would agree about the half that does not run.
@@ -218,7 +218,7 @@ fn hex(data: &[u8]) -> String {
 ///
 /// The input is a program: two bytes of screen size, then verbs. Every `present` is a checkpoint,
 /// and at a checkpoint gate #1's two halves are asserted of the frame that was just built — which
-/// is what §14 means by *this is also where gate #1 is generated rather than hand-written*. A
+/// is what *the damage gate is generated rather than hand-written* means. A
 /// hand-written expectation about damage is written by whoever wrote the damage and agrees with it
 /// for the same reason; this one is a composite of the same layers by a compositor that shares no
 /// line with the fast path.
@@ -721,7 +721,7 @@ mod tests {
     /// raised above it; and a lifting operator over `(0, -1, 4, 5)`, whose first column is that one.
     ///
     /// Every gate on the register was green on this. What it takes to see it is damage **disjoint
-    /// from the layer whose edge is in question**, which is the same finding ticket 12 recorded and
+    /// from the layer whose edge is in question**, which is the same finding recorded earlier and
     /// the reason this target exists rather than a thirteenth scene.
     #[test]
     fn an_operator_reaching_over_a_pair_the_frame_clamped_on_the_left() {
@@ -738,9 +738,9 @@ mod tests {
     /// and it showed more than the ticket knew: the frame **kept** the orphan on frames one and two
     /// and **blanked** it on frame three, same stack, same surfaces, because `mend` runs at the
     /// edges of the damaged span and on that frame a span edge landed on it. One question answered
-    /// both ways depending on what else changed, which is the ticket 12 shape.
+    /// both ways depending on what else changed, which is that same shape.
     ///
-    /// Ticket 20 is closed and the answer is that the orphan never reaches the composite: the
+    /// The answer is that the orphan never reaches the composite: the
     /// drawing verbs' repair is bounded by the surface rather than by the clip, because three
     /// terminals were asked and all three blank the orphaned half themselves. So this program now
     /// produces a well-formed frame on every one of its frames, and [`checkpoint`] asserts that

@@ -66,24 +66,24 @@ const STANDING: &[Standing] = &[
     },
     Standing {
         dir: "vitui-engine",
-        citations: 339,
+        citations: 0,
         examples: 1,
     },
     Standing {
         dir: "vitui-runtime",
-        citations: 75,
+        citations: 0,
         examples: 1,
     },
     Standing {
         dir: "vitui-components",
-        citations: 937,
+        citations: 930,
         examples: 9,
     },
 ];
 
 /// The crates whose sweep is finished. A finished crate's budget is zero and stays zero, which is
 /// the difference between a ratchet and a treadmill.
-const SWEPT: &[&str] = &["vitui"];
+const SWEPT: &[&str] = &["vitui", "vitui-engine", "vitui-runtime"];
 
 /// Citation vocabulary that is a plain substring: a decision-record number, a section mark, a
 /// register row, a path into the backlog, an obligation letter, a map's own name.
@@ -92,8 +92,6 @@ fn plain_needles() -> Vec<String> {
         needle("adr", " 0"),
         needle("docs", "/adr"),
         needle(".scr", "atch"),
-        needle("register ", "entry"),
-        needle("register ", "row"),
         needle("components arch", "itecture"),
         needle("runtime arch", "itecture"),
         needle("engine arch", "itecture"),
@@ -112,6 +110,10 @@ fn numbered_needles() -> Vec<String> {
         // The word alone is ordinary English — "both halves of the obligation are met". What points
         // at a document the reader does not have is the numbered one.
         needle("obligation ", "o"),
+        // `a register entry` is this workspace's own vocabulary and reads as English; `register
+        // entry 12` is a pointer at a row of a table the reader has no copy of.
+        needle("register ent", "ry "),
+        needle("register r", "ow "),
     ]
 }
 

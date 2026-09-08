@@ -4,12 +4,12 @@
 //! reason is a measured one: the audit that produced the engine's found its watchdog threshold
 //! copied into nine files. This crate had the same defect in a more embarrassing place — **the
 //! frame budget itself, `const FRAME_NS: f64 = 100_000.0`, written out twelve times across
-//! `examples/`**, once per report that wanted to divide by it. Eleven copies of a figure spec §19
+//! `examples/`**, once per report that wanted to divide by it. Eleven copies of a figure the design
 //! says may not move without a new map decision is twelve places to move it from.
 //!
 //! # What this ledger says that the spec's did not
 //!
-//! Spec §19 carried a headroom ledger whose every row came from a **prototype** — the architecture
+//! The headroom ledger's every row came from a **prototype** — the architecture
 //! map's `R NN` tickets, measured before this crate existed — and subtracted those rows from a base
 //! it recorded as **32.85–33.05 µs**. This file is that table re-measured against the shipped
 //! runtime, and the headline is that the base was never the shipped frame:
@@ -19,9 +19,9 @@
 //! **1.11×**.
 //!
 //! That is not a regression, and checking rather than assuming is what this ledger is for.
-//! **Ticket 17 already measured it** — *"the dense 300×80 frame is 91–94 µs on both arms and both
+//! **It had already been measured** — *"the dense 300×80 frame is 91–94 µs on both arms and both
 //! settings"* — and recorded in the same breath that R14's prototype magnitude *"is not reproducible
-//! here"*. The number was found, written into the ticket, and never propagated into §19. A figure
+//! here"*. The number was found, written down once, and never propagated. A figure
 //! with no single home is a figure that can be discovered twice and fixed neither time.
 //!
 //! # The rows do not sum to the frame, and that is the finding
@@ -39,7 +39,7 @@
 //!
 //! # The one budget row, and why the other one is not here
 //!
-//! Spec §19 inherits two figures from the engine map: **full-screen 300×80 composition < 1 ms** and
+//! Two figures are inherited from the engine: **full-screen 300×80 composition < 1 ms** and
 //! **typical damage-tracked frame < 100 µs**. Only the second is a number this crate divides by, so
 //! only the second is a row here. The first lives in `vitui_engine`'s ledger and is *deliberately
 //! not copied* — a ledger that duplicates the figure it exists to de-duplicate has argued itself out
@@ -54,7 +54,7 @@
 pub enum Machine {
     /// Apple M1 Max, 10 cores, macOS 26.5.2, rustc 1.97.1, `--release`, unloaded.
     ///
-    /// Every row carrying this was taken by ticket 20 on 2026-08-24, minimum of 40 rounds,
+    /// Every row carrying this was taken on 2026-08-24, minimum of 40 rounds,
     /// round-robin, with nothing else running. Under a concurrent `cargo build` the same frame
     /// reads **94.2 µs** rather than 89.9 — a 5% load penalty, measured rather than assumed, and
     /// the reason [`table`] prints the spread rather than a single figure.
@@ -84,7 +84,7 @@ impl Machine {
 /// Whether a row is something measured or something the map ruled.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Kind {
-    /// A figure spec §19 inherits from the engine map. Not moveable without a new map decision.
+    /// A figure inherited from the engine. Not moveable without a new architecture decision.
     Budget,
     /// Something this crate puts on the frame path, measured.
     Cost,
@@ -144,7 +144,7 @@ pub struct Row {
     pub decision: Option<&'static str>,
 }
 
-/// The frame budget, in nanoseconds. Spec §19, inherited from the engine map.
+/// The frame budget, in nanoseconds. Inherited from the engine.
 ///
 /// **This is the one home of the figure that was copied into twelve example files.** Read it;
 /// do not write `100_000.0`.
@@ -596,7 +596,7 @@ mod tests {
 
     /// **The dense frame is inside the budget, and this is the assertion the ledger exists to make.**
     ///
-    /// Register entry 12's gate is `examples/frame.rs`, which measures. This one is over the
+    /// The frame gate is `examples/frame.rs`, which measures. This one is over the
     /// *recorded* figure, so a commit that edits the ledger to make a red gate green has to walk
     /// past a second assertion in a different file.
     #[test]

@@ -2,7 +2,7 @@
 //!
 //! # Why they are behind a bit rather than beside the style word
 //!
-//! Underline colour and the OSC 8 hyperlink are the two things spec §3 could not fit in sixty-four
+//! Underline colour and the OSC 8 hyperlink are the two things that could not fit in sixty-four
 //! bits, and keeping an `extras` handle *inline* beside the colours costs the serializer's
 //! full-screen scan 5.45 → 13.3 µs. Folding them behind bit 63 pays for itself 2.4x, because the
 //! interning lands only on the **under 1%** of cells that carry one: everything else is an inline
@@ -35,7 +35,7 @@ use crate::sweep;
 /// the table it is used against. `crate::audit::REFUSED_NAMES` is where the absence is gated.
 ///
 /// It is also one exception fewer to argue about
-/// `docs/adr/0023-the-cell-is-never-visible-in-the-public-api.md`: the refusal 11 — *no cells, no
+/// The refusal is *no cells, no
 /// grapheme handles, no style bits* — now holds with nothing beside it.
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Hash, Default)]
 pub(crate) struct LinkId(u32);
@@ -77,7 +77,7 @@ impl Links {
 
     /// The id for one URI, minting one if this is the first sight of it.
     ///
-    /// Deduplicated, and since architecture ticket 21 that is the *only* thing keeping the table
+    /// Deduplicated, and that is the *only* thing keeping the table
     /// small: the URI arrives at every verb call that names a hyperlink, so asking twice for the
     /// same one has to answer the same thing. A page of a hundred distinct links is a hundred
     /// entries however many cells carry them and however many times they are redrawn.
@@ -212,7 +212,7 @@ impl ExtStyles {
     ///
     /// **The `link` inside a surviving entry is left alone**, because the URI table is not swept.
     /// The reason it *was* not swept — an application holds [`LinkId`]s across frames —
-    /// stopped being true at architecture ticket 21, which took the handle off the public surface;
+    /// stopped being true when the handle came off the public surface;
     /// the decision stands on the measurement, which is that link ids are few and nothing suggests
     /// it matters. See [`crate::sweep`].
     pub(crate) fn compact(&mut self, live: &[bool]) -> Option<Vec<u32>> {

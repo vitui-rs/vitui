@@ -36,11 +36,11 @@
 //! cliff table lists it beside the frames that are deliberately outside the incremental budget.
 //! Where it does run is [`Screen::layers`](crate::Screen::layers), which is not inside `present` and
 //! *is* inside the application's frame loop; the note there is exact about the difference, and about
-//! why §3 asks for the first and not the second.
+//! why the first is asked for and not the second.
 //!
 //! # The frame surface is one of the live surfaces
 //!
-//! Spec §3 says *it walks the live surfaces once*, and the composited frame is one of them: its
+//! *It walks the live surfaces once*, and the composited frame is one of them: its
 //! cells were copied out of the layers and carry the layer stack's handles, and only the damaged
 //! runs of it are recomposited each frame. A sweep that rewrote the layers and left the frame alone
 //! would leave every undamaged cell of the frame naming an entry that had moved — which no
@@ -54,7 +54,7 @@
 //! The reason it *used* to rest on is gone, and saying so is the point of this paragraph rather
 //! than a footnote to it. It was *an application holds handles to them* — `LinkId` was public and
 //! `Screen::link` handed one back across frames, so renumbering would have invalidated a value a
-//! caller was still holding. Architecture ticket 21 put the URI at the drawing verb, so **nothing
+//! caller was still holding. The URI is at the drawing verb now, so **nothing
 //! outside this crate holds one any more** and the URI table could join the two the sweep already
 //! touches whenever anyone wants it to. **Not taken here**, because the measurement the decision
 //! rests on has not changed: the table grows once per distinct URI a frame draws, and a page of a
@@ -78,7 +78,7 @@ use crate::tables::Tables;
 /// What a [`Remap`]'s map holds for an entry the sweep dropped.
 ///
 /// No live handle can carry it. A cluster id is bounded by `LAST_CLUSTER - FIRST_CLUSTER` and an
-/// extended-style handle by the twenty bits spec §3 gives it, both decades below this.
+/// extended-style handle by the twenty bits it is given, both decades below this.
 pub(crate) const DEAD: u32 = u32::MAX;
 
 /// The renumbering one table's liveness markers imply.
@@ -111,12 +111,12 @@ pub(crate) fn remap(live: &[bool]) -> Option<Remap> {
     Some(Remap { map, renumbered })
 }
 
-/// What one sweep did, in the counts spec §14 asks a gate to be made of.
+/// What one sweep did, in the counts a gate is made of.
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
 pub(crate) struct Swept {
     /// Whether any live handle moved, and therefore whether the mirror has to be told.
     ///
-    /// **False when nothing below a live entry was freed** — register entry #11's second half.
+    /// **False when nothing below a live entry was freed** — the renumbering half of the oracle.
     pub(crate) renumbered: bool,
     /// Clusters still pointed at by a cell.
     pub(crate) live_clusters: usize,
@@ -203,7 +203,7 @@ pub(crate) fn sweep(tables: &mut Tables, surfaces: &mut [&mut Surface]) -> Swept
 
 /// Everything one cell says, with every handle already resolved.
 ///
-/// The oracle register entry #11 is made of: *after a sweep every live cell resolves to the same
+/// The oracle: *after a sweep every live cell resolves to the same
 /// channels it resolved to before.* A cell is compared through this rather than by its bytes,
 /// because a sweep is **allowed** to change its bytes and forbidden to change what they mean — a
 /// comparison of `Cell` values would fail on every correct sweep and a comparison of rendered text
@@ -283,7 +283,7 @@ mod tests {
     ///
     /// **A report, not a gate.** The shape of the growth is gated — `crate::gates`'
     /// `a_fading_operator_mints_per_distinct_style_and_never_per_cell` is a count and
-    /// `tests/alloc.rs`'s settled arm is a zero — and these are the two absolute numbers spec §3
+    /// `tests/alloc.rs`'s settled arm is a zero — and these are the two absolute numbers
     /// measured, re-taken on the shipped mechanism at the full screen:
     ///
     /// | | entries created | per frame |
@@ -291,9 +291,9 @@ mod tests {
     /// | a settled modal dim, 120 frames | 96 | 0.8 |
     /// | a fade in, 120 frames | 11 484 | 95.7 |
     ///
-    /// It lives here rather than in `examples/budget.rs` for the reason ticket 04 moved the scene
+    /// It lives here rather than in `examples/budget.rs` for the reason the scene list moved
     /// definitions one file across: **an example has only the public API**, and a count of table
-    /// entries is not on it — ADR 0023 keeps cells off the public surface and the tables are one step
+    /// entries is not on it — cells are off the public surface and the tables are one step
     /// behind the cells. The example owns the two *timings* of the same scene, which is what an
     /// example can take.
     #[test]
@@ -370,7 +370,7 @@ mod tests {
     /// What the sweep costs, at one screen and at twenty layers.
     ///
     /// **A report, not a gate**, and the one number on it that is load-bearing is not a duration:
-    /// spec §13 lists the sweep among the frames *deliberately outside the incremental budget* —
+    /// the sweep is among the frames *deliberately outside the incremental budget* —
     /// 1.17 ms at twenty layers — and what makes that legal is that it never runs on the render
     /// path, which `crate::gates::the_sweep_never_runs_inside_present` gates as a count.
     ///

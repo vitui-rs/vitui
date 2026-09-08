@@ -42,10 +42,10 @@ use crate::view::View;
 /// it is a different one, because by then the two writes have already collapsed into the one cell the
 /// frame ends up holding.
 ///
-/// # `clear`-then-draw is load-bearing, and what it buys is not what §8 thought
+/// # `clear`-then-draw is load-bearing, and what it buys is not what was expected
 ///
 /// The consequence runs the other way too: **a component that repaints whole rows is not committing a
-/// wart to be optimised away.** §8 priced it as *9x worse unfiltered and 24x better filtered*, and
+/// wart to be optimised away.** It was priced as *9x worse unfiltered and 24x better filtered*, and
 /// measured over the two arms of one scrolling list — one that rewrites a twenty-column
 /// label, one that blanks the whole row first — the trade is this instead:
 ///
@@ -54,7 +54,7 @@ use crate::view::View;
 /// | label only | 1 600 | 5 304 | 1 925 | **679** |
 /// | rows cleared, as a widget must | 24 000 | 72 504 | 1 925 | **679** |
 ///
-/// So the cost is real and the benefit is not where §8 put it. Clearing the rows is **15x the damaged
+/// So the cost is real and the benefit is not where it was expected. Clearing the rows is **15x the damaged
 /// cells and 13.7x the span bytes**, and on the wire it is worth **nothing at all** — the equality
 /// filter and the scroll region both take the two arms to the same byte. The read for a component
 /// author is therefore not *clear your rows and win 24x*:
@@ -100,7 +100,7 @@ pub struct Surface {
 impl std::fmt::Debug for Surface {
     /// Dimensions only. A derived `Debug` would print every `Cell` — its grapheme handle and its
     /// packed style bits — through `{:?}`, which is the read-back
-    /// `docs/adr/0023-the-cell-is-never-visible-in-the-public-api.md` forecloses: a caller cannot
+    /// the cell being invisible outside this crate forecloses: a caller cannot
     /// read back what is already on screen. The formatter is not an exception to that.
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "Surface {{ {}x{} }}", self.width, self.height)

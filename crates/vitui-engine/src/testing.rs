@@ -6,7 +6,7 @@
 //! [`Harness`] is the **round trip** itself: composite a frame, serialise it, replay
 //! the bytes through the terminal model, assert the replayed screen equals the frame. It stores
 //! nothing, so there is no file to review, nothing to bless and no maintenance — and a golden byte
-//! string would have pinned the encoding, which is exactly the part ticket 15 has still to change. It lives here rather than in [`crate::roundtrip`] because
+//! string would have pinned the encoding, which is exactly the part still allowed to change. It lives here rather than in [`crate::roundtrip`] because
 //! [`crate::gates`] drives the twelve scenes through the same instrument, and a second copy
 //! of it was a second copy that could quietly assert less: the first draft of the scene gates
 //! checked the replayed screen and forgot the mirror.
@@ -19,21 +19,21 @@ use crate::engine::{Clock, Config, Engine, Output, Presented, Screen};
 use crate::surface::Surface;
 use crate::term_model::TermModel;
 
-/// The invariant of spec §3, over a whole surface: a `CONTINUATION` never appears without a wide
+/// The pairing invariant, over a whole surface: a `CONTINUATION` never appears without a wide
 /// head immediately to its left, and a wide head is always followed by a `CONTINUATION`.
 ///
-/// **It is asserted of two different things and that is the point.** Ticket 06 established it over
-/// one [`Surface`] — what a sequence of drawing verbs leaves behind — and ticket 11 establishes it
+/// **It is asserted of two different things and that is the point.** It was established first over
+/// one [`Surface`] — what a sequence of drawing verbs leaves behind — and then over
 /// over the **composited frame**, which is where it has to hold, because the frame is what the
 /// serializer reads. The round trip cannot see this class of defect: the serializer emits nothing
 /// for a continuation and the terminal model consumes nothing for one, so a frame with a bare
 /// continuation in it round-trips green while a real terminal would show something else. One
 /// definition, so that neither caller can quietly assert less than the other.
 ///
-/// **It has no exception any more, and losing one is what architecture ticket 20 bought.** A pair
+/// **It has no exception any more, and losing one is what bounding the repair by the surface bought.** A pair
 /// bisected by a [`View::child`](crate::View::child) clip used to be the one case this deliberately
 /// did not assert — a child may not widen its clip, so the half outside stayed — and the
-/// instrument was written not to hide it rather than to excuse it. Ticket 20 answered the other way
+/// instrument was written not to hide it rather than to excuse it. It was answered the other way
 /// on evidence: three terminals blank the orphaned half themselves, so a surface holding one is a
 /// surface no terminal can show. The repair is bounded by the surface now, and this holds
 /// everywhere, of every surface and every frame.
@@ -122,10 +122,10 @@ pub(crate) mod terminal {
     /// Both halves are deliberate. Silent about the two default colours is the silent path,
     /// which is load-bearing rather than a limitation: a cell with a default colour is left unmixed
     /// rather than mixed against a guess, because the guess is a dark theme and on a light-theme
-    /// terminal it draws a shadow backwards. And **truecolor**, because at [`ColorDepth::None`] §5
+    /// terminal it draws a shadow backwards. And **truecolor**, because at [`ColorDepth::None`] compositing
     /// skips operator layers outright and a test would then be about the depth instead — which is
     /// exactly the trap a headless `Harness` falls into by default, since a caller-supplied sink is
-    /// asked nothing and §10 will not invent a colour for one.
+    /// asked nothing and nothing will invent a colour for one.
     ///
     /// This tier *is* reachable through [`Overrides`](crate::Overrides) — it is what
     /// `Harness::with_overrides` with `colors: TrueColor` produces, which is
@@ -137,7 +137,7 @@ pub(crate) mod terminal {
 
     /// A terminal that answered both default colours, in white.
     ///
-    /// **Reachable through [`Overrides`](crate::Overrides) since architecture ticket 22** —
+    /// **Reachable through [`Overrides`](crate::Overrides)** —
     /// `default_fg` and `default_bg` are fields now — and this helper survives anyway, because its
     /// callers sit **below** `Screen` and have no `Overrides` to speak through: `crate::layer` calls
     /// `composite_run` with a `&Capabilities` directly, and [`silent`]'s callers in `crate::view` and
@@ -225,7 +225,7 @@ impl Write for Recorder {
 
 /// A truecolor terminal, silent on both default colours: what a compositing test needs pinned.
 ///
-/// §5 skips an operator layer **outright** at [`ColorDepth::None`](crate::ColorDepth), which is what
+/// An operator layer is skipped **outright** at [`ColorDepth::None`](crate::ColorDepth), which is what
 /// a headless screen is unless something says otherwise — so a test about an operator that does not
 /// pin this measures the depth instead of the operator.
 pub(crate) fn pinned_truecolor() -> Overrides {
@@ -242,7 +242,7 @@ pub(crate) fn pinned_truecolor() -> Overrides {
 /// that choice is that the fixture then depends on a *capability*: OSC 8 reaches the wire only where
 /// the terminal has it, and a headless screen is asked nothing.
 ///
-/// **So a gate that pins the depth and not this is a gate about the depth.** Architecture ticket 22
+/// **So a gate that pins the depth and not this is a gate about the depth.** The declared door
 /// found six instances of that shape on this axis alone, none of them a defect yet and all of them
 /// one ticket away from being one — because a gate can be written today and go vacuous later, and
 /// nothing in the gate changes. What changes is a capability arriving with a reader.
@@ -250,7 +250,7 @@ pub(crate) fn pinned_truecolor() -> Overrides {
 /// The audit that finds them is a grep and not a list: `rg 'Link::Uri'` over `src/`, `tests/` and
 /// `examples/`. Three of the instances it found were missed by a reading that enumerated instead, and
 /// two of those three are not in `src/` at all. The needle was `screen.link(` until architecture
-/// ticket 21 deleted that mint and put the URI at the drawing verb; the grep is what had to move, not
+/// that mint was deleted and the URI went to the drawing verb; the grep is what had to move, not
 /// the audit.
 pub(crate) fn pinned_extended() -> Overrides {
     Overrides {
@@ -261,7 +261,7 @@ pub(crate) fn pinned_extended() -> Overrides {
 
 /// A screen, a sink, and the terminal model the sink's bytes are replayed through.
 ///
-/// One harness, two callers: [`crate::roundtrip`] drives the shapes ticket 03 could express and
+/// One harness, two callers: [`crate::roundtrip`] drives the shapes the first encoding could express and
 /// [`crate::gates`] drives the normative twelve through it. Every `present` here closes the
 /// round trip, so a caller cannot accidentally get a weaker one by writing its own loop.
 pub(crate) struct Harness {
@@ -478,7 +478,7 @@ impl Harness {
         self
     }
 
-    /// Drive this harness's frames the way §8 rejected: every candidate the probe matches is
+    /// Drive this harness's frames the way that was rejected: every candidate the probe matches is
     /// verified, not the first. **The arm its 27x is measured against**, which is what makes the
     /// number reproducible rather than quoted.
     pub(crate) fn verifying_every_match(mut self) -> Harness {
@@ -568,7 +568,7 @@ impl Harness {
     /// # It skips [`stale`](Harness::stale) rows and **not** unknown ones, and the difference is the
     /// whole of this method's coverage
     ///
-    /// `Mirror`'s own flag starts *unknown* at construction, because ADR 0006 is about a real
+    /// `Mirror`'s own flag starts *unknown* at construction, because the rule is about a real
     /// terminal and a real terminal at startup is showing something nobody recorded. **That is not
     /// true of this harness**, where the model is constructed blank beside a mirror constructed
     /// blank and the two agree by construction — the note on
@@ -651,7 +651,7 @@ impl Harness {
     /// asked for while the mirror and the terminal hold what the depth could say — and on any
     /// terminal below truecolor those are different values by construction. Comparing them raw
     /// would either fail on correct code or force every test onto one depth, which is the same
-    /// vacuity one axis along from architecture ticket 22's. See [`crate::quant::OnTheWire`] for
+    /// vacuity one axis along. See [`crate::quant::OnTheWire`] for
     /// why resolving the handle is a *stronger* comparison rather than a weaker one.
     fn as_the_wire_says_it(&self) -> impl Fn(crate::cell::Cell) -> crate::quant::OnTheWire + '_ {
         let q = crate::quant::Quantiser::for_terminal(self.screen.capabilities());
@@ -702,7 +702,7 @@ impl Harness {
 
     /// Replay everything written since the last replay, without presenting a frame.
     ///
-    /// **For the bytes that are not a frame**, which until production ticket 07 were only the
+    /// **For the bytes that are not a frame**, which were once only the
     /// prologue — written once, by `attach`, and replayed by [`build`](Harness::build) for the same
     /// reason. `Screen::suspend` and `Screen::resume` write two more such batches, and a model that
     /// only ever saw frames could not be asked what the terminal is in the middle of one.

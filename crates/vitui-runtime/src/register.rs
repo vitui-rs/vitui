@@ -8,20 +8,20 @@
 //! *this* crate's: **a property that quietly never arrives is indistinguishable from one that was
 //! decided against**, so every gate is here and every one of them is in exactly one of two states —
 //! [`State::Wired`], naming the instruments that run it, or [`State::Red`], naming the
-//! implementation ticket that inverts it. **Fifty wired, none red.** Ticket 19 left this
+//! change that inverts it. **Fifty wired, none red.** This was once left
 //! register at thirty-eight and one — entry 12, the dense frame, which was *measured* in two places
-//! and *gated* in neither — and ticket 20 built the gate rather than reworded the row. What made
+//! and *gated* in neither — and the gate was built rather than the row reworded. What made
 //! that possible is that the red row named the missing instrument precisely enough to build it: a
 //! release example plus the CI line that runs it.
 //!
 //! # The three refinements, which were defects first
 //!
-//! Spec §20 is the split with three corrections the runtime had to make, and each of
+//! The split needed three corrections, and each of
 //! them is enforced by a test at the bottom of this file rather than left as folklore:
 //!
 //! 1. **A gate is an equality only when the number is a property of the mechanism.**
 //!    `walk.len() == 43` is legitimate — 43 is a property of the dense screen and the scene list is
-//!    normative. `t_true == 1` is not: 1 was a property of the stub palette, and ticket 05
+//!    normative. `t_true == 1` is not: 1 was a property of the stub palette, and the shipped one
 //!    replaced the palette. A number that belongs to the *data* must be a relation, or it becomes
 //!    **a gate that is edited rather than fixed**. [`Entry::qualifier`] is where a row says which it
 //!    is, and [`tests::an_equality_gate_names_the_mechanism_its_number_belongs_to`] is the check.
@@ -38,7 +38,7 @@
 //!
 //! # Why the instruments are structured and not prose
 //!
-//! The engine's register names where an entry runs in a `&'static str` of English, and ticket 19's
+//! The engine's register names where an entry runs in a `&'static str` of English, and this one's
 //! own brief names the failure mode that invites: *the engine's source-scanning version of this gate
 //! was vacuous until it compared a trimmed line*. A sentence cannot be checked, so a row that has
 //! quietly stopped running still reads as wired.
@@ -51,8 +51,7 @@
 //! # `source` and `inverted_by` are different numbering schemes
 //!
 //! `source` names the **implementation** ticket the gate was written by
-//! (`.scratch/vitui-runtime-impl/issues/`); `inverted_by` on a red row names the implementation
-//! ticket that will light it. The architecture map (`.scratch/vitui-runtime-architecture/`) is a
+//! `inverted_by` on a red row names the change that will light it. The design record is a
 //! third scheme and is not used here — the table names implementation tickets as `R NN`, and
 //! that is the spelling every row uses.
 
@@ -173,13 +172,13 @@ pub enum State {
     /// **Nothing constructs this today, and the arm stays**, which is the same decision
     /// [`Kind::Test`] records for the same reason: a distinction the type cannot make is one a row
     /// stops making, and the pressure that produces is a red property filed as a wired one. Both
-    /// lists reached all-green in ticket 20 — the register's entry 12 first, then
-    /// [`crate::scenes`]'s scene 19 — and the second of those is what made the variant dead.
+    /// lists reached all-green together — the register's frame entry first, then
+    /// [`crate::scenes`]'s chunked-source scene — and the second of those is what made the variant dead.
     ///
     /// It arrived as a demonstration rather than as a warning, and both demonstrations are worth
     /// keeping in view. Entry 12 was red the moment the instruments stopped being prose: the dense
     /// frame under the budget was measured in two places and gated in neither, and a sentence saying
-    /// where it ran could not tell the difference. Scene 19 was red for the neighbouring reason —
+    /// where it ran could not tell the difference. That scene was red for the neighbouring reason —
     /// its only instrument was a file `cargo test` compiles and never evaluates. *A property that
     /// quietly never arrives is indistinguishable from one that was decided against.*
     ///
@@ -211,7 +210,7 @@ pub struct Entry {
     /// The count test asserts **the split** rather than the total, so a fortieth entry has to
     /// say which side of the line it is on — the engine's arrangement, and for its reason.
     pub on_spec_table: bool,
-    /// The property, in the words where §20 has words for it.
+    /// The property, in the words the design has for it.
     pub property: &'static str,
     /// Gate, test or report.
     pub kind: Kind,
@@ -1470,7 +1469,7 @@ pub const REGISTER: [Entry; 50] = [
 ///
 /// An equality and not a floor, because the number is a property of the mechanism rather than of the
 /// data: **the pair is the unit**, and a case deleted without its twin is precisely the edit this
-/// number exists to catch. Thirty-one at ticket 19, where the corpus's own history begins: spec §20
+/// number exists to catch. Thirty-one when the corpus's own history begins: the design
 /// counts 55 compile outcomes in 15 files behind six `cfg` names with **0 evaluated by any CI
 /// command**, and what ships is a smaller number that runs.
 pub const NEGATIVE_CASES: usize = 31;
@@ -1483,14 +1482,14 @@ pub const NEGATIVE_CASES: usize = 31;
 /// one on its own leaves every other test green, at which point a later rename makes the surviving
 /// negative case fail for the wrong error and report `ok`.
 ///
-/// Fifty-eight at ticket 19; **fifty-nine since architecture issue 23**, whose one addition is the
+/// Fifty-eight to begin with; **fifty-nine since the worker forward**, whose one addition is the
 /// `no_run` loop on [`Driver::wait`](crate::ctx::Driver::wait) — the only doc block in the crate
 /// that cannot be `run`, because a loop with nothing pending parks for ever by design; **sixty since
-/// architecture issue 34**, whose addition is on
+/// the two-colour question**, whose addition is on
 /// [`Theme::colours_differ_on_wire`](crate::Theme::colours_differ_on_wire) and shows the whole of
 /// the verb: two colours one unit of blue apart, separate at truecolor and one colour at sixteen.
 ///
-/// **Sixty-one since architecture issue 35**, whose addition is the second `no_run` block in the
+/// **Sixty-one since the suspend forward**, whose addition is the second `no_run` block in the
 /// crate — [`Driver::suspend`](crate::ctx::Driver::suspend)'s, giving the terminal to `vi` — and it
 /// is `no_run` for a reason unrelated to [`Driver::wait`](crate::ctx::Driver::wait)'s: a doctest
 /// that ran it would hand the test harness's terminal to an editor.
@@ -1845,30 +1844,30 @@ mod tests {
 
     /// **Fifty wired, none red.**
     ///
-    /// This register was thirty-eight and one from ticket 19 until ticket 20 built the gate entry
-    /// 12 was red for the absence of; forty since architecture issue 23 — the first row here whose
-    /// source is an *architecture* issue rather than an implementation ticket, because the backlog
-    /// was closed when the gap was found — forty-one since issue 25, which is the second and
-    /// arrived the same way, forty-two since issue 26, which is the third: a defect three
+    /// This register was thirty-eight and one until the gate the frame entry was red for the
+    /// absence of was built; forty since the worker forward — the first row here whose source is an
+    /// *architecture* question rather than an implementation change, because the backlog was closed
+    /// when the gap was found — forty-one since the focus query, which is the second and
+    /// arrived the same way, forty-two since the scroll sign, which is the third: a defect three
     /// tickets one layer up found before this register had a row that could — forty-three since
-    /// issue 28, the fourth, and the first of them this register could not have had a row for at
+    /// the typed chord, the fourth, and the first of them this register could not have had a row for at
     /// all, the key it compares against having been unbuildable outside the engine until that
-    /// ticket put `KeyText::of` on the engine's surface — forty-four since issue 29, the
+    /// change put `KeyText::of` on the engine's surface — forty-four since the press edge, the
     /// fifth, which is the one that *deletes* a store one layer up rather than gating a sign: the
     /// press had an edge all along and published only the level — and **forty-five since issue
     /// 31**, the sixth, which is the one that inverts a *red row in another crate's register*:
     /// `Ctx::with_id` and `Ctx::scope` childed their body at `self.area()`, which inside a scroll
     /// scope is the content's rectangle, and the row exists here because the property is this
     /// crate's even though three components tickets are what met it — and **forty-six since
-    /// issue 33**, the seventh, which is the one whose gate could not be written the way every
+    /// the reveal's own second frame**, the seventh, which is the one whose gate could not be written the way every
     /// other row on this map is written: the property is that *a frame asks for the next one*, and
     /// an instrument that drives its own second frame supplies exactly the thing under test, so
     /// this one draws a single frame per arm and asks the wakeup sink instead — and
-    /// **forty-seven since issue 35**, the eighth, which is the third time this backlog has found
+    /// **forty-seven since the suspend forward**, the eighth, which is the third time this map has found
     /// an engine verb behind `Driver`'s private field (after 23's `wait` and 30's `permit_slow`)
     /// and the first of the three worth a row: `wait` and `permit_slow` are forwards whose absence
     /// is a compile error at the call site, and a suspend that silently did nothing would draw a
-    /// screen into a terminal somebody else is holding — and **forty-eight since issue 36**, the
+    /// screen into a terminal somebody else is holding — and **forty-eight since the area rule**, the
     /// ninth and the first this map filed against itself, found by resolving 31: that ticket fixed
     /// the two verbs that *childed* at `Ctx::area` and left the two that *read* it.
     ///
@@ -2183,7 +2182,7 @@ mod tests {
     ///
     /// **The instrument that would close it is deliberately not built.** It is an out-of-band
     /// compile: extract each body, invoke `rustc --error-format=json` against this crate's rlib,
-    /// and match the emitted code. Spec §20 rules that out in as many words — *no `RUSTFLAGS`, no
+    /// and match the emitted code. That is ruled out in as many words — *no `RUSTFLAGS`, no
     /// second job, no `trybuild`* — and locating a fresh rlib from inside a test is exactly the
     /// kind of machinery that sentence refuses. Recorded here rather than left as an idea, so the
     /// next person to want it can see it was considered and what it costs.
@@ -2213,7 +2212,7 @@ mod tests {
 
     /// **Every row of this register is a gate, and that is a claim rather than an accident.**
     ///
-    /// Spec §20 keeps two lists: the fifteen-row gate table, and a paragraph of *reports, committed
+    /// There are two lists: the fifteen-row gate table, and a paragraph of *reports, committed
     /// and gating nothing* — every `examples/*_numbers.rs`, the headroom ledger, the comparative
     /// suite, the idle-cost measurement. This file is the first list. The reports have two homes
     /// already: [`Instrument::Report`], which is how a gate cites the number a human reads beside

@@ -29,7 +29,7 @@
 //!
 //! [`screen_frame`] returns those two numbers so that the shape is a *count* rather than a
 //! description. Every caller asserts `(32, 119)`, so a report that quietly started measuring a
-//! smaller screen fails instead of looking good — which is the same rule §14 applies to a scene list:
+//! smaller screen fails instead of looking good — which is the same rule a scene list is held to:
 //! *The scene list is normative, not an appendix.*
 
 use vitui_engine::Rect;
@@ -183,7 +183,7 @@ const PER_ROW: i32 = 12;
 ///
 /// > **Every component draws its text before its padding.**
 ///
-/// Damage is marked at write time and never derived by diffing (ADR 0004, engine §4), so a component
+/// Damage is marked at write time and never derived by diffing, so a component
 /// that fills its rectangle and *then* writes its label damages the cells under the label twice — for
 /// identical output, every frame, for as long as it is on screen. The cost only becomes visible when
 /// something recomposites in proportion to damage, and a modal's scrim is exactly that: an operator

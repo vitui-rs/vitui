@@ -220,7 +220,7 @@ fn runs_arrive_in_serializer_order() {
 /// Overdraw is the cells the damage structure reported divided by the distinct cells the verbs
 /// wrote, and for a per-row bitset it is exactly 1.00x on every scene because the bitset marks
 /// exactly what the verbs marked. That is a property of the **mechanism** rather than of the data,
-/// which is what spec §14 requires before a number may be an equality rather than a relation — the
+/// which is what a number must satisfy before it may be an equality rather than a relation — the
 /// same gate against per-row spans reports 2.53x on three dialogs and 37.07x on the sparse chart,
 /// and those two numbers are about the scenes.
 ///
@@ -312,10 +312,10 @@ fn a_packed_cell_is_byte_identical_to_the_surface_cell() {
 
 /// Gate #12, over all eleven runnable scenes.
 ///
-/// [`crate::roundtrip`] drives the shapes ticket 03 could express one at a time; this drives the
+/// [`crate::roundtrip`] drives the shapes the tracer bullet could express one at a time; this drives the
 /// normative list. It stores nothing: composite, serialise, replay the bytes through the terminal
 /// model, assert the replayed screen equals the frame. A golden byte string would have pinned the
-/// encoding, and the encoding is exactly the part ticket 15 has still to change.
+/// encoding, and the encoding is exactly the part still allowed to change.
 #[test]
 fn the_round_trip_closes_on_every_scene() {
     for mut scene in wired() {
@@ -341,7 +341,7 @@ fn the_round_trip_closes_on_every_scene() {
 /// count on any machine, which is the whole argument for the register's shape — so there is no
 /// headroom to add and nothing to be flaky about. An improvement passes; a regression fails; and
 /// the numbers were meant to fall, because tickets 13, 14 and 15 existed to make every one of them
-/// smaller. **All three have now run, and §8 is on the wire in full.** The one that gates the
+/// smaller. **All three have now run, and the encoding is on the wire in full.** The one that gates the
 /// *filter's* own arithmetic is [`the_equality_filter_reproduces_spec_8s_table`], which is a relation
 /// rather than these counts, and it is measured with the scroll pre-pass **off** so that it stays a
 /// statement about the filter.
@@ -351,9 +351,9 @@ fn the_round_trip_closes_on_every_scene() {
 /// move without a new map decision is a budget figure, and none of these is one.
 ///
 /// Provenance: measured by **impl 15** on 2026-08-21, Apple M1 Max, rustc 1.97.1, over
-/// [`FRAMES`] steady frames after the birth frame, at 300x80, with the full §8 encoding set —
+/// [`FRAMES`] steady frames after the birth frame, at 300x80, with the full encoding set —
 /// `shortest`, the differential SGR, SGR 58/59, OSC 8 — the equality filter with its gap merge, **and
-/// the scroll region.** Nothing about §8 is deferred now. It replaces the line, which was taken
+/// the scroll region.** Nothing about the encoding is deferred now. It replaces the line, which was taken
 /// without the scroll region.
 ///
 /// **Four of the twelve fell again, by between 2.2x and 2.6x over the three frames, and eight did not
@@ -465,13 +465,13 @@ fn wire_bytes_per_scene() {
 /// and calls the difference a performance contract on the component library. **Both halves of that
 /// come out differently here, and only one of them is about the mechanism.**
 ///
-/// The ratio is real and larger than §8's, once it is asked of the right frame. *180* and its
+/// The ratio is real and larger than the recorded one, once it is asked of the right frame. *180* and its
 /// *1 726 → 60* are the same claim counted over three frames and over one, and neither is the number
 /// [`WIRE_BUDGET`] holds: the first steady frame of these scenes is a **second birth frame** — the
 /// scene's `build` adds a layer and draws nothing, so `step(1)` paints eighty labels onto a blank
 /// screen and no scroll exists yet. So this gate reports the three-frame total that the budget gates
 /// and asserts the ratio on **the last frame**, which is the only one of the three that is a steady
-/// scroll. See the ticket's own resolution of the two figures, filed as a finding against §8.
+/// scroll. The two figures are reconciled as a finding rather than reworded.
 ///
 /// What is **not** reproducible on the list is the refusal. `scrolling-list-label-only` writes a
 /// twenty-column label onto a row that is *blank past it*, so what the frame wants on row `y`
@@ -483,7 +483,7 @@ fn wire_bytes_per_scene() {
 /// That is filed rather than fixed, for the reason — adding a thirteenth scene to make an arm
 /// refuse is measuring the fixture — and the conclusion is executed one level down instead:
 /// `crate::roundtrip::a_list_whose_tail_does_not_scroll_with_its_labels_is_refused` is the label-only
-/// arm as §8 wrote it, and it is refused.
+/// arm as it was first written, and it is refused.
 #[test]
 fn the_scroll_region_over_spec_8s_two_arms() {
     /// What the pre-pass has to be worth on the one frame of the three that is a steady scroll.
@@ -569,7 +569,7 @@ fn the_scroll_region_over_spec_8s_two_arms() {
 /// **Report.** Which of the twelve the scroll region reaches, and what it is worth on the one frame
 /// of the three that is a steady scroll.
 ///
-/// **Four of the twelve, and two of them are a surprise.** The two list arms are what §8 named. The
+/// **Four of the twelve, and two of them are a surprise.** The two list arms were the expected ones. The
 /// **virtualised tree** and the **table as a list and a bar chart** both scroll too, and neither is
 /// on the list of what this optimisation is for — a tree that scrolls its rows and a table that
 /// scrolls its body are the same shape as a log pane, and the pre-pass finds them without being told.
@@ -637,7 +637,7 @@ fn which_of_spec_14s_twelve_the_scroll_region_reaches() {
 /// **Pinned by an undamaged row, and that is what makes the two arms comparable.** The first draft
 /// pinned it by redrawing it, and the rejected arm then *found a real scroll* at a distance of 41 —
 /// legitimately, because at that distance the pinned row falls among the exposed ones and every
-/// exposed row was being repainted. §8 says as much in a clause that is easy to read past: *taking the
+/// exposed row was being repainted. It is said in a clause that is easy to read past: *taking the
 /// first match forfeits a scroll that could in principle have been found.* It also emits, which moves
 /// the mirror, which makes the two arms diverge in state and the count ratio between them meaningless.
 /// So the fixture forfeits nothing and the arms differ only in **work**.
@@ -658,7 +658,7 @@ fn which_of_spec_14s_twelve_the_scroll_region_reaches() {
 /// **Measured: 10 candidates against 800, and 410 µs against 967 µs a frame in release.** The ratio is
 /// 2.4x rather than the 27x and the reason is the denominator, not the mechanism: this fixture
 /// rewrites its whole screen every frame, so the frame the pre-pass sits inside is 410 µs where
-/// was 38. The numerator is the number worth reading — §8 measured the rejected version at **1.03 ms**
+/// was 38. The numerator is the number worth reading — the rejected version measured **1.03 ms**
 /// and this measures it at **967 µs**, both of which are a full-screen frame budget spent on candidates
 /// that were all going to be refused.
 ///
@@ -776,7 +776,7 @@ fn a_repeating_rows_screen_verifies_one_candidate_a_frame() {
 /// columns beside it. It is deliberately not taken: it is not in tier-1's confirmed set, and the
 /// verification the pre-pass rests on would turn an unsupported margin into **silent corruption**
 /// rather than into a wasted escape — the terminal would apply `SU` to the whole width while the
-/// pre-pass had proved something about a band of it. **Spec §15 is where the question lives**, and
+/// pre-pass had proved something about a band of it. **The question is still open**, and
 /// nothing in the serializer depends on the answer.
 ///
 /// **The first draft of this gate was two absences and nothing else, which is vacuous** in exactly the
@@ -831,10 +831,10 @@ fn a_scroll_reaches_the_wire_and_never_asks_for_horizontal_margins() {
 ///
 /// Four columns and one relation. `span` is no filter at all, which is what impl 13 shipped;
 /// `strict` compares and never merges a gap; `gap 6` merges any gap of at most six columns, which is
-/// the fixed threshold §8 swept; `chosen` is the byte-priced rule that ships.
+/// the fixed threshold that was swept; `chosen` is the byte-priced rule that ships.
 ///
 /// The relation is the claim about the rule: **it lands within one per cent of the better of the two
-/// fixed thresholds on every scene.** That is the shape §14 asks of a number belonging to the data
+/// fixed thresholds on every scene.** That is the shape a number belonging to the data
 /// rather than to the mechanism — a ratio, not an equality — and it is what makes this a gate rather
 /// than a paragraph. The absolute numbers are the report beside it, and the per-scene bound they are
 /// gated against is `WIRE_BUDGET`.
@@ -845,7 +845,7 @@ fn a_scroll_reaches_the_wire_and_never_asks_for_horizontal_margins() {
 fn the_equality_filter_reproduces_spec_8s_table() {
     /// How far over the better fixed threshold the byte-priced rule may land, in per cent.
     ///
-    /// **§8 says one, and measured here the rule needs none of it**: `chosen` equals
+    /// **One was expected, and measured here the rule needs none of it**: `chosen` equals
     /// `min(strict, gap 6)` exactly on all twelve scenes, because none of them produces a gap the two
     /// rules disagree about. The one is kept rather than tightened to zero, because overshooting *is*
     /// possible and the direction is written at `SGR_FLOOR`: the floor underestimates the SGR a merged
@@ -897,7 +897,7 @@ fn the_equality_filter_reproduces_spec_8s_table() {
 
 /// **Report.** The threshold sweep, over the twelve — **and the finding is that they are flat.**
 ///
-/// §8 swept a fixed cell-count threshold 0 → 24 and concluded there is no right value for one,
+/// A fixed cell-count threshold was swept 0 → 24, concluding there is no right value for one,
 /// because two of its scenes wanted opposite ones. Run over the twelve as this repo writes them the
 /// sweep is flat from four columns on, on every single scene, and the byte-priced rule matches every
 /// row. So **the twelve do not discriminate on this axis**, and that is a fact about the scene list
@@ -1014,7 +1014,7 @@ fn what_the_equality_filter_costs_per_damaged_cell() {
 /// > — measure it and write the number down, because it decides whether this target is worth a soak
 /// > slot.
 ///
-/// Three numbers per scene, because the question turns out to have two halves and §15 states only
+/// Three numbers per scene, because the question turns out to have two halves and only
 /// one of them:
 ///
 /// 1. **The oracle**, timed on its own: the whole stack, every cell, one at a time.
@@ -1024,16 +1024,16 @@ fn what_the_equality_filter_costs_per_damaged_cell() {
 ///    input of `crate::fuzz`'s draw-sequence target costs per checkpoint, and it is what decides
 ///    soak throughput.
 ///
-/// **The comparison §15 asks for is not available from outside `present`, and this says so rather
-/// than pretending.** There is no door onto the fast *composite* alone — spec §12 has none and
-/// ADR 0023 is why — so number 2 contains the serializer, which on a full-screen change is most of
+/// **The comparison asked for is not available from outside `present`, and this says so rather
+/// than pretending.** There is no door onto the fast *composite* alone — the public surface has
+/// none, because no cell is readable — so number 2 contains the serializer, which on a full-screen change is most of
 /// it. The ratio printed against the 2x is therefore a **lower bound** on how much slower the
 /// oracle is than the compositor it checks: the denominator is larger than the thing being compared.
 ///
 /// A **report and not a gate**, and deliberately without an `assert` on the ratio. The register's
 /// rule is that a timing is a gate only at cliff granularity, and 2x in a debug build on a shared
 /// runner is not one — an assertion there would be the flaky test wearing a budget's clothes that
-/// §14 names. What the numbers decide is a judgement about soak time, which is what §15 asks them
+/// the scenes name. What the numbers decide is a judgement about soak time, which is what is asked of them
 /// to decide, and the ticket that pays this records the verdict.
 #[test]
 fn what_the_reference_compositor_costs_against_the_fast_path() {
@@ -1261,20 +1261,20 @@ fn the_pairing_invariant_survives_twelve_bisecting_layers_over_cjk() {
 /// operator rather than tracks. And plus the round trip, because `Harness::present` is what every
 /// gate here calls.
 ///
-/// It is the gate's **own** fixture — [`bisecting_cjk`], rows and rects both, shared with ticket 11
+/// It is the gate's **own** fixture — [`bisecting_cjk`], rows and rects both, shared with the composite gate
 /// and with the golden — because a fixture copied to suit a second instrument is one that goes on
 /// passing after the first one's rectangles change underneath it.
 ///
 /// # The two ways this gate could quietly test nothing, both closed
 ///
 /// **A headless `Harness` is at `ColorDepth::None`**, because a caller-supplied sink is asked
-/// nothing and §10 will not invent a colour for it — and at that depth §5 skips operator layers
+/// nothing and nothing will invent a colour for it — and at that depth operator layers are skipped
 /// *outright*, correctly. So the depth is pinned, the way [`crate::golden`] pins it, and the first
 /// thing asserted is that the operators moved a cell at all. A gate whose subject never ran reports
 /// success for the same reason a scene that draws nothing does.
 ///
 /// **A cell with a default background is left unmixed**, which is the silent path and is
-/// right: no `Overrides` can declare a default background (architecture ticket 22). So the content
+/// right: no `Overrides` can declare a default background. So the content
 /// is drawn in explicit colours, which is the path a real shadow over a themed panel takes and needs
 /// no capability at all.
 ///
@@ -1518,7 +1518,7 @@ fn gate_20s_arms_are_one_scene_at_two_sizes() {
 ///
 /// # The three axes this pins, and why each of them makes a gate vacuous if it is missing
 ///
-/// **Truecolor**, because §5 skips an operator layer outright at [`ColorDepth::None`], which is what a
+/// **Truecolor**, because an operator layer is skipped outright at [`ColorDepth::None`], which is what a
 /// headless screen is unless something says otherwise. **Explicit colours** on every cell — see
 /// [`opaque_ink`] — because a cell with a *default* background is left unmixed on a terminal silent
 /// on OSC 11. And **`hyperlinks`**, because these fixtures make a cell extended with a hyperlink
@@ -1526,7 +1526,7 @@ fn gate_20s_arms_are_one_scene_at_two_sizes() {
 /// terminal has it — so without the declaration the round trip would be comparing a frame that
 /// carries a link against a replay that could not have read one.
 ///
-/// The third is architecture ticket 22's, and it is the one that was not available to write before:
+/// The third arrived last, and it is the one that was not available to write before:
 /// `hyperlinks` is *inferred* rather than detected, and an inference is the one kind of fact a
 /// declaration must be able to correct.
 fn extended_screen(rows: u16) -> Harness {
@@ -1934,7 +1934,7 @@ fn a_sweep_that_renumbers_nothing_leaves_the_mirror_alone() {
 
 /// **There is no path by which a sweep runs inside `present`.**
 ///
-/// Spec §13 allows the sweep its cliff — 82.5 µs at one screen, 897 µs at twenty layers — because it
+/// The sweep is allowed its cliff — 82.5 µs at one screen, 897 µs at twenty layers — because it
 /// stays off the path the 100 µs and 1 ms budgets are taken around, so this is the acceptance line
 /// for that sentence rather than a restatement of it. It is a count, and the count is taken while
 /// the high-water mark is **already reached** — otherwise the gate would be about the mark not
@@ -1942,7 +1942,7 @@ fn a_sweep_that_renumbers_nothing_leaves_the_mirror_alone() {
 ///
 /// What it does not claim is that the sweep never runs during a frame at all: `Screen::layers` is
 /// also the drawing door, so it does. [`Screen::layers`](crate::Screen) is exact about the
-/// difference, and §3 is what asks for the narrower property.
+/// difference, and the narrower property is what is asked for.
 #[test]
 fn the_sweep_never_runs_inside_present() {
     let mut h = extended_screen(4);
@@ -2359,7 +2359,7 @@ fn at_256_the_wire_never_names_the_users_own_sixteen() {
 
 /// **The other half of the silence rule, asked of a frame rather than of a `Mixer`.**
 ///
-/// Spec §5 leaves a cell with a default background **unmixed** where OSC 11 was silent, because a
+/// A cell with a default background is left **unmixed** where OSC 11 was silent, because a
 /// guessed background inverts a shadow on the opposite theme — wrong in *direction*, where a themed
 /// palette is only wrong in degree. `crate::mix` has gated the silent arm since impl 12; the
 /// **answered** arm was unreachable from a `Screen` until impl 13 gave [`Overrides`] `default_bg`,
@@ -2748,7 +2748,7 @@ fn threaded(sink: Box<dyn std::io::Write + Send>) -> Screen {
 /// The same, with a ceiling, and keeping the [`crate::WakeHandle`] the pacing gates need.
 ///
 /// `threaded` throws the handle away and pins the rate at unlimited, because every gate that came
-/// before ticket 19 is about the handoff and would otherwise be measuring a gap it never reads. The
+/// before the clock gate is about the handoff and would otherwise be measuring a gap it never reads. The
 /// clock gates are the ones that want both.
 fn threaded_at(
     hz: f32,
@@ -2773,7 +2773,7 @@ fn threaded_at(
 ///
 /// A spin rather than a condvar, because `finish` signals nothing: the app thread is released at
 /// *take*, which is what makes the pool two, and nothing in the design waits for a write to end.
-/// Adding a notification for a test's benefit would put a wakeup in the frame path that ticket 19's
+/// Adding a notification for a test's benefit would put a wakeup in the frame path that the idle
 /// idle gate would then have to explain.
 fn drained(screen: &Screen, want: u64) -> (u32, u32, u64) {
     let deadline = std::time::Instant::now() + std::time::Duration::from_secs(20);
@@ -3419,7 +3419,7 @@ fn what_pack_costs_at_four_densities() {
 /// > |---|---|---|---|
 /// > | **sparse chart (584 runs)** | **179.6 ns** | **875.7 ns** | **4.88** |
 ///
-/// This is what decided §7, because *cost did not discriminate* on the copy: the buffer-age area
+/// This is what decided the packet's shape, because *cost did not discriminate* on the copy: the buffer-age area
 /// multiplier of the ownership-transfer alternative is real but its absolute worst case is 0.4 µs
 /// against a 100 µs budget. What separates the two is the **serializer's** walk afterwards, and on
 /// scattered runs the packet walks its cells contiguously where a grid jumps a row stride per run
@@ -3560,7 +3560,7 @@ fn resizing_the_surfaces_does_not_write_the_authoritative_size() {
 ///
 /// The escape is a `Drop` guard on the render thread, so an unwind takes the same path as a return.
 /// What it does *not* do is make the renderer look free: that would let the app submit into a slot
-/// nobody empties, which moves register entry #9's counter and destroys the meaning of the gate this
+/// nobody empties, which moves the supersede counter and destroys the meaning of the gate this
 /// file opens with.
 #[test]
 fn a_render_thread_that_panics_releases_the_app_thread_rather_than_parking_it() {
@@ -3693,7 +3693,7 @@ fn the_packet_accessor_answers_by_identity_or_not_at_all() {
 // wakeups over an idle window is a number that does not move.
 // ---------------------------------------------------------------------------------------------
 
-/// **Register entry #17, as a count, and it is the standing requirement rather than a health check.**
+/// **The idle window, as a count, and it is the standing requirement rather than a health check.**
 ///
 /// Three threads exist and the app thread is the one that had no parking point until this ticket:
 /// the render thread has parked on the mailbox since impl 18, and an idle process still turned in
@@ -3983,7 +3983,7 @@ fn an_input_event_is_a_reason_of_its_own_and_is_reported_before_a_post() {
     assert_eq!(screen.wait(), Wake::Deadline);
 }
 
-/// **Register entry #26, and it is a report because a scheduler latency is not ours to gate.**
+/// **A report, because a scheduler latency is not ours to gate.**
 ///
 /// App submit to the render thread holding the packet, with the app thread **genuinely parked** —
 /// which is what impl 18 could not do and this ticket can. The figures, for comparison:
@@ -3998,7 +3998,7 @@ fn an_input_event_is_a_reason_of_its_own_and_is_reported_before_a_post() {
 /// registers a short deadline and calls `wait`, so the render thread's take happens while this
 /// thread is inside a condvar rather than inside a spin.
 ///
-/// **It declares itself slow, and production ticket 11 is why.** Every iteration here is a `wait`
+/// **It declares itself slow, and the detector is why.** Every iteration here is a `wait`
 /// followed by a `present`, which is precisely the span the in-loop detector charges — so a report
 /// that gates on nothing timed could still be *failed* by a timing, through
 /// [`crate::perf::Perf::sanction`] rather than through an assertion of its own. It happened:
@@ -4061,7 +4061,7 @@ fn what_a_wake_up_costs_with_the_app_thread_parked() {
 /// **Leading-edge latency after a quiet period**, which is the property the move to `wait` most
 /// threatened, in **two arms** — and the second arm is a correction to how the figure reads.
 ///
-/// §7 reports 250 ns p50 / 1.04 µs p99 / 16.75 µs max over 2 000 samples. That is the **unparked**
+/// The recorded figures are 250 ns p50 / 1.04 µs p99 / 16.75 µs max over 2 000 samples. That is the **unparked**
 /// leading edge: a reason that was already pending when `wait` was called, which returns without
 /// touching the condvar at all. It is the number that says *the gate itself is free*, and it is
 /// reproduced here as the first arm.
@@ -4153,7 +4153,7 @@ fn what_a_leading_edge_costs_after_a_quiet_period() {
 /// **The ceiling is achieved from below**, and the number is here so nobody spends a day
 /// rediscovering it.
 ///
-/// `wait_timeout` overshoots: §7 measured a hold at 10.18 ms p50 against an 8.333 ms gap on macOS, so
+/// `wait_timeout` overshoots: a hold measured 10.18 ms p50 against an 8.333 ms gap on macOS, so
 /// a configured 120 Hz yields about 110 fps under load. Undershooting a ceiling is safe by
 /// construction — a ceiling achieved from below is still a ceiling — so the only assertion is the one
 /// that would catch the clock being absent altogether.
@@ -4400,7 +4400,7 @@ fn setting_the_frame_rate_moves_the_gap_and_never_paces_the_deterministic_clock(
     );
 }
 
-/// **Register entry #13** — a presses-only terminal never yields `Release` or `Repeat`.
+/// **A presses-only terminal never yields `Release` or `Repeat`.**
 ///
 /// The absence is what is being asserted, so the gate has to be able to fail: the second half feeds
 /// the *same* keys from a terminal that has kitty flag 2 and asserts that both kinds do arrive. A
@@ -4457,7 +4457,7 @@ fn a_presses_only_terminal_never_yields_release_or_repeat() {
     );
 }
 
-/// **Register entry #14** — motion floods collapse to one per wake; press floods do not.
+/// **Motion floods collapse to one per wake; press floods do not.**
 ///
 /// One read is one wake, which is what the reader thread does: parse the whole read, then post.
 /// **The asymmetry is asserted in the same test on purpose**: a position on the way
@@ -4507,7 +4507,7 @@ fn motion_floods_collapse_and_press_floods_do_not() {
     assert_eq!(queue.len(), 5, "a wheel notch is intent");
 }
 
-/// **Register entry #16** — the parser survives five adversarial splits.
+/// **The parser survives five adversarial splits.**
 ///
 /// Five sequences, each cut at **every** internal byte boundary, each half delivered as its own read
 /// with its own end-of-read. The reassembled events must equal the events the whole sequence
@@ -4708,7 +4708,7 @@ fn a_caret_frame_is_twenty_nine_bytes() {
 
 /// **Gate, count and absence: nothing in this crate blinks a caret.**
 ///
-/// ADR 0005 measured the alternative: one `restyle` of one cell, toggled, is **two wakeups a second
+/// The alternative was measured: one `restyle` of one cell, toggled, is **two wakeups a second
 /// for as long as anything has focus** — 7 200 an hour on a screen where nothing is happening. Ticket
 /// 19's measured idle (`30.01 s real, 0.00 user, 0.00 sys, 0 voluntary context switches`) does not
 /// survive that, and a text field is not an exotic component.
@@ -4787,12 +4787,12 @@ fn nothing_anywhere_blinks_a_caret_in_software() {
 
 /// **The idle gate, with a focused field on screen.**
 ///
-/// The claim ADR 0005 rests on is that the caret costs nothing at rest, and the gate was
+/// The claim the caret rule rests on is that it costs nothing at rest, and the gate was
 /// written on a screen with no caret. This is the same measurement with one: the app thread enters
 /// its wait once, comes back zero times, and the render thread's wait comes back zero times — with a
 /// visible caret sitting on the screen for the whole window.
 ///
-/// It is a separate gate rather than an extra assertion inside ticket 19's, because it is a claim
+/// It is a separate gate rather than an extra assertion inside the idle one, because it is a claim
 /// about a different thing: that one is about the clock, this one is about the caret, and a gate that
 /// fails should say which.
 #[test]
@@ -5040,7 +5040,7 @@ fn a_question_mark_out_of_main_restores_the_terminal() {
     assert_restored_exactly_once(&out);
 }
 
-/// **Register entry #15, and it is the word *panic* that this entry turns on.**
+/// **The restoration gate, and it is the word *panic* that it turns on.**
 ///
 /// > Panic restore pops keyboard flags and disables mouse, focus reporting and bracketed paste.
 ///
@@ -5173,7 +5173,7 @@ fn a_suspend_gives_the_terminal_back_and_a_resume_takes_it_again() {
     );
 }
 
-/// **Gate: nothing this engine sends can be seen on the user's own page** — production ticket 12.
+/// **Gate: nothing this engine sends can be seen on the user's own page.**
 ///
 /// # The defect, and why it is a count
 ///
@@ -5220,7 +5220,7 @@ fn a_suspend_gives_the_terminal_back_and_a_resume_takes_it_again() {
 /// A terminal that does not implement mode 1049 is now probed on its only page, which is this defect
 /// with the mitigation removed. It is **not made worse than it was**: the same terminal ignored the
 /// same eight bytes of `?1049h` a moment later in the negotiation, so its page was always the one
-/// being written to. And there is no second rendering mode to fall back to — spec §15 puts inline,
+/// being written to. And there is no second rendering mode to fall back to — inline,
 /// non-alt-screen rendering out of scope, and shadows and transitions have nowhere to land without
 /// an owned screen. The engine owns a page or it does not run.
 #[test]
@@ -5952,7 +5952,7 @@ fn a_session_whose_renderer_panicked_stays_suspended() {
 /// on every run where nothing stalls.
 ///
 /// `debug_assertions` because the observer is absent from a release binary altogether, which is
-/// register entry #18 and what `scripts/observer-gate.sh` reads a binary to check.
+/// the observer gate, and what `scripts/observer-gate.sh` reads a binary to check.
 #[cfg(debug_assertions)]
 #[test]
 fn the_overrun_detector_stops_for_the_suspension_and_comes_back_for_the_session() {
@@ -6003,7 +6003,7 @@ fn the_overrun_detector_stops_for_the_suspension_and_comes_back_for_the_session(
 ///
 /// The half that is gateable in this crate is the one below: the byte is a key. The `termios` half
 /// is not, and cannot be — `Tty::open` panics under `cfg(test)`, so no gate here ever puts a real
-/// terminal into raw mode. It is stated in spec §7 with the measurement beside it instead.
+/// terminal into raw mode. It is stated with the measurement beside it instead.
 #[test]
 fn ctrl_z_is_a_key_and_not_a_signal() {
     let mut parser = crate::input::parse::Parser::new(1 << 20);
@@ -6418,7 +6418,7 @@ fn the_detector_is_silent_without_a_wait() {
 /// **A frame may be drawn inside a permitted region.** The case whose first shape was `E0499` and
 /// whose second was `E0502`.
 ///
-/// Spec §11 records the `&mut self` shape failing and the fix as *`Cell` and `&self` throughout*.
+/// The `&mut self` shape failed, and the fix was *`Cell` and `&self` throughout*.
 /// That is half of one: with `Cell` inside, a `Permit<'a>` borrowed out of `&'a Screen` still cannot
 /// have a frame drawn inside it, because `Screen::layers` takes `&mut self`. This test is what a
 /// borrowing guard cannot pass, which is why the guard holds an `Rc` and has no lifetime — see
@@ -6486,7 +6486,7 @@ fn a_permit_that_ended_does_not_excuse_what_came_after_it() {
 ///
 /// **Do not arm the detector for a report.** Cleaner in one sense: nothing would be excused that is
 /// not being excused today. Worse in two. It needs a new way to say so — a `Config` field, or a
-/// `cfg`, or a knob on `Screen` — where `permit_slow` is already public API, already the thing §11
+/// `cfg`, or a knob on `Screen` — where `permit_slow` is already public API, already the thing the design
 /// built for exactly this, and already carries the reason into the diagnostic; and a switch has
 /// nowhere to put the sentence, so the next reader would find a report that cannot fail and no
 /// record of why.
@@ -6513,7 +6513,7 @@ const PERMITTED: &str = "a timing report, and it declares itself slow";
 /// **Every place in this file where both `wait` and `present` appear, and what each does about the
 /// detector standing between them.**
 ///
-/// The enumeration production ticket 11 asks for, as a value rather than as prose, because *whether
+/// The enumeration, as a value rather than as prose, because *whether
 /// a timing report can fail* is exactly the kind of thing that becomes an unwritten claim. It is
 /// syntactic on purpose — the two verb names, over this file's own code with its comments removed —
 /// so that a report added later cannot join the exposed set silently. Ordering is what decides
@@ -6611,7 +6611,7 @@ fn test_bodies(code: &str) -> Vec<(&str, String)> {
     out
 }
 
-/// **The enumeration is a count and the declaration is an equality**, which is what keeps ticket 11's
+/// **The enumeration is a count and the declaration is an equality**, which is what keeps the
 /// answer from decaying into a comment.
 ///
 /// Two assertions, and the first is the one that does the work. The set of tests in this file where
@@ -6674,7 +6674,7 @@ fn every_timing_report_the_watchdog_can_reach_declares_itself_slow() {
 
 /// **The split is internal**: `Parker`, `Producer`, `Consumer` and `Ui` are not public names.
 ///
-/// ADR 0003 split each of two primitives into an app-thread half and a `Send` half, and the seam
+/// Each of two primitives is split into an app-thread half and a `Send` half, and the seam
 /// ticket then made all four private — which *strengthens* the enforcement rather than hiding it,
 /// because `Perf::enter` and `Perf::leave` stop being merely unforgettable and become uncallable.
 /// What is left on the public surface is `Screen`, `WakeHandle`, `Slot` and `Permit`, and the four
@@ -6737,7 +6737,7 @@ fn the_split_handles_are_not_public_names() {
 /// **Refusal 7, over the source rather than in prose: no blocking receive is inside the app thread's
 /// loop.**
 ///
-/// Spec §12 spells this *the word `recv` does not appear*, and taken literally it is neither true nor
+/// This is spelled *the word `recv` does not appear*, and taken literally it is neither true nor
 /// desirable — and the two ways it is false are not the same way, which is why the allowance below
 /// carries a reason per file rather than a count. Two are on **other threads**: the render thread
 /// waits on a one-message channel for the renderer `attach` hands it, and the input thread's whole
@@ -6840,7 +6840,7 @@ fn every_blocking_receive_in_the_crate_is_outside_the_app_threads_loop() {
 }
 
 /// **The detector reaches for nothing in the crate**, which is what lets `examples/budget.rs`
-/// `#[path]`-include it and time register entry #22 in a release build.
+/// `#[path]`-include it and time the overrun detector in a release build.
 ///
 /// The same rule `crate::input` carries for `tests/alloc.rs`, and it looks like tidiness in both
 /// places and is not: one `use crate::` here would drag the whole engine into that binary. The one
@@ -7034,9 +7034,9 @@ const ORDINALS: [&str; 9] = [
 /// for each one it gathered itself, and a heading naming the ordinal it **refuses**. Three
 /// statements about a count, in prose, beside a `lookup` that returns the entries.
 ///
-/// **Every one of them has been stale at least once.** Production ticket 13 landed an arm and left
+/// **Every one of them has been stale at least once.** One arm landed and left
 /// the paragraph beside the entries reading one lower in one direction and one higher in the other;
-/// production ticket 14 found the table itself a row short of the code, with the eighth entry
+/// a later pass found the table itself a row short of the code, with the eighth entry
 /// described in a section, returned by `lookup`, and absent from the list of what exists. *A count
 /// with nothing watching it* is this repository's own recurring defect, and the four places it
 /// lives here had nothing watching them.
@@ -7058,7 +7058,7 @@ const ORDINALS: [&str; 9] = [
 /// docs.rs, which is what makes it worth a gate rather than a proofread.
 ///
 /// **It is stated six times, and this gate reads all six.** Once in [`crate::quirks`]'s module
-/// doc, twice in `caps.rs` and three times in `serial.rs`. Production ticket 14 moved those five
+/// doc, twice in `caps.rs` and three times in `serial.rs`. Those five moved
 /// restatements off *three* and then recorded the result as *stated once*, which was the claim
 /// rather than the structure: the five were left correct and with nothing watching them, so a ninth
 /// forcing entry would have turned this file green and left them stale — the same defect one file
@@ -7336,7 +7336,7 @@ fn the_watchdog_iteration_has_one_home() {
 /// the isolation wins — so the assertion moved to where the ledger is reachable rather than the
 /// figure moving back to where it was a copy.
 ///
-/// The claim, from spec §11: the map's < 100 µs is a CI gate on **one stage** of the engine's work,
+/// The claim: the < 100 µs budget is a CI gate on **one stage** of the engine's work,
 /// not a runtime threshold for an application's whole iteration. One frame interval at 120 Hz
 /// leaves better than 40x of headroom over a realistic one; 100 µs leaves none.
 #[test]

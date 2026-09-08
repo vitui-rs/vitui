@@ -6,9 +6,7 @@
 //! context — which on the engine's side of the seam is the [`View`](crate::View). A `Surface`
 //! outside a stack carries one of its own, because `Surface::new` and `Surface::root` are public and
 //! a `View` from that door has no engine to reach through; that table stays empty for every string
-//! of Latin, CJK, box drawing and single-scalar emoji, which is nearly all of them. See spec §3 and
-//! `docs/adr/0011-the-handle-tables-belong-to-the-engine-and-the-packet-carries-copies.md`, amended
-//! by `.scratch/vitui-engine-architecture/issues/19-the-standalone-surface-and-the-interner.md`.
+//! of Latin, CJK, box drawing and single-scalar emoji, which is nearly all of them.
 //!
 //! # Interning is identity for single scalars, and that is what makes the rule free
 //!
@@ -125,7 +123,7 @@ impl Interner {
     /// How many clusters this table holds.
     ///
     /// The marker slot count the sweep allocates, and the number its high-water mark is compared
-    /// against (spec §3, [`crate::sweep`]).
+    /// against — see [`crate::sweep`].
     pub(crate) fn len(&self) -> usize {
         self.clusters.len()
     }
@@ -134,7 +132,7 @@ impl Interner {
     ///
     /// Returns the new id for each old id, with [`sweep::DEAD`](crate::sweep::DEAD) where the entry
     /// was dropped — or `None` when no survivor moved, which is the case a sweep does not have to
-    /// rewrite a single cell for. Spec §3: *a sweep that frees nothing below a live entry does not
+    /// rewrite a single cell for: *a sweep that frees nothing below a live entry does not
     /// renumber at all.*
     pub(crate) fn compact(&mut self, live: &[bool]) -> Option<Vec<u32>> {
         debug_assert_eq!(

@@ -2,7 +2,7 @@
 //!
 //! # Scope
 //!
-//! Spec §8 in full and **nothing about it deferred**: the `shortest` cursor encoding, a differential
+//! The whole encoding and **nothing about it deferred**: the `shortest` cursor form, a differential
 //! SGR with its three traps, the two extended channels, synchronised output, the mirror updated as
 //! bytes go out, the equality filter with the gap merge that needs no threshold, and the scroll region
 //! verified before a byte is emitted.
@@ -33,7 +33,7 @@
 //! Skipping a cell leaves a **gap**, and the cursor has to step over it — which is a move, and a
 //! move costs bytes too. **A fixed gap threshold is in the wrong unit and there is no right value
 //! for one:** a cell is one byte of ASCII, three of braille and four of an emoji, so six cells is
-//! six bytes on a chart of `*` and eighteen on a chart of braille. §8 swept it and the two scenes
+//! six bytes on a chart of `*` and eighteen on a chart of braille. A sweep over it and the two scenes
 //! want opposite thresholds — the chart gets monotonically worse from 0 to 24 while the dialogs get
 //! better and then flat.
 //!
@@ -70,7 +70,7 @@
 //! That is degradation, which this engine has a model for; a handle emitted as a colour is not.
 //!
 //! Because `hyperlinks` is **inferred** rather than detected — OSC 8 has no query — it is the one
-//! capability a caller can correct, through `Overrides::hyperlinks` (architecture ticket 22). That
+//! capability a caller can correct, through `Overrides::hyperlinks`. That
 //! is also what lets a headless round trip close on a hyperlinked cell at all.
 //!
 //! # The frame's framing, and the session's
@@ -124,7 +124,7 @@ use crate::style::{Color, Style, TAG_DEFAULT, TAG_INDEXED, TAG_RGB};
 ///
 /// A cell leaves the unknown state when this serializer emits it, and nothing else does it.
 ///
-/// **ADR 0006 and §8 both say *row*, and impl 08 built the row: a flag per row, set when one frame
+/// **Two documents said *row*, and the row is what was built: a flag per row, set when one frame
 /// had written every column of it. Impl 14 measured what that costs and replaced it, which is the
 /// decision this ticket was told to make** — impl 13 left the question here in as many words, *ticket
 /// 14 owns the filter and is where a tighter answer, per-cell rather than per-row knowledge, would be
@@ -156,7 +156,7 @@ use crate::style::{Color, Style, TAG_DEFAULT, TAG_INDEXED, TAG_RGB};
 /// Two consequences, both wanted:
 ///
 /// - [`forget`](Mirror::forget) is now a 384 KiB fill rather than an eighty-byte one. It runs on a
-///   sweep that renumbered, which spec §3 already prices at *one full frame on the render thread*, and
+///   sweep that renumbered, which is already priced at *one full frame on the render thread*, and
 ///   this is a fraction of that.
 /// - The mirror no longer reads as a screen of blanks before anything is drawn. That was never true of
 ///   the terminal and the flag existed to say so; now the cells say it themselves.
@@ -412,7 +412,7 @@ pub(crate) struct Serializer {
     /// quantisation off the per-cell path.
     ///
     /// Cells in a run are contiguous and share a `u64`, so a memo one entry deep turns a per-cell
-    /// narrowing into a per-distinct-style one — the same trick spec §3 used three times for the
+    /// narrowing into a per-distinct-style one — the same trick used three times for the
     /// side-table round trip, and the reason this ticket's owed measurement is *per style word*
     /// rather than per cell. Cleared at the top of every frame, because that is where
     /// [`quant`](Serializer::quant) is rebuilt and a memo outliving its quantiser would answer for
@@ -509,7 +509,7 @@ impl Serializer {
         self.scroll_region = on;
     }
 
-    /// Serialise the way §8 rejected: verify every candidate the probe matches, not the first.
+    /// Serialise the way that was rejected: verify every candidate the probe matches, not the first.
     #[cfg(test)]
     pub(crate) fn set_verify_every_match(&mut self, on: bool) {
         self.verify_every_match = on;
@@ -565,7 +565,7 @@ impl Serializer {
         false
     }
 
-    /// See the shipping arm above, which is what ships. `true` is the version §8 rejected.
+    /// See the shipping arm above, which is what ships. `true` is the rejected version.
     #[cfg(test)]
     fn verifies_every_match(&self) -> bool {
         self.verify_every_match
@@ -770,7 +770,7 @@ impl Serializer {
     ///
     /// # The reasoning that was wrong, because it is the attractive one
     ///
-    /// The first version §8 wrote was **speculative**: guess cheaply, because the filter behind the
+    /// The first version was **speculative**: guess cheaply, because the filter behind the
     /// guess compares against the mirror and repairs whatever the guess got wrong. **That is false,
     /// and the round trip caught it within a minute.** The filter can only emit cells the packet
     /// carries, and the packet carries damaged cells only. `SU` moves every column of every row in
@@ -791,7 +791,7 @@ impl Serializer {
     /// # Exactly one candidate is verified
     ///
     /// A screen whose rows repeat — an alternating pattern, a ruled table — matches a probe many
-    /// times over, and §8 measured verifying each of them turning a 38 µs frame into **1.03 ms**: a
+    /// times over, and verifying each of them turned a 38 µs frame into **1.03 ms**: a
     /// 27x regression that only appeared because numbers were kept per scene. Taking the first match
     /// forfeits a scroll that could in principle have been found, and that is not worth 27x.
     ///
@@ -810,7 +810,7 @@ impl Serializer {
     /// **`DECSLRM` (mode 69) would lift the restriction and is deliberately neither queried nor
     /// used.** It is not in tier-1's confirmed set, and the verification above turns an unsupported
     /// margin into *silent corruption* rather than into a wasted escape — the terminal would apply
-    /// `SU` to the whole width while this pre-pass had proved something about a band of it. Spec §15
+    /// `SU` to the whole width while this pre-pass had proved something about a band of it. That question
     /// is where that question lives, and nothing in this file depends on the answer.
     fn scroll_prepass(
         &mut self,
@@ -952,7 +952,7 @@ impl Serializer {
         None
     }
 
-    /// Both obligations, in the order §8 puts them in.
+    /// Both obligations, in order.
     ///
     /// Obligation 1 walks the moved rows against a **forward cursor** over the packet rather than
     /// looking each row up, for the reason [`probe`](Serializer::probe) hoists its two: a lookup is a
@@ -1017,7 +1017,7 @@ impl Serializer {
     ///
     /// **A column the mirror does not know refuses the scroll, and it is refused explicitly.** Two
     /// unknown cells compare *equal*, so leaving this to the comparison alone is exactly the false
-    /// equality ADR 0006 exists to make unreachable — and here it would move eighty rows of a screen
+    /// equality the unknown state exists to make unreachable — and here it would move eighty rows of a screen
     /// to the wrong place rather than leave one cell stale.
     fn undamaged_span_lands_on(&self, y: u16, src: u16, lo: u16, hi: u16) -> bool {
         let want = self.mirror.span(y, lo, hi);
@@ -1196,7 +1196,7 @@ impl Serializer {
     /// One style word, narrowed to what this terminal can express, through the one-entry memo.
     ///
     /// The memo is the whole implementation and two rejected alternatives are recorded rather than
-    /// re-derived: spec §3 measured a per-cell branch that took the cheap path on an inline word
+    /// re-derived: a per-cell branch that took the cheap path on an inline word was measured
     /// (it loses, because the branch breaks the mask loop's vectorisation) and a surface-level
     /// *contains nothing to narrow* gate (indistinguishable from the memo alone).
     fn narrow(&mut self, cell: Cell) -> Cell {
@@ -1288,7 +1288,7 @@ impl Serializer {
     /// The second is the only place this file emits a cell the packet does not carry — see
     /// [`price_gap`](Serializer::price_gap) for the two conditions that fence it.
     ///
-    /// §8 credits it with taking the three dialogs from 1 491 bytes to 1 203. **That scene cannot show
+    /// It is credited with taking the three dialogs from 1 491 bytes to 1 203. **That scene cannot show
     /// it here**, because the `three-dialogs-apart` rewrites every cell of all three dialogs with a
     /// new counter and a new colour every frame and so has no unchanged column to bridge; the dialogs
     /// had a live status bar. What it is worth on the list is 160 bytes a scene on the three rows
@@ -1427,7 +1427,7 @@ impl Serializer {
     /// Where the terminal's cursor ends up after printing one cell at `(x, y)`.
     ///
     /// With auto-wrap off it stops in the last column instead of advancing off it, so that is what
-    /// is recorded rather than a position one past the end. Ticket 03 could not tell the two apart —
+    /// is recorded rather than a position one past the end. The first encoding could not tell the two apart —
     /// a mutation swapping them left every test green, because runs are disjoint and ascending, so no
     /// later move on the same row ever targets a column already written — and **`shortest` is what
     /// makes it matter**: `CUF`'s distance is measured from this position, so a cursor model that is
@@ -1439,7 +1439,7 @@ impl Serializer {
     /// Whether the cluster about to be emitted would join the one before it into a single cluster.
     ///
     /// This is the rule — *a width disagreement is permanent once a mirror exists* — arriving
-    /// one ticket early and for the neighbouring reason. §10 states it as `CHA` rather than `CUF`
+    /// one change early and for the neighbouring reason. It is stated as `CHA` rather than `CUF`
     /// after a non-ASCII run, which is about the cursor *compounding* an error; this is about the
     /// bytes themselves re-segmenting. Both are the same underlying fact: **what the engine put in
     /// two cells is not what the terminal reads unless something separates them.**
@@ -1724,7 +1724,7 @@ impl Row<'_> {
 /// `Serializer` carries no field for them outside `cfg(test)`, and
 /// `crate::gates::the_equality_filter_needs_no_threshold` is what runs the sweep.
 ///
-/// This is the same shape spec §8 refuses for the serializer itself — *the prototype was `Options`-
+/// This is the same shape refused for the serializer itself — *the prototype was `Options`-
 /// shaped only so the variants could be measured* — and the difference is where it lives: a variant
 /// that no shipping build can construct is an instrument, and a variant a caller can select is a
 /// knob.
@@ -1751,7 +1751,7 @@ pub(crate) enum Filter {
 /// where the bound is wrong it is wrong in the direction of painting through — by at most four bytes
 /// per style change inside the gap.
 ///
-/// §8 calibrated it there and its own table is the evidence: the byte-priced rule lands at 4 623
+/// It was calibrated there and the table is the evidence: the byte-priced rule lands at 4 623
 /// bytes on the chart against `strict`'s 4 581 — forty-two bytes **worse** — and at 1 203 on the
 /// dialogs against `strict`'s 1 491. A rule that never overshot could not have produced the first
 /// number, and a rule that always overshot could not have produced the second.
@@ -1795,7 +1795,7 @@ fn is_ascii_scalar(g: GraphemeId) -> bool {
 ///
 /// # Both sides lose the flags the terminal does not render, and it is one line for a reason
 ///
-/// §10 says an unsupported attribute is *dropped silently at serialise time*, and production ticket 10
+/// An unsupported attribute is *dropped silently at serialise time*, and for a long time
 /// is what made that true. The drop is **both sides at once** and nothing below it changes: mask only
 /// `new` and a frame that turns overline off emits `SGR 55` for a bit the terminal never had, which is
 /// a byte spent to undo nothing and a diff computed against a style it was never in.
@@ -1986,7 +1986,7 @@ const UNDERLINE: Channel = Channel {
     short: None,
 };
 
-/// Colour emission, spec §8: default is 39/49; indices under 16 use 30-37 / 90-97 and their
+/// Colour emission: default is 39/49; indices under 16 use 30-37 / 90-97 and their
 /// background forms rather than the long one; truecolor is three channels.
 ///
 /// # The two spellings, and which is the default
@@ -1998,8 +1998,8 @@ const UNDERLINE: Channel = Channel {
 /// somethings: ConPTY, Termux, VSCode's integrated terminal and JetBrains' all mis-parse the colon
 /// form. [`crate::quirks`] is where the four are, and where the count is joined to them.
 ///
-/// **The table spells the semicolon form and §10 names the legacy one *pre-ITU-T*, and the two
-/// sentences cannot both be about the default.** The reading taken here is §10's, because it is the
+/// **The table spells the semicolon form and the legacy one is named *pre-ITU-T*, and the two
+/// sentences cannot both be about the default.** The reading taken here is the second, because it is the
 /// one with a mechanism: four quirk entries force `legacy` on terminals that parse only semicolons,
 /// so `legacy` cannot be what a terminal with no quirk entry receives. The spellings are the
 /// configuration its byte tables were measured on, which is why the colon form's one extra byte per
@@ -2176,7 +2176,7 @@ mod tests {
 
     /// Replay the bytes and read the screen back. The round trip is the instrument for anything
     /// about *where a glyph lands*; a byte string would pin the encoding, which is the part
-    /// ticket 15 is still allowed to change.
+    /// is still allowed to change.
     fn replay(frame: &Surface) -> TermModel {
         let (w, h) = frame.size();
         let mut term = TermModel::new(w, h);
@@ -2434,7 +2434,7 @@ mod tests {
         assert!(out.contains("ESC[1;1H"), "the cells still went out: {out}");
     }
 
-    /// **The round trip closes on a hyperlinked cell**, which is what ticket 13 is for: the model
+    /// **The round trip closes on a hyperlinked cell**, which is what the extended channels need: the model
     /// mints the URI back through the engine's own link table, so the replayed cell carries the
     /// frame's own extended-style handle rather than an equal-looking one.
     #[test]
@@ -2950,7 +2950,7 @@ mod tests {
     /// **The second win the same mirror pays for**: two runs on one row, bridged through columns the
     /// packet never carried.
     ///
-    /// §6 produces genuinely separate runs on a row and the gap between them is not in the packet —
+    /// Damage produces genuinely separate runs on a row and the gap between them is not in the packet —
     /// but it *is* in the mirror, so it can be repainted out of it and priced by the same rule. This
     /// is where the three dialogs go from 1 491 bytes to 1 203.
     ///
@@ -3193,9 +3193,9 @@ mod tests {
         assert!(out.contains("a\r\n\n\nb"), "{out}");
     }
 
-    /// The frame's cursor cost, priced, against the encoding ticket 03 shipped.
+    /// The frame's cursor cost, priced, against the first encoding that shipped.
     ///
-    /// §8 puts `shortest` at 0.2% to 15% and says the win is not the encoding but the *choice*. This
+    /// `shortest` is 0.2% to 15%, and the win is not the encoding but the *choice*. This
     /// is that as a byte count on the shape the win comes from: many short runs on one row, which is
     /// the sub-cell chart's shape.
     #[test]
@@ -3333,8 +3333,8 @@ mod tests {
     /// three rows rather than one, because a single number here would have been either meaningless or
     /// alarming depending on which fixture produced it.
     ///
-    /// **The answer is that it costs nothing on anything §14 measures, and up to a third of the frame
-    /// on a shape §14 does not have.** The rule only ever charges for a move that is *along a row the
+    /// **The answer is that it costs nothing on anything the scenes measure, and up to a third of
+    /// the frame on a shape they do not have.** The rule only ever charges for a move that is *along a row the
     /// serializer has already put a non-ASCII cluster on*, and that needs two things at once: several
     /// runs on one row, and non-ASCII inside them. The twelve have the first — the chart is 113
     /// moves — and none of them has the second, because the chart plots with `*`. A full screen of
@@ -3610,10 +3610,10 @@ mod tests {
     // The quirk table on the wire: a flag the terminal does not render.
     // -----------------------------------------------------------------------------------------
 
-    /// **Gate, equality (production ticket 10): the flag a terminal drops is never sent, in either
+    /// **Gate, equality: the flag a terminal drops is never sent, in either
     /// direction.**
     ///
-    /// §10 has always said an unsupported attribute is *dropped silently at serialise time*, and for
+    /// It has always been *dropped silently at serialise time*, and for
     /// four tickets nothing did it: `Quirks::apply` filled `attrs_dropped`, `Capabilities::report`
     /// printed it, and this file never asked. The gate is written against the **version string** and
     /// not against a mask, so it fails the day the tmux entry is deleted rather than passing over an
@@ -3712,7 +3712,7 @@ mod tests {
         );
     }
 
-    /// **Gate, equality (production ticket 10): the degradation, on a whole frame.**
+    /// **Gate, equality: the degradation, on a whole frame.**
     ///
     /// The SGR gate above pins the parameters; this one pins what the *terminal* ends up holding, and
     /// the two are not the same statement — an `emit_sgr_delta` that masked correctly while the mirror
@@ -3780,9 +3780,9 @@ mod tests {
     fn the_worst_case_frame() {
         const W: u16 = 300;
         const H: u16 = 80;
-        /// Bytes a second on the link §8 prices this against.
+        /// Bytes a second on the link this is priced against.
         const LINK_BYTES_PER_SEC: f64 = 4.0 * 1024.0 * 1024.0;
-        /// Alacritty's, which is the shortest of the three §8 names.
+        /// Alacritty's, which is the shortest of the three.
         const FORCE_FLUSH_MS: f64 = 150.0;
 
         let mut f = Surface::new(W, H);

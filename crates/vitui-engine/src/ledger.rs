@@ -1,6 +1,6 @@
 //! The ledger: **every number this repository gates or reports on, once, with where it came from.**
 //!
-//! Impl ticket 26 asks for two things that turned out to be the same thing:
+//! Two things that turned out to be the same thing:
 //!
 //! > Every ledger row is re-measured against the shipped engine and the table is rewritten with real
 //! > numbers.
@@ -58,7 +58,7 @@
 //! [`the_parallel_compositing_ruling`] and [`the_watchdog_over_a_timing_report`] are prose with a
 //! gate under each. Both are facts *about* figures on this table rather than figures — one is the
 //! verdict the compositing row's re-measurement was taken for, the other is **whether a reported
-//! number can fail**, which production ticket 11 found nobody had written down anywhere. A report
+//! number can fail**, which nobody had written down anywhere. A report
 //! that a debug-only watchdog can turn red is a report whose provenance is incomplete, and the one
 //! home for that is beside the numbers rather than in whichever file noticed.
 
@@ -414,14 +414,14 @@ fn budget(what: &str) -> f64 {
 /// 1. **The composite is 43.9 µs, not 107.3 µs.** A whole-screen composite at *fifty* layers is
 ///    39.1–43.9 µs on the M1 Max; at twenty it is 19.4–23.9. The prototype's figure was forty layers
 ///    half of them operators, and the operator turned out to be the expensive half — measured
-///    separately, a full-screen `Mix` is 12.2–12.8 µs where §5 recorded 78.2, because the memo closed
+///    separately, a full-screen `Mix` is 12.2–12.8 µs where 78.2 was recorded, because the memo closed
 ///    it. So the thing a thread pool would parallelise is **4.4% of the 1 ms budget**, against the
 ///    10.7% the ruling was made on.
 /// 2. **It is a smaller fraction of the frame than it was.** The shipped `twenty-popups-with-shadows`
 ///    is 337.9 µs inline and 237.3 µs of app-thread share; the composite is a sixth of it, and the
 ///    rest is packing, the equality filter and the wire — none of which splits into bands. Amdahl is
 ///    the whole argument, and the fraction moved the wrong way for parallelism.
-/// 3. **The price did not move at all.** `rayon` is banned outright by ADR 0001, and a hand-written
+/// 3. **The price did not move at all.** `rayon` is banned outright by the dependency policy, and a hand-written
 ///    pool has to stay parked for requirement 11's zero-wakeup idle — which impl 26 has now measured
 ///    from the other side: a 60 Hz steady state costs 0.133% of a core, and a pool of idle threads is
 ///    a cost that does not care whether a frame is being composed.
@@ -442,9 +442,9 @@ pub fn the_parallel_compositing_ruling() -> &'static str {
 }
 
 /// **Whether a timing report that runs under `cargo test` can be failed by a timing — and it could,
-/// which is production ticket 11.**
+/// which is what that measurement is for.**
 ///
-/// `crate::gates::what_a_wake_up_costs_with_the_app_thread_parked` is register entry #26 and it is a
+/// `crate::gates::what_a_wake_up_costs_with_the_app_thread_parked` is the wake-up report and it is a
 /// *report*: its only assertion is a count, that at least half the submits were observed, and the
 /// rest of it prints percentiles. It cannot fail on its own terms for a timing reason. It failed for
 /// one anyway — pipeline 31, job 125, **22.3 ms against a 16.7 ms frame budget**, green on the

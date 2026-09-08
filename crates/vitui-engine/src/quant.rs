@@ -3,8 +3,8 @@
 //!
 //! # The second thing narrowed here, and it arrived four tickets later
 //!
-//! Spec §10 says an attribute the terminal does not render is *dropped silently at serialise time*,
-//! and until production ticket 10 nothing did it: `Quirks::apply` filled `attrs_dropped`,
+//! An attribute the terminal does not render is *dropped silently at serialise time*,
+//! and for a long time nothing did it: `Quirks::apply` filled `attrs_dropped`,
 //! `Capabilities::report` printed it, and the serializer never asked. It is narrowing in exactly this
 //! module's sense — a fact of the far end that the wire must respect and nothing above the packet may
 //! see — so it happens **here**, at [`Quantiser::attrs`], and every argument below about *where*
@@ -69,7 +69,7 @@
 //! > **Refuse when a guess would be wrong in direction; default when it would be wrong only in
 //! > degree.**
 //!
-//! OSC 11 silence → refuse to mix (`crate::mix`, ADR 0025), because a guessed background inverts a
+//! OSC 11 silence → refuse to mix (`crate::mix`), because a guessed background inverts a
 //! shadow on the opposite theme. OSC 4 silence → use the standard table, because a themed palette
 //! makes the nearest match slightly off. One rule, two answers, and it is the rule for any future
 //! query.
@@ -138,7 +138,7 @@ const W_B: u32 = 3;
 ///
 /// **0..16 come from OSC 4 where the terminal answered and from [`ANSI16`] where it did not**, and
 /// 16..256 are not asked about at all: the cube and the twenty-four greys are fixed by
-/// specification and identical on every terminal, which is also why spec §10 refuses to *quantise*
+/// specification and identical on every terminal, which is also why quantising
 /// into 0..16 while it is happy to *read* them here. Quantising into somebody else's theme is a bet;
 /// resolving a colour the caller explicitly named is not.
 pub(crate) fn index_channels(caps: &Capabilities, i: u8) -> Rgb {
@@ -230,8 +230,8 @@ pub(crate) struct Quantiser {
     /// **This one is narrowed here for the wire as well as for the instrument**, which is the one way
     /// it differs from `hyperlinks` above: OSC 8 is already fenced at intern time and at emit time, so
     /// the field beside it exists only so a comparison can be written once. An attribute has no such
-    /// fence — nothing anywhere dropped it before production ticket 10 — so this is where the drop
-    /// §10 promises actually happens, and [`Quantiser::style`] is the placement that makes the mirror
+    /// fence — nothing anywhere dropped it for a long time — so this is where the drop
+    /// the documentation promises actually happens, and [`Quantiser::style`] is the placement that makes the mirror
     /// hold what was sent.
     attrs_dropped: u64,
 }
@@ -306,7 +306,7 @@ impl Quantiser {
     ///
     /// **The consequence is stated rather than mitigated: at sixteen colours a shadow over a similar
     /// background disappears.** That is precisely the case
-    /// [ADR 0009](../../../docs/adr/0009-degradation-happens-at-serialise-time.md) hands upward.
+    /// degradation-at-serialise-time hands upward.
     pub(crate) fn color(self, c: Color) -> Color {
         match self.depth {
             // Nothing to narrow to. `reverse` is the one mechanism left and it is an attribute.

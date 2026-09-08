@@ -22,7 +22,7 @@
 //! # The runtime never ships a second copy of the UCD
 //!
 //! Every function here goes through [`vitui_engine::graphemes`] and [`vitui_engine::width_of`]. Not
-//! as a convenience — **as the whole point.** ADR 0005 put grapheme segmentation and display width on
+//! as a convenience — **as the whole point.** Grapheme segmentation and display width are on
 //! the engine's public surface precisely so that nothing above it needs its own tables, and the
 //! failure it exists to prevent is not *duplication*: it is that **two copies of the UCD disagree the
 //! day their Unicode versions differ**, and the disagreement is a caret in the wrong column, a
@@ -504,7 +504,7 @@ mod tests {
     /// the **first** space instead of the last — `["ab", "cde fg"]` where `["ab cde", "fg"]` is
     /// what a greedy wrap answers.
     ///
-    /// Found by components ticket 23, from the other end: a wrap index over a cluster corpus drew
+    /// Found from the other end: a wrap index over a cluster corpus drew
     /// three visual rows for a line that needs two, and the fixture's own 625/875 construction is
     /// what noticed. Every case here is ASCII, because the defect is not about clusters.
     #[test]

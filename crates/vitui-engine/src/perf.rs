@@ -51,7 +51,7 @@
 //!
 //! # Nothing here reaches into the crate
 //!
-//! Not tidiness — `examples/budget.rs` `#[path]`-includes this file so that register entry #22 can
+//! Not tidiness — `examples/budget.rs` `#[path]`-includes this file so that the overrun gate can
 //! time [`Perf::enter`] and [`Perf::leave`] **in a release build**, which is the only profile the
 //! 50 ns figure means anything in, and a single `use crate::` here would drag the whole engine into
 //! that binary. The one thing this module cannot do for itself — give the terminal back — arrives as
@@ -320,7 +320,7 @@ pub(crate) struct Perf {
     /// frame that is on it. An application that wants the diagnostic supplies somewhere for it.
     report: RefCell<Option<Box<dyn Write + Send>>>,
     /// What the observer thread reads. **Absent from a release build entirely** — the field, the
-    /// type, the loop and the words it would have printed — which is register entry #18 and what
+    /// type, the loop and the words it would have printed — which is the observer gate and what
     /// `scripts/observer-gate.sh` reads a binary to check.
     #[cfg(debug_assertions)]
     watch: Arc<Watch>,
@@ -559,7 +559,7 @@ impl Perf {
     }
 }
 
-/// **This region is allowed to be slow, and here is why.** 45 ns, measured, and spec §11 said
+/// **This region is allowed to be slow, and here is why.** 45 ns, measured, against a predicted
 /// 4.20 ns — the difference is one `Instant::now()` at each end.
 ///
 /// The 4.20 ns figure was for a guard that only set and cleared a flag, and a flag is not enough:
@@ -583,7 +583,7 @@ impl Perf {
 ///
 /// # It does not borrow the `Screen`, and that is the second correction
 ///
-/// Spec §11 records that the first shape — `permit_slow(&mut self) -> Permit<'_>` — did not compile,
+/// The first shape — `permit_slow(&mut self) -> Permit<'_>` — did not compile,
 /// because a mutable borrow held for the guard's lifetime makes `enter` and `leave` unreachable
 /// inside the very region the permit exists to excuse (`E0499`), and it records the fix as *`Cell`
 /// and `&self` throughout*. **That fix is half of one.** With `Cell` inside, `permit_slow(&self)`
@@ -601,7 +601,7 @@ impl Perf {
 ///
 /// A permit is the app thread's, so it may not travel — a worker holding one would excuse *this*
 /// thread's iteration for reasons that had nothing to do with it. The refusal is `Rc<Perf>`'s own
-/// and needs no `PhantomData` beside it, which is worth the sentence because §11 predicted a
+/// and needs no `PhantomData` beside it, which is worth the sentence because a
 /// `Cell<()>` here: the marker changed when the borrow did.
 pub struct Permit {
     /// The detector this permit is a declaration to. **When the region began is on the detector
@@ -663,7 +663,7 @@ impl std::fmt::Debug for Permit {
 /// What the observer thread is allowed to know about the app thread.
 ///
 /// **Debug builds only**, and the type's absence from a release binary is the property rather than a
-/// consequence of one: register entry #18 is *no observer thread is linked into a release binary*,
+/// consequence of one: the gate is *no observer thread is linked into a release binary*,
 /// and the check is that the words [`stall_report`] writes are in a debug binary and not in a
 /// release one.
 ///
@@ -1258,7 +1258,7 @@ mod tests {
     /// **A permit annotates the stall; it does not excuse it.** The in-loop rung is excused because
     /// the application said *this will be slow*; the observer answers a different claim — *this has
     /// not come back at all* — and a permitted region that runs past the limit belongs on a worker
-    /// thread, which is the whole thesis of §11.
+    /// thread, which is the whole thesis.
     #[test]
     fn a_stall_inside_a_permit_still_stalls_and_carries_its_reason() {
         let perf = detector(Recorder::default());

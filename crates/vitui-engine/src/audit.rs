@@ -1,8 +1,8 @@
-//! The public surface, as a value — and the audit spec §12 asked for.
+//! The public surface, as a value — and the audit the design asked for.
 //!
 //! The first half is *assembled and audited*, and the audit is here rather than in a
 //! document for the same reason register #19's negative cases are `compile_fail` doctests rather
-//! than sentences: **a public surface described in prose is not checked by anything.** §12 states a
+//! than sentences: **a public surface described in prose is not checked by anything.** The design states a
 //! count and a listing, four implementation tickets moved both, and every one of those tickets said
 //! so in its own answer — which is four places to look and no place that fails.
 //!
@@ -13,13 +13,13 @@
 //! **A rename turns both red**, which is the property the negative corpus is built around and which
 //! a one-directional check does not have.
 //!
-//! # What the audit found, and it is not what §12 says
+//! # What the audit found, and it is not what the design says
 //!
-//! §12 opens with *twenty-one public types and about sixty-three functions*, and **its own block
+//! The design opens with *twenty-one public types and about sixty-three functions*, and **its own block
 //! does not agree with that sentence.** The block declares **thirty-nine** types with a `pub struct`
 //! or `pub enum` keyword and names two more only inside a signature — `AttachError` in `attach`'s
 //! `Result` and `Permit` in `permit_slow`'s return — so the listing is **forty-one types**. The
-//! prose count is the original's and was never true of the block beside it; the block is what ticket 24
+//! prose count is the original's and was never true of the block beside it; the block is what the audit
 //! means by *the listing*, and the block is what the inventory is checked against.
 //!
 //! The surface as built is the **built** row of this table, and nowhere else in this file: the
@@ -35,7 +35,7 @@
 //! | added by implementation tickets, each naming one | +9 | +38 |
 //! | **built** | **49** | **107** |
 //!
-//! **Architecture ticket 21 moved both columns and left the type count where it was.** The block
+//! **A later change moved both columns and left the type count where it was.** The block
 //! lost `LinkId` and gained `Link<'a>`, so forty-one is still forty-one; it lost `Screen::link`,
 //! which is why the named functions are forty-one rather than forty-two. Both absent names are in
 //! [`REFUSED_NAMES`], which is what makes the subtraction checkable rather than remembered.
@@ -44,7 +44,7 @@
 //! layout, a widget, a signal, a trait, an alpha, a blocking primitive, an executor, a clock, a
 //! display query or a cell. Seven of the nine are input payload types the delta list asked for
 //! without naming (*the six `Event` variants and their payload types*), one is the type of a field
-//! §12 does name (`Cursor { x, y, shape }`), and one is where the bytes go, which `Config` has
+//! the design does name (`Cursor { x, y, shape }`), and one is where the bytes go, which `Config` has
 //! no field for at all.
 //!
 //! # `Resolver` does not exist, and that is the finding
@@ -62,7 +62,7 @@
 //! same kind of reason: the packet pool is fixed at two *provably*, so a knob for it would
 //! be a knob that may only hold one value.
 //!
-//! # Precedence rule 4, and the one place it reads differently than §12 wrote it
+//! # Precedence rule 4, and the one place it reads differently than it was written
 //!
 //! [`Recv`] is on every verb, so *`&self` wherever a call only reads* is a query rather than a
 //! paragraph. Three findings, all recorded and none of them a defect:
@@ -71,7 +71,7 @@
 //!   [`Screen::layers`], [`Screen::present`], [`Screen::wait`], the write verbs, and the four
 //!   `LayerStack` mutators. [`Screen::permit_slow`] takes `&self` — impl 23 found that `&mut self`
 //!   there was `E0499` against drawing inside the permitted region.
-//! - **The types §12 blesses wholesale read by value, not by reference.** `Rect`, `Style` and `Mix`
+//! - **The types blessed wholesale read by value, not by reference.** `Rect`, `Style` and `Mix`
 //!   are `Copy`, and so are `Mods` and `Buttons` — five of them, and `Color` is not among them
 //!   because its only two verbs are constructors that take no receiver at all. On a `Copy` type
 //!   `self` *is* the read, and `&self` would be a reference to something the size of a register.
@@ -92,7 +92,7 @@ pub enum Kind {
     Struct,
     /// A `pub enum`.
     Enum,
-    /// A free function. There are two, and ADR 0005 is why.
+    /// A free function. There are two, because the engine owns the text tables.
     Function,
 }
 
@@ -164,7 +164,7 @@ pub struct Item {
 /// *is* there — a list of absences passes for any reason at all, including the file having moved.
 ///
 /// **A name spelled `Type::verb` is checked against that type's verbs instead**, and architecture
-/// ticket 21 is why the second form exists: `Screen::link` is a method, so a check over the crate
+/// The second form exists because `Screen::link` was a method, so a check over the crate
 /// root's re-exports would have passed for it on the day it was written and every day after,
 /// whatever `Screen` grew back. A refusal nothing can fail is not a refusal.
 pub const REFUSED_NAMES: &[(&str, &str)] = &[
@@ -238,7 +238,7 @@ pub const REFUSED_NAMES: &[(&str, &str)] = &[
     ),
 ];
 
-/// Exactly what `pub mod prelude` re-exports, as ticket 24 states it.
+/// Exactly what `pub mod prelude` re-exports.
 pub const PRELUDE: &[&str] = &[
     "Color", "Config", "Engine", "LayerId", "Rect", "Screen", "Style", "View", "Wake",
 ];
@@ -260,7 +260,7 @@ pub const PRELUDE: &[&str] = &[
 /// [`the_test_only_list_is_what_the_crate_root_declares_under_cfg_test`]. A name here that stops
 /// being test-only would otherwise stay silently exempt from every scan below — and `lib.rs`
 /// predicted exactly that happening: *the fuzz targets are what will need `reference`
-/// outside `cfg(test)`*. It happened, at ticket 25, and `reference.rs` moved to
+/// outside `cfg(test)`*. It happened, and `reference.rs` moved to
 /// [`SOAK_ONLY_MODULES`] rather than quietly staying here. Left unchecked, dropping `#[cfg(test)]`
 /// from `mod scenes;` would ship `pub trait Scene` with the zero-trait gate still green, because
 /// that gate's positive twin *requires* `Scene` to be found.
@@ -284,7 +284,7 @@ pub const TEST_ONLY_MODULES: &[&str] = &[
 /// The modules the crate compiles under `cfg(test)` **or** the `fuzz` feature, and never in an
 /// ordinary build.
 ///
-/// [`TEST_ONLY_MODULES`]'s sibling, and it exists because ticket 25 needed a third state that the
+/// [`TEST_ONLY_MODULES`]'s sibling, and it exists because the fuzz feature needed a third state that the
 /// two-arm question *shipped or test-only?* cannot express. The reference compositor is the oracle
 /// for gate #1 **and** for the first fuzz target, and a fuzz target is in another crate — `fuzz/` is
 /// its own workspace, because `cargo-fuzz` needs nightly and `libfuzzer-sys`. So it is compiled by
@@ -1568,8 +1568,7 @@ pub const REFUSALS: &[Refusal] = &[
 ///
 /// An equality and not a floor, because the number is a property of the mechanism rather than of the
 /// data: **the pair is the unit**, and a case deleted without its twin is precisely the edit this
-/// number exists to catch. Impl 23 left sixteen; ticket 24 brought the corpus to thirty-six;
-/// architecture ticket 21 made it thirty-seven.
+/// number exists to catch. It was sixteen, then thirty-six, then thirty-seven.
 ///
 /// **Its arithmetic is worth spelling out, because it went up while two public items went away.**
 /// `LinkId`'s own `E0423` case — *you cannot build one from a number* — went with the type, and two
@@ -1589,18 +1588,18 @@ pub const NEGATIVE_CASES: usize = 37;
 /// negative case fail for the wrong error and report `ok` — exactly the failure the pairing exists
 /// to close.
 ///
-/// Forty-six since architecture ticket 21: `LinkId`'s twin and `Screen::link`'s own example both
+/// Forty-six since the handle came off the surface: `LinkId`'s twin and `Screen::link`'s own example both
 /// named items that no longer exist, and what replaced them is one more path inside the crate
 /// root's existing twin rather than a fence of its own.
 ///
-/// **Forty-seven since production ticket 07**, which is the one place `Screen::suspend` and
+/// **Forty-seven since the suspend pair**, which is the one place `Screen::suspend` and
 /// `Screen::resume` are compiled as a caller would write them — three lines with somebody else
 /// holding the terminal in between. It has no negative twin because the pair refuses nothing a
 /// compile outcome can express: the closure form the two verbs replace is already held out by
 /// `no_public_verb_takes_a_closure_or_an_iterator`, which is a gate over the whole surface rather
 /// than a fence beside one item.
 ///
-/// **Forty-eight since runtime architecture 28**, whose fence is the one place a caller is shown
+/// **Forty-eight since the typed chord**, whose fence is the one place a caller is shown
 /// building the text half of a key at all — `KeyText::of`, which exists because the layer above had
 /// no way to write the key a `Typed` binding matches. It has no negative twin for the same reason
 /// the pair above has none: a constructor total by arithmetic refuses nothing a compile outcome can
@@ -2075,7 +2074,7 @@ mod tests {
         );
     }
 
-    /// **The two free functions are the two ADR 0005 exported, and there is no third.**
+    /// **The two free functions are the two the text tables export, and there is no third.**
     #[test]
     fn the_only_free_functions_are_the_text_tables() {
         let free: Vec<&str> = SURFACE
@@ -2094,16 +2093,16 @@ mod tests {
     ///
     /// # Three backlogs, and the second and third are why this reads a prefix list
     ///
-    /// It said `impl NN` and nothing else until production ticket 07, which is the first item on
+    /// It named an implementation change and nothing else until the suspend pair, which is the first item on
     /// this surface added after the implementation backlog closed. **The gate was widened rather
     /// than the citation bent**: `Screen::suspend` really does come from
-    /// `.scratch/vitui-engine-production/issues/07`, and writing `impl 07` there would have sent a
+    /// a different backlog, and reusing the same numbering there would have sent a
     /// reader to a resolved ticket about something else. That is the same repair the runtime's
     /// register made for its entry 40, one crate over, for the same reason — a destination gate that
     /// admits only one backlog is a gate that asks the next ticket to lie about where it came from.
     ///
     /// **The third is not one of the engine's own**, and that is the interesting one. `KeyText::of`
-    /// was added by `.scratch/vitui-runtime-architecture/issues/28`: a ticket in the layer above,
+    /// was added from the layer above,
     /// which found that it could not build the key its own binding matches and had to come down here
     /// for the constructor. Two backlogs would have made it `impl 20` — the ticket that added the
     /// type — and sent a reader to a closed ticket that says in as many words that the fields are
@@ -2161,11 +2160,11 @@ mod tests {
     /// and about sixty-three functions* — a sentence its own block never agreed with. The
     /// arithmetic is stated so that a reader can check it rather than trust it: 41 − 1 + 9 = 49.
     ///
-    /// It was one hundred and five until architecture ticket 21 deleted `Screen::link`; the type
+    /// It was one hundred and five until `Screen::link` was deleted; the type
     /// count did not move, because `LinkId` left the listing and `Link<'a>` joined it. **Production
-    /// ticket 07 took it to one hundred and six** with `Screen::suspend` and `Screen::resume`, and
+    /// the suspend pair took it to one hundred and six** with `Screen::suspend` and `Screen::resume`, and
     /// the type count did not move there either: the pair is two verbs on a type that was already
-    /// listed, and neither of them returns anything. **Runtime architecture 28 took it to one
+    /// listed, and neither of them returns anything. **The typed chord took it to one
     /// hundred and seven** with `KeyText::of`, and the type count did not move there either, for
     /// the same reason: a constructor on a type that was already listed.
     #[test]
@@ -2459,7 +2458,7 @@ mod tests {
     /// along, and it exists for the identical reason: [`SOAK_ONLY_MODULES`] exempts a module from
     /// every scan over the shipped surface, and until this gate existed the only thing checked about
     /// a name on it was that the file still existed. A module that stops being soak-only — the exact
-    /// move ticket 25 made with `reference.rs`, in the other direction — would stay exempt.
+    /// move made with `reference.rs`, in the other direction — would stay exempt.
     #[test]
     fn the_soak_only_list_is_what_the_crate_root_declares_under_the_fuzz_feature() {
         let root = root();
@@ -2594,7 +2593,7 @@ mod tests {
     /// `restyle`, which took `impl Fn(Style) -> Style` in the skeleton and takes `&Restyle`
     /// since impl 16 — and `fill_with` is on the priced-rather-than-overlooked list for the same
     /// reason. `graphemes` **returns** an iterator over a borrowed `&str`, which is the other
-    /// direction and is ADR 0005.
+    /// direction, and the text tables are why.
     #[test]
     fn no_public_verb_takes_a_closure_or_an_iterator() {
         // Bare, because `impl Fn` is only the shorthand: `restyle` took `impl Fn(Style) -> Style`
@@ -2619,7 +2618,7 @@ mod tests {
     /// A signature's generics, parameters and `where` clause — **everything but the return type**.
     ///
     /// The return type is deliberately excluded rather than overlooked. `graphemes` returns
-    /// `impl Iterator` and ADR 0005 is why; refusal 4 is about what the engine is *handed*, and a
+    /// `impl Iterator`, and the text tables are why; the refusal is about what the engine is *handed*, and a
     /// verb that hands an iterator over the engine's own tables back to the caller iterates nothing
     /// of the caller's.
     fn bindings_of(signature: &str) -> String {
@@ -2694,7 +2693,7 @@ mod tests {
     /// [`TEST_ONLY_MODULES`] exempts a module from every scan in this file, and until this gate
     /// existed the only thing checked about it was that the files still existed. A module that stops
     /// being test-only would have stayed silently exempt — and `lib.rs` predicts exactly that
-    /// happening for `reference` at ticket 25. Dropping `#[cfg(test)]` from `mod scenes;` would have
+    /// happening for `reference`. Dropping `#[cfg(test)]` from `mod scenes;` would have
     /// shipped `pub trait Scene` with the zero-trait gate still green, because that gate's positive
     /// twin *requires* `Scene` to be found.
     #[test]

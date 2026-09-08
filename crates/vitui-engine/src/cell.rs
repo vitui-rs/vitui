@@ -8,7 +8,7 @@ use crate::style::Style;
 /// The encoding leaves single scalars as their own handle, which is what makes the rule free on the
 /// common path — a cell holding `a` *is* `0x61`, with no table and no hash.
 ///
-/// **Bit 31 is a flag over the low 31 bits, not a third range** (spec §3, architecture ticket 19):
+/// **Bit 31 is a flag over the low 31 bits, not a third range**:
 ///
 /// ```text
 /// bit 31         clear: one column.  set: two columns, and a CONTINUATION follows.
@@ -37,7 +37,7 @@ impl GraphemeId {
     /// free between the narrow cluster ids and the wide ones.
     pub(crate) const EMPTY: GraphemeId = GraphemeId(0x7FFF_FFFF);
 
-    /// The second half of a double-width pair. Ticket 06 is what produces one.
+    /// The second half of a double-width pair, produced by the interner.
     pub(crate) const CONTINUATION: GraphemeId = GraphemeId(0xFFFF_FFFF);
 
     /// The wide flag, and the first cluster id after the scalars.
@@ -130,7 +130,7 @@ impl GraphemeId {
 ///
 /// Sixteen bytes, aligned to four, with no padding hole — asserted, because both halves of that
 /// sentence are load-bearing. Sixteen bytes is what puts exactly four cells in a cache line, which
-/// is why spec §3 says not to pad rows. `_reserved` is not slack to be reclaimed later: without it
+/// is why rows are not padded. `_reserved` is not slack to be reclaimed later: without it
 /// `#[repr(C)]` over a handle and a style word leaves four bytes of hole, and a hole is four bytes
 /// of every cell that no test can see.
 #[repr(C)]

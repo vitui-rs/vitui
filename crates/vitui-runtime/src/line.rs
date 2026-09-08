@@ -1,11 +1,11 @@
 //! **The crate line, as a value** — the module map, the visibility count, and the four manifest
 //! decisions that had been comments.
 //!
-//! Runtime ticket 17. Three of that ticket's six acceptance criteria are statements about files
+//! The crate line, as a value. Three of the criteria behind it are statements about files
 //! rather than about behaviour — the module map ships as written, `deny.toml` states the dependency
 //! line, `[bans] allow` is not used, `codegen-units = 1` is gone — and all three were **true and
-//! unchecked** when this file was written. That is the same shape as the `crossterm` rule ADR 0001
-//! restated four times before runtime ticket 14 made it a `cargo deny` gate: a decision written in a
+//! unchecked** when this file was written. That is the same shape as the `crossterm` rule that was
+//! restated four times before it became a `cargo deny` gate: a decision written in a
 //! comment is a decision the next edit can undo silently.
 //!
 //! `#[cfg(test)]`, like `crate::screen` and `crate::keys::corpus` and for the engine's reason
@@ -37,12 +37,12 @@
 //! # The row the map did not have
 //!
 //! The shipped crate declares **fifteen** modules where the map had fourteen rows plus a
-//! `debug` row that is fog: `route` is ticket 11's, spec §7 and ADR 0016 specify it, and the table
+//! `debug` row that was fog: `route` is specified elsewhere, and the table
 //! never gained a line for it. [`MODULES`] carried it with `Origin::Added` beside it rather than
-//! quietly matching a shorter list, and the discrepancy was filed as architecture issue 21 — **a
+//! quietly matching a shorter list, and the discrepancy was filed and answered — **a
 //! module is not deleted to make a table come out even.**
 //!
-//! **Issue 21 is resolved and §4 has the row**, so `route` is `Origin::Spec4` and the two lists are
+//! **It resolved with the row added**, so `route` is `Origin::Spec4` and the two lists are
 //! the same length by agreement rather than by omission. `Origin::Added` is kept and carries an
 //! `#[expect(dead_code)]`, which is the arrangement `register.rs` uses for `State::Red`: the next
 //! module that ships ahead of the spec must be able to say so, and a vacated arm removed is a
@@ -63,7 +63,7 @@ pub enum Origin {
     ///
     /// **Nothing constructs this today**, and that is a statement about the map being current rather
     /// than about the arm being spare. `route` was the one row that carried it — for four tickets,
-    /// until architecture issue 21 put the line in §4 — and the arm stays for `register.rs`'s
+    /// until the line was added — and the arm stays for `register.rs`'s
     /// `State::Red` reason: *a distinction the type cannot make is one a row stops making.* This is
     /// the only mechanism this crate has for saying **the code is ahead of the map**, and deleting it
     /// would mean the next module shipped without a spec row has no way to say so and simply looks
@@ -202,15 +202,15 @@ pub struct EngineName {
 /// Every engine name the runtime's **public** surface names, with the component-facing path or the
 /// absence of one.
 ///
-/// **This is the finding, as a value.** Components spec §0 states constraint C6 — the
-/// components crate depends on `vitui-runtime` and on nothing else — and components spec §1 writes
+/// **This is the finding, as a value.** The components crate depends on `vitui-runtime` and on
+/// nothing else, and its component shape writes
 /// `pub fn button(cx: &mut Ctx, area: Rect, …)`. Both cannot hold while `Rect` is reachable only
 /// through `vitui-engine`: a consumer can *hold* one, because `Ctx::area` hands it over and
 /// inference carries it, and cannot *write its type*.
 ///
-/// **Runtime spec §4 says three of these are re-exported — `GlyphSet`, `Slot` and `CursorShape` —
+/// **Three of these were meant to be re-exported — `GlyphSet`, `Slot` and `CursorShape` —
 /// and `CursorShape` is not.** `Ctx::caret_with` takes one and no path leads to it. Filed as
-/// architecture issue 22; not decided here.
+/// decided elsewhere, and not here.
 ///
 /// `Style` is on the list because `pub struct Paint(pub(crate) Style)` names it in a public
 /// declaration, and it is the one entry nothing is blocked by: the field is restricted, which is the
@@ -595,7 +595,7 @@ mod tests {
         }
     }
 
-    /// **`input`, `hit`, `drag` and `Rows` do not exist.** The four names spec §4 corrected out of
+    /// **`input`, `hit`, `drag` and `Rows` do not exist.** The four names corrected out of
     /// `architecture.md`'s proposal, checked as an absence rather than remembered as one.
     #[test]
     fn the_four_refused_names_are_not_declared_anywhere() {
@@ -683,7 +683,7 @@ mod tests {
 
     // ── the engine names on the surface ──────────────────────────────────────────────────────────
 
-    /// **The rule of architecture issue 22, in both directions and with no row exempt.**
+    /// **The reachability rule, in both directions and with no row exempt.**
     ///
     /// > Every engine type this crate's public surface names is reachable through this crate, and so
     /// > is every type needed to **construct** one that the surface accepts.
@@ -691,7 +691,7 @@ mod tests {
     /// Three assertions, and the third is the one that is new. A `pub use vitui_engine::…` that
     /// [`ENGINE_NAMES`] does not carry is the finding closing itself without anyone saying so; a
     /// reachable row the source does not have is the opposite; and **no row may be `None`**, which is
-    /// what turns the rule from a list into a rule. Before issue 22 this counted sixteen unreachable
+    /// what turns the rule from a list into a rule. It used to count sixteen unreachable
     /// rows and asserted the number, which is a gate that passes while the barrier it measures stands.
     ///
     /// The count is deliberately *not* asserted. A new engine type on the surface must be re-exported
@@ -882,12 +882,12 @@ mod tests {
     }
 
     /// **`deny.toml` states the line and `[bans] allow` is not used**, with the number beside the
-    /// refusal. Ticket 14 wrote 38 against a prototype workspace; the shipped graph is 33 — see the
+    /// refusal. An early count said 38 against a prototype workspace; the shipped graph is 33 — see the
     /// comment in `deny.toml`, which now carries both and the drift between them, because a number
     /// that moved five without a single `deny.toml` edit is the maintenance cost the refusal is
     /// about.
     ///
-    /// **Ticket 18 shipped a seventh crate and the number stayed 33**; runtime architecture issue 24
+    /// **A seventh crate shipped and the number stayed 33**; the deletion of the signals crate
     /// deleted it again and the number is unmoved a third time. `vitui-signals` was banned by a
     /// `wrappers = []` line — cargo-deny bans a crate's *presence* in the graph, not only its
     /// dependents — so it was never a workspace member and never entered the count. The figure went

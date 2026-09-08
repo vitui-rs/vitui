@@ -5,7 +5,7 @@
 //! `unicode-width` and `unicode-segmentation`; `build.rs` generates the tables instead, from the
 //! UCD data vendored in `ucd/`.
 //!
-//! Nothing here is public. Ticket 06 exports `graphemes()` and `width_of()` over it, and no public
+//! Nothing here is public. `graphemes()` and `width_of()` are exported over it, and no public
 //! signature ever names a table.
 //!
 //! # Our tables are authoritative
@@ -14,10 +14,10 @@
 //! emoji correctly, kitty sums a ZWJ family emoji to 6 where the answer is 2, Windows Terminal
 //! draws a combining mark at width 1 — and the engine does not follow the terminal here.
 //! `CHA`-after-non-ASCII rule bounds the disagreement instead. See
-//! `.scratch/vitui-engine-architecture/research/02-grapheme-clustering-and-width.md`.
+//! the tables' own generator.
 //!
 //! **Those three figures are a survey in a research document and not a measurement of ours**, and
-//! `conform/`'s scene 05 has now asked five terminals what a cluster is worth with `CSI 6n`. The
+//! `conform/`'s width scene has now asked five terminals what a cluster is worth with `CSI 6n`. The
 //! answer arrived in three parts and each one corrects the reading of the one before.
 //!
 //! - **2026-08-29, three families, and neither disagreement reproduced.** Ghostty 1.3.1,

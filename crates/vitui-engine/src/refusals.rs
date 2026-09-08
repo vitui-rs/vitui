@@ -41,7 +41,7 @@
 //!
 //! **Refusal 11 — no cells, no grapheme handles, no style bits**. A caller cannot read
 //! back what is on screen, which is why the oracle over cells lives inside this crate — and since
-//! architecture ticket 21 it holds with **no exception beside it**. There *was* one: `LinkId`, the
+//! it holds with **no exception beside it**. There *was* one: `LinkId`, the
 //! one handle that was public, opaque and minted by `Screen::link`. The URI travels at the drawing
 //! verb now ([`Link`](crate::Link)), so the handle is internal and the exception is unnecessary rather than
 //! rewritten.
@@ -66,9 +66,9 @@
 //! let _ = screen.link("https://example.com/");
 //! ```
 //!
-//! And the two names §12 lists or prices that are not here either — `Resolver`, which appears once
+//! And the two names the design lists or prices that are not here either — `Resolver`, which appears once
 //! in the whole architecture and never again, and the serializer `Options` type, priced rather than
-//! overlooked in §8:
+//! overlooked:
 //!
 //! ```compile_fail,E0433
 //! let _: vitui_engine::Resolver = Default::default();

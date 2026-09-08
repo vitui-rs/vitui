@@ -6,7 +6,7 @@
 //! express mode 2026 or the kitty-keyboard flag stack at all. libvaxis is the production proof that
 //! querying the live pty works; tcell is the counterexample and shows what the other road costs —
 //! suffix matching, name patterns, a "best guess" 256-colour default and a hardcoded
-//! known-terminal profile table. Spec §10, and it is a decision rather than a preference.
+//! known-terminal profile table, and it is a decision rather than a preference.
 //!
 //! # The timeout problem is solved by the sentinel, not by tuning a number
 //!
@@ -22,12 +22,12 @@
 //! numeric timeout alone is fragile, and a real bug — `terminal-light` against iTerm2 — is why that
 //! is stated rather than assumed.
 //!
-//! **That citation was checked against the terminal it names, 2026-09-04** (production ticket 13),
+//! **That claim was checked against the terminal it names, 2026-09-04**,
 //! and it does not reproduce as a slow terminal: `caps` on iTerm2 3.6.11's own tty attached three
 //! times in **73, 94 and 80 ms**, whole batch and sentinel, against [`CEILING`]'s 250. What the
 //! citation demonstrates is that a *fixed* number is fragile — the machine and the load are in it
 //! too — and a sentinel is unaffected by which of those is true, which is the reason it is the
-//! mechanism. Spec §10 carries the run.
+//! mechanism, and the run is recorded with it.
 //!
 //! **The seventeen queries the degradation model added cost no extra round trip**, because they sit
 //! in the same batch ahead of the sentinel. That is the whole argument for asking sixteen palette
@@ -45,7 +45,7 @@ use crate::engine::AttachError;
 
 /// How long to wait for the *first* byte, and for each byte after a silence.
 ///
-/// Spec §10 names 100–300 ms and does not pick one, because the number decides nothing that
+/// The range is 100–300 ms with no one value picked, because the number decides nothing that
 /// matters: it is the cost of discovering that a pipe is a pipe.
 pub(crate) const CEILING: Duration = Duration::from_millis(250);
 
@@ -62,7 +62,7 @@ const BEL: u8 = 0x07;
 ///
 /// # `?1049h` first, and it is a question's answer rather than a tidiness
 ///
-/// **Production ticket 12.** A terminal is not obliged to *ignore* a sequence it does not implement,
+/// A terminal is not obliged to *ignore* a sequence it does not implement,
 /// and Terminal.app 2.15 does not: it prints the XTGETTCAP payload as `+q524742` and the final byte
 /// of each DECRQM as a `p`, so the batch below left eight visible artefacts on the user's shell
 /// screen — where `?1049h` afterwards switches away from a page that already has them, and `?1049l`
@@ -92,7 +92,7 @@ const BEL: u8 = 0x07;
 /// - **A terminal with no alternate screen is probed on its only page**, which is the defect with the
 ///   mitigation removed. It is not made worse than it was — `?1049h` is ignored by exactly the
 ///   terminals that would have ignored it in [`crate::actuate::negotiation`] a moment later — and
-///   spec §15 puts inline, non-alt-screen rendering out of scope, so there is no second rendering
+///   inline, non-alt-screen rendering is out of scope, so there is no second rendering
 ///   mode for such a terminal to fall back to. The engine owns a screen or it does not run.
 /// - **The page is now owed back before there is a `Screen` to owe it**, which is why [`Tty`]'s
 ///   `Drop` gives it back and why `attach` takes that debt off it the moment
@@ -550,7 +550,7 @@ pub(crate) struct Tty {
     requested_2027: bool,
     /// Whether the batch went out **and no session has taken the page over yet**.
     ///
-    /// The batch's first bytes are `?1049h` (production ticket 12), and it is sent before `attach`
+    /// The batch's first bytes are `?1049h`, and it is sent before `attach`
     /// has decided there will be a session at all — so between the write and
     /// [`crate::shutdown::arm`] there is a window where the only thing that can give the alternate
     /// screen back is this type's `Drop`. [`Tty::page_is_the_sessions`] closes the window from the
@@ -693,7 +693,7 @@ impl Drop for Tty {
     ///
     /// **Two things, and the second is conditional.** Mode 2027 is always this type's, for the
     /// reason below. The alternate screen is this type's only until `attach` arms
-    /// [`crate::shutdown`] — see [`Tty::page_is_the_sessions`] — because production ticket 12 moved
+    /// [`crate::shutdown`] — see [`Tty::page_is_the_sessions`] — because the page moved
     /// `?1049h` into the batch, ahead of the first question, and an `attach` that fails with
     /// [`AttachError::NoAnswer`] returns no `Screen` for a site to be armed on and would otherwise
     /// leave the user looking at an empty alternate screen with their shell behind it.

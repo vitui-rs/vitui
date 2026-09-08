@@ -13,7 +13,7 @@
 //!
 //! `Mix` needs channels, so a [`Color`] is resolved at composite time: `default` → the terminal's
 //! real colour, `indexed` → the palette, `rgb` → itself
-//! ([ADR 0025](../../../docs/adr/0025-compositing-depends-on-a-terminal-capability.md)). This is
+//! and that is a capability question rather than a preference. This is
 //! the only place in the engine where a rendering decision depends on an answer from the other end,
 //! and the rule for what to do when there is no answer is one rule rather than two:
 //!
@@ -29,7 +29,7 @@
 //!
 //! One entry on the *previous* style word, which is exactly the trick in
 //! [`View::restyle`](crate::View::restyle). Cells in a run are contiguous and share a `u64`, so the
-//! table round trip lands once per **distinct style** rather than once per cell: §5 measured
+//! table round trip lands once per **distinct style** rather than once per cell, measured at
 //! 20.38 / 28.46 / 200.22 µs against 79.47 / 86.28 / 646.87 µs unmemoised, and **3.2× faster than
 //! the prototype the map shipped** — which did the mix arithmetic per cell *and deleted the
 //! hyperlink under a shadow*. The memo is why the correct form is cheaper than the wrong one.
@@ -256,7 +256,7 @@ impl<'a> Mixer<'a> {
     /// The mixer for one operator, or `None` when the operator provably changes no byte on the
     /// wire and the compositor may skip it outright.
     ///
-    /// Two cases, and both are §5's:
+    /// Two cases, and both are the compositor's:
     ///
     /// - **The identity.** `amount == 0` never reaches a cell.
     /// - **[`ColorDepth::None`].** There is no colour on the wire, so a `Mix` cannot change one.
@@ -303,8 +303,8 @@ impl<'a> Mixer<'a> {
     /// what a shadow means, and it would break modal dimming outright, whose whole job is to push
     /// the background away.
     ///
-    /// That sentence decides the case §5 states and the case it does not, as one rule: **a cell is
-    /// mixed only if every colour it needs resolves.** §5 names the background — *if the terminal
+    /// That sentence decides the stated case and the unstated one, as one rule: **a cell is
+    /// mixed only if every colour it needs resolves.** The background is named — *if the terminal
     /// stays silent on OSC 11, cells with a default background are left unmixed* — and a default
     /// *foreground* on a terminal silent on OSC 10 is the same situation seen from the other side.
     /// Mixing the half that resolved would be darkening one channel and not the other, which is the
@@ -331,7 +331,7 @@ impl<'a> Mixer<'a> {
     /// see: [`Capabilities`]'s `attrs_dropped` drops attributes a terminal does not render, silently,
     /// below the packet. A compositor that pre-swapped for a terminal that then dropped
     /// `reverse` would be wrong in the other direction, and it would also make the mix depend on an
-    /// attribute bit, which §5 nowhere says it does. `assert_reverse_is_left_to_the_terminal` pins
+    /// attribute bit, which it nowhere claims to. `assert_reverse_is_left_to_the_terminal` pins
     /// the behaviour so that it is a choice rather than an accident.
     fn mixed(&self, tables: &mut Tables, old: Style) -> Style {
         self.moved(tables, old).unwrap_or(old)
@@ -777,7 +777,7 @@ mod tests {
     ///
     /// A report, not a gate. The arm it is measured against is a plain darkening — every channel
     /// scaled, with nothing to interpolate toward — written here and **nowhere else in the crate**,
-    /// because it is the thing §5 deliberately did not ship: one operator instead of three buys
+    /// because it is the thing deliberately not shipped: one operator instead of three buys
     /// lifting, tint and fade for this difference, and one mechanism is worth more than the
     /// percentage.
     ///

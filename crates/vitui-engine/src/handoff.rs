@@ -25,7 +25,7 @@
 //! # Why *free* means the renderer has taken the packet, not that it has finished writing
 //!
 //! This is the decision that fixes the pool at two, so it is worth stating rather than reading off
-//! the code. §7 derives the pool size as *one being filled, one in the renderer's hands* — two
+//! the code. The pool size is *one being filled, one in the renderer's hands* — two
 //! packets alive at one instant — and that shape exists only if the app may begin filling while the
 //! renderer still holds the last one. So [`Mailbox::take`] is what sets `ready`, and the app's
 //! composite overlaps the renderer's write.
@@ -45,7 +45,7 @@
 //! last packet, and it returns without compositing. The consequence is stronger than intended —
 //! with one producer and the ready gate, **the slot is always empty at submit, so a packet can never
 //! be superseded**. [`Mailbox::superseded`] exists so that the counter can prove it stays at zero,
-//! and register entry #9 reads it over 10 000 cycles. If it ever moves, the pacing gate has left the
+//! and a gate reads it over 10 000 cycles. If it ever moves, the pacing gate has left the
 //! app thread and frames are being composed to be thrown away.
 
 use std::sync::atomic::{AtomicU32, Ordering};
@@ -69,7 +69,7 @@ pub(crate) enum Lease {
     /// Damage stays in the structure and coalesces into the next one.
     Busy,
     /// The renderer is free and the pool is empty, which the pool size makes unreachable.
-    /// [`Mailbox::starved`] is register entry #8's counter.
+    /// [`Mailbox::starved`] is the starvation counter.
     Starved,
 }
 
@@ -105,7 +105,7 @@ struct Shared {
     /// is the flag that makes it a failure.
     ///
     /// It does **not** make the renderer look free. Setting `ready` would let the app submit into a
-    /// slot nobody empties, which moves register entry #9's counter and destroys the meaning of the
+    /// slot nobody empties, which moves the supersede counter and destroys the meaning of the
     /// one gate that says frames are never composed to be thrown away. So the app is released from
     /// the wait and every frame after answers `submitted: false`: nothing can be painted, because
     /// the sink went with the thread. `Screen::wait`'s `Wake::Quit` is where it surfaces, and
@@ -114,15 +114,15 @@ struct Shared {
     /// arm a panic on any other thread takes.
     gone: bool,
     /// How many packets were dropped on the floor by a submit landing on a full slot. **Zero, for
-    /// ever**: register entry #9.
+    /// ever**, which is what the supersede counter watches.
     superseded: u32,
-    /// How many leases found the renderer free and the pool empty. Register entry #8.
+    /// How many leases found the renderer free and the pool empty.
     starved: u32,
     /// How many packets the render thread has finished writing.
     painted: u64,
     /// How many times the render thread's wait on *a packet landed* has returned — a notification, a
     /// spurious wakeup, anything. **Zero over an idle window**, which is the render thread's half of
-    /// register entry #17: the app thread's half is `crate::clock::WakeSource`'s park counters.
+    /// the idle-wakeup gate: the app thread's half is `crate::clock::WakeSource`'s park counters.
     wakeups: u64,
     /// The **address** of the packet most recently returned to the pool, or zero before any has been.
     ///
@@ -140,10 +140,10 @@ struct Shared {
     /// name that claimed otherwise would be describing a copy that does not exist.
     #[cfg(test)]
     last_returned: usize,
-    /// When the packet in the slot was submitted, for register entry #26.
+    /// When the packet in the slot was submitted, for the submit-to-render delay report.
     ///
     /// `cfg(test)`, and not because the number is uninteresting: it is one `Instant::now()` per
-    /// submit on a path §7 prices in nanoseconds, and the distribution it feeds is a **report** that
+    /// submit on a path priced in nanoseconds, and the distribution it feeds is a **report** that
     /// may never be load-bearing for a gate. A release build has nothing to read it.
     #[cfg(test)]
     submitted_at: Option<std::time::Instant>,
@@ -309,7 +309,7 @@ impl Mailbox {
         shared.remember_returned();
     }
 
-    /// The packet the last frame packed, for register entry #10's equality.
+    /// The packet the last frame packed, for the round-trip equality.
     ///
     /// A closure rather than a reference, because the packet lives behind the lock and a `&Packet`
     /// handed out of here would outlive the guard. `None` when no frame has packed one yet, and
@@ -328,7 +328,7 @@ impl Mailbox {
 
     /// Block until the render thread has taken whatever was submitted.
     ///
-    /// **Ticket 19 did not make this public, and the reason is worth the paragraph.** `wait() -> Wake`
+    /// **This is deliberately not public, and the reason is worth the paragraph.** `wait() -> Wake`
     /// does multiplex the renderer going free with an input event, a deadline and a post — but a
     /// thread cannot park on two condvars, so it parks on `crate::clock::WakeSource`'s and the render
     /// thread signals *that* one from its `take`. This condvar stayed where it was: it is what the
@@ -363,7 +363,7 @@ impl Mailbox {
     ///
     /// **`present` answers `submitted: false` from the frame after, not from this one.** `lease` gates
     /// on `ready`, and this flag does not lower it — deliberately, because raising `ready` would let
-    /// the app submit into a slot nobody empties and move register entry #9's counter. So a thread
+    /// the app submit into a slot nobody empties and move the supersede counter. So a thread
     /// that dies while `ready` is true leaves exactly one frame that leases, composites, packs and
     /// submits into a slot that will never be emptied, and reports `submitted: true` for bytes that
     /// cannot reach the wire. One wasted composite; the frame after finds `ready` false and every
@@ -407,7 +407,7 @@ impl Mailbox {
     ///
     /// *The last frame is not flushed on quit*, so a suspend that raced a submit leaves
     /// a packet nobody wrote. It goes back on the free list directly rather than through the
-    /// supersede path, because [`superseded`](Mailbox::superseded) is register entry #9's counter
+    /// supersede path, because [`superseded`](Mailbox::superseded) is the counter
     /// and its property is **zero, for ever** — a frame that was composed to be thrown away. This
     /// one was composed to be *written*, and the terminal left before it could be. Counting it
     /// there would put a number in the one place that may not have one, for an event that is not
@@ -428,7 +428,7 @@ impl Mailbox {
         shared.gone = false;
     }
 
-    /// Register entry #9's counter: how many packets a submit dropped on the floor.
+    /// How many packets a submit dropped on the floor. Gated at zero.
     ///
     /// `cfg(test)` because nothing in a release build reads it: the counters are gate instruments,
     /// and the *path* they count is what has to exist in release — a superseded packet goes back to
@@ -438,7 +438,7 @@ impl Mailbox {
         self.lock().superseded
     }
 
-    /// Register entry #8's counter: how many leases found the pool empty.
+    /// How many leases found the pool empty.
     #[cfg(test)]
     pub(crate) fn starved(&self) -> u32 {
         self.lock().starved
@@ -450,13 +450,13 @@ impl Mailbox {
         self.lock().painted
     }
 
-    /// How many times the render thread's wait has returned. Register entry #17's other half.
+    /// How many times the render thread's wait has returned — the other half of the idle gate.
     #[cfg(test)]
     pub(crate) fn wakeups(&self) -> u64 {
         self.lock().wakeups
     }
 
-    /// Every app-submit-to-render-holding-it delay recorded so far. Register entry #26.
+    /// Every app-submit-to-render-holding-it delay recorded so far, for the report.
     #[cfg(test)]
     pub(crate) fn latencies(&self) -> Vec<std::time::Duration> {
         self.lock().latencies.clone()
@@ -510,7 +510,7 @@ impl Mailbox {
 ///
 /// What this pair does **not** catch is a resize observed *between* two frames, because the sample is
 /// the frame's own first statement: a terminal that resized while the application was idle is already
-/// the sampled size. See [`crate::Presented::discarded_for_resize`], which names ticket 20 and why the
+/// the sampled size. See [`crate::Presented::discarded_for_resize`], which says why the
 /// answer needs the resize event to exist first.
 #[derive(Debug)]
 pub(crate) struct TerminalSize(AtomicU32);

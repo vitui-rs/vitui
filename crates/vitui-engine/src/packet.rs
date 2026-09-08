@@ -1,6 +1,6 @@
 //! The packet: what crosses from the app thread to the render thread.
 //!
-//! Damaged runs, and the cells inside them, and nothing else — never the grid. Spec §7 measured
+//! Damaged runs, and the cells inside them, and nothing else — never the grid. The measurement was
 //! both: on contiguous full-screen damage the two are identical, as they must be, but on the sparse
 //! sub-cell chart the packet walks 9.4 KB contiguously where a grid indexed by runs jumps a row
 //! stride per run across 384 KB, and that is 4.88x. Packing is proportional to damage — 4.76 ns for
@@ -22,13 +22,13 @@
 //!
 //! The first is [`Packet::repaint`]. A handle **is** a position — an index into a table — and the
 //! mirror is the one reader that compares handles across frames, so the mark-and-compact sweep that
-//! renumbers a table has to tell it (spec §3, [`crate::sweep`]). The flag is the whole of that
+//! renumbers a table has to tell it — see [`crate::sweep`]. The flag is the whole of that
 //! telling, and it costs one full frame on the render thread at a moment when the engine is already
 //! doing topology work.
 //!
 //! The second is the keying of the three side tables. Writing a *position* into a packed cell — an
 //! arena offset instead of the handle — makes an unchanged cell pack differently whenever the
-//! frame's damage changes shape, and §7 measured that at **284× in bytes** over five steady frames
+//! frame's damage changes shape, measured at **284× in bytes** over five steady frames
 //! of a page with nothing changing. Both defects are the same sentence read twice.
 //!
 //! A **content-keyed** packet, deriving each key from the entry's content so a sweep would be
@@ -47,7 +47,7 @@
 //!
 //! # The dedup is a generation stamp per handle, and the generation is the frame's own
 //!
-//! ADR 0011 names it: a marker per handle, O(1), against the 166 µs the scan version cost — 31 µs
+//! The shape is a marker per handle, O(1), against the 166 µs the scan version cost — 31 µs
 //! where the scan was 166. [`Marks`] is that marker, one slot per handle rather than a hash probe
 //! per cell, and it needs no clearing between frames because a slot stamped with an older
 //! generation is already invisible.

@@ -16,8 +16,8 @@
 //!   including the cells outside every damaged run — that is what says damage-tracked compositing
 //!   and full compositing are the same function.
 //!
-//! Spec §14 also names it as the oracle for the first fuzz target, draw sequences against a naive
-//! reference compositor, and **ticket 25 is where that happened**: the `cfg` is
+//! It is also the oracle for the first fuzz target, draw sequences against a naive
+//! reference compositor, and **that is what the `fuzz` feature is for**: the `cfg` is
 //! `any(test, feature = "fuzz")` now, because a fuzz target compiles this crate without `cfg(test)`
 //! — `fuzz/` is its own workspace, since `cargo-fuzz` needs nightly and `libfuzzer-sys`. It is on
 //! `crate::audit`'s `SOAK_ONLY_MODULES` rather than its `TEST_ONLY_MODULES`, which is what keeps a
@@ -177,7 +177,7 @@ fn paint_row(layers: &[LayerRef<'_>], row: &mut [Cell], painter: &mut [Option<us
 /// layer to hand it a pair that was already broken — [`View::child`](crate::View::child) could not
 /// widen its clip, so a pair the clip bisected kept the half outside it — and this file
 /// deliberately did not repair it, because an oracle that quietly did would have made gate #1 fail
-/// against the compositor instead of surfacing the open question. Architecture ticket 20 closed that
+/// against the compositor instead of surfacing the open question. That was closed
 /// question the other way and the door with it: the drawing verbs' repair is bounded by the surface,
 /// so no layer can hand this a broken pair. `crate::fuzz` asserts that of the picture below rather
 /// than allowing for it.

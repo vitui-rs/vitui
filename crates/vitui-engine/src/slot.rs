@@ -82,7 +82,7 @@ use std::sync::{Mutex, PoisonError};
 ///
 /// # Refusal 7, as a compile outcome
 ///
-/// **No blocking primitive on the app thread and no completion anywhere.** §12 spells it *the word
+/// **No blocking primitive on the app thread and no completion anywhere.** It is *the word
 /// `recv` does not appear*, and `crate::gates` holds the literal form of that over the source with a
 /// reason per allowance. Here is the half a caller can see: there is nothing on this type to wait
 /// on, and no `Future` to await.

@@ -1,6 +1,6 @@
 //! The style word: eleven attribute bits and two colours, packed into exactly 64 bits.
 //!
-//! The packing is the whole finding of spec §3 and it is a performance decision rather than a
+//! The packing is the whole finding here and it is a performance decision rather than a
 //! tidiness one. The serializer's inner comparison is one style against another, once per cell of
 //! every damaged run, and its cost is decided by whether the style fits in a machine word: an
 //! inline `u64` scans a full screen in 5.45 us where a 12-byte `Style` with a derived `PartialEq`
