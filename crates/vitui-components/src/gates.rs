@@ -8853,6 +8853,16 @@ pub const REGISTER: [Row; 236] = [
                     file: COLLECT,
                     name: "a_container_reads_what_a_collection_declined_in_the_same_frame",
                 },
+                // **The same property where an application actually puts one.** Every gate in this
+                // crate plays its subject in the base pass and a pull-down is a `collection` inside
+                // `Ctx::overlay`, drawn in the second pass under whatever scope the layer opened —
+                // which is this map's most-repeated trap, not a doubled test. It opens on **two**
+                // frames rather than one, because a layer's entries reach the ring only once the
+                // layer has been placed.
+                Instrument::Unit {
+                    file: COLLECT,
+                    name: "a_container_inside_an_overlay_reads_them_too",
+                },
                 // The other side of the division, unmoved by this ticket: the hook reaches the keys
                 // the cursor would otherwise spend, and a container cannot have those.
                 Instrument::Unit {

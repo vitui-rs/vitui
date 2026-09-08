@@ -7040,6 +7040,98 @@ mod tests {
         }
     }
 
+    /// **And inside an overlay, which is where an application actually puts one.**
+    ///
+    /// The gate above plays the subject in the base pass, and every gate in this crate does — *a
+    /// gate exercises a component where its author put it and an application puts it somewhere
+    /// else*, which is the trap this whole map has met most often. A pull-down is a `collection`
+    /// inside `Ctx::overlay`, drawn in the second pass, under whatever scope the layer opened; the
+    /// after-the-body moment is a fact about the ring and not about the pass, and this is what says
+    /// so rather than assuming it.
+    ///
+    /// **The state lives outside the frame call and that is forced.** An overlay body is
+    /// `FnMut(&mut Ctx<'f, '_>) + 'f` and cannot capture a local of the base pass, so a test that
+    /// declared its store inside the closure would not compile — which is the one compile outcome
+    /// on this seam, and it is stated on `Ctx` rather than restated here.
+    #[test]
+    fn a_container_inside_an_overlay_reads_them_too() {
+        use std::cell::RefCell;
+        use vitui_runtime::focus::ScopeKind;
+        use vitui_runtime::keys::Code;
+        use vitui_runtime::{Chord, Id, OverlayOpts};
+
+        const OWNER: Id = Id::from_raw(0x_0_1_D);
+        const MENU: Id = Id::from_raw(0x_E_1_1);
+        const ROWS: usize = 4;
+
+        let st = RefCell::new(CollState::new());
+        let seen: RefCell<Vec<Code>> = RefCell::new(Vec::new());
+        let mut driver = crate::runner::driver_at(20, 8, vitui_runtime::Density::default());
+
+        let play = |driver: &mut Driver| {
+            driver.frame(|cx| {
+                cx.overlay(
+                    OWNER,
+                    Rect::new(0, 0, 1, 1),
+                    OverlayOpts::sized(20, ROWS as u16),
+                    |cx| {
+                        let area = cx.area();
+                        let opts = CollOpts {
+                            mode: Mode::Cursor,
+                            ..CollOpts::default()
+                        };
+                        let resp = cx.scope(MENU, ScopeKind::Group, |cx| {
+                            collection(
+                                cx,
+                                area,
+                                &mut st.borrow_mut(),
+                                &opts,
+                                Rows::of(ROWS),
+                                &mut |_: &str, _: Range<usize>| None,
+                                &mut |_cx: &mut Ctx<'_, '_>, _r: Rect, _i: usize, _f: Face| {},
+                            )
+                        });
+                        if cx.focused().is_none() {
+                            cx.focus(resp.id);
+                        }
+                        while let Some(k) = cx.next_key(MENU) {
+                            seen.borrow_mut().push(k.code);
+                            cx.decline(k);
+                        }
+                    },
+                );
+            });
+        };
+
+        // **Two opening frames and not one.** A layer's entries only reach the ring once the layer
+        // has been placed, so the frame that requests an overlay is not the frame its body can hold
+        // the focus on.
+        play(&mut driver);
+        play(&mut driver);
+        st.borrow_mut().sel.lead = 1;
+        seen.borrow_mut().clear();
+
+        for (code, reaches, lands) in [
+            (Code::Enter, true, 1),
+            (Code::Escape, true, 1),
+            (Code::Left, true, 1),
+            (Code::Right, true, 1),
+            (Code::Down, false, 2),
+        ] {
+            driver.post_key(crate::keys::press(Chord::new(code)));
+            play(&mut driver);
+            assert_eq!(
+                seen.borrow().contains(&code),
+                reaches,
+                "{code:?}: the body saw {:?}",
+                seen.borrow(),
+            );
+            assert_eq!(st.borrow().sel.lead, lands, "{code:?}: the cursor");
+            st.borrow_mut().sel.lead = 1;
+            seen.borrow_mut().clear();
+        }
+    }
+
     /// **Criterion: `←` and `→` leave a request, and they do not move the cursor.**
     ///
     /// The whole of [`Refusal`] in one measurement. A tree that read the two keys by draining the
