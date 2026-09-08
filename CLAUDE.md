@@ -108,7 +108,7 @@ MSRV **1.88** — `Cargo.toml` is the authority and the `msrv` CI job is what ke
   since ticket 45 that is obligation **O7** rather than a habit: `vitui_components::consumer` joins
   the freeze against the import paths here.
 - **Active work: `.scratch/vitui-production/`** (opened 2026-09-01) — the whole workspace's road to a
-  published crate, nineteen tickets in seven groups: the paperwork, the six unsubjected register rows
+  published crate, twenty tickets in seven groups: the paperwork, the six unsubjected register rows
   (**all six standing**, by production 03 and 04),
   the fourteen hostile axes O5 still owed (**the group is closed**: `field`'s three taken by
   production 05, `table`'s two by 06, the overlay family's four by 08, the scroll family's three by
@@ -124,21 +124,24 @@ MSRV **1.88** — `Cargo.toml` is the authority and the `msrv` CI job is what ke
   recorded is not scheduled — the same sentence this backlog was opened with, one surface over.
   **Neither is on 15's `Blocked by:` line**: a widened visibility and a field on a `Default` struct
   are compatible additions, so both can land in 0.1.x.
-  A seventh group was added the same day and it is one ticket: **19 is the shipped documentation**,
-  which cites an ADR, a spec section, a ticket, a register row or a backlog path on a third of the
-  3,391 documented public items across the three crates, carries a compiled example on four percent
-  of them and a `# Examples` heading on none, and publishes 39 verification modules on
-  `vitui-components`' front page beside its 14 component families. **O1 is `Met` over 29 of 29 and
-  did not prevent any of it** — its query is *components with zero doc-tests == 0*, so it asks that
-  a page exists and is silent about whether it was written for a reader. The rule it installs is
-  *state the fact, not the pointer*, and it deliberately leaves `docs/adr/`, `.scratch/`, this file,
-  `docs/agents/` and `CONTEXT.md` alone, because those are what a pointer points at. **It is on
-  15's `Blocked by:` line** as a recommendation with the argument beside it: `cargo publish` builds
-  the docs.rs page out of exactly these comments, and it costs no schedule because 02 needs a human
-  either way.
+  A seventh group was added the same day and **19 is resolved** (2026-09-07): the shipped
+  documentation cited an ADR, a spec section, a ticket, a register row or a backlog path on
+  **5,557 lines**, and it is **zero** now — all four publishable crates are `SWEPT` in both
+  populations, rustdoc and ordinary comments, held by `crates/vitui/tests/docs.rs` as an equality
+  per crate. The rule is *state the fact, not the pointer*; `docs/adr/`, `.scratch/`, this file,
+  `docs/agents/`, `CONTEXT.md` and `conform/`'s reports are deliberately untouched, because those
+  are what a pointer points at. **O1 was `Met` over 29 of 29 and did not prevent any of it** — its
+  query is *components with zero doc-tests == 0*, so it asks that a page exists and is silent about
+  whether it was written for a reader. **Twenty-four of `vitui-components`' fifty-three public
+  modules are now `#[doc(hidden)]`**, chosen by scanning what the applications import, so the
+  front page is fourteen families and fifteen helpers rather than fifty-three modules with the
+  components buried among them. **20 is the half 19 did not close** — an example on every public
+  item, over 3,391 documented ones of which twelve carry a heading and every one of those is a
+  *module* header — and it is **not** on 15's line, because an added example is a compatible
+  change.
   **One ticket on the release path can start today and it is still 02**, which is `ready-for-human`
-  — it needs a public repository; by number the frontier for an agent is 17, with 18 and 19 beside
-  it. **15 is the release frontier and it cannot start**: its edges are 02 and 19, the five
+  — it needs a public repository; by number the frontier for an agent is 17, with 18 and 20 beside
+  it. **15 is the release frontier and it cannot start**: its one edge is 02, the five
   components architecture questions it also waited on — that map's 19, 22, 23, 24 and 25, not this
   backlog's numbers — having all resolved by 2026-09-05, and what they decided is listed below.
   **Windows is last, as 16**, blocked by the publish — which carries the consequence that no shipped
