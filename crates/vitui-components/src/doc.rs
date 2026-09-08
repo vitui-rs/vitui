@@ -562,7 +562,7 @@ mod tests {
         assert_eq!(doc_comment(bare, "thing"), None);
         let elsewhere = "/// One.\npub fn other() -> u8 {\n";
         assert_eq!(doc_comment(elsewhere, "thing"), None);
-        // The generic delimiter, which is components 33's rule and the fifth place it applies.
+        // The generic delimiter, which is an earlier pass's rule and the fifth place it applies.
         let generic = "/// One.\npub fn thing<T>(t: T) {\n";
         assert_eq!(doc_comment(generic, "thing").as_deref(), Some("One."));
     }

@@ -115,7 +115,7 @@ pub const PARTS: [Part; 10] = [
         needs: Needs::DragCapture,
     },
     Part {
-        // **The seventh to ship, and components ticket 46 is where it did.** `chrome_playing_into`
+        // **The seventh to ship, and an earlier pass is where it did.** `chrome_playing_into`
         // is the row: an anchor, `Ctx::now`, and an ask that fires when the drawn column moves.
         name: "playhead advance",
         needs: Needs::Nothing,
@@ -976,7 +976,7 @@ mod tests {
             "the three that do not ship, and the two drag-capture rows are `slider`'s"
         );
         // **`Needs::Clock` has no row and the variant stays**, which is the table saying what it
-        // used to say. Components ticket 46 built the playhead, so the column moved and the
+        // used to say. An earlier pass built the playhead, so the column moved and the
         // vocabulary did not: a variant deleted the day its last row moved is a table that cannot
         // record what a part was waiting for.
         assert!(
@@ -1128,7 +1128,7 @@ mod tests {
         });
         assert_eq!(driver.inspect().wakes().line_count(), 0);
 
-        // **The reading is a delta and never the total**, which is the trap components ticket 42
+        // **The reading is a delta and never the total**, which is the trap an earlier pass
         // recorded against itself: `WakeLedger::line_count` and `asked_by` are **cumulative and
         // never reset**, so by the second frame every call site on the screen has registered and a
         // total is saturated — a playhead that never lands would measure exactly what a landed one

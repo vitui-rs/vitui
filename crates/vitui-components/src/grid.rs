@@ -1133,7 +1133,7 @@ pub fn equality(arm: crate::runner::Painter, hoff: i32) -> Diff {
     compare(per_cell, arm, &[oracle(12, hoff)])
 }
 
-// ── production 06: the table's shrink, over two frames into one surface ──────────────────────────
+// ── a later pass: the table's shrink, over two frames into one surface ──────────────────────────
 
 /// **The rows the table is edited down to. Nine.**
 ///
@@ -2434,7 +2434,7 @@ mod tests {
         );
 
         // **Which of the nine separate the arms.** One, and it is not one anybody was running:
-        // §21 files `writes == distinct` as a report per component.
+        // the design files `writes == distinct` as a report per component.
         let inert = Allocations::over(1, 0);
         let separating =
             counters_that_separate(Opts::correct(), Opts::arithmetic_band(), inert, inert);

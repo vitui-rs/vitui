@@ -758,7 +758,7 @@ pub const REGISTER: [Row; 234] = [
         kind: Kind::Count,
         owner: "C01",
         section: "spec §20",
-        // **Subjected by components 12, and row 66 is why this one is not enough on its own.** The
+        // **Subjected by an earlier pass, and row 66 is why this one is not enough on its own.** The
         // engine reports a fully clipped verb as zero columns, so a listing that iterates its whole
         // content writes exactly what a windowed one writes — 3 200 at every volume — while
         // declaring 1 000 001 hit entries against 81. This row is green on that build. It is
@@ -779,7 +779,7 @@ pub const REGISTER: [Row; 234] = [
             ],
         },
     },
-    // **Components ticket 08 inverted this row, and the standing it left was wrong rather than
+    // **An earlier pass inverted this row, and the standing it left was wrong rather than
     // stale.** It read: *`Mods` … is `reachable_as: None`. So no key can be posted and no chord can
     // be pressed.* The premise is true — there is no path to `Mods` from here and
     // `crates/vitui-runtime/src/line.rs` is right about that — and **the conclusion does not
@@ -807,7 +807,7 @@ pub const REGISTER: [Row; 234] = [
                     file: "crates/vitui-components/src/keys.rs",
                     name: "every_text_bearing_name_is_in_the_freeze",
                 },
-                // **Components ticket 35 gave the row a component to stand on.** Every focusable of
+                // **An earlier pass gave the row a component to stand on.** Every focusable of
                 // a real `form` is focused in turn and `Ctrl+S` pressed into it: nothing lands in
                 // any of the six buffers and all six keys reach the application, with a plain `s`
                 // beside it typing, so the gate is not measuring a form that has stopped accepting
@@ -819,7 +819,7 @@ pub const REGISTER: [Row; 234] = [
                 Instrument::Report {
                     file: "crates/vitui-components/examples/keys_numbers.rs",
                 },
-                // **Components ticket 38 found four chord leaks this row cannot see, and that is a
+                // **An earlier pass found four chord leaks this row cannot see, and that is a
                 // fact about what it measures rather than a defect in it.** *Types nothing* is a
                 // claim about a **buffer**: `Ctrl+Left` moved a caret, `Ctrl+Down` opened a
                 // `select`'s list and `Ctrl+Esc` cleared a collection's selection, and every one of
@@ -849,7 +849,7 @@ pub const REGISTER: [Row; 234] = [
                     file: "crates/vitui-components/src/counters.rs",
                     name: "writes_equals_distinct_until_two_verbs_overlap",
                 },
-                // Components ticket 06: the row stops being a property of the instrument and
+                // an earlier pass: the row stops being a property of the instrument and
                 // becomes a **gate over the two helpers every other component writes through**.
                 Instrument::Unit {
                     file: "crates/vitui-components/src/text.rs",
@@ -888,19 +888,19 @@ pub const REGISTER: [Row; 234] = [
         kind: Kind::Count,
         owner: "C11",
         section: "spec §2",
-        // **Inverted by components 40, and the detector is not the one spec §2 prescribes.**
+        // **Inverted by an earlier pass, and the detector is not the one the design prescribes.**
         //
         // The failing set this row was pinned with, kept because it is the record of what it caught:
         // *9 956 cells of 53 280 (18.7%) over six panels of twelve — the chip screen 4 189, the
         // preview pane 2 159, the scroll area 1 799, media 1 286, the chart 496, the collection pair
         // 27* on the prototype's gallery, and **10 252 of 24 000 at 300x80 and 525 of 3 000 at
-        // 100x30** on the shipped one, which is the figure components 39 left this ticket to start
+        // 100x30** on the shipped one, which is the figure an earlier pass left this ticket to start
         // from. Both are gone; the shipped screen's are 0 at every size and on every page.
         //
         // **The sentinel is a reading of a recorded surface and not a probe of the screen.** ADR
         // 0023 forbids the readback and that is a decision, not a gap — and it does not need
         // lifting: the rule's *first* half has always been read off `Tally`, whose union has been in
-        // root coordinates since components 19, so the second half is that same union against the
+        // root coordinates since an earlier pass, so the second half is that same union against the
         // area. Read on the screen, the pair would be an equality between two instruments. And the
         // recorder is the **stricter** one, because a verb that skips the caller's `Ink` makes the
         // count larger. So the `Barrier` citation this row carried is struck rather than left
@@ -926,7 +926,7 @@ pub const REGISTER: [Row; 234] = [
                     file: GALLERY,
                     name: "the_remainder_left_alone_is_three_drawings_and_the_grids_own_slack",
                 },
-                // The per-component form, which §21 records as *report-only across nine to twelve
+                // The per-component form, which the design records as *report-only across nine to twelve
                 // binaries* — over the shipped call site at five rectangles, and over the
                 // thirty-three constructions at all three rungs.
                 Instrument::Unit {
@@ -979,7 +979,7 @@ pub const REGISTER: [Row; 234] = [
         // expectation is generated rather than hand-written, *because a hand-written expectation
         // about damage is written by the person who wrote the damage*.
         //
-        // **The barrier this row carried was ADR 0023 and it did not need lifting**, for row 7's
+        // **The barrier this row carried was the rule and it did not need lifting**, for row 7's
         // reason one ticket earlier: the count is read off `crate::runner::Pen`, which is where the
         // partition rule's other half has always been read, and where the two arms of a swap can be
         // compared cell for cell without any crate above the engine reading a cell.
@@ -1011,7 +1011,7 @@ pub const REGISTER: [Row; 234] = [
                     file: GALLERY,
                     name: "a_memo_keyed_on_the_themes_own_revision_is_never_stale_and_does_hit",
                 },
-                // The arithmetic §21 states, kept beside the screen.
+                // The arithmetic the design states, kept beside the screen.
                 Instrument::Unit {
                     file: "crates/vitui-components/tests/gates.rs",
                     name: "changed_greater_than_zero_passes_on_the_exact_set_it_had_to_catch",
@@ -1035,7 +1035,7 @@ pub const REGISTER: [Row; 234] = [
         kind: Kind::Equality,
         owner: "C03",
         section: "spec §5",
-        // **The spelling of what row 66 measures**, and components 12 gave it a subject: the
+        // **The spelling of what row 66 measures**, and an earlier pass gave it a subject: the
         // listing's two arms are `crate::collect::collection_into` and its `defective` twin, so the
         // equality is over the component rather than over a stand-in row loop.
         standing: Standing::Evaluated {
@@ -1059,7 +1059,7 @@ pub const REGISTER: [Row; 234] = [
         kind: Kind::Count,
         owner: "C03",
         section: "spec §5",
-        // Subjected by components 12. The 208 does not reproduce — see
+        // Subjected by an earlier pass. The 208 does not reproduce — see
         // `crate::collect::COLL_STATE_BYTES`, which says why rather than padding the struct — and
         // what this row asks is the invariance, which does.
         standing: Standing::Evaluated {
@@ -1076,8 +1076,8 @@ pub const REGISTER: [Row; 234] = [
         kind: Kind::Equality,
         owner: "C04",
         section: "spec §6",
-        // **Subjected by production ticket 03, and the standing was stale rather than the property
-        // unreachable.** `table` has been declared since components 15 and `crate::grid::draw_into`
+        // **Subjected by a later pass, and the standing was stale rather than the property
+        // unreachable.** `table` has been declared since an earlier pass and `crate::grid::draw_into`
         // has drawn through it since — row 78 is the row that says so — so the subject this row was
         // waiting for arrived without anything editing the row.
         //
@@ -1107,7 +1107,7 @@ pub const REGISTER: [Row; 234] = [
         kind: Kind::Equality,
         owner: "C04",
         section: "spec §6",
-        // **Subjected by production ticket 03**, for row 11's reason and on row 11's screen.
+        // **Subjected by a later pass**, for row 11's reason and on row 11's screen.
         //
         // **The two sides are two programs.** One is `crate::grid::oracle_rows`, which walks the
         // 300x80 rectangle a cell at a time and inverts the map — screen x to band, band-local x to
@@ -1186,7 +1186,7 @@ pub const REGISTER: [Row; 234] = [
         // The standing and its reason: what this row gates is that *the
         // instrument separates a correct build from a defective one*, and both halves are watched
         // doing it. `splice == rebuild` is compared against a walk of the forest — the slow
-        // producer §7 keeps only as an oracle — and the round trip is run over **both** spellings
+        // producer the design keeps only as an oracle — and the round trip is run over **both** spellings
         // of the splice, the second being the one the prototype shipped, which comes back with
         // 349 526 rows of 500 000 while the run count, the timing and the screen are all
         // identical. The **scenes** stay red; `crate::scenes` says why those are not one claim.
@@ -1219,10 +1219,10 @@ pub const REGISTER: [Row; 234] = [
         owner: "C06",
         section: "spec §11",
         // **A stale standing rather than an unreachable property, and one half really was
-        // missing.** It named components 24, which built `field` and then filed six *new* rows for
+        // missing.** It named an earlier pass, which built `field` and then filed six *new* rows for
         // it instead of standing this one up — so it read *it could run and there is nothing to run
         // it over* for the rest of that backlog while two instruments ran over the shipped
-        // component. Production ticket 04 found the gap: both of them inspect a caret over a buffer
+        // component. A later pass found the gap: both of them inspect a caret over a buffer
         // **that does not move**. A `step_right` walk of the corpus and a sweep of the gestures are
         // constructions; the two defects arrived on an *edit*, where `Text::edit` re-seats the
         // pair by walking from the start of the **new** visual row.
@@ -1245,7 +1245,7 @@ pub const REGISTER: [Row; 234] = [
         //   land one cluster past every edit leaves zero as well. Gate 1 asks nothing here; **gate 2
         //   is what fires**, which is this row and row 16 being two rows rather than one.
         // - **`Restored` is where gate 1 has teeth after an edit.** `Text::undo` restores the pair
-        //   rather than recomputing it (§11: 0.0007 µs against 6 109), so a restored pair is only as
+        //   rather than recomputing it (the design: 0.0007 µs against 6 109), so a restored pair is only as
         //   good as the buffer it is restored into. The defective arm demonstrates it **without
         //   patching `undo`**: the third undo puts the seat's own pair back, and on the `AtByte` arm
         //   that pair is inside a cluster — 45 of them, the same 45 as the seat's, so the arm's
@@ -1312,7 +1312,7 @@ pub const REGISTER: [Row; 234] = [
         // `crate::clusters::corpus`, which is why a caret gate run over ASCII said nothing for two
         // tickets.
         //
-        // **The prefix is the caret's own visual row and not the buffer**, which is the half §11's
+        // **The prefix is the caret's own visual row and not the buffer**, which is the half the design's
         // wording leaves to be read: a caret's column is a *screen* column, re-seated at every row
         // start, so over the 64-line document a full-prefix column is a screen column on row 0 and
         // nowhere else. That is what makes `defective::at_byte` — whose column *is* the tables over
@@ -1323,7 +1323,7 @@ pub const REGISTER: [Row; 234] = [
         // Watched failing on a `Text::edit` that re-seats the pair with `at_byte`: 715 of 1 296
         // inspections carry a column the tables disagree with, **while gate 1 stays at zero** — and
         // row 15 says why that zero is structural rather than a pass. This is the row that fires on
-        // the whole `Placed::Walked` class, which is the sharp form of §11 stating two gates and not
+        // the whole `Placed::Walked` class, which is the sharp form of the design stating two gates and not
         // one.
         standing: Standing::Evaluated {
             by: &[
@@ -1456,7 +1456,7 @@ pub const REGISTER: [Row; 234] = [
         kind: Kind::Relation,
         owner: "C08",
         section: "spec §20",
-        // **Components ticket 27 gave this row the screen it is about.** It had been evaluated over
+        // **An earlier pass gave this row the screen it is about.** It had been evaluated over
         // `crate::counters`' own fixtures, which is the mechanism; the series screen is where the
         // relation earns its wording — 2 554 / 3 775 / 2 475 verbs at 1 000 / 100 000 / 1 000 000
         // points on one rectangle, **not monotone in `n`**, so a verb *equality* across sizes would
@@ -1484,10 +1484,10 @@ pub const REGISTER: [Row; 234] = [
         gate: "the bar fixpoint over 5 475 600 pairs",
         kind: Kind::Count,
         owner: "C13",
-        // **Two misattributions, corrected by components ticket 18 and recorded rather than
-        // quietly fixed.** This row read `spec §13` and `components 28`, and both belong to the
-        // chart: §13 is `chart` and `plot`, ticket 28 builds them, and the rows immediately above
-        // this one are theirs. C13's bar fixpoint is **spec §9** and it is **components 19** that
+        // **Two misattributions, corrected by an earlier pass and recorded rather than
+        // quietly fixed.** This row read `the design` and `an earlier pass`, and both belong to the
+        // chart: the design is `chart` and `plot`, an earlier pass builds them, and the rows immediately above
+        // this one are theirs. C13's bar fixpoint is **The design** and it is **An earlier pass** that
         // builds its subject. The shape is worth naming because it is not a typo: a row copied
         // from its neighbour inherits the neighbour's citation, and every field of it looks
         // plausible.
@@ -1536,7 +1536,7 @@ pub const REGISTER: [Row; 234] = [
         kind: Kind::Count,
         owner: "C14",
         section: "spec §8",
-        // **Components ticket 21 put the accordion under it.** `tests/gates.rs` states the
+        // **An earlier pass put the accordion under it.** `tests/gates.rs` states the
         // rule at twelve sections of five focusables — 72 against 12, the same shape — and the
         // accordion is the shape at the scale: 421 hit entries against 13 and 420 tab stops
         // against 12, which is 408 on both columns and the `478 - 70 == 423 - 15` exactly.
@@ -1566,8 +1566,8 @@ pub const REGISTER: [Row; 234] = [
         kind: Kind::Count,
         owner: "C14",
         section: "spec §8",
-        // **`Unsubjected` until components ticket 21, and it did not need `collapsible` after
-        // all.** §8 is explicit that the closed folds are *caller state* — a `Vec<u32>` beside a
+        // **`Unsubjected` until an earlier pass, and it did not need `collapsible` after
+        // all.** the design is explicit that the closed folds are *caller state* — a `Vec<u32>` beside a
         // document, for the same forced reason a collection's selection is — so the whole of this
         // gate is standable with no component built: 4 166 of 4 167 folds on a line that opens no
         // block against 0 reanchored, both the numbers, both exact.
@@ -1602,7 +1602,7 @@ pub const REGISTER: [Row; 234] = [
         kind: Kind::Equality,
         owner: "C14",
         section: "spec §8",
-        // **Components ticket 22 supplied the subject**, and the equality is between two spellings
+        // **An earlier pass supplied the subject**, and the equality is between two spellings
         // rather than between one and itself: *one open detail row is two comparisons and a
         // subtraction* is `Inplace::one`, C05's `ytop` is `Inplace::many`, and both directions of the
         // map are asserted over the whole length on each — then the two are asserted equal on the
@@ -1728,7 +1728,7 @@ pub const REGISTER: [Row; 234] = [
         kind: Kind::Count,
         owner: "C07, C10",
         section: "spec §12",
-        // **Components ticket 20 took both substitutions out, and the row went green.**
+        // **An earlier pass took both substitutions out, and the row went green.**
         //
         // It was red for nine tickets, and the failing set it was red on was the defect rather than
         // a missing subject: `CONTEXT.md` forbids the unconditional scroll-into-view and **four
@@ -1738,7 +1738,7 @@ pub const REGISTER: [Row; 234] = [
         //
         // - **the click.** `Driver::post_mouse` takes a `vitui_engine::Mouse`, and *"a `Mouse` needs
         //   a `Buttons` and a `MouseKind`, neither of which is in `ENGINE_NAMES` at all"* — this
-        //   row's own recorded sentence, and the one runtime architecture issue 22 acted on. The
+        //   row's own recorded sentence, and the one the runtime's own change acted on. The
         //   delta was handed straight to the arithmetic `Response::scrolled` would have delivered it
         //   to, on both arms. It is a posted notch now, routed through the previous frame's index.
         // - **the subject.** A row loop written beside the gate, because `collection` did not exist.
@@ -1747,7 +1747,7 @@ pub const REGISTER: [Row; 234] = [
         //   changed, so a reviewer's diff is one line.
         //
         // **Neither stand-in was on the side of either arm, and the pinned figure did not move**:
-        // `0 against 20` is what components 11 reported and what the posted click reports. What they
+        // `0 against 20` is what an earlier pass reported and what the posted click reports. What they
         // cost was the *second subject and the second axis*, which is where the finding is — a body
         // dead downward is alive sideways, and `scroll_area` at `Along::Rows` settles a vertical
         // click at 0 and a horizontal one at 20 while the transpose does the opposite. One number
@@ -1756,7 +1756,7 @@ pub const REGISTER: [Row; 234] = [
         //
         // **The third subject is the original's and it asks a different question.** `table` owns
         // one offset in rows, like a collection, and every number it reports **is** a collection's
-        // — which is the point rather than a redundancy: spec §6 opens by claiming a table's *row
+        // — which is the point rather than a redundancy: the design opens by claiming a table's *row
         // axis, wheel, keyboard, type-ahead and reveal are all `collection`'s, reached by calling
         // it*, and until that ticket nothing had asked it a wheel question. It is asked as an
         // equality — *`table` equals `collection`, arm for arm*, over all three `Reveal` arms and
@@ -1807,14 +1807,14 @@ pub const REGISTER: [Row; 234] = [
         kind: Kind::Count,
         owner: "C10",
         section: "spec §17",
-        // **Six of the seven are green: O1 since components ticket 36, O3 since 37, O4 since 38,
+        // **Six of the seven are green: O1 since an earlier pass, O3 since 37, O4 since 38,
         // O2 since 39, O6 since 44 and O7 since 45.** O7 is the seventh, stated after the map
         // closed like O6 and filed on the implementation backlog for O6's reason — the instrument
         // is buildable without reopening anything — and it is the one query whose **evidence is in
         // another crate**: `crate::consumer` joins the freeze against the import paths in
         // `crates/vitui-apps/examples/`, because *a gate exercises the component where its author
         // put it, and an application puts it somewhere else*. Its population is neither `built` nor
-        // derived but **read out of the source**, which is components 33's finding as a population:
+        // derived but **read out of the source**, which is an earlier pass's finding as a population:
         // the `built` column read `true` for `slider` through two tickets with no `slider` anywhere
         // in the crate. O6 is the sixth obligation, stated after the map closed, and it is
         // the one query of the seven whose **population is derived** rather than written out —
@@ -1830,7 +1830,7 @@ pub const REGISTER: [Row; 234] = [
         // audits.
         //
         // **Both populations are `built`, and the second one is the first one's finding a second
-        // time.** §17 states O2's second equality over `built` and states O1's count and O3's count
+        // time.** the design states O2's second equality over `built` and states O1's count and O3's count
         // over nothing at all, so the reading was owed twice; `spinner` is the one row no ticket has
         // built, a doc page for a function that does not exist is not a page anybody can write and a
         // golden of one is not a screen anybody can draw, and asking for either puts a permanent row
@@ -1882,7 +1882,7 @@ pub const REGISTER: [Row; 234] = [
                     file: "crates/vitui-components/src/gates.rs",
                     name: "the_app_threads_half_cannot_cross_a_thread_and_the_workers_half_can",
                 },
-                // **G10b, added by components 32 where the component that needs it lives.** §15
+                // **G10b, added by an earlier pass where the component that needs it lives.** the design
                 // rewrites G10 as a sentence about `Cell` and `RefCell` as well as about `Task`,
                 // and that half had nowhere to hang until `crate::files` existed. It is the
                 // compiling case: what `Cell` and `RefCell` remove is `Sync`, not `Send`, and
@@ -1911,14 +1911,14 @@ pub const REGISTER: [Row; 234] = [
                     file: "crates/vitui-components/tests/gates.rs",
                     name: "a_total_sees_one_frame_in_two_hundred_and_a_mean_cannot",
                 },
-                // Components ticket 06: the same budget, on the two helpers every component will
+                // an earlier pass: the same budget, on the two helpers every component will
                 // write through. `crate::ink::Direct` stages into the frame's own buffer instead of
                 // materialising a run, and this is the counter behind that sentence.
                 Instrument::Unit {
                     file: "crates/vitui-components/tests/gates.rs",
                     name: "the_two_partition_helpers_allocate_nothing_as_a_total_over_the_run",
                 },
-                // **Components ticket 10: the same budget on a frame of components**, which is the
+                // **An earlier pass: the same budget on a frame of components**, which is the
                 // first time this row has had one to run over. Fifty frames of the 338-region
                 // screen, drawn through `text`, `chip`, `button` and `panel` with `Direct`, and the
                 // assertion is on the total — one allocation on one of the fifty fails it.
@@ -1926,7 +1926,7 @@ pub const REGISTER: [Row; 234] = [
                     file: "crates/vitui-components/tests/budget.rs",
                     name: "a_steady_frame_of_the_dense_screen_allocates_nothing_as_a_total",
                 },
-                // **Components ticket 22: the same budget over a frame that is not steady**, which
+                // **An earlier pass: the same budget over a frame that is not steady**, which
                 // is the one shape this row had never been asked about. Every frame of a transition
                 // hands the body a **different rectangle**, so the warm-two-frames discipline every
                 // other window here uses does not warm it: a height nothing has drawn yet is a first
@@ -2095,7 +2095,7 @@ pub const REGISTER: [Row; 234] = [
                     file: "crates/vitui-components/src/runner.rs",
                     name: "the_runner_catches_twenty_wheel_clicks_that_move_nothing",
                 },
-                // **Why the reference arm is this crate's and not engine ticket 04's**, as a line
+                // **Why the reference arm is this crate's and not an engine change's**, as a line
                 // rather than as an argument. `issues/04` asks for *engine 04's reference
                 // compositor* and names none of the three barriers: the module is declared `mod`
                 // and not `pub mod`, so it is unreachable from any other crate at all; it is
@@ -2174,9 +2174,9 @@ pub const REGISTER: [Row; 234] = [
         kind: Kind::Count,
         owner: "C09, C10, C11",
         section: "spec §16",
-        // **Inverted by components 39, and the `Barrier` it carried had decayed into the near-miss
-        // runtime architecture issue 22 warned about.** The row read `Unreachable { needs:
-        // "`ColorDepth`" }` and named issue 22 as its inverter — *the issue that lifted the
+        // **Inverted by an earlier pass, and the `Barrier` it carried had decayed into the near-miss
+        // the runtime's own change warned about.** The row read `Unreachable { needs:
+        // "`ColorDepth`" }` and named the re-export as its inverter — *what lifted the
         // barrier*. `crates/vitui-runtime/src/line.rs` files `ColorDepth` as
         // `reachable_as: Some("vitui_runtime::ColorDepth")`, so both axes are values this crate can
         // hold and `Theme::resolve` is a call it can make: **a citation that still passes while
@@ -2192,7 +2192,7 @@ pub const REGISTER: [Row; 234] = [
         // depths — asserted, not described — because quantisation is the engine's and happens before
         // the mirror. So the screen's own paint count reads ten in all nine cells and would read ten
         // on a monochrome terminal; the axis is `roles_differ_on_wire` and `Theme::shows`. That is
-        // ADR 0018 working rather than a hole: a component is handed the palette's colour whatever
+        // the rule working rather than a hole: a component is handed the palette's colour whatever
         // the terminal can show.
         //
         // **The criterion's own sentence does not reproduce.** *`Danger`, `Warn` and `Ok` all
@@ -2422,7 +2422,7 @@ pub const REGISTER: [Row; 234] = [
                 // **The barrier that survived the inversion of row 5 has now lifted too.** It read:
                 // eight of the 256 modifier states are constructible here, because `Chord` has three
                 // builders and `Mods` has eight bits — so the *exhaustive table* is short even
-                // though the rule is not. Runtime architecture issue 22 re-exported `Mods`, so all
+                // though the rule is not. The runtime's own change re-exported `Mods`, so all
                 // 256 are constructible and `the_predicate_agrees_with_the_mask_on_every_reachable_\
                 // state` is now a statement about every state rather than about the eight a `Chord`
                 // could spell. The citation is struck rather than kept: `name: "Mods",` is still in
@@ -2444,7 +2444,7 @@ pub const REGISTER: [Row; 234] = [
                     file: "crates/vitui-components/src/keys.rs",
                     name: "the_three_way_measurement_over_a_focused_field",
                 },
-                // Spec §3 changes the input mid sentence and this is why: on `Ctrl+S, h, i` the
+                // the design changes the input mid sentence and this is why: on `Ctrl+S, h, i` the
                 // `INTENT` reading is indistinguishable from the fix, and its defect is only
                 // visible on a capital.
                 Instrument::Unit {
@@ -2533,7 +2533,7 @@ pub const REGISTER: [Row; 234] = [
                 },
                 // Two counts and not one: what the draw believes it declared and what the runtime's
                 // hit index holds. **110 of 338 widgets were inert on the first screen written for
-                // components ticket 01 and the screen rendered pixel for pixel correctly**, which is
+                // an earlier pass and the screen rendered pixel for pixel correctly**, which is
                 // the defect a single count cannot see.
                 Instrument::Unit {
                     file: DENSE,
@@ -2564,7 +2564,7 @@ pub const REGISTER: [Row; 234] = [
                            sizes",
                 },
                 // **The twin is kept, and that is a gate rather than a habit.** It is the reference
-                // the correct build is proved equal to, so deleting it deletes the argument — §21's
+                // the correct build is proved equal to, so deleting it deletes the argument — the design's
                 // own rule, and here it is a scan for the declaration plus a doctest naming the
                 // public path.
                 Instrument::Unit {
@@ -2625,7 +2625,7 @@ pub const REGISTER: [Row; 234] = [
                     name: "a_label_that_does_not_narrow_is_green_at_three_hundred_and_red_at_a_\
                            hundred_and_twenty",
                 },
-                // The gesture half, and it is a **shrink** and not a resize: §21 refuses to bank the
+                // The gesture half, and it is a **shrink** and not a resize: the design refuses to bank the
                 // shrink gate written against a terminal resize, because a fresh rectangle has
                 // nowhere for the residue to survive.
                 Instrument::Unit {
@@ -2641,7 +2641,7 @@ pub const REGISTER: [Row; 234] = [
             ],
         },
     },
-    // ── the row that was red on purpose, inverted by components ticket 10 ────────────────────────
+    // ── the row that was red on purpose, inverted by an earlier pass ────────────────────────
     //
     // **It read *scenes 1, 2 and 28 are red because their four components do not exist, and the
     // failure says so*, with `0 of 4` as its failing set.** That is the one row on this register
@@ -2814,7 +2814,7 @@ pub const REGISTER: [Row; 234] = [
         owner: "C11",
         section: "spec §5, §20",
         // **This is not row 4 restated, and the difference is the finding.** Row 4 is *writes flat
-        // 1k -> 1M* — `Unsubjected` when this comment was written and subjected by components 12
+        // 1k -> 1M* — `Unsubjected` when this comment was written and subjected by an earlier pass
         // since; this row asks about the **hit index**, and the reason
         // it has to is that the write count cannot see the defect at all: the engine reports a
         // fully clipped verb as zero columns, so a listing that iterates its whole content and lets
@@ -2851,9 +2851,9 @@ pub const REGISTER: [Row; 234] = [
         kind: Kind::CompileOutcome,
         owner: "C11",
         section: "spec §21",
-        // **It was the fourth red row and it is row 61 one ticket later, in both halves.** Ticket 09
-        // pinned the dense screen's three scenes in exactly this shape and ticket 10 inverted it;
-        // ticket 11 pinned the listing's five and **ticket 12 inverted four of them** — which is
+        // **It was the fourth red row and it is row 61 one ticket later, in both halves.** an earlier pass
+        // pinned the dense screen's three scenes in exactly this shape and an earlier pass inverted it;
+        // an earlier pass pinned the listing's five and **An earlier pass inverted four of them** — which is
         // the interesting half, because a single `inverted_by` across the five would have turned
         // the wheel gate too and erased the distinction the row is about.
         //
@@ -3009,7 +3009,7 @@ pub const REGISTER: [Row; 234] = [
         section: "spec §9",
         // **The counter a reader reaches for does not move**, which is why this row is on
         // `iterated` rather than on `writes` — the finding arriving on the
-        // other half of the pair. The 7 907 us §9 states is a report and lives in the example.
+        // other half of the pair. The 7 907 us the design states is a report and lives in the example.
         standing: Standing::Evaluated {
             by: &[
                 Instrument::Unit {
@@ -3034,7 +3034,7 @@ pub const REGISTER: [Row; 234] = [
         kind: Kind::Count,
         owner: "C05",
         section: "spec §7",
-        // **The counter §7 names and the table does not carry.** A row's cost may read a depth
+        // **The counter the design names and the table does not carry.** A row's cost may read a depth
         // and may not be proportional to one, and the whole of what an unclamped indent does is
         // invisible to every counter that ships: the engine reports the same columns written, the
         // same distinct cells, the same regions and the same stops — and **fewer verbs**, because
@@ -3082,14 +3082,14 @@ pub const REGISTER: [Row; 234] = [
         // **The fifth red row, and it is row 67 for a second subject.** The gate is the same
         // sentence and the *failing set* is what a red row is, which is why this is a row rather
         // than a citation of row 67: 67's failing set names `collection` and five scenes pinned to
-        // components 12, and nothing in it would go false the day `tree` arrives.
+        // an earlier pass, and nothing in it would go false the day `tree` arrives.
         //
         // `CompileOutcome` for row 61's and row 67's reason: what is asserted is that a *file*
         // declares an item, read by opening it — the one thing a `compile_fail` fence cannot say,
         // because a fence over a missing item passes today and passes again the day the module is
         // renamed.
         //
-        // **Inverted by components ticket 17, and inverting it kept the gate.** The sentence is
+        // **Inverted by an earlier pass, and inverting it kept the gate.** The sentence is
         // about the *distinction* — a scene with no subject and a scene whose code is wrong fail
         // differently — and that distinction is still live now `tree` exists, because
         // `owed_message` is fired over a declaration list rather than over the crate. Row 61 is the
@@ -3126,7 +3126,7 @@ pub const REGISTER: [Row; 234] = [
         owner: "C04",
         section: "spec §6",
         // **This was row 11 evaluated over a screen rather than row 11 turned green**, while row
-        // 11 waited for `table` to exist — components 15's — and **production ticket 03 turned row
+        // 11 waited for `table` to exist — an earlier pass's — and **A later pass turned row
         // 11 green on the same instrument**, so the two rows now share it and the division of
         // labour between them is gone. That is not a duplicate: what *this* row gates is that the
         // instrument separates a correct build from a defective one, watched in both directions —
@@ -3160,12 +3160,12 @@ pub const REGISTER: [Row; 234] = [
         // horizontal offset, against itself* — an equality — and the equality is **blind** to this
         // defect: the clause says why, *the screen is correct, because the pinned band draws
         // afterwards and wins*, so the two surfaces are 0 cells over 0 rows apart. What sees it is
-        // the pair `writes` against `distinct`, which is row 6, C02's, filed by §21 as a *report
+        // the pair `writes` against `distinct`, which is row 6, C02's, filed by the design as a *report
         // per component*. So *no gate left by C01, C02 or C03 sees it* is half true: C02 named
         // the counter and nobody was running it.
         //
         // **The straddling instrument is shared with row 12 and the halves are different**, which
-        // production ticket 03 had to say out loud when it subjected that row: this row takes the
+        // a later pass had to say out loud when it subjected that row: this row takes the
         // arithmetic arm's 1 600 re-damaged cells at an offset inside a column, and row 12 takes
         // the *correct* arm's 800 — the recorder's own error under a clamp-and-discard clip, which
         // is a number about the equality and is why `HOFF` is a column boundary. `the_equality_is_\
@@ -3195,7 +3195,7 @@ pub const REGISTER: [Row; 234] = [
         kind: Kind::Count,
         owner: "C04",
         section: "spec §21",
-        // **Filed red by components ticket 14, inverted by components ticket 12, and the two were
+        // **Filed red by an earlier pass, inverted by an earlier pass, and the two were
         // built in parallel.** It was the only row on this register whose subject is another crate,
         // and it is here rather than nowhere because the rule for a red gate is *assert the exact
         // failing set, fire in both directions, say what to invert*, and all three were writable.
@@ -3227,10 +3227,10 @@ pub const REGISTER: [Row; 234] = [
         owner: "C11",
         section: "spec §21",
         // **Row 67 one component over**, and it is a row rather than a comment for row 67's reason:
-        // the whole argument of §21 is that an obligation stated as a sentence gets broken by
+        // the whole argument of the design is that an obligation stated as a sentence gets broken by
         // someone who has read it. `CompileOutcome` because what is asserted is that a *file*
         // declares an item, read by opening it - the one thing a `compile_fail` fence cannot say.
-        // **Inverted by components 15**, and the row is kept with its history for row 77's reason:
+        // **Inverted by an earlier pass**, and the row is kept with its history for row 77's reason:
         // a gate that was red for one ticket and green after it is the register working. What
         // inverted it is `pub fn table(` in `collect.rs` **and** `crate::grid::draw_into` calling
         // it — the second half is the one a subject scan cannot see, and it is why the standing
@@ -3264,7 +3264,7 @@ pub const REGISTER: [Row; 234] = [
         // **A relation and not an equality, because the number belongs to the body.** The original's
         // example is `verbs <= writes` and its own sentence is *never verb equality across sizes*;
         // what is asserted here is the *shape* of the two curves over every height from one to ten,
-        // not a pair of magnitudes. §8 states one point on them — 273 ring entries against 247 —
+        // not a pair of magnitudes. The design states one point on them — 273 ring entries against 247 —
         // and the point is the height where the difference is 26, which is two rows of body left.
         //
         // `Evaluated` over the accordion rather than over `collapsible`, which is components
@@ -3300,13 +3300,13 @@ pub const REGISTER: [Row; 234] = [
         kind: Kind::Count,
         owner: "C14",
         section: "spec §8, §20",
-        // **This is the row that says why row 22 has to be a count over the hit index.** §8's
+        // **This is the row that says why row 22 has to be a count over the hit index.** the design's
         // sentence is *no golden-cell gate can see it*, and this is that sentence as a list over
         // The nine: the two surfaces are 0 cells over 0 rows apart, `writes`, `distinct` and
         // `asked` are equal to the unit, and the two counters that move are the two the defect is
         // about.
         //
-        // **It found one thing §8 does not record.** `verbs` separates the spelling §8 measured —
+        // **It found one thing the design does not record.** `verbs` separates the spelling the design measured —
         // a body called at `h = 0` that *draws* every row makes 1 328 drawing calls against 104 —
         // so a gate written on the cheapest counter that happened to work would look green. It is
         // blind to the body beside it, which declares every row and paints only the admitted ones:
@@ -3347,7 +3347,7 @@ pub const REGISTER: [Row; 234] = [
         // **The row that makes the corpus a value rather than a string literal.** The sentence is
         // *every number and every gate runs on clusters that are not one code point*, and a
         // sentence is what gets broken by somebody who has read it. What is asserted is the
-        // pair: the corpus carries all seven kinds §11 names, and the same sweep over a corpus of
+        // pair: the corpus carries all seven kinds the design names, and the same sweep over a corpus of
         // nothing but ASCII reports 0 steps inside a cluster and 0 width surprises — so a gate that
         // has quietly started running on ASCII fails rather than passing.
         //
@@ -3356,7 +3356,7 @@ pub const REGISTER: [Row; 234] = [
         // `crate::line::ENGINE_NAMES` — a list of types — cannot carry it. A forward cluster step
         // is reconstructed here from two `truncate` probes, which is exact while no cluster is zero
         // columns wide; a **line break is zero columns wide**, so the step is wrong across one and
-        // `crate::document::step` handles the break itself. Components ticket 24 is where the cost
+        // `crate::document::step` handles the break itself. An earlier pass is where the cost
         // of that is argued, and this row is where it is pointed at.
         standing: Standing::Evaluated {
             by: &[
@@ -3390,7 +3390,7 @@ pub const REGISTER: [Row; 234] = [
         kind: Kind::Count,
         owner: "C06",
         section: "spec §11, §20",
-        // **§11 heads its four gates *none of them visible on the rendered screen*, and measured
+        // **The design heads its four gates *none of them visible on the rendered screen*, and measured
         // that sentence splits in two.** Gates 1 and 2 are invisible in the strong sense — the
         // caret is `Screen::set_cursor` and not a cell, so both arms draw the same 24 000 cells.
         // Gates 3 and 4 change the screen a great deal and **no counter can tell**: the memo-key
@@ -3406,7 +3406,7 @@ pub const REGISTER: [Row; 234] = [
         // value, which makes that column inert rather than false, and
         // `examples/field_numbers.rs` measures it with the probe installed. Measured, it separates
         // exactly one of the four — **in the direction that approves the defect**, because a stale
-        // index has 625 rows where 875 are needed and the defective frame allocates less. §21's
+        // index has 625 rows where 875 are needed and the defective frame allocates less. The design's
         // refinement 1 in one number: a counter on the wrong side of the question is not a weak
         // gate, it is a green one.
         standing: Standing::Evaluated {
@@ -3439,7 +3439,7 @@ pub const REGISTER: [Row; 234] = [
         kind: Kind::Equality,
         owner: "C06",
         section: "spec §10, §11",
-        // §11 states *499 times in 500* about the naive restart point and *provably enough* about
+        // the design states *499 times in 500* about the naive restart point and *provably enough* about
         // the one a row earlier. Both halves are run over the same five hundred deterministic
         // edits, and the screen the surface figure comes from is drawn at the **first** of the five
         // hundred the naive point gets wrong — so the count and the picture are about one edit.
@@ -3510,8 +3510,8 @@ pub const REGISTER: [Row; 234] = [
         kind: Kind::CompileOutcome,
         owner: "C06",
         section: "spec §21",
-        // **Row 67 one ticket later, for a different component.** Ticket 09 pinned the dense
-        // screen's three scenes in this shape and ticket 10 inverted it; ticket 11 pinned the
+        // **Row 67 one ticket later, for a different component.** an earlier pass pinned the dense
+        // screen's three scenes in this shape and an earlier pass inverted it; an earlier pass pinned the
         // listing's five; this is the same distinction for `field`, and it is a row rather than a
         // comment because the whole argument is that an obligation stated as a sentence gets
         // broken by someone who has read it.
@@ -3587,7 +3587,7 @@ pub const REGISTER: [Row; 234] = [
         section: "spec §12, §19",
         // **The row that contradicts a closed map, and it is asserted as measured.** The table
         // reads `allocations = 0` in all five rows; the shipped figure is `n + 1` for `n` overlays
-        // standing and 0 for none, because runtime ticket 21 deleted the bump arena that made the
+        // standing and 0 for none, because runtime an earlier pass deleted the bump arena that made the
         // zero true. The gate is the **marginal** equality rather than an absolute,
         // which is the runtime's own form: an absolute is a fact about this screen and the margin is
         // a fact about the mechanism.
@@ -3641,8 +3641,8 @@ pub const REGISTER: [Row; 234] = [
                     file: POPUP,
                     name: "where_the_keyboard_goes_when_a_modal_closes_is_three_different_programs",
                 },
-                // **Components ticket 35 ran it over a form**, which is the population O4
-                // names — spec §18 calls `form` R3's own example, and the impl backlog calls it *the
+                // **An earlier pass ran it over a form**, which is the population O4
+                // names — the design calls `form` R3's own example, and the impl backlog calls it *the
                 // natural host for the walkthrough gate*. The ungrouped arm is the one that says
                 // something: 6 of 6 with nothing standing, 1 of 7 with a modal over it, and the trap
                 // naming itself.
@@ -3661,13 +3661,13 @@ pub const REGISTER: [Row; 234] = [
         kind: Kind::CompileOutcome,
         owner: "C07",
         section: "spec §12, §21",
-        // **Green since components 26, and the direction is what makes the row worth keeping.** It
+        // **Green since an earlier pass, and the direction is what makes the row worth keeping.** It
         // was `Unmet { over: 2, failing: 2 }` with every number on the screen already reproducing:
         // what was missing was the subject, and the scan is what could say so. It says the opposite
         // now, and the *same* scan is the thing that would notice either subject going away.
         //
         // The needle for `select` had to change with it, and that is a finding rather than an edit:
-        // it read `pub fn select(`, and spec §1 already says that a component which opens an overlay
+        // it read `pub fn select(`, and the design already says that a component which opens an overlay
         // costs two lifetime annotations — so a scene that had gone green on the old needle would
         // have gone green by deleting the `'f`, which is a different component.
         standing: Standing::Evaluated {
@@ -3707,7 +3707,7 @@ pub const REGISTER: [Row; 234] = [
         owner: "C03",
         section: "spec §5",
         // **The arm count is read out of the source and not declared**, which is the register's own
-        // rule applied to the one number §5 leads with: an instrument is a value with a file in it,
+        // rule applied to the one number the design leads with: an instrument is a value with a file in it,
         // and a constant asserting `13 == 13` is a tautology wearing a gate's clothes.
         //
         // The second half is the other direction of *six inventory entries collapse into
@@ -3819,7 +3819,7 @@ pub const REGISTER: [Row; 234] = [
         section: "spec §5",
         // The 208 does **not** reproduce and `crate::collect::COLL_STATE_BYTES` says why rather
         // than padding the struct: the 208 is C03's prototype struct, which carried the three
-        // refused stores and a discriminant to choose between them. What §5 gates is the
+        // refused stores and a discriminant to choose between them. What the design gates is the
         // invariance, and that reproduces exactly — the type mentions no length, so `size_of`
         // cannot depend on one.
         standing: Standing::Evaluated {
@@ -3832,7 +3832,7 @@ pub const REGISTER: [Row; 234] = [
                 // number in the report.** A collection over a million rows draws through the
                 // *shipped* entry point with the row drawer a component author would write —
                 // `stage` and `blit` — and a `format!` a row would be eighty allocations a frame.
-                // Register entry 12's finding one crate down is why it is not left in the example:
+                // The frame gate's finding one crate down is why it is not left in the example:
                 // an example is compiled and evaluated by nothing.
                 Instrument::Unit {
                     file: "crates/vitui-components/tests/gates.rs",
@@ -3852,7 +3852,7 @@ pub const REGISTER: [Row; 234] = [
         kind: Kind::Equality,
         owner: "C03",
         section: "spec §5, §22",
-        // **The row §5 said could not exist.** It records ctrl-click and shift-click as
+        // **The row the design said could not exist.** It records ctrl-click and shift-click as
         // inexpressible, because `rt::Input` was `Move`, `Down`, `Up`, `Wheel` and `Key` and only
         // `Key` carried a modifier byte. Runtime 10 carries `mods: Mods` on `Response`, so the two
         // readings are one vocabulary and the equality is over the arms rather than over a
@@ -3884,7 +3884,7 @@ pub const REGISTER: [Row; 234] = [
         kind: Kind::Ratio,
         owner: "C03",
         section: "spec §5",
-        // **A ratio of rows looked at, not of microseconds.** §5 states 70.79 us bounded against
+        // **A ratio of rows looked at, not of microseconds.** the design states 70.79 us bounded against
         // 1 507.83 and the search alone at 211x; the 211 is the *ratio* and it is a property of the
         // bound, so what is gated is `content / budget` and the microseconds are printed beside it.
         // `crate::collect::type_ahead_cost` measures both arms and the example prints them.
@@ -3967,7 +3967,7 @@ pub const REGISTER: [Row; 234] = [
         kind: Kind::CompileOutcome,
         owner: "C05",
         section: "spec §10",
-        // **`E0502`, which is a compile outcome and therefore a gate rather than a sentence.** §10
+        // **`E0502`, which is a compile outcome and therefore a gate rather than a sentence.** the design
         // states *a component may only ask* and gives two reasons; the second is this one, and it
         // is the half that cannot be worked around. The pair sits on `order::Asked` with a positive
         // twin naming `Order::splice` **by path** — a lone `compile_fail` passes when the item has
@@ -4266,7 +4266,7 @@ pub const REGISTER: [Row; 234] = [
         kind: Kind::Count,
         owner: "C08, C09",
         section: "spec §13, §16",
-        // **Three counts about one rule.** §16: *a distinction survives the whole matrix iff it is
+        // **Three counts about one rule.** the design: *a distinction survives the whole matrix iff it is
         // carried on both axes*, and a component reading `false` from `roles_differ_on_wire` owes a
         // second axis — a glyph, a rule, a position — and never a darker colour. The palette is the
         // one legitimate use of `Theme::custom` and it is counted rather than scattered: **one call
@@ -4324,7 +4324,7 @@ pub const REGISTER: [Row; 234] = [
         kind: Kind::Count,
         owner: "C04",
         section: "spec §4, §6",
-        // **Row 71 one axis over**, and §4 says so in as many words: *one axis out, the same defect
+        // **Row 71 one axis over**, and the design says so in as many words: *one axis out, the same defect
         // has a different arithmetic*. The screen is identical on both arms — drawing does not
         // consume an id — so `merges` is the only counter that separates them, and it is free and
         // already computed.
@@ -4368,7 +4368,7 @@ pub const REGISTER: [Row; 234] = [
         // *current* coordinate system. Inside a scroll scope that origin is the content's, so the
         // clip it intersected with was content rows `0..h` while the window sat at the offset.
         //
-        // **Runtime architecture issue 31 inverted it**, and the failing set it named is what the
+        // **The runtime's own change inverted it**, and the failing set it named is what the
         // gate now asserts green: at offset 100 over an 8-row view the keyed loop lands 8 of 8,
         // where it landed 0. The unkeyed arm and the two offset-0 arms stay in the test as the
         // control — the defect was invisible at the one offset every caller on this map draws at,
@@ -4419,9 +4419,9 @@ pub const REGISTER: [Row; 234] = [
         kind: Kind::Count,
         owner: "C05",
         section: "spec §7, §10",
-        // **It was sixteen for four tickets, and the divergence had nowhere to be caught.** §7
-        // states the record with its widths and §10 — where *one structure, five names* lives —
-        // states the names and no widths at all; components 13 built the type from §10 and widened
+        // **It was sixteen for four tickets, and the divergence had nowhere to be caught.** the design
+        // states the record with its widths and the design — where *one structure, five names* lives —
+        // states the names and no widths at all; an earlier pass built the type from the design and widened
         // three of the four. The criterion is *a gate asserts its size*, and that criterion is
         // this ticket's, so nothing had run over it. Narrowing it is what makes the memory figures
         // reproduce: 7.63 MiB at a million rows and 11.44 with the prefix sum, against the 7 → 11.
@@ -4518,7 +4518,7 @@ pub const REGISTER: [Row; 234] = [
         section: "spec §7, §2",
         // **The sentence**, measured against the same rectangle drawn as a plain list — the
         // difference is the mechanism and the absolutes are `crate::forest`'s screen. The second
-        // half is §2 on both components at once: `writes == distinct` over the frame either way,
+        // half is the design on both components at once: `writes == distinct` over the frame either way,
         // so the indent, the chevron and the label are a partition.
         standing: Standing::Evaluated {
             by: &[
@@ -4628,7 +4628,7 @@ pub const REGISTER: [Row; 234] = [
             ],
         },
     },
-    // ── components ticket 19: `scroll_area`, `scrollbar` and `sticky` ────────────────────────────
+    // ── an earlier pass: `scroll_area`, `scrollbar` and `sticky` ────────────────────────────
     Row {
         number: 122,
         on_spec_table: false,
@@ -4636,7 +4636,7 @@ pub const REGISTER: [Row; 234] = [
         kind: Kind::Equality,
         owner: "C13",
         section: "spec §9",
-        // **ADR 0029 as arithmetic rather than as a measurement.** Every cell of the rectangle
+        // **The rule as arithmetic rather than as a measurement.** Every cell of the rectangle
         // belongs to exactly one part — the body's viewport, the two bars, the corner and the four
         // bands — at every size a rectangle comes in and under both `Hide` spellings. **An overlay
         // bar cannot satisfy this at all**, because the cells under it belong to two, which is why
@@ -4666,7 +4666,7 @@ pub const REGISTER: [Row; 234] = [
         // **The count is that the hit count does not move.** A frame with four bands standing and
         // the same frame with none declare the same three regions — the area and its two bars —
         // because a band that published one would be a second scroll area and would win the wheel
-        // from the body it is a header of (R17 §5). The construction half is a source scan: one
+        // from the body it is a header of (R17 the design). The construction half is a source scan: one
         // `scrolled` band view in `scroll.rs` and the negative case beside it.
         standing: Standing::Evaluated {
             by: &[
@@ -4689,7 +4689,7 @@ pub const REGISTER: [Row; 234] = [
         kind: Kind::Count,
         owner: "C13",
         section: "spec §9, §6",
-        // **Spec the pinned-column finding on the other axis, which is what §9 asks to be shown.**
+        // **Spec the pinned-column finding on the other axis, which is what the design asks to be shown.**
         // The two arms are one `Ctx::child` apart: the same cells at the same coordinates through
         // the same verbs, and the same origin. The view clips the overrun, the arithmetic spelling
         // writes it onto the body below, the body draws afterwards and wins — so **the picture is
@@ -4709,7 +4709,7 @@ pub const REGISTER: [Row; 234] = [
         kind: Kind::Count,
         owner: "C13",
         section: "spec §9, §2",
-        // §9 assigns this line by name: *the offset clamp is free, because `max` is recomputed
+        // the design assigns this line by name: *the offset clamp is free, because `max` is recomputed
         // every frame; the tail is not.* The body draws what the content admits and the rest of the
         // rectangle is the component's — left out, a scroll area whose extent has just shrunk shows
         // the old rows under a correct offset.
@@ -4787,7 +4787,7 @@ pub const REGISTER: [Row; 234] = [
         // bands as one, and a component narrowed to `x == 5` recorded its first cell at column 0.
         // It is the finding from the third side — *a translated band makes
         // `distinct` meaningless* — and the repair is `vitui_runtime::Ctx::origin`, which the
-        // runtime did not publish until runtime architecture issue 32.
+        // runtime did not publish until the runtime's own change.
         standing: Standing::Evaluated {
             by: &[
                 Instrument::Unit {
@@ -4810,7 +4810,7 @@ pub const REGISTER: [Row; 234] = [
         section: "spec §17",
         // **criterion 6, and it is a join rather than a claim.**
         //
-        // The gate above runs over **four** subjects since production 09, and *which* four is a
+        // The gate above runs over **four** subjects since a later pass, and *which* four is a
         // decision this crate makes in one file. `file_preview_pane` is the fourth and it is
         // `Subject::Table`'s shape on another family: the pane hands its rectangle to
         // `scroll_area`, so its offset, its clamp and its reveal are all reached by calling it, and
@@ -4820,7 +4820,7 @@ pub const REGISTER: [Row; 234] = [
         // It is the same shape as O5 and for the same reason: **O5 is a query about axes and not
         // about components**, so a pair claimed here and unclaimed there is evidence for nothing.
         //
-        // **The equality behind it is over sorted lists since production 06, and it was over
+        // **The equality behind it is over sorted lists since a later pass, and it was over
         // ordered ones.** `AXIS_SCENES` is scene order — what `crate::scenes::axis_scenes` derives
         // — and `Subject::ALL` is the drive loop's enumeration order. The two coincided only while
         // the gate's subjects happened to be the first wheel scenes written; `table` joined a gate
@@ -4850,7 +4850,7 @@ pub const REGISTER: [Row; 234] = [
         owner: "C14",
         section: "spec §8, §21",
         // **This is not row 21, and the distinction is row 41's to row 2's.** Row 21 asks for the
-        // equality between two *composited* surfaces and ADR 0023 hands over no cell; this is the
+        // equality between two *composited* surfaces and the rule hands over no cell; this is the
         // crate's own model of what it drew, recorded by a `Pen` carried **across** frames
         // (`Pen::over`, which is what `crate::area` uses for re-damage) — because residue is a
         // relation between two frames and a pen built per frame has nothing to relate to.
@@ -4881,13 +4881,13 @@ pub const REGISTER: [Row; 234] = [
         owner: "C13, C14",
         section: "spec §8, §9",
         // **The sentence on the height axis, and it is the reason `Height::Watermark` is off by
-        // default.** §8 prices the drawn extent at *83 cells, 8 rows wrong, settled in 3 frames*
+        // default.** the design prices the drawn extent at *83 cells, 8 rows wrong, settled in 3 frames*
         // against a sizing function's *22, 0, 2*, and those three figures are a prototype's **body**
         // — they do not reproduce and are not made to. What reproduces is stronger and is already on
         // this map one section over: *a measured extent and a hideable reserved bar are incompatible,
         // because the measurement is taken inside the rectangle the decision produced.*
         //
-        // The precondition is on the **body**, exactly as §9 states it: over a body that draws only
+        // The precondition is on the **body**, exactly as the design states it: over a body that draws only
         // its content the two arms are **indistinguishable**, which is what makes the rule
         // unconditional rather than a preference. Both bodies are in the instrument.
         //
@@ -4919,7 +4919,7 @@ pub const REGISTER: [Row; 234] = [
         kind: Kind::Count,
         owner: "C14",
         section: "spec §8",
-        // ***0 ring probes against 405*, followed to the end.** §8 says out loud why the left
+        // ***0 ring probes against 405*, followed to the end.** the design says out loud why the left
         // half is free — *which is what a focusable widget does on a click anyway* — and the
         // consequence is that all three self-close gestures leave the focus off the body before the
         // vanish rule looks, each for a different reason: the press award focuses a focusable header;
@@ -4992,7 +4992,7 @@ pub const REGISTER: [Row; 234] = [
         section: "spec §8, §18",
         // **Criterion 1, and it is a bijection rather than a list.** *Accordion, tree node, code
         // folding and inplace edit are one machine* is the claim the whole F4 family exists to
-        // make, and the shape of claim §17 says gets broken by people who have read it — so the
+        // make, and the shape of claim the design says gets broken by people who have read it — so the
         // table is a value and the join is asserted: three rows, three arms of `Collapses`, and no
         // fourth on either side. `animates()` is `applies()` everywhere, which is *a fold steps; a
         // region animates* as arithmetic over the same value.
@@ -5047,7 +5047,7 @@ pub const REGISTER: [Row; 234] = [
         kind: Kind::Equality,
         owner: "C06",
         section: "spec §11, §18",
-        // The headline is *one component and one flag* and §18 counts it as R1's largest single
+        // The headline is *one component and one flag* and the design counts it as R1's largest single
         // collapse — sixteen named input variants including `textarea`. What makes it checkable
         // rather than a claim is that the two spellings are the **same type**: there is nothing a
         // textarea carries that an input does not, and `WrapKind` is the whole difference.
@@ -5127,7 +5127,7 @@ pub const REGISTER: [Row; 234] = [
         kind: Kind::Count,
         owner: "C06",
         section: "spec §11",
-        // **The bound is where the silent defect lives**, and §11 says so in as many words: a ring
+        // **The bound is where the silent defect lives**, and the design says so in as many words: a ring
         // of sixteen entries after sixty-four edits runs sixteen steps, returns `true` every time,
         // and the document is not back to the original. That is indistinguishable from success
         // unless the ring says so — an undo that ran out of history and an undo that finished both
@@ -5138,7 +5138,7 @@ pub const REGISTER: [Row; 234] = [
         // hundred keystrokes to make room for one. Both are watched evicting.
         //
         // **Coalescing is an entry count and never a time win**, and the rule is the word break
-        // rather than the line break: §11 gives the reason in the same sentence as the ratio —
+        // rather than the line break: the design gives the reason in the same sentence as the ratio —
         // *undoing a sentence is 414 presses instead of 1 012* — and a run that closed only at a
         // line would make undoing a sentence **one** press, which is a checkpoint and not a
         // history. The 2.4x is a ratio over a corpus and is printed rather than pinned.
@@ -5178,7 +5178,7 @@ pub const REGISTER: [Row; 234] = [
         kind: Kind::Count,
         owner: "C06",
         section: "spec §11, §20",
-        // §11: *a text widget declares 79 regions against 621 for one per visible cluster*. The two
+        // the design: *a text widget declares 79 regions against 621 for one per visible cluster*. The two
         // magnitudes are a prototype's screen — this crate's is measured in
         // `examples/field_numbers.rs` — and what is a gate is the **structure**: one entry for the
         // widget, and a surface no reader can tell apart.
@@ -5215,7 +5215,7 @@ pub const REGISTER: [Row; 234] = [
         kind: Kind::Equality,
         owner: "C06",
         section: "spec §11, §20",
-        // §11 prices the frame at *82.4 us / 0 marked / 19 634 writes / 631 verbs / 79 regions /
+        // the design prices the frame at *82.4 us / 0 marked / 19 634 writes / 631 verbs / 79 regions /
         // 0 merges / 0 allocations, **flat at 100 kB and 1 MB**.* The magnitudes are a screen this
         // ticket does not own; **flat** is the claim that is a gate, and it is the engine's own
         // invariant one layer up — *frame cost is proportional to visible cells, never to data
@@ -5447,7 +5447,7 @@ pub const REGISTER: [Row; 234] = [
         section: "spec §12, §9",
         // **The fixpoint does not arise here and the reason is structural**: a popup's content is as
         // wide as the viewport it was granted, because its labels truncate to it, so the two booleans
-        // §9 couples have nothing to couple through. The gate runs the `decide` over the same two
+        // the design couples have nothing to couple through. The gate runs the `decide` over the same two
         // numbers so the *0 against <= 3* is a comparison rather than a claim.
         //
         // The unreachable-row half is arithmetic over `place`, `popup_size` and
@@ -5570,8 +5570,8 @@ pub const REGISTER: [Row; 234] = [
         // because it is also borrowed as mutable`, pointing at *the caller's own read* and never
         // mentioning the overlay, which is the finding arriving one crate up.
         //
-        // The second half is the sentence §1 says `Ctx::overlay`'s documentation owes and components
-        // ticket 10 could not write. It is written, on the runtime's own item, and the instrument is a
+        // The second half is the sentence the design says `Ctx::overlay`'s documentation owes and components
+        // an earlier pass could not write. It is written, on the runtime's own item, and the instrument is a
         // scan of that file: a doc comment is not an item, so nothing a compiler can be asked about
         // changes when it is deleted. The phrases are matched against a *flattened* source, because in
         // the shipped file one of them is broken across a line by the formatter.
@@ -5645,7 +5645,7 @@ pub const REGISTER: [Row; 234] = [
         kind: Kind::Equality,
         owner: "C07",
         section: "spec §2, §12",
-        // **§2 over the component this ticket built, and it is here because the diff had the defect
+        // **The design over the component this ticket built, and it is here because the diff had the defect
         // it catches.** The label was padded to the whole width and the ellipsis written over the
         // pad's last cell, so one cell of every *truncated* `select` was written twice —
         // `glyphs::elide` has already reserved the marker's cell, which is exactly what makes the
@@ -5808,7 +5808,7 @@ pub const REGISTER: [Row; 234] = [
                     file: PICTURE,
                     name: "a_picture_drawn_from_roles_spends_no_customs_and_writes_the_same_cells",
                 },
-                // **The zero §14 states in the same sentence as the census.** The µs beside it are
+                // **The zero the design states in the same sentence as the census.** The µs beside it are
                 // a timing and a report; the zero is a count, and this is the only window in the
                 // workspace with 24 000 style constructions inside it.
                 Instrument::Unit {
@@ -5838,7 +5838,7 @@ pub const REGISTER: [Row; 234] = [
         // pair, putting the two colours on `Role::Danger` and `Role::Warn`, which
         // `Roles::from_palette` takes verbatim from `base08` and `base0A` over one ground with no
         // attributes. **773 ns a call, and it was right.** The friction was filed as runtime
-        // architecture issue 34, which answered it with `Theme::colours_differ_on_wire(Rgb, Rgb)` —
+        // the two-colour question, answered with `Theme::colours_differ_on_wire(Rgb, Rgb)` —
         // the same question asked of two colours — and the same counts come back out of it.
         //
         // **The verb alone bought nothing, and that is the part worth recording.** Dropping it into
@@ -5929,7 +5929,7 @@ pub const REGISTER: [Row; 234] = [
         // the one screen where the answer is the whole rectangle: 24 000 of 24 000 changed by a
         // translation of one row, and `[24 000, 0, 0, 0]` over a still picture's first four frames.
         // What the same two frames cost in **bytes** is row 161's, and it is reachable since
-        // runtime architecture issue 34 — where it inverts this row's own reading: 24 000 of 24 000
+        // the runtime's own change — where it inverts this row's own reading: 24 000 of 24 000
         // cells change value and the wire costs **1.25% of a full repaint**, because the engine
         // prices a translation by the rows it exposed.
         standing: Standing::Evaluated {
@@ -5954,7 +5954,7 @@ pub const REGISTER: [Row; 234] = [
         kind: Kind::Ratio,
         owner: "C15",
         section: "spec §14",
-        // **Inverted by runtime architecture issue 34, and it is the second inversion on this
+        // **Inverted by the runtime's own change, and it is the second inversion on this
         // register that no components ticket did.** Row 112 was the first. What the row needed was
         // a driver that hands its sink back: `Driver::headless` moves a `Box::new(Vec::new())` into
         // the engine and never returns it, and `Clock`, `Output`, `Overrides`, `WidthSource` and
@@ -5964,11 +5964,11 @@ pub const REGISTER: [Row; 234] = [
         // pinned on the `Overrides`, which is the half `Driver::set_theme` could never reach: a
         // resolved theme narrows the thirteen roles and every cell of this screen is outside them.
         //
-        // **None of the three numbers §14 states is the gate**, and the reason is this workspace's
+        // **None of the three numbers the design states is the gate**, and the reason is this workspace's
         // own rule about encodings: a golden byte *string* is refused because the encoding is
         // exactly the part allowed to change, and a byte *count* is one step from a byte string.
         // What is gated is what survives an encoding change — the three zeros, the share, the
-        // linearity and the monotonicity — and the totals are reported beside §14's:
+        // linearity and the monotonicity — and the totals are reported beside the design's:
         //
         // - **39.05 B/cell** against the 37.5, and **937 233** against its 900 134. The same
         //   measurement on a different photograph.
@@ -6004,7 +6004,7 @@ pub const REGISTER: [Row; 234] = [
         // Criterion 6's join, one family over from row 129's: the scene names its subjects, the
         // subjects are read out of the file the freeze homes them in, and the sentence a reader
         // sees separates *unimplemented* from *wrong*.
-        // **Inverted by components 30, and the needle had to move with it.** This is components
+        // **Inverted by an earlier pass, and the needle had to move with it.** This is components
         // The finding a second time: the scan read `pub fn picture(` and the shipped
         // declaration is `pub fn picture<P: Pixels>(`, because the `…` is a **type parameter**
         // here — a picture that took a buffer would make the frame cost the image rather than the
@@ -6035,7 +6035,7 @@ pub const REGISTER: [Row; 234] = [
         kind: Kind::Count,
         owner: "C15",
         section: "spec §14",
-        // **The census as a contrast, which is what makes it a gate rather than four numbers.** §14
+        // **The census as a contrast, which is what makes it a gate rather than four numbers.** the design
         // states the split in the family — *a waveform spends zero because its colours are roles; a
         // QR spends four not because it has too many distinctions but because it has exactly two
         // and they must be those two, which no theme can promise* — and any one of those figures
@@ -6073,14 +6073,14 @@ pub const REGISTER: [Row; 234] = [
         kind: Kind::Equality,
         owner: "C15",
         section: "spec §2, §14",
-        // §2 over a family whose subjects are routinely **smaller than the rectangle they are
+        // the design over a family whose subjects are routinely **smaller than the rectangle they are
         // handed** — a QR at two modules a cell fills eleven of twenty-one rows, a bar pattern is
         // shorter than its band, an audio column is mostly empty. Every one of those cells is the
         // component's, and the arm that would have been easy is a `continue`.
         //
         // **The QR's remainder is the one place on this map where the partition rule and the
         // subject's own standard are the same sentence**: a reader asks for a light margin, so the
-        // run that satisfies §2 makes the symbol *more* readable rather than merely tidier.
+        // run that satisfies the design makes the symbol *more* readable rather than merely tidier.
         standing: Standing::Evaluated {
             by: &[
                 Instrument::Unit {
@@ -6140,7 +6140,7 @@ pub const REGISTER: [Row; 234] = [
         kind: Kind::Equality,
         owner: "C15",
         section: "spec §14, §17",
-        // **The mechanism §17 froze `slider` in Tier 3 for**, measured over the shipped chrome with
+        // **The mechanism the design froze `slider` in Tier 3 for**, measured over the shipped chrome with
         // a **posted** pointer rather than over a `Response` written beside the gate. There is no
         // press origin, no stored anchor and no *was I dragging last frame*, which is the whole
         // claim: a delta-only API cannot express a press that jumps.
@@ -6198,8 +6198,8 @@ pub const REGISTER: [Row; 234] = [
         // **The survey's ✅ as a table with the column it did not have.** *Transport, seek bar,
         // timeline, volume, subtitles, playlist, chapters: all ✅ cells* is a claim about the
         // engine, and the engine is not what the chrome was waiting for: two of the ten are
-        // `slider` (components 33, on the mechanism row 164 measures), one is a component that owns
-        // a clock (components 42) and one is survey the passthrough.
+        // `slider` (an earlier pass, on the mechanism row 164 measures), one is a component that owns
+        // a clock (an earlier pass) and one is survey the passthrough.
         standing: Standing::Evaluated {
             by: &[
                 Instrument::Unit {
@@ -6226,10 +6226,10 @@ pub const REGISTER: [Row; 234] = [
         // sentence a reader sees separates *unimplemented* from *wrong*.
         //
         // **The needle is a parenthesis on purpose**, and the load-bearing half is a second scan.
-        // Components 26 read `pub fn select(` for a component §1 already says costs two lifetime
-        // annotations and components 30 read `pub fn picture(` for one whose `…` is a type
+        // an earlier pass read `pub fn select(` for a component the design already says costs two lifetime
+        // annotations and an earlier pass read `pub fn picture(` for one whose `…` is a type
         // parameter; both would have gone green *by deleting the thing that mattered*. A longer
-        // needle here would be this ticket dictating the parameter list. What §15 settles
+        // needle here would be this ticket dictating the parameter list. What the design settles
         // is a **negative** — *a job's lifetime is the question's, a memo's is the data's, and
         // neither is the widget's* — so `crate::preview::mints_its_own_task` is the half that
         // cannot be satisfied by deleting anything, and it is watched in both directions.
@@ -6291,7 +6291,7 @@ pub const REGISTER: [Row; 234] = [
         kind: Kind::Count,
         owner: "C16",
         section: "spec §15",
-        // **The same hole with no user in it**, which is why §21 carries it as a scene of its own.
+        // **The same hole with no user in it**, which is why the design carries it as a scene of its own.
         // *identity keying is wrong for exactly 1 frame, the decode's latency* is a statement
         // about a **run** and not about a total, and it is asserted as one: seven batches each cost
         // their own latency frame, so a total of one would need six of the seven not to move the
@@ -6323,7 +6323,7 @@ pub const REGISTER: [Row; 234] = [
         // neither arm is branched on, because a question superseded while it runs lands nothing.
         //
         // **The finding is inside the sentence.** 14 652 cells at 37.5 B/cell is 549 450
-        // bytes — 536.57 KiB, which §15 prints as *536 KB* by truncating — and twenty of them is
+        // bytes — 536.57 KiB, which the design prints as *536 KB* by truncating — and twenty of them is
         // 10 989 000 bytes, 10.99 MB, which is exactly what *18.3 MB/s over 600 ms* requires.
         // **10.7 MB** is the truncated 536 read as decimal kB and multiplied by twenty, so
         // the total and the rate printed in one sentence come from two readings of one number. The
@@ -6361,7 +6361,7 @@ pub const REGISTER: [Row; 234] = [
         // directions.
         //
         // **The headline pair is a screen that did not partition its rectangle.** 1 650
-        // writes against 4 166 cannot be reproduced by a screen that obeys §2 — it writes 24 000
+        // writes against 4 166 cannot be reproduced by a screen that obeys the design — it writes 24 000
         // either way — so this one reports both, and reads one thing *out* of the pair: the
         // difference is 2 516, which is 74 x 34 exactly, so the prototype's document was 34 columns
         // wide and `crate::preview::LINE_COLUMNS` is derived from that rather than chosen.
@@ -6398,7 +6398,7 @@ pub const REGISTER: [Row; 234] = [
         // is reproduced from the arithmetic that produces it — `entries * (8 + 4 + 1) * 8 / 7` —
         // and the shipped `HashMap<u64, u32>` is **35 651 584**, because buckets round to a power
         // of two and the pair pads to sixteen bytes rather than packing to twelve. The estimate is
-        // gated because it is §15's; the measurement is asserted to be larger, because a refusal
+        // gated because it is the design's; the measurement is asserted to be larger, because a refusal
         // that got easier when it was checked would be worth checking again.
         standing: Standing::Evaluated {
             by: &[
@@ -6473,7 +6473,7 @@ pub const REGISTER: [Row; 234] = [
         section: "spec §15",
         // **Requirement 9 as a count and not a microsecond.** The counter is thread-local, which is
         // the measurement rather than an implementation detail: the claim is *0 on the app thread*,
-        // so it has to be a counter the app thread can read about itself. §15 states the other arm
+        // so it has to be a counter the app thread can read about itself. The design states the other arm
         // at 5 076 units over a larger document; what is gated is the pair.
         standing: Standing::Evaluated {
             by: &[Instrument::Unit {
@@ -6769,7 +6769,7 @@ pub const REGISTER: [Row; 234] = [
         owner: "C11",
         section: "spec §17, ADR 0033",
         // **The row this ticket exists to add, because its own row had been lying for two tickets.**
-        // §14 measured drag capture and concluded *`slider` leaves Tier 3*, so components ticket 30
+        // the design measured drag capture and concluded *`slider` leaves Tier 3*, so an earlier pass
         // set `built: true` and listed the name in `input::MEMBERS`. **No `slider` existed**, and
         // neither join that looks as though it should have seen it could:
         // `the_module_tree_and_the_families_column_agree` compares a module's `MEMBERS` against the
@@ -6778,13 +6778,13 @@ pub const REGISTER: [Row; 234] = [
         // been built. **A mechanism being built is not the component being built.**
         //
         // O2 would have caught it eventually — *everything `built` must have a panel* — and it is
-        // `Unmet`, which is exactly the shape ADR 0033 exists to refuse: *every obligation this map
+        // `Unmet`, which is exactly the shape the rule exists to refuse: *every obligation this map
         // has stated as a sentence has been broken by someone who had read it.*
         //
         // **The needle is the name and the boundary is either delimiter**, because a join over
         // twenty-nine rows cannot dictate nineteen signatures: `pub fn picture(` could never have
         // matched `pub fn picture<P: Pixels>(`, which is the finding met for the
-        // fourth time by ticket 32. Both spellings are watched being accepted, and the reverse
+        // fourth time by an earlier pass. Both spellings are watched being accepted, and the reverse
         // direction is counted too — a declared row marked unbuilt is the same drift with the sign
         // flipped, and a gate over the `true` rows alone cannot see it.
         standing: Standing::Evaluated {
@@ -6834,7 +6834,7 @@ pub const REGISTER: [Row; 234] = [
         // checked rather than assumed: a widget that declares the wheel and consumes nothing is
         // **worse** than one that declares nothing at all, because it is the topmost region over its
         // rectangle and an enclosing `scroll_area` never sees the notch either. That is the defect
-        // ticket 20 found on `field`, which had declared `SCROLL` and consumed it nowhere.
+        // an earlier pass found on `field`, which had declared `SCROLL` and consumed it nowhere.
         //
         // The row states the other half — *a slider's value is not an offset and no wheel event
         // moves it* — so `owns_offset` is `false` and there is nothing for a notch to move. Both are
@@ -6861,7 +6861,7 @@ pub const REGISTER: [Row; 234] = [
         // itself would allocate on — and that is where this gate found the third instance of one
         // rule: *the window must warm the path it prices*. Warmed by drawing alone it read **1 over
         // 60 frames**, the frame's key queue taking its own first allocation, attributed to the
-        // slider. Components ticket 22 met the same discipline on a rectangle that changes every
+        // slider. An earlier pass met the same discipline on a rectangle that changes every
         // frame and the steady-cell sequence meets it on the hover.
         standing: Standing::Evaluated {
             by: &[Instrument::Unit {
@@ -7026,7 +7026,7 @@ pub const REGISTER: [Row; 234] = [
         // **A relation and not a count, because the verbs are the data's.** `writes` is flat at 120
         // over three orders of magnitude and `verbs` is **16 / 13 / 11**: a verb here is a *run*,
         // and a run ends where a cell's owner changes, which is a property of where the fixture's
-        // empty cells fall. §21 says it in as many words — *`verbs <= writes`, never verb equality
+        // empty cells fall. The design says it in as many words — *`verbs <= writes`, never verb equality
         // across sizes* — so the three figures are the report and the relation is the gate.
         standing: Standing::Evaluated {
             by: &[
@@ -7052,7 +7052,7 @@ pub const REGISTER: [Row; 234] = [
         kind: Kind::Count,
         owner: "C11",
         section: "spec §16, §17",
-        // **§16 on three components at once.** A checkbox and a radio carry their state on the
+        // **The design on three components at once.** A checkbox and a radio carry their state on the
         // **glyph** axis — `✓` becomes `x` and `•` becomes `*`, both still one cell and both still
         // present, which is what *no spelling blank* buys — and they differ in exactly **one** cell
         // between on and off, at every rung. A switch carries its state on **three** axes and only
@@ -7084,7 +7084,7 @@ pub const REGISTER: [Row; 234] = [
         owner: "C11",
         section: "spec §5, §17",
         // **Criterion 6, and the mode's name is a finding rather than a change.** The backlog spells
-        // it `Mode::Radio` and §5 shipped it as `Mode::Options` — *exactly one, and it can never
+        // it `Mode::Radio` and the design shipped it as `Mode::Options` — *exactly one, and it can never
         // become zero*, which is the whole difference from `Mode::Single`. A mode called `Radio`
         // would be the thirteen match arms wearing one component's name, so the disagreement is
         // recorded here and the code is left alone.
@@ -7198,7 +7198,7 @@ pub const REGISTER: [Row; 234] = [
         kind: Kind::Count,
         owner: "C11",
         section: "spec §9, §17",
-        // **The rule is §9's, one component over**: *one hit entry for all four bands, because a
+        // **The rule is the design's, one component over**: *one hit entry for all four bands, because a
         // band that were a second scroll area would win the wheel from the body it is a header of.*
         // A status bar is the one member of the family that declares anything at all, and what it
         // declares is **one** region — the count does not move with the segment count, and it is
@@ -7227,12 +7227,12 @@ pub const REGISTER: [Row; 234] = [
                     file: STRUCTURE,
                     name: "two_status_bars_on_one_screen_are_two_widgets_and_merge_nothing",
                 },
-                // **And the demand column is joined against what the section can draw.** §17's
+                // **And the demand column is joined against what the section can draw.** the design's
                 // `glyphs` column is what the within-component collapse gate runs over, so a
                 // component that draws a marker its column does not declare is a gate running over
                 // less than the component draws — the quiet direction, where nothing fails and the
                 // collapse simply is not looked for. It found three rows under-declaring
-                // `Ellipsis`, one of them `rule`'s since components ticket 34.
+                // `Ellipsis`, one of them `rule`'s since an earlier pass.
                 Instrument::Unit {
                     file: COMPOSED,
                     name: "a_tier_two_row_declares_the_ellipsis_it_can_draw_and_no_row_declares_\
@@ -7341,8 +7341,8 @@ pub const REGISTER: [Row; 234] = [
         // screen clipped every overrun — and the pager was writing **5 cells into a 4-cell strip**
         // and **2 into a 1-cell one**, once because `fits` floors at one page and once because
         // `Ink::pad_to` pads a short label and writes a long one whole. The recorder and the defect
-        // shared a coordinate system, which is the third time on this map (components 19's
-        // `Tally::distinct`, components 29's `qr_into`).
+        // shared a coordinate system, which is the third time on this map (an earlier pass's
+        // `Tally::distinct`, an earlier pass's `qr_into`).
         standing: Standing::Evaluated {
             by: &[
                 Instrument::Unit {
@@ -7407,7 +7407,7 @@ pub const REGISTER: [Row; 234] = [
         kind: Kind::Count,
         owner: "C02",
         section: "spec §3, §17",
-        // Spec §3: *`nav::cursor`'s placement is the decision, not its contents* — a collection
+        // the design: *`nav::cursor`'s placement is the decision, not its contents* — a collection
         // opens its own `Group` scope, so *a list is one tab stop*, and a form is the same
         // arrangement over fields.
         //
@@ -7448,7 +7448,7 @@ pub const REGISTER: [Row; 234] = [
         // Spec the sentence — *`Compact` against `Cosy`: 20 804 writes and 267 regions against
         // 20 992 and 263, four widgets fall off the bottom of the form because the padding is real,
         // **and neither writes a cell twice*** — run against the **component** rather than against
-        // `crate::form`'s three-arm screen, which is where ticket 06 measured it.
+        // `crate::form`'s three-arm screen, which is where an earlier pass measured it.
         //
         // The magnitudes are this screen's and are printed rather than engineered to match: 240
         // cells is a 30×8 panel, and what reproduces is the **structure** — the two densities cover
@@ -7477,7 +7477,7 @@ pub const REGISTER: [Row; 234] = [
         kind: Kind::Count,
         owner: "C11",
         section: "spec §11, §18 R3",
-        // **The defect components ticket 35 found in code that was already green**, and it is
+        // **The defect an earlier pass found in code that was already green**, and it is
         // *declared and consumed nothing* arriving on the keyboard axis.
         //
         // The one flag makes `input` and `textarea` one component, so `field` reads `Up` and
@@ -7641,12 +7641,12 @@ pub const REGISTER: [Row; 234] = [
         section: "spec §17",
         // **The one instrument on this map that catches a wrong cell.** O1 catches an API that
         // cannot be called from outside the crate and O2 an inventory that has drifted from what
-        // ships; neither of them looks at a picture, and §17 says so in as many words.
+        // ships; neither of them looks at a picture, and the design says so in as many words.
         //
         // **Three sources and not two.** `crate::golden::SCREENS` is what is drawn,
         // `crate::obligations::GOLDENS` is what O3 is asked about, and `crate::golden::on_disk`
         // opens the directory — because neither of the first two would notice a golden that had
-        // been deleted, and a count that agrees with itself is what ADR 0033 is against.
+        // been deleted, and a count that agrees with itself is what the rule is against.
         //
         // **`spinner` has no screen and that is the population rather than a hole**, which is O1's
         // finding a second time: a golden of a function that does not exist is not a screen anybody
@@ -7683,7 +7683,7 @@ pub const REGISTER: [Row; 234] = [
         // rungs would otherwise file a golden for each — two files that can only ever drift apart —
         // and the count alone would not notice the day a bar chart started spelling itself
         // differently at `Extended`. Three rows are declared identical (`chart`, `meter`,
-        // `sparkline`) and `media`'s picture is a fourth with no freeze row at all, which is §14's
+        // `sparkline`) and `media`'s picture is a fourth with no freeze row at all, which is the design's
         // own *no v1 component*.
         //
         // **The equalities run over `Canvas::diff` and never over `golden::divergence`, and that
@@ -7702,8 +7702,8 @@ pub const REGISTER: [Row; 234] = [
         // are the same inequality, and three separate defects on this map scored *different* by
         // drawing something wrong rather than something else. Two of the three figures do not
         // reproduce and are asserted as measured beside what the map remembers: `plot`'s two block
-        // rungs are **12 cells over 3 rows** where §17 says 882, and the dense screen at 300x80 is
-        // **1 065 cells over 78 of 80 rows** where §16 says 7 276 over 80 of 80. The row count is
+        // rungs are **12 cells over 3 rows** where the design says 882, and the dense screen at 300x80 is
+        // **1 065 cells over 78 of 80 rows** where the design says 7 276 over 80 of 80. The row count is
         // why the second one is worth carrying: two rows of that screen carry no glyph at all.
         //
         // **The ASCII rung's own claim, as a picture**: thirty-three of thirty-three screens keep
@@ -7925,7 +7925,7 @@ pub const REGISTER: [Row; 234] = [
         // configured.
         //
         // `field` is one flag — the break rule — and at `WrapKind::Ruler` it declines `Up`,
-        // `Down` and `Enter`, which is ADR 0042 as six spellings. `collection` is `Mode`, and the
+        // `Down` and `Enter`, which is the rule as six spellings. `collection` is `Mode`, and the
         // finding there is the direction: at `Mode::Single` a ctrl-click *is* a plain click, so it
         // leaves the same picture and reads **deaf**, while the two extends the mode refuses leave
         // a different one and read **fluent**. The gesture that disappears is the one that works.
@@ -7933,11 +7933,11 @@ pub const REGISTER: [Row; 234] = [
         // **The three collections declare one contract and the pager declares its keys alone**,
         // which is *a table is a collection plus a column split* and *a tree is a
         // collection plus a flatten index* as an equality between three declarations, with
-        // components 35's store-without-a-row-loop as the difference: four binds, the type-ahead
+        // an earlier pass's store-without-a-row-loop as the difference: four binds, the type-ahead
         // and the three pointer gestures.
         //
-        // **And the overlay family's two owners declare one contract, since components architecture
-        // issue 23.** They did not for eight tickets and that was the defect: `select`'s popup takes
+        // **And the overlay family's two owners declare one contract now.** They did not for a
+        // long time and that was the defect: `select`'s popup takes
         // the keyboard from its owner and reads `Enter` and `Esc` through a `Refusal`, and
         // `file_picker`'s seated no focus and declared none, so **an open picker could only be used
         // with a mouse** — 35 against 8 over one family, on a screen that rendered perfectly. The
@@ -8065,7 +8065,7 @@ pub const REGISTER: [Row; 234] = [
         // the columns past `n * (w / n)` to nobody. Watched losing the last column at 100 into three
         // and watched **agreeing** at 99 into three, which is why the sweep is a sweep.
         //
-        // The identity half is ADR 0027 and components 30's `player::chrome` defect in the loop that
+        // The identity half is the rule and an earlier pass's `player::chrome` defect in the loop that
         // would have produced it: one call to `panel_into` is one `Location::caller()`, so
         // twenty-eight tiles from one loop are twenty-eight widgets under one `Id` — and
         // `Ctx::interact` makes a merged claim **inert**, so every panel but the first stops hearing
@@ -8127,7 +8127,7 @@ pub const REGISTER: [Row; 234] = [
         section: "spec §21",
         // **The mechanism is the engine's and what this row adds is that it happens in this
         // binary.** `crates/vitui-engine/src/shutdown.rs` restores first and then lets the default
-        // hook print, idempotent under one atomic; engine ticket 22 built it and gated it over a
+        // hook print, idempotent under one atomic; an engine change built it and gated it over a
         // recorder. Two ways for an application to lose it are invisible to any in-process test: the
         // process never goes through `Screen::drop` or the hook at all, and the epilogue is written
         // *after* the backtrace — which puts the backtrace on a page the terminal is about to
@@ -8160,17 +8160,17 @@ pub const REGISTER: [Row; 234] = [
         kind: Kind::Count,
         owner: "C01, C11",
         section: "spec §20",
-        // **The budget measured in the gallery and not only in isolated harnesses**, which is §20's
+        // **The budget measured in the gallery and not only in isolated harnesses**, which is the design's
         // own criterion and the one thing twenty-seven other allocation gates in this workspace
         // cannot answer between them: each prices one component.
         //
         // **Every page**, because the six panels that keep a memo are not all on page one and a
         // window over one page prices twelve of the twenty-eight. The warm-up is two identical
-        // frames on the shape the window prices — components 22 measured what warming on the wrong
+        // frames on the shape the window prices — an earlier pass measured what warming on the wrong
         // shape costs, **1 over 12**, which is amortised zero and exactly what `Allocations`'s
         // missing `mean` refuses.
         //
-        // **It found one, and it is components 30's `player::chrome` finding a second time**: the two
+        // **It found one, and it is an earlier pass's `player::chrome` finding a second time**: the two
         // preview drawers spelled their row labels with `format!`, so page three paid **4
         // allocations a frame, 200 over 50**, while every other page read zero and the screen
         // rendered perfectly. `gallery::ROWS` is eight literals now. The gallery's own chrome is
@@ -8241,7 +8241,7 @@ pub const REGISTER: [Row; 234] = [
         kind: Kind::Equality,
         owner: "C11 / R20 §3",
         section: "spec §16, ADR 0030, ADR 0032",
-        // **The rule as a population rather than as a sentence**, which is components ticket 41's
+        // **The rule as a population rather than as a sentence**, which is an earlier pass's
         // own criterion: *a gate enumerates them from `INVENTORY` rather than from a grep*.
         // `crate::memos::MEMOS` is five rows, `held_by` is the join, and the rule is checked as the
         // `iff` it is — a memo carrying the theme in the key of a value the theme has no say in is
@@ -8320,7 +8320,7 @@ pub const REGISTER: [Row; 234] = [
         kind: Kind::Count,
         owner: "C11",
         section: "spec §16, §20",
-        // **§16 states it as a timing and §21 makes a timing a report**, so what is gated is the
+        // **The design states it as a timing and the design makes a timing a report**, so what is gated is the
         // half a count can carry: *off the frame path*. `Gallery::theme` returns a theme and
         // `Driver::set_theme` is the loop's, so the whole of a swap — the import, the resolve, the
         // re-narrowing of the ten distinction bits — happens between two frames, and the window is
@@ -8461,7 +8461,7 @@ pub const REGISTER: [Row; 234] = [
         //
         // **It answered seven where the parenthesis named six**, and that is the
         // criterion working rather than failing: `sparkline` holds `PlotState`'s two folded memos as
-        // well — it is `chart`'s body with the chrome deleted (components 34) and it folds a million
+        // well — it is `chart`'s body with the chrome deleted (an earlier pass) and it folds a million
         // points through the same `Raster`. *Derived, so a component added later joins without
         // anyone remembering*, and `sparkline` shipped ten tickets after the sentence that missed
         // it.
@@ -8552,7 +8552,7 @@ pub const REGISTER: [Row; 234] = [
         section: "spec §17, ADR 0050",
         // **A list a human maintains is exactly what this register exists to replace**, and this
         // column would go stale in the direction that reads as green: it is what somebody choosing
-        // what to open reads. Components 39's review found the sharp instance — the gallery's row
+        // what to open reads. An earlier pass's review found the sharp instance — the gallery's row
         // listed `gallery::PANELS`, which `crate::gallery`'s own scan **forbids** that file from
         // spelling, so the column documented an application doing exactly what a gate one crate
         // over refuses, unchecked for fifteen applications.
@@ -8587,7 +8587,7 @@ pub const REGISTER: [Row; 234] = [
         kind: Kind::Count,
         owner: "C11",
         section: "spec §17, §8, ADR 0051",
-        // **The twenty-ninth row of the freeze, and the two rules its own ticket owes.** Spec §8
+        // **The twenty-ninth row of the freeze, and the two rules its own ticket owes.** the design
         // refused a stored transition state, and read as *a component may not store anything a
         // clock moves* that forbids a spinner; the rule is narrower and `disclose::Collapse` is the
         // proof, since it stores a `Tween` across frames. What separates them is what the stored
@@ -8694,7 +8694,7 @@ pub const REGISTER: [Row; 234] = [
         // undrawn is a worse lie than the one this join exists to end.
         //
         // The five that are genuinely undrawn are `table`'s and are one family — the box junctions,
-        // and no component here draws two rules that meet. Components architecture 25.
+        // and no component here draws two rules that meet. A components decision.
         standing: Standing::Evaluated {
             by: &[
                 Instrument::Unit {
@@ -8946,7 +8946,7 @@ mod tests {
                     );
                     None
                 }
-                // **This arm runs over nothing since runtime architecture 31 inverted row 112**,
+                // **This arm runs over nothing since the runtime's own change inverted row 112**,
                 // and that is worth saying out loud rather than deleting: the discipline for a red
                 // row is what the *next* one has to satisfy, and a variant with no constructor is
                 // still checked by the compiler. It is the register's own trap — *a gate that cannot
@@ -9374,7 +9374,7 @@ mod tests {
 
         // **The one exception, and it is a file rather than a rule.** The sub-cell ladder, which
         // `CONTEXT.md` names as a branch in the same paragraph that forbids naming a repertoire.
-        // Components ticket 28 moved it from `series.rs` — the screen — to `chart/raster.rs`, which
+        // an earlier pass moved it from `series.rs` — the screen — to `chart/raster.rs`, which
         // is where the branch belongs, and the three lines moved with it.
         const LADDER: &str = "chart/raster.rs";
         // **The lines that may spell one, exactly.** A list rather than a count, because a count
@@ -9450,7 +9450,7 @@ mod tests {
         assert!(carries(&format!("{private_table} {{ }}"), private_table));
         assert!(!carries(&format!("// {glyph_set} in a comment"), glyph_set));
 
-        // **No private fallback table anywhere in the workspace**, which is the half §16 states
+        // **No private fallback table anywhere in the workspace**, which is the half the design states
         // over every crate and not only this one. It is checkable now for the same reason the
         // count above is: something in this workspace finally spells a glyph.
         let mut everywhere = Vec::new();

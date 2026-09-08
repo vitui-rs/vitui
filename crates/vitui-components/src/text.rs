@@ -198,14 +198,14 @@ pub fn fit_into<I: Ink>(
 // [`Rect`], which is this crate's own rectangle in the `Ctx`'s own coordinates, swept operator for
 // operator against `vitui_runtime::layout::rect`. See [`vitui_runtime::layout::rect`]'s header for the four
 // candidate answers and why this is the one. **The rule is obeyed, not ignored** — a reader coming
-// from spec §1 is looking at `fn(&mut Ctx, Rect, …) -> Response`.
+// from the design is looking at `fn(&mut Ctx, Rect, …) -> Response`.
 //
 // The other three rules are as written: data by shared reference, options a `Default` struct with an
 // `_with` sibling, and a `Response` back even from a pure drawer.
 //
 // # Why a component writes **all** of its rectangle and `fit` returns the rest
 //
-// §2 states the rule in two halves — *the owner of a rectangle writes all of it; a component handed
+// the design states the rule in two halves — *the owner of a rectangle writes all of it; a component handed
 // a rectangle writes all of that* — and the two halves land on two different items. [`fit`] is a
 // **helper**: it writes one row and returns the rows below it, so a caller can chain it down a
 // rectangle it owns. [`text`] is a **component**: it was handed a rectangle and it writes every cell
@@ -773,7 +773,7 @@ mod tests {
         }
     }
 
-    // ── components ticket 10: `text` and `chip` ──────────────────────────────────────────────────
+    // ── an earlier pass: `text` and `chip` ──────────────────────────────────────────────────
 
     /// The corpus every partition sweep below runs over: a rectangle narrower than its label, one
     /// exactly as wide, one a single cell, and one two rows taller than a line.

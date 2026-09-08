@@ -558,7 +558,7 @@ fn driver_for(build: Build) -> Driver {
     driver
 }
 
-// ── the wire, which is what runtime architecture issue 34 unblocked ──────────────────────────────
+// ── the wire, which is what the runtime's own change unblocked ──────────────────────────────
 
 /// **A driver whose bytes land somewhere this crate can read, at the build's own tier.**
 ///

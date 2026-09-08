@@ -807,7 +807,7 @@ mod tests {
 
         // **The count alone does not decide it, and that is why `constructions` compares the
         // tables.** Two of the three rungs have four frames and they are two different ladders —
-        // read off the counts the answer would be 2, which is exactly the number ticket 42
+        // read off the counts the answer would be 2, which is exactly the number an earlier pass
         // reported.
         let by_count: std::collections::BTreeSet<usize> = counts.iter().copied().collect();
         assert_eq!(by_count.len(), 2, "the reading that gives the wrong answer");
@@ -1292,7 +1292,7 @@ mod tests {
             .expect("the freeze has a `meter`");
         assert_eq!(row.constructions as usize, distinct.len());
         assert_eq!(row.tier, Tier::Two);
-        // And the same derivation gives the `sparkline` row its 2, which §17 does not state — see
+        // And the same derivation gives the `sparkline` row its 2, which the design does not state — see
         // that row's own comment.
         let spark = INVENTORY
             .iter()

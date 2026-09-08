@@ -544,7 +544,7 @@ pub const INVENTORY: &[Component] = &[
         can_shrink: false,
         owns_offset: false,
         scrolled: false,
-        // §2 names the defect in the axis's own word: *a chip that does not narrow, whose label
+        // the design names the defect in the axis's own word: *a chip that does not narrow, whose label
         // runs into its sibling's rectangle* — **432 cells re-damaged every steady frame**.
         narrow: true,
     },
@@ -566,7 +566,7 @@ pub const INVENTORY: &[Component] = &[
         id: "field",
         tier: Tier::One,
         built: true,
-        // §11: `input` and `textarea` are one component, and the textarea half carries a wrap index
+        // the design: `input` and `textarea` are one component, and the textarea half carries a wrap index
         // over a 1 MB document. It costs its visible window.
         layer: Layer::L2,
         families: &[Family::F6Input, Family::F1Text],
@@ -609,15 +609,15 @@ pub const INVENTORY: &[Component] = &[
         built: true,
         layer: Layer::L2,
         families: &[Family::F7Collections, Family::F13System],
-        // **The cut, and no rule at all** — components architecture 25, resolved. Eleven entries
+        // **The cut, and no rule at all** — a components decision, resolved. Eleven entries
         // stood here for the whole life of the freeze — the two rules, the four corners and the
         // five junctions — and `collect.rs` names none of them on any line: a table draws its
-        // **columns**, and §6 puts its separators in the caller's cells. That is the same false
+        // **columns**, and the design puts its separators in the caller's cells. That is the same false
         // claim architecture 20 struck from `tree`'s row and it is struck for the same reason,
         // because the column's operative verb is *draws*.
         //
         // They did not vanish: [`crate::glyphs::DELEGATED`] is where they went, because unlike a
-        // tree's indent guide they are vocabulary a caller **can** spell — §6 hands it the job — and
+        // tree's indent guide they are vocabulary a caller **can** spell — the design hands it the job — and
         // an entry a caller needs to degrade with the theme is not an entry nobody asks for.
         glyphs: &[Glyph::Ellipsis],
         constructions: 1,
@@ -635,10 +635,10 @@ pub const INVENTORY: &[Component] = &[
         built: true,
         layer: Layer::L2,
         families: &[Family::F7Collections],
-        // **The chevron pair and the cut, and no indent guide** — components architecture 20,
+        // **The chevron pair and the cut, and no indent guide** — a components decision,
         // resolved. `VLine`, `TeeLeft` and `BottomLeft` stood here for four tickets as *the indent
         // guides* and were drawn by nothing: the shipped indent is one `Ink::run` of spaces, and
-        // §7 forbids every route to a correct guide column (see `crate::glyphs::UNDRAWN` for the
+        // the design forbids every route to a correct guide column (see `crate::glyphs::UNDRAWN` for the
         // four that were refuted). A demand for a glyph that never reaches a cell is a sentence
         // about a screen this crate does not draw, so the column lost them rather than the
         // component gaining a fifth field.
@@ -653,7 +653,7 @@ pub const INVENTORY: &[Component] = &[
         // `>`, exactly an ASCII `ArrowRight`, so **468 truncated labels ended in the collapsed-node
         // marker**. How many labels truncate is a function of the width.
         //
-        // **Scene 46 is this axis** (production 07) and it decides the **partition**: exact at
+        // **Scene 46 is this axis** (a later pass) and it decides the **partition**: exact at
         // every width, with the two builds of the indent drawing the **same screen** at 300 columns
         // *and* at 40, where the label is already cut from 21 columns to 19 and to 17. What
         // separates them is the clamp binding, at 22 and at 21. See `crate::forest::MISDRAWN`.
@@ -680,7 +680,7 @@ pub const INVENTORY: &[Component] = &[
         // component C09's `>` would have put the collapsed marker on the end of a truncated option
         // in.
         //
-        // **`ArrowUp` went with `tree`'s three** (components architecture 20). *`ArrowUp`/
+        // **`ArrowUp` went with `tree`'s three** (a components decision). *`ArrowUp`/
         // `ArrowDown` steps the popup's list* describes `scroll::scrollbar`'s stepper caps, and a
         // popup's gutter is `scroll::bar_into` — `Thumb` and `Track`, no caps. `ArrowDown` stays
         // because it is drawn, as the **chevron** rather than as a stepper.
@@ -692,7 +692,7 @@ pub const INVENTORY: &[Component] = &[
         ],
         constructions: 1,
         can_shrink: false,
-        // §12 states the wheel defect inside its own section: the literal `Copy`-only body moves
+        // the design states the wheel defect inside its own section: the literal `Copy`-only body moves
         // the offset **0 in 20 wheel clicks**.
         owns_offset: true,
         scrolled: true,
@@ -725,7 +725,7 @@ pub const INVENTORY: &[Component] = &[
         families: &[Family::F3Scrolling],
         glyphs: &[],
         constructions: 1,
-        // §9 states the shrink axis inside its own section: the tail is not free — the range from
+        // the design states the shrink axis inside its own section: the tail is not free — the range from
         // the extent to the end of the viewport is inside the rectangle, and the component that
         // owns the rectangle must write it.
         can_shrink: true,
@@ -758,7 +758,7 @@ pub const INVENTORY: &[Component] = &[
         ],
         constructions: 1,
         can_shrink: false,
-        // §9: a band that were a second scroll area would win the wheel from the body it is a
+        // the design: a band that were a second scroll area would win the wheel from the body it is a
         // header of. The bar is not a second scroll area and does not own the offset.
         owns_offset: false,
         scrolled: false,
@@ -777,11 +777,11 @@ pub const INVENTORY: &[Component] = &[
         glyphs: &[Glyph::HLine],
         constructions: 1,
         can_shrink: false,
-        // §9, R17 §5: **one hit entry for all four bands**, because a band that were a second
+        // the design, R17 the design: **one hit entry for all four bands**, because a band that were a second
         // scroll area would win the wheel from the body it is a header of. The `false` here is the
         // recorded decision, not an omission.
         owns_offset: false,
-        // §9: a band shares one of the two offsets and pins the other to zero, **and it must be a
+        // the design: a band shares one of the two offsets and pins the other to zero, **and it must be a
         // view** — drawn by arithmetic instead it has identical writes, identical verbs, identical
         // output and **3 243 cells re-damaged every steady frame**.
         scrolled: true,
@@ -812,7 +812,7 @@ pub const INVENTORY: &[Component] = &[
         families: &[Family::F10Charts, Family::F5Indicators, Family::F13System],
         // The axes. The tees and corners are the rest.
         glyphs: &[Glyph::HLine, Glyph::VLine],
-        // **2.** ASCII against Unicode is 7 276 cells over 80 of 80 rows — ADR 0009 literally, a
+        // **2.** ASCII against Unicode is 7 276 cells over 80 of 80 rows — the rule literally, a
         // different construction. Unicode against Extended is **0 cells in the chart pane**.
         constructions: 2,
         can_shrink: false,
@@ -827,11 +827,11 @@ pub const INVENTORY: &[Component] = &[
         id: "plot",
         tier: Tier::One,
         built: true,
-        // `architecture.md` §4.7 is explicit: an L0 leaf, not a composite.
+        // `architecture.md` the design is explicit: an L0 leaf, not a composite.
         layer: Layer::L0,
         families: &[Family::F10Charts, Family::F5Indicators, Family::F13System],
         glyphs: &[],
-        // **3, and it is the only 3 in the freeze.** §13 measured Unicode against Extended on the
+        // **3, and it is the only 3 in the freeze.** the design measured Unicode against Extended on the
         // rendered surface: **882 cells differ in the plot pane**, which is one bit of vertical
         // resolution bought at the cost of series colour — a braille cell has one `Paint` for all
         // eight dots where a quadrant carries a foreground and a background, and the 25 cells where
@@ -896,7 +896,7 @@ pub const INVENTORY: &[Component] = &[
         layer: Layer::L1,
         families: &[Family::F5Indicators, Family::F13System],
         glyphs: &[Glyph::Thumb, Glyph::Track],
-        // **2, and this is the number §17 names.** Block elements are the Unicode rung by
+        // **2, and this is the number the design names.** Block elements are the Unicode rung by
         // `CONTEXT.md`'s own definition — *Unicode with box drawing and block elements* — so an
         // operator who promises block elements has promised all of them, and there is no third
         // thing for a meter to build.
@@ -913,7 +913,7 @@ pub const INVENTORY: &[Component] = &[
         layer: Layer::L1,
         families: &[Family::F5Indicators, Family::F10Charts],
         glyphs: &[],
-        // **2 by `meter`'s argument, and the spec does not name this number.** Ticket 34 says a
+        // **2 by `meter`'s argument, and the spec does not name this number.** an earlier pass says a
         // sparkline is `chart` at a small rectangle with no axes, no gutter and no axis loop; the
         // prefix ladder is 2 / 9 / 9 and the top two rungs are the same block, so the third rung is
         // The original's and `plot` earns it alone. Recorded here as derived rather than stated.
@@ -930,7 +930,7 @@ pub const INVENTORY: &[Component] = &[
         // `fit`'s remainder over one row or one column, plus a `Glyph`.
         layer: Layer::L0,
         families: &[Family::F2Structure],
-        // **`Ellipsis` arrived with components ticket 35 and it is a correction rather than a
+        // **`Ellipsis` arrived with an earlier pass and it is a correction rather than a
         // change**: `rule_into` has gone through `crate::glyphs::elide` since it was written, so a
         // caption wider than its line has always been able to draw a marker this column did not
         // declare. Under-declaring is the quiet direction — the within-component collapse gate
@@ -946,7 +946,7 @@ pub const INVENTORY: &[Component] = &[
         id: "status_bar",
         tier: Tier::Two,
         built: true,
-        // Ticket 35: **the same construction as a sticky header or footer** — a rectangle split
+        // an earlier pass: **the same construction as a sticky header or footer** — a rectangle split
         // that shares one of the two offsets and pins the other to zero, and it must be a view.
         layer: Layer::L3,
         families: &[Family::F2Structure, Family::F13System],
@@ -973,7 +973,7 @@ pub const INVENTORY: &[Component] = &[
         families: &[Family::F7Collections, Family::F8Navigation],
         // **`Ellipsis` beside the two arrows**, and this row is where C09 pair would land if
         // it came back: a page number elided next to a `›` stepper is `tree`'s `Ellipsis`-spelled-
-        // `>` defect on a pager. It does not collide — components ticket 05 spelled `Ellipsis` `~`
+        // `>` defect on a pager. It does not collide — an earlier pass spelled `Ellipsis` `~`
         // at ASCII — and `crate::glyphs::within_component_collapses` is what keeps saying so.
         glyphs: &[Glyph::ArrowLeft, Glyph::ArrowRight, Glyph::Ellipsis],
         constructions: 1,
@@ -986,7 +986,7 @@ pub const INVENTORY: &[Component] = &[
         id: "form",
         tier: Tier::Two,
         built: true,
-        // **§18 R3's own example**: a composition of shipped components with no new mechanism.
+        // **The design R3's own example**: a composition of shipped components with no new mechanism.
         layer: Layer::L5,
         families: &[Family::F6Input],
         // **`Ellipsis` and nothing else.** A form draws no glyph of its own — the fields are
@@ -1024,12 +1024,12 @@ pub const INVENTORY: &[Component] = &[
         id: "spinner",
         tier: Tier::Three,
         // **The last row of the freeze to be built, and it left Tier 3's at-risk column before it
-        // left the unbuilt column.** Its mechanism — *a component that owns a clock* — was §17's
-        // at-risk entry and *named with an owner and not prototyped*; components ticket 42
-        // prototyped it and ticket 46 shipped it. The rule it lands on is *stored state may be an
-        // anchor, never a phase*, which is what §8 and §9 were already obeying rather than a
+        // left the unbuilt column.** Its mechanism — *a component that owns a clock* — was the design's
+        // at-risk entry and *named with an owner and not prototyped*; an earlier pass
+        // prototyped it and an earlier pass shipped it. The rule it lands on is *stored state may be an
+        // anchor, never a phase*, which is what the design and the design were already obeying rather than a
         // permission granted here: `SpinState` is 32 B against the 40 B tween slot
-        // `disclose::Collapse` already carries as a field. See `MOVED` and ADR 0051.
+        // `disclose::Collapse` already carries as a field. See `MOVED` and the rule.
         built: true,
         layer: Layer::L1,
         families: &[Family::F5Indicators],
@@ -1040,7 +1040,7 @@ pub const INVENTORY: &[Component] = &[
         // nothing four times. So the ladder is the component's own table, exactly as
         // `chart::raster::RUNGS` is `chart`'s and `crate::media::sub_rows` is the picture's.
         glyphs: &[],
-        // **3, and it is derived rather than argued — which is what ticket 46 owed and 42 could
+        // **3, and it is derived rather than argued — which is what an earlier pass owed and 42 could
         // not.** The rule points at 1 on the grounds that every spelling is exactly one cell and
         // no spelling is blank; both are true of the shipped ladder and *neither decides it*. What
         // decides it is whether the rung changes what is **built**, and
@@ -1049,7 +1049,7 @@ pub const INVENTORY: &[Component] = &[
         // `crate::indicate::tests::a_spinner_is_three_constructions_and_the_ladder_is_its_own`, the
         // way `chart`, `plot`, `meter` and `sparkline` each assert theirs against a shipped table.
         //
-        // **It was 2 in ticket 42 and the correction is the rung boundary, not the count.** The
+        // **It was 2 in an earlier pass and the correction is the rung boundary, not the count.** The
         // prototype put the braille spinner at `Unicode | Extended`, and the engine's own
         // `GlyphSet` says `Unicode` is *Unicode a normal text font covers* while `Extended` is
         // *braille, block elements, emoji, powerline* — so a terminal that promised the middle rung
@@ -1086,11 +1086,11 @@ pub const INVENTORY: &[Component] = &[
         families: &[Family::F12Files, Family::F11Media],
         glyphs: &[Glyph::VLine, Glyph::Ellipsis],
         constructions: 1,
-        // §15 states the shrink axis in one clause: **a landing *is* a shrink**, from another
+        // the design states the shrink axis in one clause: **a landing *is* a shrink**, from another
         // thread for the first time. Left unclamped the body draws nothing at all — 1 650 writes
         // against 4 166.
         can_shrink: true,
-        // §15: the offset belongs to neither side, and four spellings produce four different
+        // the design: the offset belongs to neither side, and four spellings produce four different
         // defects on a 4 000-row file, an 800-row file and a 74-row viewport.
         owns_offset: true,
         scrolled: true,
@@ -1230,7 +1230,7 @@ mod tests {
             }
         }
 
-        // The three §17 records, by name, so that losing one is a diff that deletes an assertion.
+        // The three the design records, by name, so that losing one is a diff that deletes an assertion.
         assert_eq!(
             moved,
             BTreeSet::from([
@@ -1260,8 +1260,8 @@ mod tests {
         // which would put the built count at sixteen — the Tier 1 count exactly, and it could not
         // be reached even at nineteen without contradicting the three sentences about
         // `slider`, `file_picker` and `file_preview_pane`. Recorded here rather than resolved by
-        // bending a column: ticket 34 built six of Tier 2's nine and ticket 35 the other three, and
-        // ticket 46 built `spinner`, the one row that was genuinely at risk rather than merely
+        // bending a column: an earlier pass built six of Tier 2's nine and an earlier pass the other three, and
+        // an earlier pass built `spinner`, the one row that was genuinely at risk rather than merely
         // mis-tiered. **So the number that reproduces from the freeze is twenty-nine, which is
         // every row of it** — and this assertion and `INVENTORY.len()` are the same number for the
         // first time.
@@ -1350,7 +1350,7 @@ mod tests {
         // Four rows are not built; if any of them were declared, `built` would be understating the
         // crate rather than overstating it — the same drift with the sign flipped, and a gate that
         // only looked at the `true` rows could not see it. Zero of one, counted rather than assumed
-        // — and it was the direction that fired when ticket 35 declared its three components before
+        // — and it was the direction that fired when an earlier pass declared its three components before
         // moving their column, which is the reverse-direction half doing exactly its job.
         let declared_but_not_built: Vec<&str> = INVENTORY
             .iter()
@@ -1369,10 +1369,10 @@ mod tests {
             declared_but_not_built.is_empty(),
             "{declared_but_not_built:?} are declared and the `built` column says they are not"
         );
-        // **Zero, and it was one until components ticket 46.** The reverse arm is not decoration
+        // **Zero, and it was one until an earlier pass.** The reverse arm is not decoration
         // now that it can no longer fire from this side: what it is watching is a row arriving
         // `built: false` — a thirtieth component, or a row struck back — with a declaration already
-        // in the tree. That is the direction ticket 35 tripped, declaring its three components
+        // in the tree. That is the direction an earlier pass tripped, declaring its three components
         // before moving their column.
         assert_eq!(INVENTORY.iter().filter(|c| !c.built).count(), 0);
         assert!(
@@ -1475,7 +1475,7 @@ mod tests {
         assert_eq!(row("meter").constructions, 2, "meter");
         assert_eq!(row("plot").constructions, 3, "plot");
 
-        // **Two rows earn the third rung, and they earn it for the same reason.** §13's
+        // **Two rows earn the third rung, and they earn it for the same reason.** the design's
         // measurement is `plot`'s: Unicode against Extended is 0 cells different in the chart pane
         // and 882 in the plot pane, because braille is 256 states a cell where block elements are
         // 8. `spinner` is the original's and the same sentence — ten braille frames where
@@ -1636,7 +1636,7 @@ mod tests {
             );
         }
 
-        // Five families ship no v1 component: F8, F11, F13, F14 and F15. **§17 says two** — F11 and
+        // Five families ship no v1 component: F8, F11, F13, F14 and F15. **The design says two** — F11 and
         // F12 — and that sentence does not reproduce against the table, which puts
         // `file_picker` and `file_preview_pane` in F12 and gives F8, F13 and F14 nothing. Asserted
         // rather than quietly worked around.
@@ -1744,9 +1744,9 @@ mod tests {
                 demanded.insert(format!("{g:?}"));
             }
         }
-        // **The union with `DELEGATED`**, since components architecture 25 split the column: a row
+        // **The union with `DELEGATED`**, since a components decision split the column: a row
         // declares what it *draws*, and what a caller must be able to spell to finish the job the
-        // component hands over is the second list. `table`'s eleven are there — §6 puts a table's
+        // component hands over is the second list. `table`'s eleven are there — the design puts a table's
         // column separators in the caller's cells — and without them this count is fifteen.
         for d in crate::glyphs::DELEGATED {
             demanded.insert(format!("{:?}", d.glyph));

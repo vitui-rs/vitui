@@ -994,7 +994,7 @@ pub fn screens(defect: Defect) -> (Screen, Screen) {
             let corpus = clusters::corpus();
             let seat = caret_seat(&corpus);
             // **The caret is seated in the corpus and the buffer is the corpus**, so the boundary
-            // the seat names is a boundary of the text being drawn. Ticket 23 seated it in the
+            // the seat names is a boundary of the text being drawn. An earlier pass seated it in the
             // corpus and drew the document, which was honest while the caret was a column handed
             // to `Ctx::caret` and is not once the caret is a **pair inside a buffer**.
             let text = corpus.text().to_string();
@@ -1155,7 +1155,7 @@ pub fn play_field(screen: &mut Screen, allocations: Allocations) -> Played {
     // two caret gates are unaskable. [`draw_screen`] seats the focus at the end of its own draw,
     // which is where an application seats it; the frame after is the first one where the textarea
     // holds the keyboard. That is the same cadence the rest of this crate already runs on — the
-    // focus is seated from `Response::id` a frame before the key it enables (components 20) — and
+    // focus is seated from `Response::id` a frame before the key it enables (an earlier pass) — and
     // it is a property of the runtime rather than of this screen.
     let mut pen = Pen::new(screen.w, H);
     driver.frame(|cx| {

@@ -806,7 +806,7 @@ pub fn counters_that_separate_them(
 
 // ── the accordion with state, for the questions a `Screen` cannot ask ────────────────────────────
 //
-// A `Screen` is a description of one frame, which is what makes it a value — and three of §8's
+// A `Screen` is a description of one frame, which is what makes it a value — and three of the design's
 // claims are about a **sequence**: a collapse that takes two hundred milliseconds, a click that
 // lands on the frame it lands on, and a focus that vanishes with the body it was inside. Those need
 // state that survives a frame, so they live here rather than in `Screen`.
@@ -917,7 +917,7 @@ impl Live {
             if let Some(id) = seat {
                 cx.focus(id);
             }
-            // **The application's own collapse, with no gesture behind it.** This is where §8's
+            // **The application's own collapse, with no gesture behind it.** This is where the design's
             // vanish-rule arm is reachable at all — see `collapse_all`.
             if all {
                 let now = cx.now();

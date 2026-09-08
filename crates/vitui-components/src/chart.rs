@@ -985,7 +985,7 @@ mod tests {
         // **And `Theme::custom` is called from two files and one line of each**, which is what
         // *counted, not scattered* means as a number. A second **line** is a second palette.
         //
-        // # The second file is components ticket 30's, and it is the exception §14 states
+        // # The second file is an earlier pass's, and it is the exception the design states
         //
         // This assertion read `["chart.rs"]` for one ticket, and widening it is a deliberate edit
         // rather than a loosening — refinement 3, the same procedure row 26 uses for the
@@ -996,7 +996,7 @@ mod tests {
         // palette, decided in one place — is untouched by the second, because a picture has no
         // palette to decide and a symbol's two colours are a specification rather than a choice.
         //
-        // **It moved from `picture.rs` to `media.rs` with components 30**, which is the screen
+        // **It moved from `picture.rs` to `media.rs` with an earlier pass**, which is the screen
         // handing the verb back to the component that owes the census.
         //
         // The line count is what keeps the exception at its argument. Two files, one calling line
@@ -1071,10 +1071,10 @@ mod tests {
 
         // **The palette's own answer, and half of the sentence does not reproduce.**
         //
-        // §13 states `roles_differ_on_wire(Danger, Warn)` and `(Warn, Ok)` **both false** at
+        // the design states `roles_differ_on_wire(Danger, Warn)` and `(Warn, Ok)` **both false** at
         // sixteen colours. On the shipped Catppuccin Mocha palette the first is **true** and only
         // the second is false — asserted as measured rather than bent to fit, and the palette was
-        // deliberately not swapped to make the old number, which is the move components ticket 05
+        // deliberately not swapped to make the old number, which is the move an earlier pass
         // recorded refusing for the same reason.
         //
         // The obligation is unchanged by which of the pairs collapses: **one** collapsing pair is

@@ -2647,7 +2647,7 @@ mod tests {
             slow.total_mb()
         );
 
-        // The reading §15 printed, reconstructed: the rounded KiB figure, read as kB.
+        // The reading the design printed, reconstructed: the rounded KiB figure, read as kB.
         let as_printed = Wire::picture_kib().trunc() * f64::from(slow.pictures) / 1_000.0;
         assert!(
             (as_printed - SECTION_15_TOTAL_MB).abs() < 0.03,
@@ -3065,7 +3065,7 @@ mod tests {
     fn the_body_is_fourteen_thousand_six_hundred_and_fifty_two_cells() {
         assert_eq!(BODY_CELLS, 14_652);
         assert!((body_percent() - 61.05).abs() < 0.01);
-        // **The pane's rectangle is the body plus one reserved gutter each way**, which is §15's
+        // **The pane's rectangle is the body plus one reserved gutter each way**, which is the design's
         // *positive case for bars-reserved* as arithmetic: 198 x 74 is what the component hands its
         // line drawer and 199 x 75 is what it is handed.
         assert_eq!(PANE_W, BODY_W + 1);
@@ -3122,7 +3122,7 @@ mod tests {
         assert_stands_up("scene 25");
 
         // **And the signature owes more than its own name.** Each of these could be deleted while
-        // leaving the declaration scan green, and each is a mechanism §15 assigns away from the
+        // leaving the declaration scan green, and each is a mechanism the design assigns away from the
         // widget.
         let src = files_source();
         for (needle, why) in PANE_OWES {

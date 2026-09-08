@@ -164,7 +164,7 @@ const UNITS: [&str; 4] = ["req/s", "ms", "%", "MB"];
 // The microsecond column of the metric row is a **report** and is gated by nothing (R15).
 //
 // **Where a figure reproduces the original's it says so, and where it does not both columns are printed and
-// the arithmetic behind the difference is stated.** The magnitudes in §2 were taken on C01's
+// the arithmetic behind the difference is stated.** The magnitudes in the design were taken on C01's
 // prototype screen, which this ticket does not own and cannot recover; what a screen owes is that
 // every *direction* and every *structural* number reproduces, and that no figure was aimed at.
 
@@ -1250,8 +1250,8 @@ mod tests {
         );
         assert!(twin.per_frame < CLEARED_EVERY_FRAME + CHIP_FILLED_FACE);
 
-        // **The 15-cell instance, per panel**, which is the unit ADR 0026 states it in and the unit
-        // components ticket 06 reproduced it in.
+        // **The 15-cell instance, per panel**, which is the unit the rule states it in and the unit
+        // an earlier pass reproduced it in.
         assert_eq!(
             BORDER_OVER_TITLE_SCREEN / u64::from(PANELS),
             BORDER_OVER_TITLE
@@ -1282,7 +1282,7 @@ mod tests {
                  cell never* would have caught it and the pair is not the only detector"
             );
         }
-        // And the one that is cheaper in verbs, which is the shape ticket 06 found: a border run
+        // And the one that is cheaper in verbs, which is the shape an earlier pass found: a border run
         // written across its own title is **one verb fewer** a panel.
         let broken = play(Arm::BorderOverTheTitle, &screen());
         assert!(

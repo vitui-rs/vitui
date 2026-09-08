@@ -301,7 +301,7 @@ impl Tally {
         // **The context is here only for its origin**, and it is here because the union has to be in
         // one coordinate system: a fixture that mixed `Ctx::fill` inside a `Ctx::child` with
         // `Ctx::text` at the root would otherwise reproduce exactly the phantom double write
-        // components ticket 19 took out of the other two verbs. See [`Tally::distinct`].
+        // an earlier pass took out of the other two verbs. See [`Tally::distinct`].
         let (ox, oy) = cx.origin();
         for dy in 0..i32::from(h) {
             for dx in 0..i32::from(w) {

@@ -650,7 +650,7 @@ pub fn from_key(k: &Pressed, lead: usize, moved: Option<usize>) -> Option<Gestur
     if k.mods.ctrl() && !k.mods.alt() && k.code == Code::Char('a') {
         return Some(Gesture::All);
     }
-    // **`Esc` and `Space` are keys and not chords**, and the two guards are components ticket 38's
+    // **`Esc` and `Space` are keys and not chords**, and the two guards are an earlier pass's
     // finding: written as `k.code == Code::Escape` alone, `Ctrl+Esc` and `Alt+Esc` cleared the
     // selection and `Alt+Space` toggled a row, so a focused collection ate every accelerator built
     // on either. `crate::keys::is_chord` is the one predicate that decides it, and it
@@ -1187,7 +1187,7 @@ where
     let id = cx.id();
     let len = rows.len;
 
-    // **One `u64`, compared once a frame** (components 13, §10, ADR 0031). Everything this
+    // **One `u64`, compared once a frame** (an earlier pass, the design, the rule). Everything this
     // component stores is a *position* in an order the caller can replace between two frames, and a
     // sort changes no data and no length — so the frame after one draws a perfectly correct list
     // with the wrong rows selected and the editor open on the wrong row. The revision is the only
@@ -1277,11 +1277,11 @@ where
         first,
     );
     resp.changed |= asked.changed;
-    // **The one call ADR 0027 is about, and it is *outside* the scroll scope rather than around the
+    // **The one call the rule is about, and it is *outside* the scroll scope rather than around the
     // row loop.** Without it the rows of every collection on the screen derive the same ids and all
     // but the first are inert, on a screen that renders correctly.
     //
-    // ADR 0027 says *a collection wraps its row loop in `cx.with_id(id, …)`*, and written literally
+    // the rule says *a collection wraps its row loop in `cx.with_id(id, …)`*, and written literally
     // — inside the scope, around the `for` — it draws **nothing at all**. `Ctx::with_id` re-childs
     // the view at `self.area()`, which is `Rect::new(0, 0, w, h)` in the context's own coordinates;
     // inside a scrolled scope those coordinates are the *content's*, so `area()` names content rows
@@ -1472,7 +1472,7 @@ where
         }
         match from_key(&k, st.sel.lead, moved) {
             // **`Escape` is the container's key until this collection has a selection to clear**,
-            // which is architecture issue 22. Every other key in the table is the widget's by
+            // which is the narrowing of `Escape`. Every other key in the table is the widget's by
             // default; `Esc` is the one whose default owner is whatever the widget is *inside*, and
             // a collection that swallowed it unconditionally made `cx.overlay` + `Kind::Dialog` a
             // modal no keypress could dismiss — found by running `crates/vitui-apps/examples/
@@ -1857,7 +1857,7 @@ pub mod defective {
         )
     }
 
-    // ── `table`'s two hostile axes, production 06 ────────────────────────────────────────────────
+    // ── `table`'s two hostile axes, a later pass ────────────────────────────────────────────────
 
     /// **The table whose band draws its columns and not itself**, and it is
     /// what shipped until that issue was answered.
@@ -2587,7 +2587,7 @@ pub mod defective {
             if per_band {
                 // **Three passes, three seeks, three copies of the bounds.** The band's view is
                 // opened once for the whole band here, which is where the 4% comes from — and the
-                // three [`Scan`]s are what §6 means by *cannot share the lockstep scan cursor*.
+                // three [`Scan`]s are what the design means by *cannot share the lockstep scan cursor*.
                 for band in [Band::Left, Band::Scroll, Band::Right] {
                     let (blo, bhi) = match band {
                         Band::Scroll => (vlo, vhi),
@@ -3770,7 +3770,7 @@ where
         ColVirt::ClipOnly => solved.scroll,
     };
 
-    // **Every span in the cell store is a row position**, so the rule ADR 0031 states for the row
+    // **Every span in the cell store is a row position**, so the rule the rule states for the row
     // axis is the same rule here: an order the caller has not reconciled invalidates them. The
     // comparison is `collection`'s own and is read *before* the call, because `collection` stamps
     // the revision on its way through and there is nothing left to notice afterwards.
@@ -3829,7 +3829,7 @@ where
             let band_x = i32::from(solved.left_w);
             let right_x = band_x + i32::from(solved.view_w);
             // **The band's slack is painted in the collection's own tail role** — architecture
-            // issue 24. Not a new option: `opts.coll.tail` is the Role `collection` already paints
+            // the band's slack. Not a new option: `opts.coll.tail` is the Role `collection` already paints
             // the rows below its content with, and the slack is the same fact one axis over.
             let tail = cx.theme().paint(opts.coll.tail);
             let in_band =
@@ -3846,7 +3846,7 @@ where
                     for slot in range.0..range.1 {
                         draw(ink, &mut view, slot, at + solved.x[slot] - shift);
                     }
-                    // **The band writes its own slack** — architecture issue 24, and it is §2's
+                    // **The band writes its own slack**, and it is the design's
                     // rule with **columns** in the sentence instead of rows: *a component handed a
                     // rectangle writes all of it.* A band draws its columns and nothing drew the
                     // band, so a column list whose widths do not reach the viewport left the
@@ -4804,7 +4804,7 @@ pub fn pagination_into<I: Ink>(
     // and is exactly right here, because a pager's axis *is* the horizontal one.
     // **The caller's search, which for a pager is a prefix over its own page numbers** — and it
     // allocates nothing, because a label is [`Digits`] on the stack. `collection` owns the buffer,
-    // the deadline and the bound; this is the half §5 says is the caller's.
+    // the deadline and the bound; this is the half the design says is the caller's.
     let mut find = |buf: &str, range: Range<usize>| {
         range
             .into_iter()
@@ -5034,7 +5034,7 @@ mod tests {
         );
         assert_eq!(ARMS, 13, "§5's own number");
 
-        // The other half of the criterion: the seven names §5 collapses are not inventory rows.
+        // The other half of the criterion: the seven names the design collapses are not inventory rows.
         let ids: Vec<&str> = crate::INVENTORY.iter().map(|c| c.id).collect();
         for absorbed in ABSORBED {
             assert!(
@@ -5409,7 +5409,7 @@ mod tests {
         // carry is the one the type can name.
         assert_eq!(Digits::of(usize::MAX - 1).as_str(), usize::MAX.to_string());
 
-        // And the type-ahead is a prefix over those, which is the caller's search §5 asks for.
+        // And the type-ahead is a prefix over those, which is the caller's search the design asks for.
         use vitui_runtime::keys::Chord;
         let mut st = CollState::new();
         let mut driver = Driver::headless(60, 1).expect("a sink cannot fail to attach");
@@ -6544,11 +6544,11 @@ mod tests {
         assert!(asked, "a keyboard-driven move asks to be brought into view");
         assert_eq!(lead, 1);
         // **The defect**: it asks on a frame where nothing moved, for ever, which is what kills the
-        // wheel. Components 20 owns the gate; what this asserts is that the arm exists and differs.
+        // wheel. An earlier pass owns the gate; what this asserts is that the arm exists and differs.
         assert!(play(&[], false).0);
     }
 
-    // ── components ticket 17: `tree` ─────────────────────────────────────────────────────────────
+    // ── an earlier pass: `tree` ─────────────────────────────────────────────────────────────
 
     /// **Criterion: `tree` is `collection` plus a flatten index, and nothing else.**
     ///
@@ -6562,7 +6562,7 @@ mod tests {
         let source = include_str!("collect.rs");
         // **The scan is over `tree_with`'s own body**, which is the strongest form this file has —
         // `the_column_solve_touches_no_row_and_runs_once_a_frame`'s, one component over — and it
-        // arrived in production 08 because the spelling before it **could not fail**. It was
+        // arrived in a later pass because the spelling before it **could not fail**. It was
         // `crate::dense::declares(source, "collection_chorded(")` over the whole file, and the line
         // holding the needle is not a comment: *a scanner looking for a literal contains that
         // literal*, which is this crate's most-repeated trap arriving on the sentence `tree` rests
@@ -6696,7 +6696,7 @@ mod tests {
             "§7: the `+` costs two verbs a row — the indent run and the chevron cell — over eight \
              rows"
         );
-        // **§2, both ways.** The same cells, each written once, whichever component drew them.
+        // **The design, both ways.** The same cells, each written once, whichever component drew them.
         assert_eq!((tree_writes, tree_distinct), (60 * 8, 60 * 8));
         assert_eq!((list_writes, list_distinct), (60 * 8, 60 * 8));
     }
@@ -6840,7 +6840,7 @@ mod tests {
         // **And nothing outside the rectangle, in the coordinate space the surface is in.**
         //
         // The margin is on the **left** here and it used to be read on the right, because until
-        // components ticket 19 `Pen` recorded a verb where it was *called* rather than where it
+        // an earlier pass `Pen` recorded a verb where it was *called* rather than where it
         // landed: a component narrowed to `x == MARGIN` recorded its first cell at column 0. That
         // is the whole subject, and this test is where the correction is visible —
         // the assertion did not change its meaning, it changed which columns satisfy it.
@@ -7077,7 +7077,7 @@ mod tests {
         // **`merges == 0` with two trees on screen, and the row-keyed spelling is not available
         // here to fail against** — a tree keys per *node* and there is no coarser key a row could
         // take. What the pair separates instead is `with_key` from `Id::keyed`, which was a
-        // difference in *behaviour* until runtime architecture issue 31 — `Ctx::with_key` inside a
+        // difference in *behaviour* until the runtime's own change — `Ctx::with_key` inside a
         // scroll scope re-childed at the content's origin and drew nothing past the first
         // screenful — and is now a difference in spelling alone: the two mint the same id, and
         // only `Id::keyed` produces a value a caller-supplied drawer can be handed.
@@ -7249,7 +7249,7 @@ mod tests {
         assert_eq!(click(&index, (2, 1), 4), (None, 1));
     }
 
-    // ── components ticket 15: `table` ────────────────────────────────────────────────────────────
+    // ── an earlier pass: `table` ────────────────────────────────────────────────────────────
 
     /// **Criterion 1: `table` is `collection` plus a column rect split, and nothing else.**
     ///
@@ -7320,7 +7320,7 @@ mod tests {
             .find("solve_columns(area.w, cols)")
             .expect("it is there");
         // **`collection_shaped` and not `collection_into`**, which is where the row loop went when
-        // components 44 threaded the one field `whole_content` is: `table` *is* `collection` plus a
+        // an earlier pass threaded the one field `whole_content` is: `table` *is* `collection` plus a
         // rectangle split, so the mistake `collection` has an arm for is a mistake a table can make
         // too, and until O6 asked there was no way to write it down on this side.
         let rows_at = body
@@ -7366,7 +7366,7 @@ mod tests {
         let t = solve_columns(100, &free);
         assert_eq!(t.w[0], 90, "unpinned, the same weight is honoured");
 
-        // The two denominators §6 names: a pin claims a share of the *table*, a lane a share of the
+        // The two denominators the design names: a pin claims a share of the *table*, a lane a share of the
         // *content*, and `max(viewport, Σ minima)` is not the table.
         let overflowing = [
             Column::new(0, "pin", Constraint::Fixed(10)).pinned_left(10),
@@ -7518,7 +7518,7 @@ mod tests {
             "the row-keyed build is the defect and has stopped reproducing it"
         );
 
-        // **Every cell of a row but the first is inert**, which is the arithmetic §4 states.
+        // **Every cell of a row but the first is inert**, which is the arithmetic the design states.
         let cells = keyed_regions - inert_regions;
         let rows_on_screen = row_regions - inert_regions;
         assert_eq!(
@@ -7657,8 +7657,8 @@ mod tests {
         // so the two spaces landed on top of each other and the pair reported a double write of
         // precisely one header row on a table that has none.
         //
-        // **Components ticket 19 moved the union into root coordinates** — `Ctx::origin`, runtime
-        // architecture issue 32 — so the pair is meaningful over a table with a header now, and
+        // **An earlier pass moved the union into root coordinates** — `Ctx::origin`, runtime
+        // the context's origin — so the pair is meaningful over a table with a header now, and
         // `crate::grid` playing its scene without one is a choice rather than a workaround.
         assert_eq!(
             head_w - head_d,
@@ -7680,7 +7680,7 @@ mod tests {
         // assertion above still passed — they all play at `x == 0`, where the two agree. A table
         // handed the interior of a panel drew its header one column into the border.
         //
-        // Offset the table by twelve. **Components ticket 19 changed how this half is asserted and
+        // Offset the table by twelve. **An earlier pass changed how this half is asserted and
         // not what it asserts**: the recorder now unions in root coordinates, so both spaces are
         // one space, the correct table is a partition of its rectangle, and the *defect* is what
         // shows up as a double write instead of the correct build showing up as one.

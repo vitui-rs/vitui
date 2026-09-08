@@ -1705,7 +1705,7 @@ mod tests {
 
         // The whole ladder, so that a fourth arm on either axis cannot arrive spelled `Some(..)`.
         // The tier this crate can hold is one — `ColorDepth` is `reachable_as: None` in
-        // `crates/vitui-runtime/src/line.rs`, register row 45 — so the sweep is the rung's.
+        // `crates/vitui-runtime/src/line.rs`, a register row — so the sweep is the rung's.
         let mut seen = Vec::new();
         driver.frame(|cx| seen.push(tier(cx.theme())));
         assert_eq!(seen, vec!["truecolor/extended".to_string()]);

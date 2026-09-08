@@ -178,7 +178,7 @@ pub mod window;
 // media, F13 system and F14 terminal-native ship no v1 component of their own, and F15 has no
 // module here at all because its twenty-three entries emit no cells and are the runtime's.
 //
-// **The directory names are a spelling and not a decision.** §19 is explicit that no ticket
+// **The directory names are a spelling and not a decision.** the design is explicit that no ticket
 // ratified `architecture.md` the list and that renaming one reopens nothing. What is settled is
 // the join.
 pub mod canvas;

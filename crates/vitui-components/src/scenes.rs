@@ -1250,7 +1250,7 @@ const PINS_SCENE_37: &[Instrument] = &[
     // **The finding this scene turned up and could not repair**, kept as a standing instrument
     // because a measurement with no test under it is a sentence — the `pointless_oracle`
     // one component over, and the same review finding behind it. It was a tripwire reading *written
-    // by nothing*; architecture issue 24 answered the question and it fired, so it is now the
+    // by nothing*; the band's slack answered the question and it fired, so it is now the
     // repaired gate under its own name.
     Instrument::Unit {
         file: GRID,
@@ -1867,7 +1867,7 @@ pub const SCENES: [Scene; 47] = [
         owed: false,
         from_a_survived_defect: false,
         standing: Standing::Evaluated { by: STANDS_SCENE_1 },
-        // **Empty, and it was three entries until components ticket 10.** Everything that ran over
+        // **Empty, and it was three entries until an earlier pass.** Everything that ran over
         // a stand-in now runs over the components, so it is a standing and not a rehearsal.
         rehearsed_by: &[],
     },
@@ -1875,8 +1875,8 @@ pub const SCENES: [Scene; 47] = [
         number: 2,
         on_spec_table: true,
         name: "the same screen drawn naive and correct",
-        // **§2 states the two sizes in the same sentence as the number** — *0 of 24 000 cells
-        // differ, at 300x80 and at 120x40* — and components ticket 09 runs it at both. It is a
+        // **The design states the two sizes in the same sentence as the number** — *0 of 24 000 cells
+        // differ, at 300x80 and at 120x40* — and an earlier pass runs it at both. It is a
         // `Two` and not a `Screen` for the reason the arm exists: the scene **is** the pair.
         size: Size::Two {
             wide: (300, 80),
@@ -1918,9 +1918,9 @@ pub const SCENES: [Scene; 47] = [
         // **The one of the five that is not a hostile axis**, and the one that found why criterion
         // 6 asks for `regions`: a listing that iterates its whole content writes *exactly* what the
         // windowed one writes, because the engine reports a fully clipped verb as zero columns. So
-        // The register row 4 — *writes flat 1k -> 1M* — is green on it and the hit index is not.
+        // The a register row — *writes flat 1k -> 1M* — is green on it and the hit index is not.
         //
-        // **Stood up by components 12**, which is where `crate::listing::draw_into` stopped being a
+        // **Stood up by an earlier pass**, which is where `crate::listing::draw_into` stopped being a
         // stand-in row loop: both arms are `crate::collect::collection_into` and its `defective`
         // twin, so the two numbers below are the component's rather than the screen's imitation of
         // one.
@@ -1985,10 +1985,10 @@ pub const SCENES: [Scene; 47] = [
         stands: COLLECTION,
         owed: false,
         from_a_survived_defect: true,
-        // **The one scene of the five components 12 did not turn, and it stayed red for eight more
+        // **The one scene of the five an earlier pass did not turn, and it stayed red for eight more
         // tickets.** Its failing set was the defect and not the missing subject, and the original's
-        // criterion said so: *every scene of ticket 11 is green except the wheel gate, which stays
-        // pinned red for ticket 20.* Components 20 stood it up over the shipped component with a
+        // criterion said so: *every scene of an earlier pass is green except the wheel gate, which stays
+        // pinned red for an earlier pass.* an earlier pass stood it up over the shipped component with a
         // posted notch — `crate::wheel` — and the figure it was pinned on did not move, because
         // neither substitution had been on the side of either arm.
         standing: Standing::Evaluated { by: STANDS_SCENE_6 },
@@ -2089,10 +2089,10 @@ pub const SCENES: [Scene; 47] = [
         stands: COLLAPSIBLE,
         owed: false,
         from_a_survived_defect: false,
-        // **This row said `components 16` and 16 did not own it.** Components the table is
+        // **This row said `an earlier pass` and 16 did not own it.** Components the table is
         // scenes 8 and 9 — the forest and the fold over 349 524 rows — and the original's is 10 and 11.
         // Corrected while it was red, because `inverted_by` is what a reader follows to find out who
-        // owes a scene its subject; **components 22 is what stood it up.**
+        // owes a scene its subject; **An earlier pass is what stood it up.**
         standing: Standing::Evaluated { by: PINS_SCENE_10 },
         rehearsed_by: &[],
     },
@@ -2115,7 +2115,7 @@ pub const SCENES: [Scene; 47] = [
         stands: COLLAPSIBLE,
         owed: false,
         from_a_survived_defect: false,
-        // **Components ticket 22, and it is green *through* the subject.** `crate::accordion`'s
+        // **An earlier pass, and it is green *through* the subject.** `crate::accordion`'s
         // `draw_into` calls `disclose::collapsible_into` and the arm that does not cull is
         // `disclose::defective::zero_rect`, so every figure this screen reports — the 408 on both
         // columns, the two surfaces 0 cells apart, the mid-transition 26 — is a measurement of the
@@ -2172,9 +2172,9 @@ pub const SCENES: [Scene; 47] = [
         number: 14,
         on_spec_table: true,
         name: "a select, a menu with a submenu, a modal and a scrim",
-        // **`Screen` and not `Unstated`, and §12 states it in the same sentence as the counts**:
+        // **`Screen` and not `Unstated`, and the design states it in the same sentence as the counts**:
         // *300x80, 312 chips, two selects, a menu bar; minimum of 60 steady frames.* Components
-        // ticket 25 plays it at exactly that.
+        // an earlier pass plays it at exactly that.
         size: Size::Screen { w: 300, h: 80 },
         content: Content::Layers { layers: 5 },
         gestures: &[Gesture::Open { bodies: 5 }],
@@ -2362,11 +2362,11 @@ pub const SCENES: [Scene; 47] = [
                   3 535 is ~423 cells under one span per surface row",
         covers: &[],
         stands: SCROLLING,
-        // **Still `(owed)`, and the reason is the finding rather than the work.** §21 marks this
+        // **Still `(owed)`, and the reason is the finding rather than the work.** the design marks this
         // row owed and states its figure as an *amplification*; the amplification is not
         // measurable on the engine that ships, because `crates/vitui-engine/src/damage.rs` is a
-        // per-row bitset that is exact by construction. What components ticket 18 collected is the
-        // number underneath it — the double write — and striking the mark here while §21 still
+        // per-row bitset that is exact by construction. What an earlier pass collected is the
+        // number underneath it — the double write — and striking the mark here while the design still
         // prints `(owed)` would put this value and the spec on two different sides of a sentence
         // only the spec may change.
         owed: true,
@@ -2389,7 +2389,7 @@ pub const SCENES: [Scene; 47] = [
                     name: "the_owed_figure_is_the_span_model_and_the_double_write_is_the_measurable_one",
                 },
                 // **The reserved arm is the shipped component and the overlay arm could not be**,
-                // which is components 19's first criterion from the instrument's side.
+                // which is an earlier pass's first criterion from the instrument's side.
                 Instrument::Unit {
                     file: AREA,
                     name: "the_two_areas_scene_stands_on_a_shipped_scroll_area",
@@ -2419,9 +2419,9 @@ pub const SCENES: [Scene; 47] = [
         standing: Standing::Unsubjected {
             inverted_by: "components 05",
         },
-        // **Rehearsed as a count, and still `Unsubjected`.** Components ticket 05 measures the
+        // **Rehearsed as a count, and still `Unsubjected`.** an earlier pass measures the
         // repertoire axis in full and the colour axis not at all — `ColorDepth` is a barrier, which
-        // register row 45 records — and a count over three rungs is not this screen on a terminal.
+        // a register row records — and a count over three rungs is not this screen on a terminal.
         rehearsed_by: &[
             Instrument::Unit {
                 file: "crates/vitui-components/tests/glyph_matrix.rs",
@@ -2476,7 +2476,7 @@ pub const SCENES: [Scene; 47] = [
         stands: MEDIA,
         owed: false,
         from_a_survived_defect: false,
-        // **Stood up by components 30, and every figure it was pinned with reproduced.** The screen
+        // **Stood up by an earlier pass, and every figure it was pinned with reproduced.** The screen
         // now draws through `crate::media::picture_into` and `crate::media::qr_into`, with
         // `Pairing::Inverted` and `Ladder::Braille` routed to `crate::media::defective` — the
         // shipped body with one argument changed, which is `crate::ink`'s own rule against a gate
@@ -2504,9 +2504,9 @@ pub const SCENES: [Scene; 47] = [
         content: Content::Files { files: 20 },
         gestures: &[Gesture::Select { n: 20 }],
         decided: "R18 §5's crossover: 1 picture / 536 KB against 20 / 10.7 MB",
-        // **Claimed by components 32**, which is what the empty list was waiting for: a scene that
+        // **Claimed by an earlier pass**, which is what the empty list was waiting for: a scene that
         // is waiting for its subject is not yet evidence of anything, so `covers` stayed empty
-        // while it was red. §15 states both axes in its own words — *a landing is a shrink*, from
+        // while it was red. The design states both axes in its own words — *a landing is a shrink*, from
         // another thread for the first time, and the four offset spellings — and the screen now
         // measures both through the component.
         covers: &[
@@ -2517,8 +2517,8 @@ pub const SCENES: [Scene; 47] = [
         owed: false,
         from_a_survived_defect: false,
         // **Corrected twice while it was `Unsubjected`, then stood up and then inverted.** It named
-        // `components 29`, whose own table is one scene and whose criteria never mention a
-        // directory; components 31 stood the screen up and pinned it red on the subject; components
+        // `an earlier pass`, whose own table is one scene and whose criteria never mention a
+        // directory; an earlier pass stood the screen up and pinned it red on the subject; components
         // 32 declared the subject, and every figure below is now taken through
         // `crate::files::file_preview_pane`.
         standing: Standing::Evaluated { by: &PINS_SCENE_23 },
@@ -2539,7 +2539,7 @@ pub const SCENES: [Scene; 47] = [
         // **The same hole as scene 25 with no user in it**, which is why it is a scene of its own
         // and not a second gesture on that one: a directory still being listed splices batches into
         // a sorted order and the cursor's file changes under it with nobody pressing anything.
-        // Green through the subject since components 32.
+        // Green through the subject since an earlier pass.
         standing: Standing::Evaluated { by: &PINS_SCENE_24 },
         rehearsed_by: &[],
     },
@@ -2558,7 +2558,7 @@ pub const SCENES: [Scene; 47] = [
         // **The sixth arrival of the memo-key rule, and the only one whose trigger is not a
         // gesture.** A preview pane's question is a *file* and every natural way to name it names a
         // *position*; one re-sort is one line of application code and no keystroke at all. Green
-        // through the subject since components 32, and the key is now the component's parameter
+        // through the subject since an earlier pass, and the key is now the component's parameter
         // rather than the screen's own branch.
         standing: Standing::Evaluated { by: &PINS_SCENE_25 },
         rehearsed_by: &[],
@@ -2579,8 +2579,8 @@ pub const SCENES: [Scene; 47] = [
         stands: &STANDS_THE_GALLERY,
         owed: false,
         from_a_survived_defect: false,
-        // **Stood up by components 40, and its own `inverted_by` had named components 39.** The
-        // gallery has existed since 39 and the scene went on saying *not played: `components 39`
+        // **Stood up by an earlier pass, and its own `inverted_by` had named an earlier pass.** The
+        // gallery has existed since 39 and the scene went on saying *not played: `an earlier pass`
         // builds the subject* — a citation that had decayed into naming a resolved ticket, which is
         // the near-miss runtime 22 warned about arriving on the scene list. 40 is where it turns
         // because 40 is the ticket that measures the scene's own number.
@@ -2602,8 +2602,8 @@ pub const SCENES: [Scene; 47] = [
         stands: &STANDS_THE_GALLERY,
         owed: false,
         from_a_survived_defect: false,
-        // **Stood up by components 41, and what it took was the gate being rewritten.** The original's
-        // clause here — *R20 §3 has no caller; six panels keep the old palette permanently* — is
+        // **Stood up by an earlier pass, and what it took was the gate being rewritten.** The original's
+        // clause here — *R20 the design has no caller; six panels keep the old palette permanently* — is
         // two claims, and neither reproduced. The rule really did have no caller, because
         // `crate::memos` finds that **no shipped memo in this crate holds a paint or a cluster**;
         // and no panel keeps the old palette, because `Gallery`'s own clear key names the scheme,
@@ -2615,7 +2615,7 @@ pub const SCENES: [Scene; 47] = [
     },
     // ── this backlog's scenes, beside the table ────────────────────────────────────────────────
     //
-    // **The first scene on this list that §21 does not carry**, and it is not the last: `issues/11`
+    // **The first scene on this list that the design does not carry**, and it is not the last: `issues/11`
     // asks for a *narrow collection* beside the four collection rows, and `issues/23` for the
     // cluster corpus. The table is closed at twenty-seven and `on_spec_table` is what keeps a
     // twenty-eighth from reading as a spec change.
@@ -2628,7 +2628,7 @@ pub const SCENES: [Scene; 47] = [
             narrow: (120, 40),
         },
         content: Content::Assembled { parts: 338 },
-        // **A shrink and not a resize.** §21 refuses to bank the shrink gate written against a
+        // **A shrink and not a resize.** the design refuses to bank the shrink gate written against a
         // terminal resize, because a fresh rectangle has nowhere for the residue to survive. The
         // content that shrinks here is the widget count and the rectangle is 300x80 on every step —
         // `crate::runner::play` refuses a step that moves it.
@@ -2646,7 +2646,7 @@ pub const SCENES: [Scene; 47] = [
         // Empty for the reason, with `chip`'s own narrowing sweep joining the three.
         rehearsed_by: &[],
     },
-    // **The second scene §21 does not carry**, and the ticket that asked for it says so:
+    // **The second scene the design does not carry**, and the ticket that asked for it says so:
     // `issues/11` asks for a *narrow collection* beside the four collection rows. The table is
     // closed at twenty-seven and `on_spec_table` is what keeps a twenty-ninth from reading as a
     // spec change.
@@ -2659,7 +2659,7 @@ pub const SCENES: [Scene; 47] = [
             narrow: (16, 80),
         },
         content: Content::Rows { rows: 80 },
-        // **A resize and not a shrink**, and that is the pairing §21 sanctions rather than the
+        // **A resize and not a shrink**, and that is the pairing the design sanctions rather than the
         // conflation it warns about: scene 5 is this component's shrink — *content shrinking inside
         // a rectangle that does not move* — so the resize spelling here stands **beside** it and
         // not instead of it. The narrow axis is the one axis on which the rectangle really is what
@@ -2735,8 +2735,8 @@ pub const SCENES: [Scene; 47] = [
     Scene {
         number: 31,
         // **Not the table**, and it is on the register instead: *the same table under a
-        // horizontal offset, against itself* is register row 12, C04's, filed as a gate rather than
-        // as a scene. `.scratch/vitui-components-impl/issues/14` asks for it as a scene, so it
+        // horizontal offset, against itself* is a register row, C04's, filed as a gate rather than
+        // as a scene. The criterion asks for it as a scene, so it
         // arrives here beside row 7 the way the narrow collection arrived
         // beside the four collection rows.
         on_spec_table: false,
@@ -2765,7 +2765,7 @@ pub const SCENES: [Scene; 47] = [
         covers: &[("table", Axis::Scrolled)],
         stands: TABLE,
         owed: false,
-        // **False, and it is worth saying why.** §21 marks three rows as existing because a defect
+        // **False, and it is worth saying why.** the design marks three rows as existing because a defect
         // survived every gate then in force, and the count test asserts exactly those three. The
         // band defect did survive every gate C01, C02 and C03 left behind — but the bolding
         // is the authority on which rows carry the flag, and a fourth arriving here to make a point
@@ -2774,7 +2774,7 @@ pub const SCENES: [Scene; 47] = [
         standing: Standing::Evaluated { by: PINS_SCENE_30 },
         rehearsed_by: &[],
     },
-    // **The third scene §21 does not carry**, and components ticket 04 predicted it by name:
+    // **The third scene the design does not carry**, and an earlier pass predicted it by name:
     // *`issues/23` will ask for the cluster corpus*. The ticket asks for it as a **fixture**, and
     // it is registered as a scene anyway for the reason at the top of this module — the ticket's
     // own sentence is *the corpus is not optional and is not sampled*, and a fixture can be
@@ -2801,24 +2801,24 @@ pub const SCENES: [Scene; 47] = [
         covers: &[],
         stands: &[],
         owed: false,
-        // Not a survived defect of the — it is a fixture §11 states in one sentence — but it did
+        // Not a survived defect of the — it is a fixture the design states in one sentence — but it did
         // find two: `truncate` cannot segment across a line break, and `layout::text::wrap` cut a
         // line that exactly filled its band at the *first* space.
         from_a_survived_defect: false,
         standing: Standing::Evaluated { by: PINS_SCENE_32 },
         rehearsed_by: &[],
     },
-    // ── the scene, and the pair §21 had no way to state ───────────────────────
+    // ── the scene, and the pair the design had no way to state ───────────────────────
     //
-    // §21 carries the wheel as **one** row, over one component, and one row is exactly what could
+    // the design carries the wheel as **one** row, over one component, and one row is exactly what could
     // be written while the click was an arithmetic substitution: a delta added to an offset has no
-    // second axis to be wrong on. Components 20 posted a real notch and the pair appeared.
+    // second axis to be wrong on. An earlier pass posted a real notch and the pair appeared.
     //
     // **It is a scene and not a second instrument on the axis.** Scene 31 is the precedent
     // for the other answer and says why it took it: *this row is a second instrument on one axis,
     // not a second axis*. This one is a second axis on a second component, so it claims
     // `(scroll_area, wheeled)` — a pair `AXIS_SCENES` did not hold and `INVENTORY` had declared
-    // since ticket 01.
+    // since an earlier pass.
     Scene {
         number: 33,
         on_spec_table: false,
@@ -2842,7 +2842,7 @@ pub const SCENES: [Scene; 47] = [
         covers: &[("scroll_area", Axis::Wheeled)],
         stands: &["scroll_area"],
         owed: false,
-        // **Not the flag, and the distinction is the same one scene 31 draws.** §21 marks three
+        // **Not the flag, and the distinction is the same one scene 31 draws.** the design marks three
         // rows as existing because a defect survived every gate then in force, and the count test
         // asserts exactly those three. This pair survived every gate too — it survived the *gate*,
         // which is worse — but the bolding is the authority on which rows carry the flag, and
@@ -2864,9 +2864,9 @@ pub const SCENES: [Scene; 47] = [
         },
         rehearsed_by: &[],
     },
-    // ── production the three scenes, and they are the axes §21 stated over one row ───────
+    // ── production the three scenes, and they are the axes the design stated over one row ───────
     //
-    // §21 carries **one** `field` row — scene 13, the wrap memo at 300 and at 120 — and it is the
+    // the design carries **one** `field` row — scene 13, the wrap memo at 300 and at 120 — and it is the
     // narrow axis. The freeze declares all four for this component and three had no scene at all,
     // which is O5's own argument arriving on the row that is worth the most: a pair with no scene
     // is a place a defect that *passed every gate then in force and looked healthier than the
@@ -2905,7 +2905,7 @@ pub const SCENES: [Scene; 47] = [
         covers: &[("field", Axis::Scrolled)],
         stands: FIELD,
         owed: false,
-        // **Not the flag**, and the distinction is the original's and scene 33's: §21 marks three
+        // **Not the flag**, and the distinction is the original's and scene 33's: the design marks three
         // rows as existing because a defect survived every gate then in force, the count test
         // asserts exactly those three, and a fourth arriving here to make a point would change a
         // normative count to make an argument. The argument is in `decided`.
@@ -3038,12 +3038,12 @@ pub const SCENES: [Scene; 47] = [
     },
     // ── production the two, and they are `table`'s last two axes ─────────────────────────
     //
-    // §21 carries one `table` row and it is scene 7 — the twelve-column band under a horizontal
+    // the design carries one `table` row and it is scene 7 — the twelve-column band under a horizontal
     // offset, which covers `scrolled` and `narrow` in one screen. The other two axes the freeze
     // declares had no scene at all, and neither was unexpressible: the shrink is `collection`'s tail
     // and the wheel is `collection`'s reveal, both reached by calling it, and both had been
     // writable since the day `table` was declared. Nothing had scheduled them, which is
-    // `.scratch/vitui-production/README.md`'s whole argument.
+    // the production backlog's whole argument.
     //
     // **They are two files and the three were one**, and the reason is what each axis is
     // decided by: a shrink is a screen and a wheel is an offset.
@@ -3121,14 +3121,14 @@ pub const SCENES: [Scene; 47] = [
     },
     // ── production the four, and they are the overlay family's last ──────────────────────
     //
-    // §21 carries one overlay-family row and it is scene 14 — the family's five configurations,
+    // the design carries one overlay-family row and it is scene 14 — the family's five configurations,
     // whose `covers` is deliberately **empty**: that screen plays no wheel and no scroll, and
     // `crate::popup` says so in as many words. So all four axes the two overlay owners declare had
     // no scene at all, and none of them was unexpressible: both bodies draw the collection, both
     // specs say *reached by calling it*, and nothing had scheduled the question.
     //
     // **All four are in one file where the two were in two**, and the reason is the one
-    // production 05 gives: 06's two axes were decided by two different things — a screen and an
+    // a later pass gives: 06's two axes were decided by two different things — a screen and an
     // offset — and these four are decided by **one**, which is that the list is behind a layer. A
     // layer changes who can see the arithmetic rather than the arithmetic: an overlay body cannot be
     // handed an `Ink`, so no `Pen` had ever seen a popup's interior; and a notch is routed against a
@@ -3227,8 +3227,8 @@ pub const SCENES: [Scene; 47] = [
     },
     // ── production the three, and they are the scroll family's last ──────────────────────
     //
-    // §21 carries **two** rows for this family and neither is a shrink or a band: scene 17 is the
-    // bar fixpoint and scene 18 is `Σ h` as the extent. Scene 33 is components 20's wheel over an
+    // the design carries **two** rows for this family and neither is a shrink or a band: scene 17 is the
+    // bar fixpoint and scene 18 is `Σ h` as the extent. Scene 33 is an earlier pass's wheel over an
     // area. So `(scroll_area, shrunk)`, `(sticky, scrolled)` and `(file_preview_pane, wheeled)` had
     // no scene at all, and **all three had an instrument that could not fail on its own axis** —
     // which is the sharpest form this backlog's argument has taken. See `crate::surround`'s header
@@ -3237,7 +3237,7 @@ pub const SCENES: [Scene; 47] = [
     // **Two files and three scenes**, and the split is the rule rather than a new one:
     // the two screens are decided by one offset and live in one module; a wheel is a **posted
     // notch** and belongs where the drive loop is, because a fourth copy of it would be the
-    // substitution components 20 spent a ticket removing.
+    // substitution an earlier pass spent a ticket removing.
     Scene {
         number: 43,
         on_spec_table: false,
@@ -3312,13 +3312,13 @@ pub const SCENES: [Scene; 47] = [
     },
     // ── production the two, and they are `tree`'s last ───────────────────────────────────
     //
-    // §21 carries **two** rows for this component and neither is a width or a wheel: scene 8 is the
+    // the design carries **two** rows for this component and neither is a width or a wheel: scene 8 is the
     // flatten index at depth 59 999 and scene 9 is a fold. So `(tree, narrow)` and `(tree, wheeled)`
     // had no scene at all, and they were **blocked rather than merely unscheduled** — components
     // architecture 20 was open on whether `tree` draws the three indent guides its freeze row
     // declared, and a guide column takes cells from the label, so a narrow scene written before that
     // answer would have been a scene of a different screen. 20 resolved on 2026-09-04 by taking the
-    // three glyphs off the row, and the partition this scene reads is the one §7 always described:
+    // three glyphs off the row, and the partition this scene reads is the one the design always described:
     // one `Ink::run` of spaces, one chevron cell and the label taking the rest.
     //
     // **Two files and two scenes**, which is the rule rather than a new one: a screen is
@@ -3336,7 +3336,7 @@ pub const SCENES: [Scene; 47] = [
             nodes: crate::forest::NARROW_ROWS as u64,
             depth: crate::forest::SHALLOW as u32 + 1,
         },
-        // **Four rigs and no residue**, which is why these are resizes and not shrinks: §17's
+        // **Four rigs and no residue**, which is why these are resizes and not shrinks: the design's
         // `narrow` axis is *the construction is a function of the width*, so each width is its own
         // frame and there is nothing for a stale cell to survive in. `Size::Two` names the two ends
         // and these name the two the pair cannot — the arrangement one component over.
@@ -3946,12 +3946,12 @@ mod tests {
     #[test]
     fn seventeen_of_the_thirty_four_axis_obligations_have_a_scene_and_seventeen_do_not() {
         let evidence = axis_scenes();
-        // **Twenty-nine since production 08**, which claimed the overlay family's last four —
+        // **Twenty-nine since a later pass**, which claimed the overlay family's last four —
         // `select` scrolled and wheeled, `file_picker` shrunk and wheeled — all four inside a
-        // layer, which is the one thing that decides them. It was twenty-five after production 06,
-        // which claimed `table`'s shrunk and wheeled (§21 states one `table` row and it covers the
-        // other two), twenty-three after production 05, which claimed `field`'s scrolled, shrunk
-        // and wheeled, and twenty after components 32, which claimed the three pairs the three
+        // layer, which is the one thing that decides them. It was twenty-five after a later pass,
+        // which claimed `table`'s shrunk and wheeled (the design states one `table` row and it covers the
+        // other two), twenty-three after a later pass, which claimed `field`'s scrolled, shrunk
+        // and wheeled, and twenty after an earlier pass, which claimed the three pairs the three
         // preview-pane scenes had left empty while they were red: `file_preview_pane` shrunk and
         // scrolled, and `file_picker` scrolled.
         //
@@ -3966,11 +3966,11 @@ mod tests {
         // is corrected.** This one has carried that note since the count first moved, for
         // `PINS_SCENE_22`'s reason. `two_scenes_have_nothing_to_run_over_...` carried none — its
         // name said three and thirty-three while its assertions said two and thirty-four — so
-        // production 06 renamed it, 08 renamed it again from thirty-six, and **09 a third time,
+        // a later pass renamed it, 08 renamed it again from thirty-six, and **09 a third time,
         // from forty**. Each time with its five register citations, which is the cost the policy
         // is priced against.
         //
-        // **Production 10 took the other arm on a name in `crate::obligations`**:
+        // **A later pass took the other arm on a name in `crate::obligations`**:
         // `obligations::tests::all_nine_obligation_queries_are_met_and_o5_was_the_last_to_turn`
         // was renamed rather than annotated, because the note had already named the
         // ticket that would do it — a deferral note prices its own rename.
@@ -4138,9 +4138,9 @@ mod tests {
         // was empty on all three deliberately — a scene waiting for its subject is not yet
         // evidence of anything, and claiming a `(component, axis)` pair there would have been
         // `crate::obligations::Verdict::of`'s vacuity accident arriving on O5's own join.
-        // **Components 32 declared the subject and claims the pairs**, three of them.
+        // **An earlier pass declared the subject and claims the pairs**, three of them.
         //
-        // **And the two subjects stopped answering the same list in production 08.** `file_picker`
+        // **And the two subjects stopped answering the same list in a later pass.** `file_picker`
         // gains scenes 41 and 42 — its own shrink and its own wheel, inside its own layer — and
         // *stands* on 39 and 40 besides, because those two are played over both overlay owners.
         // `file_preview_pane` gains nothing, which is the distinction O5 is built on: the pane's
@@ -4261,12 +4261,12 @@ mod tests {
             LISTING,
             AREA,
             // **The gate's own module, and it is a screen rather than a fixture.** Components
-            // ticket 20: scenes 6 and 33 are played over the shipped `collection` and the shipped
+            // an earlier pass: scenes 6 and 33 are played over the shipped `collection` and the shipped
             // `scroll_area` with a posted notch, which is the thing that separates them from the
             // stand-in they replaced.
             WHEEL,
             // **The component's own module is where its screen is measured too.** Components
-            // ticket 19: four of the gates are properties of `scroll_area`, `scrollbar` and
+            // an earlier pass: four of the gates are properties of `scroll_area`, `scrollbar` and
             // `sticky` rather than of the screen they are played on — the partition of a reserved
             // rectangle, the four bands' one hit entry, the four sites of one unit, and the frame
             // that does not grow with the content — and a screen that could not name them would be
@@ -4284,43 +4284,43 @@ mod tests {
             "crates/vitui-components/src/structure.rs",
             "crates/vitui-components/tests/gates.rs",
             "crates/vitui-components/examples/popup_numbers.rs",
-            // **The picture screen and its report** (components 29). The screen's own file, the
+            // **The picture screen and its report** (an earlier pass). The screen's own file, the
             // way `SERIES` and `POPUP` are — what makes scene 22 red is not the file it is measured
             // in but that the thing being measured is a stand-in painter, which is `by`'s last
             // instrument and the `failing` set beside it.
             PICTURE,
             "crates/vitui-components/examples/media_numbers.rs",
-            // **The preview pane's three screens and their report** (components 31). Same
+            // **The preview pane's three screens and their report** (an earlier pass). Same
             // arrangement as `PICTURE`'s one ticket earlier: the file is where the screens are
             // measured, and what makes scenes 23, 24 and 25 red is that the pane they are measured
             // over is written beside them rather than declared in `files.rs`.
             PREVIEW,
             PREVIEW_NUMBERS,
-            // **The assembled gallery and its report** (components 39, stood up by 40). The screen
+            // **The assembled gallery and its report** (an earlier pass, stood up by 40). The screen
             // is in the library rather than in the application for the reason — it names two
             // defects to be measured *on the assembled gallery*, and a components gate is
             // `cargo test` — so this is the screen's own file in exactly the sense the four above
             // are.
             GALLERY,
             GALLERY_NUMBERS,
-            // **The memo census** (components 41). The clause is *R20 §3 has no caller*, and
+            // **The memo census** (an earlier pass). The clause is *R20 the design has no caller*, and
             // the file that answers it is the one that enumerates the memos — the screen alone
             // cannot say why the rule had no caller, only that nothing on it is stale.
             "crates/vitui-components/src/memos.rs",
-            // **The 598-character form** (components 05), which is the same defect over a value
+            // **The 598-character form** (an earlier pass), which is the same defect over a value
             // that really is made of glyphs and at a corpus small enough to count by hand.
             "crates/vitui-components/tests/glyph_matrix.rs",
-            // **The field's window** (production 05). Scenes 34, 35 and 36 are played there over
+            // **The field's window** (a later pass). Scenes 34, 35 and 36 are played there over
             // the shipped `field`, and the file is the screen's own in exactly the sense `DOCUMENT`
             // is: `crate::document` carries the narrow row and this one carries the other three
             // axes.
             WINDOW,
-            // **Production 08's**, and the overlay family's last four axes: the dropped list, where
+            // **A later pass's**, and the overlay family's last four axes: the dropped list, where
             // both owners' bodies are drawn where a `Pen` can see them.
             DROPPED,
-            // **Production 09's**, and the scroll family's last: the furniture an area writes and
+            // **A later pass's**, and the scroll family's last: the furniture an area writes and
             // its body does not. The file is the screen's own in exactly the sense `WINDOW` is —
-            // `crate::area` carries this family's four §21 rows and this one carries the two axes
+            // `crate::area` carries this family's four the design rows and this one carries the two axes
             // they leave out.
             SURROUND,
         ];
@@ -4433,11 +4433,11 @@ mod tests {
             rows_at_a_time,
             &[Fixture::lines(40, 10, 100).scrolled_to(3)],
         );
-        // **Scene 12 and not scene 11, since components 22.** The measured line has to sit on a
+        // **Scene 12 and not scene 11, since an earlier pass.** The measured line has to sit on a
         // scene that is still red, or the half of this test that matters — *a measured line over a
         // red scene still says it is red* — has nothing to be about. It was scene 6 from components
         // 12 until 20 stood the wheel gate up, then scene 11 until 22 stood the accordion up; the
-        // Scene 12 is stood up since components 24, and the label is the line's own rather than
+        // Scene 12 is stood up since an earlier pass, and the label is the line's own rather than
         // the scene's, so nothing about the property moved with it either time.
         let rehearsal = run.row(
             "twenty fields and a 1 MB pasted textarea",
@@ -4489,7 +4489,7 @@ mod tests {
             "a measured line names how it was measured: {printed}"
         );
         // **The red suffix is still produced, and it is asserted over a scene this list does not
-        // have.** No row of `SCENES` is red since components 26, and the check this replaces was
+        // have.** No row of `SCENES` is red since an earlier pass, and the check this replaces was
         // written against scene 14 — so keeping it pointed at the list would have meant deleting it
         // on the day the last red row went, which is the day it is most worth keeping. `line` takes
         // a `Scene` for exactly this reason.

@@ -1266,7 +1266,7 @@ mod tests {
                 *gesture = d.gesture;
                 *wake = d.wake;
                 // **The tail, and it is the caller's** — every row of the rectangle below the
-                // section is inside it and no section owns it. Spec §9 assigns that line by
+                // section is inside it and no section owns it. The design assigns that line by
                 // name: *the component that owns the rectangle must write it.*
                 let from = match tail {
                     Tail::Fresh => d.used,

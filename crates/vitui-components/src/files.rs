@@ -1088,7 +1088,7 @@ where
     // **The row is a partition of its width**, and the label goes through
     // `crate::glyphs::elided_row_into` — the one place the pad and the marker meet. Written by hand
     // here it would be `crate::input::select`'s drawing transcribed, which is what it was before
-    // components 32's review: `elide` reserves the marker's cell, so padding to the whole width and
+    // an earlier pass's review: `elide` reserves the marker's cell, so padding to the whole width and
     // then writing the marker over the pad's last cell writes that cell twice, on every truncated
     // widget, invisible to every counter but the pair.
     let head = ink.text(cx, area.x, area.y, chevron, paint);
@@ -1105,7 +1105,7 @@ where
     );
     // **And the rows below it, for `crate::input::select`'s reason and by the same three lines** —
     // the face is the rectangle, the hover award covers all of it, and a `Response` has no field a
-    // remainder could be named in. Components 40; the two overlay owners were the only two rows of
+    // remainder could be named in. An earlier pass; the two overlay owners were the only two rows of
     // the freeze that did not write a rectangle taller than their content.
     crate::text::pad_rows(
         ink,
@@ -1130,7 +1130,7 @@ where
             continue;
         }
         // **A chord belongs to the application** — `crate::input::select`'s guard, and components
-        // ticket 38 found both loops missing it together, which is what *one drawing and one drain
+        // an earlier pass found both loops missing it together, which is what *one drawing and one drain
         // loop apart* costs when only the drawing was shared.
         if crate::keys::is_chord(&k) {
             cx.decline(k);
@@ -1221,7 +1221,7 @@ pub(crate) fn picker_body<'f, I: Ink, T>(
     let mut cancelled = false;
     let shell_id = cx.id();
     // **The shell goes through the seam and not through `Direct`** — `crate::input::popup_body`'s
-    // one production 08 change, and its reason: everything a popup drew was invisible to a
+    // one a later pass change, and its reason: everything a popup drew was invisible to a
     // [`Pen`](crate::runner::Pen), so a scene about the picker's list had no picture to compare.
     // What the seam does not reach is a `Ctx::overlay` body, which is unchanged; a `Pen` reaches
     // this function only when a caller invokes it **in the base pass**.
@@ -1264,7 +1264,7 @@ pub(crate) fn picker_body<'f, I: Ink, T>(
     // and the type-ahead own the rest.
     //
     // **It is this function's own two decisions and not `select`'s transcribed** (architecture
-    // issue 23, which refused a second transcription by name). `Enter` answers **the cursor's file
+    // the keyboard question, which refused a second transcription by name). `Enter` answers **the cursor's file
     // id**, which is the same expression a press already answers with, so one meaning has two
     // triggers rather than two meanings one each. `Esc` **cancels** and answers nothing, because a
     // picker's `chosen` is an `Option` that starts empty and *answer what was already there* would
@@ -1275,7 +1275,7 @@ pub(crate) fn picker_body<'f, I: Ink, T>(
             return false;
         }
         // **A chord belongs to the application**, here as much as at the owner, and
-        // components ticket 38 found both of this family's loops missing the guard together.
+        // an earlier pass found both of this family's loops missing the guard together.
         if crate::keys::is_chord(k) {
             return false;
         }
@@ -1326,7 +1326,7 @@ pub(crate) fn picker_body<'f, I: Ink, T>(
     // completed the collection has already moved its cursor and a release-driven choice arrives a
     // frame late.
     //
-    // This body read `clicked` until architecture issue 23, and it is the **pointer** half of that
+    // This body read `clicked` until the picker got a keyboard, and it is the **pointer** half of that
     // issue's own sentence — *the family's two owners are one drawing and not one keyboard*. The
     // measurement is O4's sweep: `select` answers `Shift+Click` and `Ctrl+Shift+Click` and this
     // component answered neither, because a drive that ends at the press never reaches a

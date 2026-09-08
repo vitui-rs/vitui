@@ -954,7 +954,7 @@ mod tests {
         assert_eq!(diff.first.map(|(_, y)| y), Some(1));
         assert_eq!(diff.first.map(|(_, y)| y), Some(1));
 
-        // **And the spelling §21 refuses, as a number.** The same refusal, played over a surface
+        // **And the spelling the design refuses, as a number.** The same refusal, played over a surface
         // that has never held the megabyte, is clean — which is why the shrink axis may not be
         // gated by a resize.
         assert!(

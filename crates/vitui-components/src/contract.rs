@@ -787,7 +787,7 @@ mod live {
         probe(
             t,
             || {
-                // **A textarea, and the caret on a row with one above it and one below.** §11's
+                // **A textarea, and the caret on a row with one above it and one below.** the design's
                 // one flag is a break rule and it decides three of the eighteen binds: at
                 // `WrapKind::Ruler` a one-row `input` has no row to step to, so `Up` and `Down` are
                 // declined, and `Enter` is the caller's submit rather than a cluster.
@@ -1246,7 +1246,7 @@ const COLLECTION_FULL: &[Bind] = &[
     only(Code::Up, 1, "Previous row"),
     only(Code::Down, 2, "Next row"),
     // **`←` and `→` are `↑` and `↓` here**, which is `crate::nav::step`'s own pairing and
-    // components 17's finding: a list's index grows downward, so the two axes are one. A `tree`
+    // an earlier pass's finding: a list's index grows downward, so the two axes are one. A `tree`
     // takes them away again — its `Refusal` reads them as fold and unfold before the cursor sees
     // them — and the sweep is blind to that, because both readings take the key.
     only(Code::Left, 3, "Previous row"),
@@ -1283,13 +1283,13 @@ const COLLECTION_FULL: &[Bind] = &[
     //
     // `pagination` reaches `CollState` and the thirteen arms of `apply` and reaches neither the
     // type-ahead nor `from_click`: it has no labels to seek and reads `Gesture::Plain` from its own
-    // arithmetic, so a modified click on a page number is a plain one (components 35).
+    // arithmetic, so a modified click on a page number is a plain one (an earlier pass).
     //
     // **`Escape` is the fifth and it joined this group by being answered rather than by being
     // declared**. A pager is `Mode::Options` — *exactly one, and it can
     // never become zero* — so `apply` ignores `Gesture::Nothing` there and there has never been
     // anything for the key to clear. It was declared, swallowed and did nothing for the whole of
-    // this crate's life, which is the defect issue 22 is about in its purest form: the sweep could
+    // this crate's life, which is that defect in its purest form: the sweep could
     // not see it, because a key that is consumed reads as answered whatever it did. Clearing a
     // selection that can be empty is a **listing's** property and this is where it belongs.
     key(
@@ -1394,7 +1394,7 @@ const SELECT: &[Bind] = &[
     // The popup's list is `Mode::Single` and `apply` answers `Gesture::All` in `Mode::Multi`
     // **alone**, so *select every row* was a help line no press in this component could perform —
     // declared, swallowed, and doing nothing for the whole of this crate's life. It came off with
-    // `PAGER_BINDS`' second move: architecture issue 22 narrowed `Escape` on exactly this argument
+    // `PAGER_BINDS`' second move: `Escape` was narrowed on exactly this argument
     // and left the two keys beside it, and `crate::collect::owns` is that narrowing said of the
     // whole vocabulary.
     text(
@@ -1602,7 +1602,7 @@ pub const REGISTERED: [(&str, usize); 13] = [
     ("tree", 34),
     // **Eight fewer, and the eight are the listing's**: a pager has no labels to seek and reads
     // `Gesture::Plain` from its own arithmetic, so the type-ahead and the three pointer gestures
-    // are `collection`'s and not the store's — and since architecture issue 22, `Escape` and its
+    // are `collection`'s and not the store's — and since that narrowing, `Escape` and its
     // `Shift` twin are too. A pager is `Mode::Options`, where `apply` ignores `Gesture::Nothing`,
     // so the key had nothing to clear and was swallowed anyway; it now reaches whatever the pager
     // is inside. **Thirty was this number for the whole of the crate's life and two of it were a
@@ -1617,7 +1617,7 @@ pub const REGISTERED: [(&str, usize); 13] = [
     // it answers `Plain` and `Toggle` with one call, which is the fact that already took
     // `Ctrl+Click` off this contract.
     ("select", 33),
-    // **Thirty-three, the same as `select`**, since architecture issue 23 gave the picker's popup a
+    // **Thirty-three, the same as `select`**, since the picker's popup got a
     // keyboard. Eight until then, and the gap was [`PICKER_IS_MISSING`] rather than a smaller
     // component: an open picker could only be used with a mouse and the eight were its *owner's*.
     // The two it lost since are `select`'s two, because the two share one `&[Bind]` and one body.
@@ -1901,7 +1901,7 @@ mod tests {
             .iter()
             .flat_map(Bind::spellings)
             .collect();
-        // **Eight spellings over six binds**, and it was four over four until architecture issue 22
+        // **Eight spellings over six binds**, and it was four over four until the narrowing
         // moved `Escape` into this group and the applications moved `Ctrl+A` after it: `key`
         // declares a chord and its `Shift` twin and `deaf` declares both too, so the two binds that
         // are not a click or the text class carry two each.
@@ -2050,7 +2050,7 @@ mod tests {
             ("field", Trigger::Key(Chord::new(Code::Backspace).ctrl())),
             // **Not `Ctrl+Down` for either overlay owner**: open, the popup's `ctrl_step` owns that
             // chord, and a leak test that named it would be asserting the absence of a shipped
-            // binding. It *was* named for `file_picker` until architecture issue 23, and it was a
+            // binding. It *was* named for `file_picker` until the picker got a keyboard, and it was a
             // true statement about a component with no keyboard rather than a leak being shut —
             // which is the same sentence as the issue itself. The four below are the two owners'
             // own keys with a modifier on them, which nothing binds on either.
@@ -2109,7 +2109,7 @@ mod tests {
             }
         }
         // **The fact, read out of the engine's own surface**, and the needle is the *rule* rather
-        // than one name. `graphemes()` and `width_of()` are what engine ticket 06 exports; a word
+        // than one name. `graphemes()` and `width_of()` are what an engine change exports; a word
         // iterator could arrive as `words`, `word_starts`, `next_word`, `iter_words` or
         // `word_boundaries`, and a scan for one of those five is the needle problem this map has
         // already met five times — `pub fn picture(` against `pub fn picture<P: Pixels>(`. So the
@@ -2155,7 +2155,7 @@ mod tests {
         assert_eq!(PICKER_IS_MISSING, 0);
         assert_eq!(picker.len(), 33, "and thirty-three is what both answer");
         // **Both are swept, not just declared.** The declaration being one slice makes the equality
-        // above free; this is the half that still costs something, and it is the half issue 23 was
+        // above free; this is the half that still costs something, and it is the half the keyboard question was
         // about — `registered()` runs the shipped component.
         assert_eq!(
             contract("file_picker").registered(),
@@ -2193,7 +2193,7 @@ mod tests {
                 }
             }
         }
-        // The three collections share one declaration, and since architecture issue 23 `select` and
+        // The three collections share one declaration, and now `select` and
         // `file_picker` share a second one — the overlay family's, whose popup list seeks its own
         // labels. `form` has its own. `pagination` has no labels to seek and declares no text bind
         // at all.

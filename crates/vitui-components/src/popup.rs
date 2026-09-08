@@ -678,7 +678,7 @@ pub fn draw_into<'f, I: Ink>(
     };
     let first = Rect::new(0, 1, SELECT, 1);
     let second = Rect::new(i32::from(SELECT) + 2, 1, SELECT, 1);
-    // **One function, four spellings, one call each.** The shipped arm and the three §12 refuses are
+    // **One function, four spellings, one call each.** The shipped arm and the three the design refuses are
     // one value apart inside `select`, so what a gate plays is the shipped drawing path.
     match config {
         Config::FillFirst => {

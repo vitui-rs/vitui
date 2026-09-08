@@ -587,7 +587,7 @@ mod tests {
              **A component ticket ships an application** — see `vitui_apps`'s header"
         );
         // **The population is every row of the freeze**, and it got there by itself: it was
-        // twenty-eight with `spinner` outside it until components ticket 46 declared one, and
+        // twenty-eight with `spinner` outside it until an earlier pass declared one, and
         // nothing here was edited to let it in. *A query whose population moves without an edit is a
         // query that is measuring something.*
         let population: Vec<&str> = coverage

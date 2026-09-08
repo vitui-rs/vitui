@@ -567,7 +567,7 @@ fn draw_qr<I: Ink>(
                 paints.of(upper, lower),
             );
         }
-        // **The quiet zone, and it is the partition rule and the specification at once.** §2 asks a
+        // **The quiet zone, and it is the partition rule and the specification at once.** the design asks a
         // component to write every cell of its rectangle exactly once; a QR reader asks for light
         // margin around the symbol. The same run answers both, so a symbol in a rectangle larger
         // than itself is *more* readable rather than merely tidier.
@@ -730,7 +730,7 @@ pub fn waveform_into<I: Ink>(
             let filled = reach.saturating_sub(below).min(u32::from(sub)) as u8;
             let mut buf = [0u8; 4];
             let glyph = &*bar_cluster(sub, filled).encode_utf8(&mut buf);
-            // **Written and not skipped**, which is §2: a cell with no signal in it is a cell this
+            // **Written and not skipped**, which is the design: a cell with no signal in it is a cell this
             // component is responsible for, and a `continue` here leaves whatever was underneath.
             ink.run(
                 cx,
@@ -876,7 +876,7 @@ fn columns<I: Ink>(
                 .min(u32::from(sub)) as u8;
             let mut buf = [0u8; 4];
             let glyph = &*bar_cluster(sub, filled).encode_utf8(&mut buf);
-            // See `waveform_into`: an empty cell is written rather than skipped, because §2 makes
+            // See `waveform_into`: an empty cell is written rather than skipped, because the design makes
             // it this component's.
             ink.run(
                 cx,

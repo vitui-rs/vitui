@@ -176,7 +176,7 @@ pub const SWEEP_PAIRS: u64 = (SWEEP_VIEWPORTS as u64)
 pub fn decide(free: (u16, u16), extent: (u32, u32), bars: Bars) -> Decision {
     // **The reserved arm is the shipped component's own arithmetic**, called and not copied:
     // `crate::scroll::decide` is what `scroll_area` reduces its rectangle with, so the sweep below
-    // is a sweep of the component. Components ticket 19 — before it there was no subject to call.
+    // is a sweep of the component. An earlier pass — before it there was no subject to call.
     if let Bars::Reserved = bars {
         return crate::scroll::decide(free, extent, crate::scroll::Hide::WhenItFits);
     }
@@ -685,7 +685,7 @@ pub fn draw_into<I: Ink>(
     };
     // **`WhenItFits` and a declared horizontal extent of exactly [`AW`]**, which is what puts the
     // viewport at `(AW, AH)` on a screen [`SCREEN_W`] wide: the vertical bar is reserved and the
-    // horizontal one is not needed. ADR 0029 in the fixture itself — the screen is one column
+    // horizontal one is not needed. The rule in the fixture itself — the screen is one column
     // wider than the viewport *because* the bar took it.
     let opts = scroll::AreaOpts {
         hide: scroll::Hide::WhenItFits,
@@ -716,13 +716,13 @@ pub fn draw_into<I: Ink>(
                 // `Ctx::with_id` re-childed the view at `self.area()`, which inside a scrolled
                 // scope is content rows `0..h`; past the first screenful that did not overlap the
                 // window and the clip was empty — 69 cells written on a frame that should write
-                // 16 974, all of them the bar's. Runtime architecture issue 31, found by
-                // components ticket 15 in `table` and **inverted there**: an identity verb
+                // 16 974, all of them the bar's. The runtime's own change, found by
+                // an earlier pass in `table` and **inverted there**: an identity verb
                 // reborrows now. The row's id is still minted and handed down, because that is
                 // what `table` hands its cell drawer and this scene is written against it.
                 let row = Id::keyed(id, i as u64);
                 // **Content coordinates**, because the component opened a scroll scope. Before
-                // components 19 this screen applied the offset itself inside a `Ctx::child`, which
+                // an earlier pass this screen applied the offset itself inside a `Ctx::child`, which
                 // is what a working scope produces and is what the subject now is.
                 let y = i32::try_from(content.top_of(i)).unwrap_or(i32::MAX);
                 let h = u16::from(content.rows[i].h);
@@ -1280,7 +1280,7 @@ pub fn steady(bars: Bars) -> Damage {
 }
 
 // ═════════════════════════════════════════════════════════════════════════════════════════════════
-// 4. The wrong pairing — the negative case §9 states as C21
+// 4. The wrong pairing — the negative case the design states as C21
 // ═════════════════════════════════════════════════════════════════════════════════════════════════
 
 /// **Which of the two scrollables the caller reached for.**
@@ -1737,7 +1737,7 @@ mod tests {
              it is, and the scene would need rewriting rather than the code"
         );
 
-        // **And at each build's own furthest offset, which is the sharper form.** §9: *measured in
+        // **And at each build's own furthest offset, which is the sharper form.** the design: *measured in
         // rows, time, writes, verbs, marked cells, regions and allocations are all identical.* The
         // two frames are at two different places in the content and every counter agrees to the
         // unit; the only fields that move are the offset the runtime clamped to and the row it

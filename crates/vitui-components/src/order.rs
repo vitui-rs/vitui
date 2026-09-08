@@ -1205,7 +1205,7 @@ pub fn splice_vs_permutation(
     }
 
     // **The permutation, remapped rather than cleared**, because `Clear` is O(1) and would price
-    // nothing: what §10 measures is what reconciling one *exactly* costs, which is the number that
+    // nothing: what the design measures is what reconciling one *exactly* costs, which is the number that
     // makes `Clear` the honest default.
     //
     // A deterministic shuffle rather than a random one — `i * 2 mod (len | 1)` visits every index
@@ -1602,7 +1602,7 @@ mod tests {
                  field living in the shared one"
             );
         }
-        // And the record really is four scalars and no `Id`. **Eight bytes**, which is spec §7's
+        // And the record really is four scalars and no `Id`. **Eight bytes**, which is the design's
         // own figure and criterion 1 — see [`ENTRY_BYTES`] for why it was
         // sixteen until that ticket asked.
         assert_eq!(ENTRY_BYTES, 8, "spec §7: `{{ node, depth, flags, h }}`");
@@ -1767,7 +1767,7 @@ mod tests {
             );
         }
 
-        // **Register row 13's own form: the interval edit against a bit vector.** A bit's position
+        // **The register row's own form: the interval edit against a bit vector.** A bit's position
         // *is* its index, so a splice moves every bit after the interval; a span list moves the
         // spans that meet it. One against half a million, at a million rows.
         let (spans, bits) = interval_edit_against_a_bitset(len, 100_000..449_524);
@@ -2048,7 +2048,7 @@ mod tests {
              the expensive answer and not merely the slower one"
         );
     }
-    // ── components ticket 17: the flatten index ──────────────────────────────────────────────────
+    // ── an earlier pass: the flatten index ──────────────────────────────────────────────────
 
     /// ***`depth` is not there for the indent*: the interval, from the index and from the
     /// data.**

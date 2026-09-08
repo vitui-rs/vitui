@@ -118,7 +118,7 @@ pub const fn family(g: Glyph) -> GlyphFamily {
     }
 }
 
-// ── the table joined to a drawer, which is the half components architecture 20 found missing ──────
+// ── the table joined to a drawer, which is the half a components decision found missing ──────
 
 /// **How an entry of the twenty reaches a cell.**
 ///
@@ -894,13 +894,13 @@ mod tests {
                 }
             }
         }
-        // Every debt §16 records closed is a debt something now draws **or hands to a caller**. An
+        // Every debt the design records closed is a debt something now draws **or hands to a caller**. An
         // entry nobody asks for on either count is a table row written for a reader rather than for
         // a caller, which is the sentence this loop has always been.
         //
         // The union is architecture 25's: the column answers *draws* and [`DELEGATED`] answers
         // *what this component's caller must be able to spell*, and `table`'s eleven are the second
-        // — §6 gives a table's separators to the cell drawer, and a caller that hard-codes `│` and
+        // — the design gives a table's separators to the cell drawer, and a caller that hard-codes `│` and
         // `┼` has a table that breaks at `Repertoire::Ascii`.
         for d in DELEGATED {
             assert!(
@@ -945,7 +945,7 @@ mod tests {
         // out of the column, so a distinction can no longer be carried by a declaration nobody
         // honours. `Distinction::Guide` was exactly that — `(VLine, TeeLeft)`, carried first by
         // `tree` and then, when 20 struck `tree`'s row, by `table`, neither of which drew either
-        // half — and the runtime struck it, because its drawing is an indent guide and §7 refuses
+        // half — and the runtime struck it, because its drawing is an indent guide and the design refuses
         // every route to one.
         //
         // **`DELEGATED` is deliberately not read here.** A caller *can* spell those entries, which
@@ -1052,7 +1052,7 @@ mod tests {
         for g in [Glyph::ArrowDown, Glyph::ArrowRight, Glyph::Ellipsis] {
             assert!(tree.glyphs.contains(&g), "`tree` no longer draws {g:?}");
         }
-        // **And the three it declared for four tickets and drew never** — components architecture
+        // **And the three it declared for a long time and drew never** — a components
         // 20. The positive half above is what stops this reading green on a row that has lost
         // everything.
         for g in [Glyph::VLine, Glyph::TeeLeft, Glyph::BottomLeft] {
@@ -1401,7 +1401,7 @@ mod tests {
             ROWS * 3,
             "three cells a row: the reserved one, rewritten, and the two that overrun"
         );
-        // §16 records **468 cells over 78 rows**, which is six a row and therefore two truncating
+        // the design records **468 cells over 78 rows**, which is six a row and therefore two truncating
         // fields a row — a tree row's label and its trailing annotation. What is asserted is the
         // per-field rule, because the total belongs to the scene and the rule belongs to the table.
         assert_eq!(moved * 2, 468);

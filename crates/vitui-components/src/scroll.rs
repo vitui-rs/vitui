@@ -1436,7 +1436,7 @@ where
         //
         // A review of the first draft caught a comment here claiming the value was
         // unchanged. It is not, and what makes the change harmless is stated instead of assumed:
-        // a band **declares nothing** (§9 — *one hit entry for all four*, because a band that were
+        // a band **declares nothing** (the design — *one hit entry for all four*, because a band that were
         // a second scroll area would win the wheel from the body it is a header of), so the
         // `Response` is inert, this loop discards it, and no hit entry, focus stop or scroll
         // association is keyed on it. `tests::four_bands_standing_declare_no_hit_entry_of_their_own`
@@ -1455,7 +1455,7 @@ where
 
     // **The body, at content coordinates.** `Ctx::with_id` is outside the scope rather than around
     // it, and this is now a choice: the id names the whole area — scrollbars, tail and all — rather
-    // than the body. It was forced until runtime architecture issue 31, which is what
+    // than the body. It was forced until the runtime's own change, which is what
     // `crate::collect`'s `Cell::id` records: inside the scope, `with_id` re-childed the view at
     // `self.area()`, the *content's* rectangle, and past the first screenful the two did not
     // overlap.
@@ -1465,7 +1465,7 @@ where
             body(&mut *ink, cx);
             // **The tail is the area's own, and every cell of it is written**. The range
             // `[extent, offset + viewport)` is inside the rectangle, and the component that owns
-            // the rectangle must write it — spec §9 assigns that line by name. It is not free and
+            // the rectangle must write it — the design assigns that line by name. It is not free and
             // the offset clamp is: `max` is recomputed every frame, and a shrunk extent leaves
             // cells no body will ever draw.
             if shape.tail == Tail::Written {
@@ -1834,7 +1834,7 @@ mod tests {
         assert_eq!(thumb(0, span), (0, 0), "a bar with no room writes nothing");
     }
 
-    // ── components ticket 19: the three components ───────────────────────────────────────────────
+    // ── an earlier pass: the three components ───────────────────────────────────────────────
 
     /// A screen big enough to hold a scroll area with all four bands standing.
     const AW: u16 = 60;
@@ -1992,7 +1992,7 @@ mod tests {
         // over one rectangle; the scan counts the second half, which is the half that cannot be
         // written by accident. `collect.rs`'s three column bands are the one other place and they
         // are deliberately *not* this construction — their coordinates stay the caller's, because a
-        // translated band makes `Tally::distinct` meaningless across the row (components 15).
+        // translated band makes `Tally::distinct` meaningless across the row (an earlier pass).
         let source = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/src/scroll.rs"))
             .expect("this module");
         let opens = source

@@ -1356,7 +1356,7 @@ mod tests {
         // this crate has, and a popup's extent is a fixpoint rather than a residue.
         let select = INVENTORY.iter().find(|c| c.id == "select").expect("frozen");
         assert!(!select.declares(Axis::Shrunk) && !select.declares(Axis::Narrow));
-        // The picker declares `scrolled` too and scene 25 is its evidence — components 32's, and
+        // The picker declares `scrolled` too and scene 25 is its evidence — an earlier pass's, and
         // the memo-key rule rather than a window.
         let picker = INVENTORY
             .iter()

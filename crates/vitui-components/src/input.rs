@@ -316,7 +316,7 @@ mod tests {
 }
 
 // ═════════════════════════════════════════════════════════════════════════════════════════════════
-// `field` — spec §11, and `input` and `textarea` are one component
+// `field` — the design, and `input` and `textarea` are one component
 // ═════════════════════════════════════════════════════════════════════════════════════════════════
 
 /// [`field`]'s options.
@@ -572,7 +572,7 @@ fn draw_with<I: Ink>(
     opts: &FieldOpts,
     refused: defective::Refused,
 ) -> Response {
-    // **The id is the caller's** — minted by `field_into` from `Ctx::id` (ADR 0027, outside every
+    // **The id is the caller's** — minted by `field_into` from `Ctx::id` (the rule, outside every
     // closure) or by a container that owes its rows' identities, which is [`field_keyed`].
     if area.is_empty() {
         return Response::inert(id, area);
@@ -601,7 +601,7 @@ fn draw_with<I: Ink>(
     // ── the keyboard, in one drain loop ──────────────────────────────────────────────────────────
     //
     // **One loop and not two.** `Ctx::decline` hands a key back *and ends the level's turn at the
-    // queue* (`crate::collect`'s own finding, components 17), so a field that read some keys here
+    // queue* (`crate::collect`'s own finding, an earlier pass), so a field that read some keys here
     // and the rest after would get nothing after the first refusal. Everything this widget owns is
     // read inside this loop, and the first key it does not own ends it.
     let mut typed = String::new();
@@ -610,7 +610,7 @@ fn draw_with<I: Ink>(
         if k.kind == Edge::Release {
             continue;
         }
-        // **`keys::text` decides what this widget accepts, and a chord types nothing.** Spec §3's
+        // **`keys::text` decides what this widget accepts, and a chord types nothing.** the design's
         // helper is the whole rule; the three refusals it makes — a release, a chord, a control
         // character — are why an accelerator does not land in the buffer.
         typed.clear();
@@ -620,7 +620,7 @@ fn draw_with<I: Ink>(
             asked = true;
             continue;
         }
-        // **A chord is not a motion and is not an edit**, and this guard is components ticket 38's
+        // **A chord is not a motion and is not an edit**, and this guard is an earlier pass's
         // finding rather than a tidy-up. Without it the arms beneath read `k.code` alone, so
         // `Ctrl+Left` moved the caret **one cluster** — the widget swallowed the accelerator *and*
         // did the wrong thing with it, which is worse than either half: *a chord pressed into
@@ -731,7 +731,7 @@ fn draw_with<I: Ink>(
     // **The notch is consumed, because the field declares `Interest::SCROLL` and owns its
     // offset.** A widget that declares the pointer and does nothing with it is worse than one that
     // declares nothing: it is the topmost region over its rectangle, so the wheel does nothing here
-    // *and* an enclosing `scroll_area` never sees the notch either. Components ticket 20 built
+    // *and* an enclosing `scroll_area` never sees the notch either. An earlier pass built
     // `crate::wheel` for exactly this, and a scroll is **not** a reveal — it does not set `asked`,
     // or the reveal below would drag the window straight back to the caret.
     // **And there is no horizontal axis to be wrong on**, which is a fact about the component
@@ -1460,7 +1460,7 @@ fn select_shaped<'f, I: Ink>(
     // `overlay::tests::a_shut_selects_face_is_a_partition_of_its_rectangle_at_every_width` is what
     // caught it.
     // **Through `crate::glyphs::elided_row_into`, which is where the pad and the marker meet.**
-    // It was written out here until components 32, whose `file_picker` transcribed it — two copies
+    // It was written out here until an earlier pass, whose `file_picker` transcribed it — two copies
     // of a drawing that had already been wrong once is one copy too many, so the drawing is one
     // function and both callers spend their own prefix before it.
     let _ = ink.text(cx, area.x, area.y, chevron, paint);
@@ -1475,7 +1475,7 @@ fn select_shaped<'f, I: Ink>(
         paint,
     );
     // **And the rows below the face, because the face is the rectangle** — the second half, which
-    // components 40 found unmet here and in `crate::files::file_picker` and nowhere else on the
+    // an earlier pass found unmet here and in `crate::files::file_picker` and nowhere else on the
     // freeze: twenty-six of the twenty-eight write every cell of any rectangle they are handed, and
     // the two that did not are the two overlay owners. **A remainder cannot be named in a
     // `Response`** — the rule's third clause says *the cells it does not write are named in its
@@ -1509,7 +1509,7 @@ fn select_shaped<'f, I: Ink>(
         if k.kind == Edge::Release {
             continue;
         }
-        // **A chord belongs to the application**, and components ticket 38 found this
+        // **A chord belongs to the application**, and an earlier pass found this
         // loop reading `k.code` alone: `Ctrl+Down` and `Alt+Enter` opened the list, so a shut
         // `select` ate every accelerator built on the four keys it owns — silently, on a screen
         // where nothing had visibly happened.
@@ -1705,7 +1705,7 @@ pub(crate) fn popup_body<I: Ink>(
     //
     // **What it does not reach is a `Ctx::overlay` body**, and that is unchanged: a body is
     // `FnMut(&mut Ctx<'f, '_>) + 'f` and a `&mut I` borrowed for the call cannot travel into one
-    // (the fifth component, components 26's `'f`). So a `Pen` reaches this function only when
+    // (the fifth component, an earlier pass's `'f`). So a `Pen` reaches this function only when
     // a caller invokes it **in the base pass** — `crate::popup`'s own named substitution, and it is
     // on both arms of every comparison there.
     //
@@ -1736,7 +1736,7 @@ pub(crate) fn popup_body<I: Ink>(
                     );
                 }
             }
-            // **The refused region spelling**: one entry and one stop a row, where §5 spends one for the
+            // **The refused region spelling**: one entry and one stop a row, where the design spends one for the
             // whole collection. The rows are still drawn by the collection below, so the two arms draw
             // exactly the same cells and only the counts differ.
             if shape.regions == PopupRegions::PerRow {
@@ -1763,7 +1763,7 @@ pub(crate) fn popup_body<I: Ink>(
             // the popup's two, and `crate::nav::step` owns the rest.
             let mut mine = |k: &Pressed, cursor: usize| {
                 // **A chord belongs to the application**, here as much as at the owner.
-                // Components ticket 38 found this closure reading `k.code` alone: `Ctrl+Enter`
+                // an earlier pass found this closure reading `k.code` alone: `Ctrl+Enter`
                 // committed and `Alt+Esc` dismissed, so an open popup ate every accelerator built
                 // on its own two keys — and unlike the owner's, this one is *inside* a trapless
                 // overlay, where the application has no other reader.
@@ -1821,7 +1821,7 @@ pub(crate) fn popup_body<I: Ink>(
                     // already been written, so the row writes its glyphs and nothing else.
                     //
                     // **And the pad stops where the ellipsis starts**, or the last cell of a
-                    // truncated row is written twice — §2, on the one cell nobody looks at.
+                    // truncated row is written twice — the design, on the one cell nobody looks at.
                     let body = room.saturating_sub(ell);
                     if filled {
                         let _ = ink.text(cx, r.x + i32::from(MARK), r.y, shown, paint);
@@ -1864,7 +1864,7 @@ pub(crate) fn popup_body<I: Ink>(
     );
     // **Reported, never asked for.** A popup sized from this is `(20, 0)` for ever.
     //
-    // **`local` and not `hovered`**, and §12 says *a position* for exactly this reason:
+    // **`local` and not `hovered`**, and the design says *a position* for exactly this reason:
     // `Response::hovered` is `hover_guess`, resolved from the **previous** frame's hit index, and the
     // frame that matters is the one the layer was placed on — the frame the optimistic focus arrives.
     // `local` is this frame's containment in this widget's own coordinates, computed from the pointer
@@ -2173,7 +2173,7 @@ pub fn toggle_into<I: Ink>(
 
     // A click flips it, and so does `Space` or `Enter` while it holds the focus. **One drain loop**:
     // `Ctx::decline` hands a key back *and ends the level's turn at the queue*
-    // (`crate::collect`'s finding, components 17), so a widget that read some keys here and the rest
+    // (`crate::collect`'s finding, an earlier pass), so a widget that read some keys here and the rest
     // afterwards would get nothing after the first refusal.
     if resp.clicked {
         *on = !*on;
@@ -2295,7 +2295,7 @@ fn mark_into<I: Ink>(
 }
 
 // ═════════════════════════════════════════════════════════════════════════════════════════════════
-// `slider` — the drag capture, and the row §17 froze at Tier 3
+// `slider` — the drag capture, and the row the design froze at Tier 3
 // ═════════════════════════════════════════════════════════════════════════════════════════════════
 
 /// **How many steps the keyboard divides the track into. A hundred.**
@@ -2596,7 +2596,7 @@ fn slider_shaped<I: Ink>(
     // ── the keyboard, in one drain loop ──────────────────────────────────────────────────────────
     //
     // **One loop and not two.** `Ctx::decline` hands a key back *and ends the level's turn at the
-    // queue* (`crate::collect`'s finding, components 17), so a widget that read some keys here and
+    // queue* (`crate::collect`'s finding, an earlier pass), so a widget that read some keys here and
     // the rest after would get nothing after the first refusal.
     while let Some(k) = cx.next_key(id) {
         // A release is dropped rather than declined — nobody wants one. `stepped` refuses it too;
@@ -4459,7 +4459,7 @@ mod slider_tests {
         // draw through `Direct`, only arm 2's canvas is captured, and `Direct` writes into the
         // engine where **nothing reads a cell back** — so the equality compared
         // `slider_into` with `slider_into` and held whatever `slider` did. Found by the review of
-        // components ticket 34, which had copied the shape into two more components.
+        // an earlier pass, which had copied the shape into two more components.
         let mut driver = Driver::headless(40, 1).expect("a sink attaches");
         let mut pen = Pen::over(Canvas::new(40, 1));
         let mut value = 0.375f32;
@@ -5008,7 +5008,7 @@ mod slider_tests {
         // places is testing two widgets: the press focuses the first id, the next frame draws the
         // second, the focused id has not drawn, and the **vanish rule clears the focus**. Written
         // that way this test failed at *the release took the focus away again* — a symptom three
-        // mechanisms away from its cause. Components ticket 24 met the same trap with the caret as
+        // mechanisms away from its cause. An earlier pass met the same trap with the caret as
         // the instrument; here it is the focus.
         let frame =
             |driver: &mut Driver, value: &mut f32, focused: &mut bool, changed: &mut bool| {
@@ -5021,7 +5021,7 @@ mod slider_tests {
             };
 
         // Frame one: nothing holds the focus, so the arrow goes nowhere. Nothing seats a focus until
-        // something asks — runtime architecture issue 25.
+        // something asks — the runtime's own change.
         driver.post_key(key(Code::Right));
         frame(&mut driver, &mut value, &mut focused, &mut changed);
         assert!(!focused);

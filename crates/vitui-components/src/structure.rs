@@ -881,8 +881,8 @@ mod tests {
         // goes through `glyphs::elide`, which reserves exactly one cell for the marker.
         //
         // **This block asserted nothing until a review said so.** It drew and dropped the tally,
-        // under a comment claiming the rule was checked — which is components 26's one-cell double
-        // write, the defect components 32 found transcribed a second time, with no gate over it.
+        // under a comment claiming the rule was checked — which is an earlier pass's one-cell double
+        // write, the defect an earlier pass found transcribed a second time, with no gate over it.
         let (elided, _) = tallied(8, 1, |tally, cx| {
             rule_into(
                 tally,

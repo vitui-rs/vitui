@@ -405,49 +405,49 @@ pub const KEYBOARD_REGISTERED: &[&str] = &[
 /// compares is the arrangement `KEYBOARD_DOCUMENTED` and `KEYBOARD_REGISTERED` already use one file
 /// over, and for O4's reason: an equality between two things derived from each other holds.
 pub const AXIS_SCENES: &[(&str, Axis)] = &[
-    // §21 scene 4 — the inverted scroll sign, 12.21 us against 62.96 and *faster*.
+    // the design scene 4 — the inverted scroll sign, 12.21 us against 62.96 and *faster*.
     ("collection", Axis::Scrolled),
-    // §21 scene 5 — the stale tail, 71 of 80 rows.
+    // the design scene 5 — the stale tail, 71 of 80 rows.
     ("collection", Axis::Shrunk),
-    // §21 scene 6 — twenty wheel clicks move the offset 0 against 16.
+    // the design scene 6 — twenty wheel clicks move the offset 0 against 16.
     ("collection", Axis::Wheeled),
-    // §21 scene 7 — a twelve-column table under a horizontal offset, pinned both edges.
+    // the design scene 7 — a twelve-column table under a horizontal offset, pinned both edges.
     ("table", Axis::Scrolled),
     ("table", Axis::Narrow),
-    // §21 scene 8 — a million-node forest at depth 59 999, windowed by the flatten index.
+    // the design scene 8 — a million-node forest at depth 59 999, windowed by the flatten index.
     ("tree", Axis::Scrolled),
-    // §21 scene 9 — a fold and an unfold: content shrinking inside a rectangle that does not move.
+    // the design scene 9 — a fold and an unfold: content shrinking inside a rectangle that does not move.
     ("tree", Axis::Shrunk),
-    // §21 scene 11 — the accordion, 478 hit entries against 70.
+    // the design scene 11 — the accordion, 478 hit entries against 70.
     ("collapsible", Axis::Shrunk),
-    // §21 scene 13 — the wrap memo at 300 and at 120, 625 rows drawn where 875 are needed.
+    // the design scene 13 — the wrap memo at 300 and at 120, 625 rows drawn where 875 are needed.
     ("field", Axis::Narrow),
-    // §21 scene 15 — 60x20, where C08's overlap is red.
+    // the design scene 15 — 60x20, where C08's overlap is red.
     ("chart", Axis::Narrow),
     ("plot", Axis::Narrow),
-    // §21 scene 17 — the bar fixpoint over 5 475 600 pairs. The freeze cites this scene by number
+    // the design scene 17 — the bar fixpoint over 5 475 600 pairs. The freeze cites this scene by number
     // on `scrollbar`'s own `narrow` row, and `scroll_area`'s cites the other half of it: reserved
     // auto-hiding bars, whose hysteresis loses a row and a column permanently.
     ("scroll_area", Axis::Narrow),
     ("scrollbar", Axis::Narrow),
-    // §21 scene 18 — a 1M-row scroll area, row 799 999 of 999 999.
+    // the design scene 18 — a 1M-row scroll area, row 799 999 of 999 999.
     ("scroll_area", Axis::Scrolled),
-    // §21 scenes 23 and 25 — the preview pane's shrink and scroll, and the picker's scroll.
-    // **Empty until components 32**, which is not a filing decision: while all three scenes were
+    // the design scenes 23 and 25 — the preview pane's shrink and scroll, and the picker's scroll.
+    // **Empty until an earlier pass**, which is not a filing decision: while all three scenes were
     // red they were waiting for their subject, and a scene waiting for its subject is not yet
-    // evidence of anything. §15 states both of the pane's axes in its own words — *a landing is a
+    // evidence of anything. The design states both of the pane's axes in its own words — *a landing is a
     // shrink*, from another thread for the first time, and the four offset spellings that follow
     // from the offset belonging to neither side.
     ("file_preview_pane", Axis::Shrunk),
     ("file_preview_pane", Axis::Scrolled),
     ("file_picker", Axis::Scrolled),
-    // Scene 28 — components 09's narrow axis over the dense screen, at 300x80 and at 120x40. Not a
-    // row of §21: the first two scenes of that table are the dense screen and its twin and neither
+    // Scene 28 — an earlier pass's narrow axis over the dense screen, at 300x80 and at 120x40. Not a
+    // row of the design: the first two scenes of that table are the dense screen and its twin and neither
     // names an axis, and the defect this one is about — *a label that runs into its sibling's
-    // rectangle* — is the third re-damage instance rather than §21's.
+    // rectangle* — is the third re-damage instance rather than the design's.
     ("text", Axis::Narrow),
     ("chip", Axis::Narrow),
-    // Scene 33 — components 20's, and the pair §21 had no way to state. Its wheel row is one
+    // Scene 33 — an earlier pass's, and the pair the design had no way to state. Its wheel row is one
     // component and one axis, which is exactly what an arithmetic click could express: a delta
     // added to an offset has no second axis to be wrong on. The posted notch found the pair.
     //
@@ -456,13 +456,13 @@ pub const AXIS_SCENES: &[(&str, Axis)] = &[
     // vectors — so a pair written in the place a reader would put it is a failing test rather than a
     // tidy constant.
     ("scroll_area", Axis::Wheeled),
-    // Scenes 34, 35 and 36 — production 05's, and the three axes §21 stated over one row.
+    // Scenes 34, 35 and 36 — a later pass's, and the three axes the design stated over one row.
     //
-    // **§21 carries one `field` row and it is the narrow one.** The freeze declares all four for
+    // **The design carries one `field` row and it is the narrow one.** The freeze declares all four for
     // this component and three had no scene at all, which is the shape the entry above
     // describes one component over: a table written while a defect was not yet expressible states
     // the axes it could state. Here nothing was unexpressible — the pairs were simply never
-    // scheduled, which is `.scratch/vitui-production/README.md`'s whole argument.
+    // scheduled, which is the production backlog's whole argument.
     //
     // **Their position is scene order and not importance**, for the reason the entry gives:
     // `crate::scenes::axis_scenes` derives this list from the scene list and the test that compares
@@ -470,10 +470,10 @@ pub const AXIS_SCENES: &[(&str, Axis)] = &[
     ("field", Axis::Scrolled),
     ("field", Axis::Shrunk),
     ("field", Axis::Wheeled),
-    // Scenes 37 and 38 — production 06's, and `table`'s last two axes.
+    // Scenes 37 and 38 — a later pass's, and `table`'s last two axes.
     //
-    // **§21 carries one `table` row and it is scene 7**, which covers `scrolled` and `narrow` in
-    // one screen. The other two were expressible from the day components 15 declared the component
+    // **The design carries one `table` row and it is scene 7**, which covers `scrolled` and `narrow` in
+    // one screen. The other two were expressible from the day an earlier pass declared the component
     // — the shrink is `collection`'s tail and the wheel is `collection`'s reveal, both reached by
     // calling it — and nothing had scheduled them, which is the entry above one
     // component over.
@@ -483,9 +483,9 @@ pub const AXIS_SCENES: &[(&str, Axis)] = &[
     // `crate::scenes::axis_scenes` derives it from the scene list.
     ("table", Axis::Shrunk),
     ("table", Axis::Wheeled),
-    // Scenes 39 to 42 — production 08's, and they are the overlay family's last four.
+    // Scenes 39 to 42 — a later pass's, and they are the overlay family's last four.
     //
-    // **§21 carries one overlay-family row and it is scene 14**, whose `covers` is empty on purpose:
+    // **The design carries one overlay-family row and it is scene 14**, whose `covers` is empty on purpose:
     // that screen measures what a layer costs the frame and plays no wheel and no scroll, and
     // `crate::popup` says so beside the assertion that `select` declares two of the four axes.
     // So all four pairs here were expressible from the day both components were declared — both
@@ -501,10 +501,10 @@ pub const AXIS_SCENES: &[(&str, Axis)] = &[
     ("select", Axis::Wheeled),
     ("file_picker", Axis::Shrunk),
     ("file_picker", Axis::Wheeled),
-    // Scenes 43, 44 and 45 — production 09's, and they are the scroll family's last three.
+    // Scenes 43, 44 and 45 — a later pass's, and they are the scroll family's last three.
     //
-    // **§21 carries two rows for this family and neither is a shrink or a band**: scene 17 is the
-    // bar fixpoint and scene 18 is `Σ h` as the extent, and scene 33 is components 20's wheel over
+    // **The design carries two rows for this family and neither is a shrink or a band**: scene 17 is the
+    // bar fixpoint and scene 18 is `Σ h` as the extent, and scene 33 is an earlier pass's wheel over
     // an area. So these three pairs had no scene at all — and unlike every earlier group on this
     // list, **all three had an instrument that could not fail on its own axis**: the tail's was one
     // frame over a state nothing had moved, the band's was played at offset `(0, 0)` where four of
@@ -513,25 +513,25 @@ pub const AXIS_SCENES: &[(&str, Axis)] = &[
     //
     // **Two files and three scenes**, which is the rule rather than a new one: a wheel
     // is a posted notch and belongs where the drive loop is — `crate::wheel::Subject::Pane`, the
-    // fourth arm — because a fourth copy of that loop would be the substitution components 20 spent
+    // fourth arm — because a fourth copy of that loop would be the substitution an earlier pass spent
     // a ticket removing.
     //
     // **Their position is scene order and not importance**, for the entry's reason.
     ("scroll_area", Axis::Shrunk),
     ("sticky", Axis::Scrolled),
     ("file_preview_pane", Axis::Wheeled),
-    // Scenes 46 and 47 — production 07's, and they are `tree`'s last two and this list's last two.
+    // Scenes 46 and 47 — a later pass's, and they are `tree`'s last two and this list's last two.
     //
-    // **§21 carries two rows for this component and neither is a width or a wheel**: scene 8 is the
+    // **The design carries two rows for this component and neither is a width or a wheel**: scene 8 is the
     // flatten index at depth 59 999 and scene 9 is a fold. So these two pairs had no scene — and
     // unlike every other group on this list they were **blocked** rather than merely unscheduled:
-    // components architecture 20 was open on whether `tree` draws the three indent guides its
+    // a components decision was open on whether `tree` draws the three indent guides its
     // freeze row declared, and *a guide column takes cells from the label*. A narrow scene written
     // before that answer would have been a scene of a different screen, which is the only edge on
     // this backlog that a scenes ticket could not have argued its way past.
     //
     // 20 resolved by taking the three glyphs off the row, so the partition scene 46 reads is the
-    // one §7 always described: one `Ink::run` of spaces, one chevron cell and the label taking the
+    // one the design always described: one `Ink::run` of spaces, one chevron cell and the label taking the
     // rest.
     //
     // **Two files and two scenes**, the rule: a screen is `crate::forest`, where this
@@ -1064,8 +1064,8 @@ mod tests {
     /// failing set. Nothing here turned it: [`o5`] is a query and its evidence is
     /// [`AXIS_SCENES`], so the edit that turned it was a scene.
     #[test]
-    // **Renamed by production 10, from
-    // `eight_of_the_nine_obligation_queries_are_met_and_the_one_left_is_o5`.** Production 07
+    // **Renamed by a later pass, from
+    // `eight_of_the_nine_obligation_queries_are_met_and_the_one_left_is_o5`.** a later pass
     // emptied O5's failing set and left the name stale on purpose, carrying the note the recorded
     // policy requires — *a stale name that carries a note saying so stays; one that does not is
     // corrected* — because a name is also how a reader and its register citations find a row, and
@@ -1150,7 +1150,7 @@ mod tests {
     fn each_query_reports_the_population_it_could_not_answer_for() {
         // **The `unmet` reader is gone, and its absence is the record.** It unwrapped a
         // `Verdict::Unmet` into `(over, failing)` and had exactly one caller left — O5's — because
-        // every other query on this list had already turned. Production 07 turned that one, so
+        // every other query on this list had already turned. A later pass turned that one, so
         // every assertion below is now *asserted from the other side*, which is what O1's comment
         // has said since it turned: a met query has no failing set to report. Keeping the closure
         // would leave a `warnings = "deny"` build failure or an `#[expect]` for a reader nothing
@@ -1193,16 +1193,16 @@ mod tests {
         );
         // **O5 has moved five times and it is still red.** The scene list covered twelve
         // of the thirty-four `(component, axis)` pairs from the rows, the narrow axis
-        // added `text` and `chip`, and ticket 20 added `(scroll_area, wheeled)` — the pair §21 had
+        // added `text` and `chip`, and an earlier pass added `(scroll_area, wheeled)` — the pair the design had
         // no way to state, because its single wheel row was written while a click was an arithmetic
         // substitution and a delta added to an offset has no second axis to be wrong on. Components
         // 32 took three: the preview pane's shrink and scroll and the picker's scroll, which the
-        // three scenes had left empty on purpose while they were red. **Production 05 took
+        // three scenes had left empty on purpose while they were red. **A later pass took
         // `field`'s last three** — scrolled, shrunk and wheeled, none of which was ever
         // unexpressible and none of which anything had scheduled. 06 took `table`'s two, 08 the
         // overlay family's four, and **09 the scroll family's three**, which are the first on this
         // list where all three pairs already had an instrument that *could not fail on its own
-        // axis*. And **production 07 took the last two, which were `tree`'s** — the only pair on
+        // axis*. And **A later pass took the last two, which were `tree`'s** — the only pair on
         // the list whose edge was a *decision* rather than an instrument, because components
         // architecture 20 was open on whether the component draws the three indent guides its
         // freeze row declared. A query that moves is a query that is measuring something, and this
@@ -1210,7 +1210,7 @@ mod tests {
         // is asking.
         //
         // **07 could not leave CI red to keep a boundary tidy**, so it wrote this count, the `met`
-        // vector above and `o5_fails_loudly`'s expectation, and deferred the rest to production 10
+        // vector above and `o5_fails_loudly`'s expectation, and deferred the rest to a later pass
         // — the summary test's name, the two comments citing a test name that no longer exists,
         // `CLAUDE.md`'s sentence and the components README. **10 has taken them**, and the sentence
         // it replaced here was *Two are left and they are `tree`'s, blocked on components
@@ -1253,13 +1253,13 @@ mod tests {
         // that have a component to draw it is **the same 36**, which is what `GOLDENS` adds up to
         // and what `crate::golden::SCREENS` holds.
         //
-        // **It was 34, then 35, and the row that moved both times is the last one built.** §17 gave
+        // **It was 34, then 35, and the row that moved both times is the last one built.** the design gave
         // `spinner` a 1 on the grounds that every spelling is one cell and no spelling is blank;
-        // ticket 42 found both true of its ladder and neither deciding it and read 2 off the frame
-        // counts; ticket 46 shipped the table and the derivation, and the answer is 3 — because a
+        // an earlier pass found both true of its ladder and neither deciding it and read 2 off the frame
+        // counts; an earlier pass shipped the table and the derivation, and the answer is 3 — because a
         // count is not a ladder, and two rungs with four frames each can be two different tables.
         //
-        // **Every one of them is derived now, and components ticket 46 is where the last literal
+        // **Every one of them is derived now, and an earlier pass is where the last literal
         // went.** `chart`, `plot`, `meter` and `sparkline` each assert `row.constructions ==
         // distinct(...)` against a shipped table; `spinner`'s table was the prototype's and lived
         // on a branch, so nothing here would have noticed its ladder changing shape.
@@ -1278,7 +1278,7 @@ mod tests {
         assert_eq!(GOLDENS.iter().map(|(_, n)| u32::from(*n)).sum::<u32>(), 36);
         // **The two sums are equal for the first time**, and that is what a complete freeze looks
         // like from here: every row is built, so nothing is owed that is not buildable. It was
-        // 35 against 33 until components ticket 46.
+        // 35 against 33 until an earlier pass.
         assert_eq!(owed, buildable);
     }
 
@@ -1414,7 +1414,7 @@ mod tests {
     #[test]
     #[should_panic(expected = "O5 is unmet: 1 of 34")]
     fn o5_fails_loudly() {
-        // **Production 07 turned this arm and the header above says how**: *a `Met` verdict cannot
+        // **A later pass turned this arm and the header above says how**: *a `Met` verdict cannot
         // be watched panicking, so the `#[should_panic]` moves from `the evidence is empty` to `the
         // evidence is one row wrong`.* O1, O3, O4, O6 and O7 all made this move first; this is the
         // sixth and last, and it is O6's expression with a pair struck instead of an id.

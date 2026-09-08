@@ -1677,7 +1677,7 @@ mod tests {
         let mine = gutter(granted, rows);
         assert!(mine.bar);
         assert_eq!(mine.passes, 0);
-        // §9's, over a content whose width is the viewport's — the coupling that makes it iterate.
+        // the design's, over a content whose width is the viewport's — the coupling that makes it iterate.
         let theirs = decide(granted, (u32::from(RIG_W), rows), Hide::WhenItFits);
         assert_eq!(theirs.passes, MAX_PASSES);
         assert!(theirs.passes > mine.passes, "0 against <= 3");
@@ -1899,7 +1899,7 @@ mod tests {
             std::path::PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/../..")).join(OWED_IN);
         assert!(path.is_file(), "{}", path.display());
         // **Watched reporting a partial answer**, which the shipped file cannot be made to do. The
-        // three-phrase note is exactly what this scan looked like before components ticket 36
+        // three-phrase note is exactly what this scan looked like before an earlier pass
         // widened it, and the phrase it now misses is the one a reader searches for.
         let three = "the body answers through the inbox, a `&'f mut` capture compiles, and it \
                      costs the caller that state for the rest of the frame";

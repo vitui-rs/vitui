@@ -952,7 +952,7 @@ impl Gallery {
 
         // **The preview pane's landing, taken at the top of the view**. `Task::take` is
         // destructive and a view has no `&mut` with which to put back what it took, so the landing
-        // is a verb on the state before anything draws — components 31 measured what taking it
+        // is a verb on the state before anything draws — an earlier pass measured what taking it
         // where a view happens to want it costs: **20 torn frames of 20**, on a screen whose state
         // ends up correct either way.
         let _ = self.bag.land_here();
@@ -967,8 +967,8 @@ impl Gallery {
         // `collection`'s rows still inside it.
         //
         // **This is not the partition rule and does not stand in for it.** It fires on the
-        // transition frame only, so a steady frame is untouched — and since components 40 a steady
-        // frame writes every cell of itself (register row 7, 0 at every size and on every page),
+        // transition frame only, so a steady frame is untouched — and since an earlier pass a steady
+        // frame writes every cell of itself (a register row, 0 at every size and on every page),
         // which means residue has nowhere left to survive on *this* screen. What this closes is the
         // *sequence* half: `crate::app::Clears` is a guarantee `crate::app` makes to any caller, and
         // the frame it fires on is the one where the **terminal** rather than a component decided
@@ -1356,7 +1356,7 @@ fn tiles_into<'f, I: Ink>(
         let ink = &mut *ink;
         // **`with_key`, and the call site alone is not enough.** `panel_into` takes `cx.id()` and
         // there is one call to it here, so twenty-eight tiles drawn from this loop would be
-        // twenty-eight widgets under one `Id` — components 30's `chrome` defect exactly, where
+        // twenty-eight widgets under one `Id` — an earlier pass's `chrome` defect exactly, where
         // `Ctx::interact` makes a merged claim **inert** and every tile but the first stops hearing
         // the pointer on a screen that renders perfectly. `defective::tiles_under_one_id` is the
         // spelling this replaced and the gate watches it merging.
@@ -1396,7 +1396,7 @@ fn tiles_into<'f, I: Ink>(
     // `tests::the_tiles_tile_the_grid_exactly_at_every_size` proves they are inside the rectangle
     // this loop was handed rather than outside it. A cell nobody writes keeps what was there, and on
     // `Ctrl+N` what was there is the previous page's panel; this is the steady-frame half of the same
-    // sentence `crate::app::Clears` closes for the transition frame (§2, register row 7).
+    // sentence `crate::app::Clears` closes for the transition frame (the design, a register row).
     if bag.remainder == Remainder::Written {
         for slot in drawn..(cols as usize * rows as usize) {
             let here = tile(area, cols, rows, slot as u16);
@@ -2309,10 +2309,10 @@ pub fn swap_on(
     // note about a multi-frame shot, in as many words — and residue is the entire subject of
     // register rows 7 and 8.
     //
-    // **And it is why `kept` never depended on row 7**, which §21 states the other way round (*the
+    // **And it is why `kept` never depended on row 7**, which the design states the other way round (*the
     // swap excess equal to it on five of six*, on a prototype's gallery). The surface is carried and
     // the first frame **clears**, so a cell nobody writes on a steady frame is still a cell somebody
-    // wrote once: it is inside `written` and it counts as `kept`. Components 40 turned every one of
+    // wrote once: it is inside `written` and it counts as `kept`. An earlier pass turned every one of
     // those cells into a pad and `kept` at 100x30 did not move by one — 2 005 of 3 000 under a rung
     // change either way. `stale` is measured against the reference arm instead, and that arm carries
     // its own surface across its own four frames, so residue is compared with residue.
@@ -2778,7 +2778,7 @@ mod tests {
             .map(|c| c.id)
             .collect();
         assert_eq!(built, panel_ids());
-        // **Zero, and it was `["spinner"]` until components ticket 46.** The direction this still
+        // **Zero, and it was `["spinner"]` until an earlier pass.** The direction this still
         // watches is a row arriving unbuilt — a thirtieth component — with the panel table already
         // naming it, which is the drift `o2_everything_built_has_a_panel` cannot see from its side.
         let unbuilt: Vec<&str> = crate::INVENTORY
@@ -2961,7 +2961,7 @@ mod tests {
             );
         }
         // A name the freeze has never heard of. `spinner` was the other arm here until components
-        // ticket 46 built it, and it is above now — the sweep is over `PANELS`, so the negative
+        // an earlier pass built it, and it is above now — the sweep is over `PANELS`, so the negative
         // case had to become one nothing can turn.
         assert!(!gallery.go_to("gauge", w, h));
     }

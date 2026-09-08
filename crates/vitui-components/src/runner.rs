@@ -1274,7 +1274,7 @@ mod tests {
         );
         assert!(broken.tally().writes() * 8 < correct.tally().writes());
 
-        // And the resize spelling, which passes — the reason §21 refuses to bank it. A fresh
+        // And the resize spelling, which passes — the reason the design refuses to bank it. A fresh
         // rectangle has nowhere for the residue to survive, so the same painter is clean.
         let resized = compare(
             reference,

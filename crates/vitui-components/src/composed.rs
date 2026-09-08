@@ -206,7 +206,7 @@ pub const TIER_TWO: &[Row] = &[
         id: "form",
         file: "crates/vitui-components/src/input.rs",
         banner: FORM,
-        // **§18 R3's own example, and its three clauses are three needles**: the fields, the
+        // **The design R3's own example, and its three clauses are three needles**: the fields, the
         // navigation, and the ring — which is `ScopeKind::Group` on the way in and `cx.is_focused`
         // on the way back, because the cursor **is** the focus and is read rather than kept.
         uses: &[
@@ -231,7 +231,7 @@ pub const TIER_TWO: &[Row] = &[
         id: "rule",
         file: "crates/vitui-components/src/structure.rs",
         banner: RULE,
-        // `fit`'s four skippable parts, `elide`'s one-cell marker, and the two glyphs of §16's
+        // `fit`'s four skippable parts, `elide`'s one-cell marker, and the two glyphs of the design's
         // `rule` family.
         uses: &[
             "pub fn rule(",

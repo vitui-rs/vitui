@@ -82,7 +82,7 @@ pub const SCREEN: u64 = W as u64 * H as u64;
 // ── the ledger ───────────────────────────────────────────────────────────────────────────────────
 //
 // **Every number this form is gated or reported on has exactly one home and it is here**, which is
-// the runtime's ledger rule (`crates/vitui-runtime/src/ledger.rs`, ticket 20) inherited unchanged.
+// the runtime's ledger rule (`crates/vitui-runtime/src/ledger.rs`, an earlier pass) inherited unchanged.
 // The audit that produced that file found one watchdog threshold copied into nine files.
 //
 // Every figure below is a **count**, not a timing, so it carries no machine: the form is
@@ -90,10 +90,10 @@ pub const SCREEN: u64 = W as u64 * H as u64;
 // release one. The rule is satisfied in the strong direction — *a gate is a count, a ratio, an
 // equality or a compile outcome* — and there is no headroom to write beside a count that is exact.
 //
-// **Each is recorded beside the figure spec §3 and ticket 06 remember**, and where they differ the
+// **Each is recorded beside the figure the design and an earlier pass remember**, and where they differ the
 // difference is stated rather than engineered away. Those figures were taken on a prototype screen
 // this ticket does not own: the 300×80 dense screen with 267–338 regions is scene 1 and 2 of
-// `crate::scenes`, and components ticket 09 stands it up. What reproduces here is every *direction*
+// `crate::scenes`, and an earlier pass stands it up. What reproduces here is every *direction*
 // and every *structural* number; the magnitudes are a different screen's.
 
 /// Rect the form writes at [`Density::Compact`]. **The recorded figure is 20 804, on another screen.**
@@ -611,7 +611,7 @@ mod tests {
                 "{density:?}: clearing the interiors also covers the screen — the defective build \
                  scores better on *no cell never* than the correct one"
             );
-            // **The two halves of ADR 0026 meeting on one screen**, which is the thing the ADR
+            // **The two halves of the rule meeting on one screen**, which is the thing the ADR
             // says neither half resolves alone: the clearing build differs from the correct one on
             // exactly the cells nobody wrote, and nowhere else. Filling every frame is the
             // double-write defect; not filling is the unwritten one. The 16 224 cells above are the

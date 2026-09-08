@@ -67,7 +67,7 @@
 
 use std::time::Instant;
 
-// `Mods` arrived at the crate root with runtime architecture issue 22; before it, this
+// `Mods` arrived at the crate root with the runtime's own change; before it, this
 // module's whole header was about not being able to write this line.
 use vitui_runtime::ctx::Driver;
 use vitui_runtime::keys::{Chord, Code, Edge, Pressed, Text};
@@ -707,14 +707,14 @@ mod tests {
         assert!(sources.len() > 10, "the scan found no sources");
 
         // **`(cx`, not `(`** — a component's signature is `pub fn button(cx: &mut Ctx, …)` (spec
-        // §1), and the bare form has a false positive already in the crate: `gates::table()` prints
+        // the design), and the bare form has a false positive already in the crate: `gates::table()` prints
         // the register and is not the `table` component. The second spelling is the same signature
         // with the parameters on their own lines, which is the only form a seven-parameter
         // component has.
         //
         // **And the third is `<`, which is the either-delimiter rule.** Two of
         // the seven have been declared since tickets 26 and 32 and this predicate could not see
-        // either: `select` is `pub fn select<'f>(` — spec §1 already says a component that opens an
+        // either: `select` is `pub fn select<'f>(` — the design already says a component that opens an
         // overlay costs two lifetime annotations — and `file_picker` is `pub fn file_picker<'f,
         // T>(`. **Both were counted as unbuilt for six tickets by a needle rather than by a fact**,
         // which is the fifth time on this map that a scan's parenthesis has answered *undeclared*

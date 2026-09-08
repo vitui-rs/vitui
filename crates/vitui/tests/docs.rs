@@ -87,7 +87,7 @@ const STANDING: &[Standing] = &[
         dir: "vitui-components",
         citations: 0,
         examples: 9,
-        comments: 455,
+        comments: 0,
     },
 ];
 
@@ -95,10 +95,8 @@ const STANDING: &[Standing] = &[
 /// comment points at a document the reader does not have.
 ///
 /// A finished crate's budgets are zero and stay zero, which is the difference between a ratchet and
-/// a treadmill. `vitui-components` is deliberately absent while its comments are still being swept:
-/// its rustdoc count is zero and saying *swept* on the strength of half of it would be the kind of
-/// summary sentence this whole exercise is about.
-const SWEPT: &[&str] = &["vitui", "vitui-engine", "vitui-runtime"];
+/// a treadmill. All four are on it now, in both populations.
+const SWEPT: &[&str] = &["vitui", "vitui-engine", "vitui-runtime", "vitui-components"];
 
 /// Citation vocabulary that is a plain substring: a decision-record number, a section mark, a
 /// register row, a path into the backlog, an obligation letter, a map's own name.
@@ -165,13 +163,18 @@ fn cites(text: &str) -> bool {
     })
 }
 
-/// The one file where a scene number is not a citation.
+/// The one crate where a scene number is not a citation.
 ///
-/// `crate::scenes` **is** the scene list: its rows are numbered, its constants are named for those
-/// numbers (`PINS_SCENE_43`), and a doc comment there saying *what pins scene 43* is naming the
-/// item it sits on. Everywhere else a scene number points at a list the reader has no copy of, and
-/// the needle stands.
-const SCENE_NUMBERS_ARE_LOCAL: &str = "vitui-components/src/scenes.rs";
+/// `vitui-components` **owns** the scene list: it is `crate::scenes::SCENES`, its rows are
+/// numbered, constants are named for those numbers (`PINS_SCENE_43`), and the section banners in
+/// the screens that implement them read `── scene 17: the bar fixpoint ──`. A number that resolves
+/// inside the crate the reader is already in is a local label, not a pointer at a document they
+/// have no copy of — and where a name reads better than the number it is used anyway
+/// (`crate::window`'s *scrolled screen*, `crate::dropped`'s *shrunk listing*).
+///
+/// Everywhere else — the engine, the runtime, the applications, `conform/` — a scene number points
+/// at a list the reader does not have, and the needle stands.
+const SCENE_NUMBERS_ARE_LOCAL: &str = "vitui-components";
 
 /// The same line with its scene numbers taken out, for the one file that owns them.
 fn scene_free(text: &str) -> String {
@@ -228,7 +231,7 @@ fn measure(dir: &str) -> (usize, usize, usize, Vec<String>) {
             .unwrap_or(&file)
             .display()
             .to_string();
-        let local_scenes = short.ends_with(SCENE_NUMBERS_ARE_LOCAL);
+        let local_scenes = dir == SCENE_NUMBERS_ARE_LOCAL;
         for (n, line) in text.lines().enumerate() {
             if let Some(ordinary) = comment_text(line) {
                 let ordinary = match local_scenes {

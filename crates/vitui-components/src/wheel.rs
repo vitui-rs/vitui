@@ -538,7 +538,7 @@ pub fn revealed(subject: Subject, reveal: Reveal, from: (i32, i32)) -> (i32, i32
     // **Frame zero seats the focus, and it is a frame rather than a line.** `Ctx::next_key` answers
     // `frame.route_to`, which is resolved from the *previous* frame's focus — so a widget that takes
     // the focus inside its own draw is deaf for that frame, and a gate that posted the key beside
-    // the seating would measure a keyboard nobody is listening to. Runtime architecture issue 25
+    // the seating would measure a keyboard nobody is listening to. The runtime's own change
     // settled the seating; this is its cadence. The area subject has no focus to seat and plays it
     // anyway, so that *nothing has asked yet* is a frame on both arms rather than an absence on one.
     run.play(play, |_| {});

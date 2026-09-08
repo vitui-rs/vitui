@@ -213,7 +213,7 @@ impl Ink for Direct {
         // **The empty guard is `Cells::hover_style`'s, kept when that type was deleted.**
         // `Ctx::hover_style` pushes unconditionally, so without this an empty rectangle becomes an
         // entry in `hover_styles` that paints nothing and still counts — which is a difference a
-        // region count can see. Components architecture issue 17 moved the verb and this line with
+        // region count can see. A components decision moved the verb and this line with
         // it rather than losing it in the move.
         if cells.is_empty() {
             return;
@@ -302,7 +302,7 @@ impl Ink for Pen {
         // **Root coordinates, like every other cell this instrument records.** `Ctx::hover_style`
         // maps to the frame's root on its own, and a surface that recorded the award where the
         // verb was called would put it in a different place from the cells it restyles the moment
-        // a component narrows. Components ticket 19, runtime issue 32.
+        // a component narrows, which is the context's own origin.
         let (ox, oy) = cx.origin();
         self.declare(Award {
             x: cells.x + ox,
