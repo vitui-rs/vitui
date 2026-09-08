@@ -1,7 +1,7 @@
 //! **The field's window: a scroll it does not follow, a shrink it does not clear, and a pull that
 //! fights the wheel.**
 //!
-//! Production ticket 05. Spec §11, §17 (O5), §21. This is the screen `field`'s other three scenes
+//! This is the screen `field`'s other three scenes
 //! are scenes *of* — [`crate::document`] carries the fourth, the row 13, and the two files
 //! divide the way the axes do: that one is **text measurement** at two widths and this one is
 //! **The window over the text**.
@@ -14,7 +14,7 @@
 //!
 //! # All three are one question asked three ways, which is why they are one module
 //!
-//! `field` owns its offset (§17: `owns_offset`), so the same integer decides all three: where the
+//! `field` owns its offset, so the same integer decides all three: where the
 //! window sits, what happens to the rows the content has stopped reaching, and what a posted notch
 //! is allowed to do to it. The four axes are not a taxonomy — each was established by a defect
 //! that **passed every gate then in force and looked healthier than the correct build** — and on
@@ -62,7 +62,7 @@
 //! [`Play`] draws every step into **one** [`crate::runner::Pen`] and never clears it, which is
 //! [`crate::runner::play`]'s own arrangement and for its reason: a cell nobody wrote keeps what was
 //! already there, and a runner that started each step from a blank surface would score the stale
-//! tail clean. [`stale_by_resize`] is the spelling §21 refuses, kept beside the one it banks so the
+//! tail clean. [`stale_by_resize`] is the refused spelling, kept beside the banked one so the
 //! difference is a number and not a warning.
 //!
 //! # The notches are posted, not added
@@ -107,7 +107,7 @@ pub const ROWS: usize = crate::document::WRAPPED;
 /// **How many bytes the document holds.** Measured, because `crate::document::text` is built at
 /// run time out of a rota of clusters and no `const` can name its length.
 ///
-/// `crate::scenes`'s row for scene 34 states the content it stands up, and a scene stating a size
+/// `crate::scenes`'s row for the scrolled screen states the content it stands up, and a scene stating a size
 /// nothing asserts is the failure mode arriving as a number — so the figure lives here, with
 /// the rest of this module's ledger, and `tests::the_document_is_the_size_the_scene_claims` is what
 /// keeps it honest.
@@ -262,7 +262,7 @@ pub const SHRUNK_DISTINCT: u64 = CELLS as u64;
 /// Thirty-five is that, counted.
 ///
 /// **It is the measurement and explains the number**, and saying it explained scene
-/// 34's was a false sentence a review caught. Scene 34 compares row `400 - r` against row `400 + r`
+/// Its first draft was a false sentence a review caught. It compares row `400 - r` against row `400 + r`
 /// and reports 79 rows apart, so *these* thirty-five rows are not among its agreements at all — the
 /// same mechanism is at work there and it is a different pair of screens, which is why
 /// [`INVERTED_CELLS`] gives its shortfall the general reason and not this count.
@@ -369,7 +369,7 @@ pub fn pasted() -> Text {
 ///
 /// # The warm frame is the runtime's cadence and not this instrument's arrangement
 ///
-/// Nothing holds the keyboard on the first frame of any program (runtime architecture 25), and the
+/// Nothing holds the keyboard on the first frame of any program, and the
 /// face a field draws in depends on whether it is focused ([`crate::state::press_into`]) — so a
 /// reference render played one frame and a subject played two would differ on **every cell of the
 /// rectangle**, in the paint rather than in the cluster. Every play here opens with one frame whose
@@ -391,7 +391,7 @@ impl Play {
     }
 
     /// **A play in a rectangle of `h` rows**, which is what [`stale_by_resize`] needs and the one
-    /// thing §21 says may stand *beside* the shrink spelling and not instead of it.
+    /// thing that may stand *beside* the shrink spelling and not instead of it.
     pub fn in_rows(st: Text, refused: Refused, h: u16) -> Play {
         Play {
             driver: driver_at(W, h, Density::default()),
@@ -509,7 +509,7 @@ impl Play {
 /// oracle is an oracle.
 ///
 /// A comparison whose correct arm has never been watched agreeing reports *0 cells over 0 rows* for
-/// the same reason a broken one would — `crate::runner::defective`'s own sentence, and §21 has the
+/// the same reason a broken one would — `crate::runner::defective`'s own sentence, and there is
 /// finding three times from the other direction.
 pub fn at_rest() -> Diff {
     against_the_tail(Refused::NONE, 1)
@@ -564,7 +564,7 @@ pub fn shrunk(refused: Refused) -> Diff {
 
 /// **The same defect spelled as a terminal resize — and it scores clean.**
 ///
-/// §21 refuses to bank the shrink gate written this way, and this is the refusal as a number rather
+/// The shrink gate written this way is refused, and this is the refusal as a number rather
 /// than as a sentence: a fresh rectangle has nowhere for the residue to survive, so the arm that
 /// leaves seventy-nine rows standing draws the same screen as the rule.
 ///
@@ -759,9 +759,9 @@ pub fn counters_approve(
 /// make that mistake without writing it down.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum On {
-    /// Scene 34: the document at [`SCROLLED_TO`], one frame.
+    /// The scrolled screen: the document at [`SCROLLED_TO`], one frame.
     TheWindow,
-    /// Scene 35: the megabyte edited down to one line, three frames into one surface.
+    /// The shrunk screen: the megabyte edited down to one line, three frames into one surface.
     TheShrink,
 }
 
@@ -786,7 +786,7 @@ pub fn shrunk_play(refused: Refused) -> Play {
 /// alias so the two files cannot drift about which component `field` is.
 pub const SUBJECTS: &[&str] = &crate::document::SUBJECTS;
 
-/// **The components a posted wheel notch is played over here.** One, and it is scene 36's.
+/// **The components a posted wheel notch is played over here.** One, and it is the wheel screen's.
 ///
 /// [`crate::wheel::Subject::ALL`]'s counterpart, and it is a second const rather than a reuse of
 /// [`SUBJECTS`] for that value's own reason: `crate::obligations`'s wheel-pair join reads it as a
@@ -885,7 +885,7 @@ mod tests {
         assert_eq!(row_start_byte(SCROLLED_TO), index.row_start(SCROLLED_TO));
     }
 
-    /// **Scene 34: the window's sign, decided by an equality against the reference render.**
+    /// **The scrolled screen: the window's sign, decided by an equality against the reference render.**
     ///
     /// The correct arm agrees everywhere and the inverted one is [`INVERTED_CELLS`] cells over
     /// [`INVERTED_ROWS`] rows. Both halves, because a comparison whose correct arm has never
@@ -936,7 +936,7 @@ mod tests {
         );
     }
 
-    /// **Scene 35: the stale tail is seventy-nine of eighty rows, and the resize spelling misses
+    /// **The shrunk screen: the stale tail is seventy-nine of eighty rows, and the resize spelling misses
     /// it.**
     #[test]
     fn the_stale_tail_is_seventy_nine_of_eighty_rows_and_the_resize_spelling_misses_it() {
@@ -1109,7 +1109,7 @@ mod tests {
         }
     }
 
-    /// **Scene 36: twenty posted notches move the window twenty, and an unconditional reveal moves
+    /// **The wheel screen: twenty posted notches move the window twenty, and an unconditional reveal moves
     /// it none.**
     ///
     /// Three arms and not two, because [`Reveal::Never`] moves the window exactly as far as the
@@ -1139,10 +1139,10 @@ mod tests {
         );
     }
 
-    /// **Scene 36 on the screen, and not only on the offset.**
+    /// **The wheel screen on the screen, and not only on the offset.**
     ///
     /// The settled window is [`SCROLLED_TO`], which is the row the oracle is cut at — so the same
-    /// reference render decides this scene and scene 34. The pull reports the whole screen.
+    /// reference render decides this scene and the scrolled one. The pull reports the whole screen.
     #[test]
     fn the_settled_screen_is_the_tail_and_the_pull_is_the_top_of_the_document() {
         wheeled_screen(Reveal::WhenAsked).assert_clean("scene 36, the rule");
@@ -1200,7 +1200,7 @@ mod tests {
         assert_eq!(indexed, PULLED_ROWS);
     }
 
-    /// **The document is the size scene 34 claims**, and the megabyte is a megabyte.
+    /// **The document is the size the scrolled screen claims**, and the megabyte is a megabyte.
     #[test]
     fn the_document_is_the_size_the_scene_claims() {
         assert_eq!(crate::document::text().len() as u64, DOCUMENT_BYTES);

@@ -1,6 +1,6 @@
 //! **The scroll area's screens: the bar fixpoint, `Σ h` as the extent, and two areas far apart.**
 //!
-//! Components ticket 18. Spec §9, §21, ADR 0029. This is what `scroll_area`, `scrollbar` and
+//! This is what `scroll_area`, `scrollbar` and
 //! `sticky` are scenes *of*, and it exists for [`crate::listing`]'s reason one family over: **each
 //! of the four hostile axes was established by a defect that passed every gate then in force and
 //! looked healthier than the correct build.**
@@ -18,7 +18,7 @@
 //! All three are measured here and none of them comes out at the remembered value. They are not
 //! three sloppy figures: each disagreement says something about the mechanism.
 //!
-//! **1. `3 535` is a damage figure and not a double-write count.** ADR 0029 states both
+//! **1. `3 535` is a damage figure and not a double-write count.** Two documents state
 //! numbers in the same document and they are about different quantities — *3 535 cells a frame
 //! against 0 for the reserved twin*, and then, three paragraphs down, *the amplifier is an engine
 //! fact: damage is one span per surface row … ×8.4 where two bars contest ~423 cells.* `423 × 8.36`
@@ -29,22 +29,22 @@
 //! it can never report a cell the frame did not change.* This screen measures the double write,
 //! which is [`OVERLAY_REDAMAGE`], and reports both models beside it ([`Damage`]).
 //!
-//! **2. The thumb is out by more than 7 of 69, and 7 is the half-range figure.** §9 says *up to 7
+//! **2. The thumb is out by more than 7 of 69, and 7 is the half-range figure.** The claim is *up to 7
 //! cells of 69*. The drift is `travel · offset · (1/furthest_rows − 1/furthest_cells)`, which is
 //! **linear in the offset**: it reaches 7 at the middle of the reachable range and
 //! [`THUMB_DRIFT`] at its end. `up to` is the phrase that does not survive, not the arithmetic —
 //! see [`thumb_drift`].
 //!
 //! **3. The wrong pairing does not cost 7 907 µs here, and the count it is diagnosed by does not
-//! move either.** §9 prices it at 100 000 rows on a screen this ticket does not own; what reproduces
+//! move either.** It is priced at 100 000 rows on a screen this file does not own; what reproduces
 //! exactly is the *mechanism* — [`PAIRING_ROWS`] rows iterated against [`AH`] — which is
 //! `crates/vitui-runtime/src/scroll.rs`'s own rule: **count what each body iterated rather than
 //! timing it, because the count is the mechanism and the timing is the weather.** The µs figure is
-//! printed by `examples/area_numbers.rs` beside §9's, and neither is a gate.
+//! printed by `examples/area_numbers.rs` beside the recorded ones, and neither is a gate.
 //!
 //! # Four instruments, because the three scenes ask three different questions
 //!
-//! 1. **The fixpoint is arithmetic and takes no `Ctx`.** ADR 0002: the engine lays nothing out, so
+//! 1. **The fixpoint is arithmetic and takes no `Ctx`.** The engine lays nothing out, so
 //!    the question is *who computes the reduced rectangle and when*, and the answer is *the
 //!    component, before it calls the body, from integers the caller already owns.* [`decide`] is a
 //!    sizing function in `CONTEXT.md`'s sense — nothing in section 1 draws.
@@ -52,17 +52,17 @@
 //!    [`Tally`] and the frame's own hit index. It cannot go through [`Pen`], for
 //!    [`crate::listing`]'s reason: a scrolled context is a content coordinate system, so a body
 //!    drawn at content coordinates writes far outside a [`Canvas`] sixty-nine rows tall. Until
-//!    components ticket 19 it could not go through [`Ctx::scroll_scope`] either — see
+//!    a later change it could not go through [`Ctx::scroll_scope`] either — see
 //!    [`SETTLED_SCROLL_SCOPE_SIGN`], which is the record of a settled sign rather than a live
 //!    workaround.
 //! 3. **The two-areas scene goes through [`Pen`]**, because re-damage is a relation between two
-//!    frames and only a surface that survives one can hold it — `Pen::over`, ticket 07's
+//!    frames and only a surface that survives one can hold it — `Pen::over`, the
 //!    arrangement, and the reason the arms are played over four frames rather than one. Components
-//!    ticket 19 found that the surface was in the wrong coordinate system to hold it: `Pen`
+//!    it turned out the surface was in the wrong coordinate system to hold it: `Pen`
 //!    recorded a verb where it was *called*, so two areas sixty columns apart recorded their bands
 //!    as one and the reserved twin reported 119 cells re-damaged on a frame that re-damages none.
 //!    The repair is `vitui_runtime::Ctx::origin`, which the runtime did not publish until runtime
-//!    architecture issue 32 — *a translated band makes `distinct` meaningless* met from
+//!    the context's origin — *a translated band makes `distinct` meaningless* met from
 //!    a third side.
 //! 4. **The wrong pairing goes through both**, because its gate is a count and its figure is a
 //!    timing, and the rule keeps those apart.
@@ -78,7 +78,7 @@
 //!
 //! **The wheel gate is not asked here and that is deliberate.** The watermark line — *the
 //! area is dead downward, twenty wheel clicks move the offset 0, and alive sideways* — is the same
-//! defect [`crate::listing`] pins as scene 6, and a second copy of a pinned gate is a second thing
+//! defect [`crate::listing`] already pins, and a second copy of a pinned gate is a second thing
 //! to invert.
 //!
 //! [`Canvas`]: crate::runner::Canvas
@@ -102,7 +102,7 @@ use crate::scroll::{self, Orient, Span};
 
 /// Whether a bar takes room from the body or floats over it.
 ///
-/// **[`Bars::Overlay`] is a negative case and never an option a component offers** (ADR 0029, and
+/// **[`Bars::Overlay`] is a negative case and never an option a component offers** (and
 /// the first criterion in as many words). It exists here so the rule can be
 /// measured rather than repeated: an overlay bar is free exactly where the body does not draw under
 /// it, which is not a property any component can guarantee of its body.
@@ -141,10 +141,10 @@ impl Hide {
 ///
 /// [`crate::scroll::Shown`] and [`crate::scroll::Decision`] are re-exported here rather than
 /// declared again, which is what makes this screen a screen *of* `scroll_area` instead of a screen
-/// beside it: the sweep below runs the arithmetic that ships. Components ticket 19.
+/// beside it: the sweep below runs the arithmetic that ships.
 pub use crate::scroll::{Decision, Shown};
 
-/// The largest number of passes [`decide`] is allowed to take. §9: **worst case 3 passes.**
+/// The largest number of passes [`decide`] is allowed to take: **worst case 3 passes.**
 pub use crate::scroll::MAX_PASSES;
 
 /// The viewport widths the sweep visits: `1..40`.
@@ -210,7 +210,7 @@ pub fn decide(free: (u16, u16), extent: (u32, u32), bars: Bars) -> Decision {
 /// content that would fit with neither. There is no oscillation and no non-termination; the bars
 /// simply never come back down, and nothing in a frame's counts moves when they should have.
 ///
-/// This is the second half of ADR 0029: **reserved auto-hiding bars require a declared content
+/// This is the second half of the reservation rule: **reserved auto-hiding bars require a declared content
 /// size**, because a measured extent is taken inside the rectangle the decision produced.
 pub fn decide_incremental(
     free: (u16, u16),
@@ -243,9 +243,9 @@ pub fn reduced(free: (u16, u16), shown: Shown, bars: Bars) -> (u16, u16) {
 pub struct Sweep {
     /// How many `(viewport, extent)` pairs were visited. [`SWEEP_PAIRS`].
     pub pairs: u64,
-    /// **How many answers were not fixpoints.** §9: **0**.
+    /// **How many answers were not fixpoints.** **0**.
     pub failures: u64,
-    /// **The worst pass count over the whole domain.** §9: **3**.
+    /// **The worst pass count over the whole domain.** **3**.
     pub worst_passes: u8,
     /// How many of the pairs showed a bar that the reduced rectangle did not need. The *least*
     /// fixpoint half, which the round-trip check alone cannot see.
@@ -345,7 +345,7 @@ pub fn flips(seq: &[Shown]) -> usize {
     seq.windows(2).filter(|w| w[0] != w[1]).count()
 }
 
-/// How many frames the reflow loop is run for. §9: **99 flips in 99 frames**, which is 100 frames
+/// How many frames the reflow loop is run for: **99 flips in 99 frames**, which is 100 frames
 /// and the 99 windows between them.
 pub const REFLOW_FRAMES: usize = 100;
 /// The figure: **the decision flips 99 times in 99 frames with no input.**
@@ -428,7 +428,7 @@ pub const TALL_H: u32 = 3;
 
 /// **The extent, in content cells: `Σ h`.** One row in eight three cells tall over a million rows.
 pub const EXTENT_CELLS: u32 = 1_250_000;
-/// **The extent a reader writes first**, and the defect §9 had to price: the row count, used as if
+/// **The extent a reader writes first**, and the defect that had to be priced: the row count, used as if
 /// it were a length in cells.
 pub const EXTENT_ROWS: u32 = 1_000_000;
 
@@ -440,7 +440,7 @@ pub const LAST_ROW_IN_ROWS: u64 = 799_999;
 
 /// **The sign `Ctx::scroll_scope` translates a scrolled window by, and the defect it was.**
 ///
-/// Filed as runtime architecture issue 26 and **resolved 2026-08-30**. As filed: at offset 5 in a
+/// Filed against the runtime and **resolved 2026-08-30**. As filed: at offset 5 in a
 /// six-row viewport the scope reported `visible_rows() == -5..1`, a write at content row 5 landed
 /// **0 cells** and one at content row 0 landed five, because `Ctx::scroll_scope` handed `+offset`
 /// to `View::scrolled` where the engine's documented convention is the other sign — *a viewport
@@ -451,7 +451,7 @@ pub const LAST_ROW_IN_ROWS: u64 = 799_999;
 /// workspace to meet it: nothing above the runtime had scrolled a `scroll_scope` yet. Three
 /// components tickets then found it independently, from three directions.
 ///
-/// **The workaround is gone, and components ticket 19 is what took it out.** While it stood,
+/// **The workaround is gone.** While it stood,
 /// [`draw_into`] applied the offset itself inside a `Ctx::child` of the same rectangle — on **both**
 /// arms, so it was on the side of neither. Components 12 settled the sign and this screen now draws
 /// through [`crate::scroll::scroll_area`], whose scope does the translation;
@@ -578,7 +578,7 @@ impl Content {
 
     /// **Remove `n` rows from `from`, rebuilding the prefix sum when there is one.**
     ///
-    /// The shape change §9 prices. The uniform arm is a `Vec::drain` and nothing else; the variable
+    /// The priced shape change. The uniform arm is a `Vec::drain` and nothing else; the variable
     /// arm has to rebuild `ytop` from the row after the cut, because every prefix sum past it moved.
     pub fn remove(&mut self, from: usize, n: usize) {
         let end = (from + n).min(self.rows.len());
@@ -823,7 +823,7 @@ pub fn thumb_drift() -> u16 {
 /// **How far into the reachable range the drift first reaches `cells`**, as a fraction of it, or
 /// `None` if it never does.
 ///
-/// The instrument behind the module header's second finding. §9 states the drift as *up to 7 cells
+/// The instrument behind the module header's second finding. The drift is stated as *up to 7 cells
 /// of 69*; the drift is linear in the offset, so *7* is a point on the range and not its end, and
 /// this is the point. Scanned rather than solved because the quantity is a difference of two floors
 /// and the crossing is where the two floors part company, not where the reals do.
@@ -979,7 +979,7 @@ pub fn row_at_cost(variable: bool, probes: u32) -> Duration {
 /// **What a shape change costs**: [`REMOVED`] rows out of a million, and the prefix sum rebuilt
 /// when there is one.
 ///
-/// §9 assigns the two halves: *a shape change costs 58.8 / 394.2 µs; the offset clamp is free,
+/// The two halves are assigned: *a shape change costs 58.8 / 394.2 µs; the offset clamp is free,
 /// because `max` is recomputed every frame.* The uniform arm has no prefix sum to rebuild and the
 /// variable arm does, which is the whole of the difference.
 pub fn shape_change_cost(variable: bool, times: u32) -> Duration {
@@ -1003,7 +1003,7 @@ pub fn shape_change_cost(variable: bool, times: u32) -> Duration {
 // 3. Two scroll areas far apart, with overlay bars — scene 19
 // ═════════════════════════════════════════════════════════════════════════════════════════════════
 
-/// The screen's width. §20 prices every dense screen on this map at 300x80, and
+/// The screen's width. Every dense screen here is priced at 300x80, and
 /// [`crate::scroll::W`] already ships the constant.
 pub const W: u16 = scroll::W;
 /// The screen's height.
@@ -1019,7 +1019,7 @@ pub const GAP: u16 = W - 2 * AREA_W;
 
 /// The sticky header each area carries, in rows. **One**, because `sticky` has to be on this screen
 /// for [`crate::scenes::scenes_for`] to answer for it, and because a scroll area with a pinned
-/// header is the shape §9 describes. What this screen does **not** measure is the band-drawn-by-
+/// header is the described shape. What this screen does **not** measure is the band-drawn-by-
 /// arithmetic figure — that is the criterion, and a second copy of a number
 /// is a second thing to keep in step.
 pub const BAND_H: u16 = 1;
@@ -1028,7 +1028,7 @@ pub const BAND_H: u16 = 1;
 /// which nothing about the content has changed.
 pub const STEADY_FRAMES: u32 = 4;
 
-/// **Cells the two areas' bars and bodies contest**, and the figure ADR 0029 is about.
+/// **Cells the two areas' bars and bodies contest**, and the figure the reservation rule is about.
 ///
 /// `2 · (H + AREA_W − 1)`: a vertical bar of [`H`] cells and a horizontal bar of [`AREA_W`], sharing
 /// their corner, per area. It is asserted from that arithmetic as well as measured, which is what
@@ -1049,7 +1049,7 @@ pub const ADR_CONTESTED: u64 = 423;
 /// **What a frame re-damaged, under both damage models.**
 ///
 /// The engine ships the first and measured the second before rejecting it
-/// (`crates/vitui-engine/src/damage.rs`), so the pair is the honest way to report a number §9 states
+/// (`crates/vitui-engine/src/damage.rs`), so the pair is the honest way to report a number stated
 /// under the model that lost.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub struct Damage {
@@ -1057,7 +1057,7 @@ pub struct Damage {
     /// *exact by construction — it can never report a cell the frame did not change.*
     pub cells: u64,
     /// **The same frame under one span per surface row**, from the leftmost changed cell of a row
-    /// to the rightmost. The model §2 assumed and the engine rejected.
+    /// to the rightmost. The model that was assumed and the engine rejected.
     pub span_cells: u64,
 }
 
@@ -1089,12 +1089,12 @@ pub fn right() -> Rect {
 ///
 /// # The two arms are not one boolean apart any more, and that *is* criterion 1
 ///
-/// Until components ticket 19 both arms were one stand-in with a [`Bars`] argument, which is
+/// Both arms were once one stand-in with a [`Bars`] argument, which is
 /// `crate::frame`'s private `draw` and its reason. The subject changed the shape of the
 /// comparison rather than the comparison: **the reserved arm is
 /// [`crate::scroll::scroll_area`] and the overlay arm cannot be, because the component has no
 /// overlay option and the first criterion is that it never will.** So what stands here is
-/// the shipped component against the spelling ADR 0029 refuses, and the refusal is visible in the
+/// the shipped component against the refused spelling, and the refusal is visible in the
 /// fact that the second arm had to be written out by hand.
 ///
 /// The two arms draw the same picture — one band across the top, a body under it, a bar down the
@@ -1253,7 +1253,7 @@ pub fn two_areas_into<I: Ink>(ink: &mut I, cx: &mut Ctx<'_, '_>, bars: Bars) {
 /// The surface persists across frames — `Pen::over` — because re-damage is a relation between two
 /// frames and a fresh surface each frame reports every cell as a first paint for ever. The first
 /// frame is the one that paints the screen and its damage is thrown away; what is returned is the
-/// **steady** frame's, which is the frame ADR 0029 prices.
+/// **steady** frame's, which is the frame the reservation rule prices.
 pub fn steady(bars: Bars) -> Damage {
     let mut driver = driver_at(W, H, Density::default());
     let mut canvas = Canvas::new(W, H);
@@ -1308,7 +1308,7 @@ impl Pairing {
     }
 }
 
-/// The volume §9 prices the wrong pairing at.
+/// The volume the wrong pairing is priced at.
 pub const PAIRING_ROWS: u64 = 100_000;
 /// The remembered cost for it: **7 907 µs — seventy-nine budgets.** A report, never a gate.
 pub const REMEMBERED_PAIRING_US: f64 = 7_907.0;
@@ -1401,12 +1401,12 @@ pub const SUBJECTS: [&str; 3] = ["scroll_area", "scrollbar", "sticky"];
 /// Where [`SUBJECTS`] are declared, as `(module file, the declaration)`.
 ///
 /// The home is the freeze's, joined through [`crate::Family`]: all three name `F3Scrolling`, whose
-/// module is `scroll.rs`. A component is `fn(&mut Ctx, Rect, …) -> Response` (spec §1, rule 1), so
+/// module is `scroll.rs`. A component is `fn(&mut Ctx, Rect, …) -> Response`, so
 /// the thing to look for is a public function of the component's own name in its own family's
 /// module.
 ///
 /// **`scrollbar` is the component and [`crate::scroll::bar`] is the helper**, which is why the
-/// needle is `pub fn scrollbar(` and not `pub fn bar(`: components ticket 07 shipped the helper and
+/// needle is `pub fn scrollbar(` and not `pub fn bar(`: the helper shipped first and
 /// a scan that accepted it would report this screen as standing on a component nobody has written.
 pub const DECLARATIONS: [(&str, &str); 3] = [
     ("scroll.rs", "pub fn scroll_area("),
@@ -1434,7 +1434,7 @@ pub fn subjects_declared() -> Vec<&'static str> {
 
 /// **Whether these screens stand on their subjects, as a verdict rather than as a sentence.**
 ///
-/// **`Met` over three since components ticket 19**, and the `Unmet` arm is kept rather than deleted:
+/// **`Met` over three**, and the `Unmet` arm is kept rather than deleted:
 /// [`owed_message`] is still watched producing the waiting sentence from a partial declaration list,
 /// because a message nobody has watched stop is a message nobody has watched.
 pub fn standing() -> Verdict {
@@ -1489,7 +1489,7 @@ pub fn owed_message(declared: &[&str], scene: &str) -> Option<String> {
 ///
 /// # Panics
 ///
-/// Panics while [`SUBJECTS`] are undeclared, which is **today**. Components ticket 19 inverts it.
+/// Panics while [`SUBJECTS`] are undeclared, which is **today**.
 pub fn assert_stands_up(scene: &str) {
     if let Some(message) = owed_message(&subjects_declared(), scene) {
         panic!("{message}");
@@ -1627,9 +1627,9 @@ mod tests {
         );
     }
 
-    /// **Scene 17 stands on its subject, and the arithmetic it stands on is the component's.**
+    /// **The fixpoint scene stands on its subject, and the arithmetic it stands on is the component's.**
     ///
-    /// Inverted by components ticket 19. The sweep above runs [`crate::scroll::decide`], which is
+    /// Since inverted. The sweep above runs [`crate::scroll::decide`], which is
     /// what `scroll_area` reduces its rectangle with, so this is not a re-assertion of the
     /// declaration scan: the two are the same function or this test is a lie.
     #[test]
@@ -1771,7 +1771,7 @@ mod tests {
 
     /// **Criterion 5: the thumb is asserted in content cells, and the row-measured spelling drifts.**
     ///
-    /// §9 remembers *up to 7 of 69* and this screen measures [`THUMB_DRIFT`] at the end of the
+    /// The recorded figure is *up to 7 of 69* and this screen measures [`THUMB_DRIFT`] at the end of the
     /// reachable range; the two are the same arithmetic at two points of it, and the half-range
     /// figure **is** 7. Both are asserted so neither can be quietly replaced by the other.
     #[test]
@@ -1893,11 +1893,11 @@ mod tests {
         );
     }
 
-    /// **Scene 18 stands on its subject**, and every frame above was drawn by it.
+    /// **The extent scene stands on its subject**, and every frame above was drawn by it.
     ///
     /// [`draw_into`] calls [`crate::scroll::scroll_area_into`]; the offset is applied by the
     /// component's own scroll scope rather than by this module, which is the workaround components
-    /// ticket 18 had to write and ticket 19 deleted.
+    /// had to be written once and was deleted later.
     #[test]
     fn the_extent_scene_stands_on_a_shipped_scroll_area() {
         assert_stands_up("scene 18, a 1M-row scroll area with one row in eight three cells tall");
@@ -1980,7 +1980,7 @@ mod tests {
     /// **The two-areas screen is the one this ticket collects a debt on, and the debt is the
     /// number.**
     ///
-    /// §21 marks the row `(owed)` and states its figure as *×8.4 amplification*. The figure is not
+    /// The row is marked `(owed)` with its figure as *×8.4 amplification*. The figure is not
     /// measurable on the shipped engine and the double write is, so what this test pins is the
     /// relation between the two: the remembered 3 535 is within one contested-cell count of ADR
     /// 0029's own `~423 × 8.4`, and this screen's own double write is within a tenth of the 423.
@@ -2002,7 +2002,7 @@ mod tests {
         );
     }
 
-    /// **Scene 19 stands on its subject, and only one of its two arms could.**
+    /// **The two-areas scene stands on its subject, and only one of its two arms could.**
     ///
     /// That is criterion 1 rather than a shortfall: [`reserved_into`] is
     /// [`crate::scroll::scroll_area`] and [`overlaid_into`] had to be written by hand, because the
@@ -2064,7 +2064,7 @@ mod tests {
         );
     }
 
-    /// **Scene 30 stands on its subject.**
+    /// **The reference-render scene stands on its subject.**
     #[test]
     fn the_wrong_pairing_stands_on_a_shipped_scroll_area() {
         assert_stands_up("scene 30, a scroll_area over unbounded data");
@@ -2074,7 +2074,7 @@ mod tests {
 
     /// **The screens stand, and the verdict says over how many.**
     ///
-    /// Inverted by components ticket 19. The `Unmet` half is not deleted with it — [`owed_message`]
+    /// Since inverted. The `Unmet` half is not deleted with it — [`owed_message`]
     /// is still watched producing the waiting sentence from a partial declaration list, because a
     /// message nobody has watched stop is a message nobody has watched.
     #[test]

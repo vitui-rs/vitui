@@ -76,14 +76,14 @@ const STANDING: &[Standing] = &[
     },
     Standing {
         dir: "vitui-components",
-        citations: 568,
+        citations: 0,
         examples: 9,
     },
 ];
 
 /// The crates whose sweep is finished. A finished crate's budget is zero and stays zero, which is
 /// the difference between a ratchet and a treadmill.
-const SWEPT: &[&str] = &["vitui", "vitui-engine", "vitui-runtime"];
+const SWEPT: &[&str] = &["vitui", "vitui-engine", "vitui-runtime", "vitui-components"];
 
 /// Citation vocabulary that is a plain substring: a decision-record number, a section mark, a
 /// register row, a path into the backlog, an obligation letter, a map's own name.
@@ -141,6 +141,29 @@ fn cites(text: &str) -> bool {
     })
 }
 
+/// The one file where a scene number is not a citation.
+///
+/// `crate::scenes` **is** the scene list: its rows are numbered, its constants are named for those
+/// numbers (`PINS_SCENE_43`), and a doc comment there saying *what pins scene 43* is naming the
+/// item it sits on. Everywhere else a scene number points at a list the reader has no copy of, and
+/// the needle stands.
+const SCENE_NUMBERS_ARE_LOCAL: &str = "vitui-components/src/scenes.rs";
+
+/// The same line with its scene numbers taken out, for the one file that owns them.
+fn scene_free(text: &str) -> String {
+    let needle = needle("sce", "ne ");
+    let mut out = String::with_capacity(text.len());
+    let mut rest = text;
+    while let Some(at) = rest.find(needle.as_str()) {
+        out.push_str(&rest[..at]);
+        rest = &rest[at + needle.len()..];
+        let digits = rest.len() - rest.trim_start_matches(|c: char| c.is_ascii_digit()).len();
+        rest = &rest[digits..];
+    }
+    out.push_str(rest);
+    out
+}
+
 /// An example heading, in either of rustdoc's two spellings.
 fn opens_examples(text: &str) -> bool {
     text == "# examples" || text == "# example"
@@ -180,11 +203,16 @@ fn measure(dir: &str) -> (usize, usize, Vec<String>) {
             .unwrap_or(&file)
             .display()
             .to_string();
+        let local_scenes = short.ends_with(SCENE_NUMBERS_ARE_LOCAL);
         for (n, line) in text.lines().enumerate() {
             let Some(doc) = doc_text(line) else { continue };
             if opens_examples(&doc) {
                 examples += 1;
             }
+            let doc = match local_scenes {
+                true => scene_free(&doc),
+                false => doc,
+            };
             if cites(&doc) {
                 citations += 1;
                 if worst.len() < 12 {

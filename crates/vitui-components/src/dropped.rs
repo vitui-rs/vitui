@@ -1,8 +1,8 @@
 //! **The dropped list: a window that goes the wrong way behind a layer, a tail nothing clears, and
 //! two wheels that need the layer placed before they can be routed at all.**
 //!
-//! Production ticket 08. Spec §12, §15, §17 (O5), §21. This is the screen the overlay family's four
-//! remaining hostile axes are scenes *of* — [`crate::popup`] carries the scene 14, the
+//! This is the screen the overlay family's four
+//! remaining hostile axes are scenes *of* — [`crate::popup`] carries the family's own screen, the
 //! family's five configurations, and the two files divide the way the questions do: that one is
 //! **what a layer costs the frame** and this one is **what a windowed list inside one gets wrong**.
 //!
@@ -15,8 +15,8 @@
 //!
 //! # All four are one question asked twice on each of two components
 //!
-//! Both overlay owners request a layer and draw **the collection** inside its body — §12 says so
-//! of the `select`'s popup and §15 of the picker's listing, and both say *reached by calling it*.
+//! Both overlay owners request a layer and draw **the collection** inside its body — that is stated
+//! of the `select`'s popup and of the picker's listing, and both say *reached by calling it*.
 //! So the four axes here are `collection`'s four reached through a layer, and what the layer changes
 //! is not the arithmetic but **who can see it**:
 //!
@@ -31,7 +31,7 @@
 //!    first click rather than `crate::wheel`'s one, which is why these two wheel scenes are here and
 //!    not there — see [`WHEELED_SUBJECTS`].
 //!
-//! # What production 08 changed in the shipped code, and it is one line each
+//! # What changed in the shipped code, and it is one line each
 //!
 //! `crate::input::popup_body` and `crate::files::picker_body` draw their shell and their list
 //! through an `I: Ink` instead of through [`Direct`]. Nothing else moves: a
@@ -69,10 +69,10 @@
 //! tail, and the pane's two axes have scenes 23 and 24 already. Changing that signature is a public
 //! API change and no scenes ticket's.
 //!
-//! # The picker is driven with a pointer, and that is components architecture 23
+//! # The picker is driven with a pointer, and that was an open question
 //!
 //! **An open `file_picker` seats no focus, declares no refusal and answers only on a click.** It is
-//! an open question — **components architecture 23** — it is not this ticket's to answer: seating a
+//! an open question, it was not this screen's to answer: seating a
 //! focus there is a keyboard being designed and carries three decisions a scenes ticket has no
 //! standing to make — and so [`wheeled_picker`] drives the axis the way a gate can today: a posted
 //! notch over the popup's rectangle, with no keystroke in it. **The keyboard half of the wheel rule
@@ -127,7 +127,7 @@ pub const FILES: usize = 64;
 /// **How many it holds after. Nine**, which is [`crate::grid::SHRUNK_TO`]'s own number rather than
 /// a second one: the content becomes smaller and the rectangle does not move, and a shrink to a
 /// *single* row would make [`stale_by_resize`]'s rectangle one row tall, which is a degenerate
-/// screen rather than the resize §21 refuses.
+/// screen rather than the refused resize.
 pub const SHRUNK_TO: usize = 9;
 
 /// **How wide the picker's listing is**, which is [`PickerOpts::default`]'s and not a second number.
@@ -277,7 +277,7 @@ impl Preview for Doc {
     }
 }
 
-/// The decode, as spec §15 requires it: a free function over an identity.
+/// The decode, as the preview pane requires it: a free function over an identity.
 fn decode(id: u64, _cancel: &Cancel) -> Doc {
     Doc(id)
 }
@@ -512,7 +512,7 @@ fn omitted_tail() -> PickerShape {
     }
 }
 
-/// **The spelling §21 refuses, kept as a number rather than as a sentence**: the same refusal played
+/// **The refused spelling, kept as a number rather than as a sentence**: the same refusal played
 /// into a rectangle the shrink has already resized.
 ///
 /// The correction to the shrink axis is that *the version written against a terminal resize
@@ -529,7 +529,7 @@ pub fn stale_by_resize() -> Diff {
 }
 
 /// [`picker_screen`] in a rectangle of `h` rows, which is what [`stale_by_resize`] needs and the one
-/// thing §21 says may stand *beside* the shrink spelling and not instead of it.
+/// thing that may stand *beside* the shrink spelling and not instead of it.
 fn picker_screen_in(steps: &[usize], shape: PickerShape, h: u16) -> Canvas {
     let names = file_names();
     let worker = Worker::queueing();
@@ -672,7 +672,7 @@ pub fn wheeled_select(reveal: Reveal) -> Wheeled {
 /// cursor. The rule and the unconditional arm both follow the keyboard; deleting the call does not,
 /// and a gate written on [`wheeled_select`] alone would call that a pass.
 ///
-/// **It is asked of `select` and not of the picker**, which is components architecture 23 showing
+/// **It is asked of `select` and not of the picker**, which is the keyboard question showing
 /// through: an open picker seats no focus, so there is no id a posted key could be routed to. See
 /// the module header.
 #[must_use]
@@ -731,7 +731,7 @@ pub fn revealed_by_a_key(reveal: Reveal) -> i32 {
 /// **Twenty posted notches over an open `file_picker`'s listing, under one reveal arm.**
 ///
 /// [`wheeled_select`]'s cadence exactly, one component over. **Driven with a pointer and nothing
-/// else**, which is components architecture 23 and is stated in the module header rather than left
+/// else**, which is the keyboard question, and it is stated in the module header rather than left
 /// for a reader to infer.
 #[must_use]
 pub fn wheeled_picker(reveal: Reveal) -> Wheeled {
@@ -880,9 +880,9 @@ const OVER_THE_LISTING: u16 = LIST_W / 2;
 /// scene's play silently.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum On {
-    /// Scene 39: the popup at [`SCROLLED_TO`], two frames.
+    /// The scrolled popup: at [`SCROLLED_TO`], two frames.
     TheWindow,
-    /// Scene 41: the picker's listing edited down to [`SHRUNK_TO`], two frames.
+    /// The shrunk listing: edited down to [`SHRUNK_TO`], two frames.
     TheTail,
 }
 
@@ -1035,7 +1035,7 @@ pub const PICKER_SCREENS: &[&str] = &["file_picker"];
 ///
 /// [`crate::window::WHEELED_SUBJECTS`]' counterpart and a third source for
 /// `crate::obligations`'s wheel-pair join, which read [`crate::wheel::Subject::ALL`] alone until
-/// production 05 and those two until this ticket. **A gate's subject list is derived from the gate
+/// one pass and those two until another. **A gate's subject list is derived from the gate
 /// that plays them**, and the join is the union — written out by hand on either side, a subject
 /// escapes both halves while both stay green.
 ///
@@ -1099,7 +1099,7 @@ mod tests {
         );
     }
 
-    /// **Scene 39: the inverted window is [`INVERTED_ROWS`] of [`H`] rows, and no counter says
+    /// **The scrolled popup: the inverted window is [`INVERTED_ROWS`] of [`H`] rows, and no counter says
     /// so.**
     ///
     /// The two halves are the axis's whole argument: the equality against a reference render is the
@@ -1137,8 +1137,8 @@ mod tests {
         );
     }
 
-    /// **Scene 41: the stale tail is [`STALE_ROWS`] of [`H`] rows, it is cheaper on every counter
-    /// that moves, and the spelling §21 refuses scores clean.**
+    /// **The shrunk listing: the stale tail is [`STALE_ROWS`] of [`H`] rows, it is cheaper on
+    /// every counter that moves, and the refused spelling scores clean.**
     #[test]
     fn the_pickers_stale_tail_is_fifteen_of_twenty_four_rows_and_the_resize_spelling_misses_it() {
         shrunk_at_rest().assert_clean("the correct listing against one built over the short one");
@@ -1210,7 +1210,7 @@ mod tests {
     /// # Every number is asserted **equal to the other component's** rather than to a constant
     /// twice
     ///
-    /// Spec §12 says the popup's list is *the collection over the option list* and §15 says the
+    /// The popup's list is *the collection over the option list*, and the
     /// picker's body is *the shell, then a collection beside a preview pane*. Both say **reached by
     /// calling it**, and nothing had ever asked either one a wheel question. Asked as *`select`
     /// equals `file_picker`, arm for arm*, an owner that grew an offset or a reveal of its own fails
@@ -1275,7 +1275,7 @@ mod tests {
 
     /// **The half [`Reveal::Never`] fails: a keyboard gesture still brings the cursor into view.**
     ///
-    /// **Asked of `select` and not of the picker**, which is components architecture 23 showing
+    /// **Asked of `select` and not of the picker**, which is the keyboard question showing
     /// through rather than a decision about the axis — an open `file_picker` seats no focus, so
     /// there is no id a posted key could be routed to. See this module's header.
     #[test]
@@ -1442,7 +1442,7 @@ mod tests {
 
     /// **An open `file_picker` answers the keyboard, and the arm that shipped answered none of it.**
     ///
-    /// Architecture issue 23, and the population it repairs is *the whole keyboard*: until it was
+    /// The keyboard question, and the population it repairs is *the whole keyboard*: until it was
     /// answered `picker_body` seated no focus and declared no [`Refusal`](crate::collect::Refusal),
     /// so a picker could only be used with a mouse. **It rendered perfectly**, which is why nothing
     /// caught it — every other gate over this component drives it with a pointer or asserts about

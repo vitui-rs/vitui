@@ -1,7 +1,7 @@
 //! **The overlay family's screen: 300x80, 312 chips, two `select`s and a menu bar, and the five
-//! configurations §12 states as a table.**
+//! configurations stated as a table.**
 //!
-//! Components ticket 25. Spec §12, §17 (O5), §21 scene 14. This is the screen the overlay family's
+//! This is the screen the overlay family's
 //! scene is a scene *of*, and it is the third of this backlog's scenes tickets — [`crate::dense`]
 //! and [`crate::listing`] are the other two, and everything about how a scene is stated, made red
 //! and reported is theirs.
@@ -32,11 +32,11 @@
 //! The base is `312 + 2 + 3 = 317` regions and `312 + 2 + 2 = 316` stops. **The one region that is
 //! not a stop is the menu bar itself**, which declares [`Interest::HOVER`] and nothing else so that
 //! moving the pointer along an open bar switches menus; its two titles are the stops. That is the
-//! same shape §12 gives the popup's blur entry — *one hit entry over the whole rectangle with
+//! same shape the popup's blur entry has — *one hit entry over the whole rectangle with
 //! `Interest::HOVER` only* — arriving in the base pass, and it is why a screen of 317 regions has 316
 //! stops rather than 317.
 //!
-//! The three deltas are then the family's own arithmetic, and each is a different sentence of §12:
+//! The three deltas are then the family's own arithmetic, and each is a different sentence:
 //!
 //! | | regions | stops | why |
 //! |---|---|---|---|
@@ -44,14 +44,14 @@
 //! | a menu and its submenu | +6 | +6 | a menu row is a target, and there are three of them twice |
 //! | a modal | +2 | +2 | two buttons inside a `Trap`, and a scope declares no region |
 //!
-//! **A menu carries no blur entry and a dropdown does**, which is not an inconsistency: §12 lists
+//! **A menu carries no blur entry and a dropdown does**, which is not an inconsistency: the table lists
 //! four dismissals, and a menu bar's menu takes *the owner ceasing to request* while a dropdown takes
 //! *blur qualified by a position*. The entry exists for the dismissal that needs it.
 //!
 //! # What does not reproduce, and both are findings rather than misses
 //!
 //! **`allocations` is not 0 and cannot be.** The table reads `0` in all five rows. That table was
-//! measured on the prototype's crate-private bump arena, which runtime ticket 21 **deleted**:
+//! measured on the prototype's crate-private bump arena, which was **deleted**:
 //! a body is now one `Box` in a queue the frame call owns, so a frame with `n` overlays
 //! standing costs `n + 1` allocations and a frame with none costs nothing. The runtime's own gate is
 //! the marginal equality — *one more overlay standing is exactly one more allocation a frame* — and
@@ -119,7 +119,7 @@ pub const SELECTS: usize = 2;
 /// A `select`'s width, which is also its popup's.
 pub const SELECT: u16 = 20;
 /// **Two menu titles on the bar.** Two and not three, because the bar's own hover entry is the third
-/// region and 317 is the count §12 states.
+/// region and 317 is the stated count.
 pub const MENUS: usize = 2;
 /// A menu title's width on the bar.
 pub const MENU_TITLE: u16 = 10;
@@ -146,10 +146,10 @@ pub const BUTTONS: usize = 2;
 /// **What a dropdown adds: two regions and one stop.** One hit entry for the option list and one
 /// over the whole rectangle for the blur position, which asks for the pointer and not the ring.
 pub const DROPDOWN_DELTA: (usize, usize) = (2, 1);
-/// **What a menu with its submenu adds: four regions and two stops — and §12 says six and six.**
+/// **What a menu with its submenu adds: four regions and two stops — where six and six were expected.**
 ///
 /// The subtraction is the rule and it is a finding rather than a discrepancy. The six is
-/// [`MENU_ROWS`] twice, *each row a target of its own*; §5 collapses a menu into a
+/// [`MENU_ROWS`] twice, *each row a target of its own*; a menu collapses into a
 /// [`Mode`](crate::collect::Mode) of `collection`, and **a collection declares one hit entry however
 /// many rows it has**. So each level of the shipped menu is [`DROPDOWN_DELTA`] — one entry for its
 /// rows and one for the blur position — and two levels are twice that.
@@ -199,7 +199,7 @@ pub const SCREEN: u64 = W as u64 * H as u64;
 /// **Allocations a frame with `n` overlays standing costs: `n + 1`, and `0` for none.**
 ///
 /// The table reads **0** in every row, and that was true of the prototype's crate-private bump
-/// arena. Runtime ticket 21 deleted it: a body is one `Box` in a queue the frame call owns,
+/// arena. It was deleted: a body is one `Box` in a queue the frame call owns,
 /// and the queue is the `+ 1`. The `+ 1` is not slack — a stored body is `+ 'f` and safe Rust cannot
 /// put a `'f`-bounded value inside the thing borrowed for `'f`, so the queue is a local of
 /// `Driver::frame` rather than a field.
@@ -211,7 +211,7 @@ pub const fn overlay_allocs(bodies: usize) -> usize {
     if bodies == 0 { 0 } else { bodies + 1 }
 }
 
-/// **Layers the census keeps alive, as `(configuration, §12 remembers, measured here)`.**
+/// **Layers the census keeps alive, as `(configuration, recorded, measured here)`.**
 ///
 /// The table reads 2 / 4 / 3 because every request in the prototype carried `shadow: 96` — a second
 /// operator layer beside the overlay's own. [`vitui_runtime::overlay::OverlayOpts`] has no shadow
@@ -269,7 +269,7 @@ pub const CENSUS_FRAMES: u32 = 8;
 /// **Wheel notches every instrument that prices a dead wheel posts: twenty.**
 ///
 /// [`crate::wheel::CLICKS`] and not a second constant, because it is the same twenty and this crate
-/// keeps one home for a number. §12 states it inside its own section — *the literal `Copy`-only body
+/// keeps one home for a number. It is stated inside its own section — *the literal `Copy`-only body
 /// moves the offset 0 in 20 wheel clicks*.
 pub const WHEEL_CLICKS: u32 = crate::wheel::CLICKS;
 
@@ -280,7 +280,7 @@ pub const TABS: u32 = 6;
 /// **Stops a walkthrough visits with the modal up: 2, of 318 declared.**
 ///
 /// The third refinement — *name the exception; do not loosen the gate* — and this is the screen it
-/// is named on. The gate is the conjunction §21 states: *the walk repeats no id, and reaches every
+/// is named on. The gate is a conjunction: *the walk repeats no id, and reaches every
 /// stop unless a trap is standing*, with `Frame::trap_scopes` as the only thing that can answer the
 /// second half.
 pub const TRAPPED_VISITS: usize = BUTTONS;
@@ -288,7 +288,7 @@ pub const TRAPPED_VISITS: usize = BUTTONS;
 /// **What a scrim filled under the dialog re-damages every steady frame: 600.**
 ///
 /// [`crate::dense::SCRIM_UNDER`] and not a second constant, because it is the same six hundred cells
-/// and this crate keeps one home for a number. §2 remembers **229**; that file carries the reason the
+/// and this crate keeps one home for a number. The recorded figure is **229**; that file carries the reason the
 /// screen says 600 instead, and this screen reproduces it because it stands the same
 /// [`crate::dense::DIALOG`] up.
 pub const SCRIM_UNDER: u64 = crate::dense::SCRIM_UNDER;
@@ -299,7 +299,7 @@ pub const SCRIM_EXCESS_WRITES: u64 = crate::dense::SCRIM_EXCESS_WRITES;
 
 /// **What a popup drawn fill-first re-damages every steady frame: 90.**
 ///
-/// §12 remembers **107**. The quantity is *the popup's own ink* — the mark on the chosen row plus
+/// The recorded figure is **107**. The quantity is *the popup's own ink* — the mark on the chosen row plus
 /// every **non-blank** cell of the eight option labels — and it is arithmetic rather than a
 /// measurement: the fill writes the pad value into all one hundred and sixty cells and the rows write
 /// their glyphs back over it, so a cell that already carried the pad value is changed by neither. A
@@ -308,7 +308,7 @@ pub const SCRIM_EXCESS_WRITES: u64 = crate::dense::SCRIM_EXCESS_WRITES;
 /// `"date modified"` and its seven neighbours.
 ///
 /// **The relation is what this screen can be held to** — 90 against the text-first arm's **0** — and
-/// the relation is the one §12 states. The 107 says that its own popup carried 107 cells of ink in
+/// the relation is the stated one. The 107 says that its own popup carried 107 cells of ink in
 /// 160; [`OPTIONS`] is this popup's data and was not chosen to make a number come out.
 pub const FILL_FIRST: u64 = 1 + popup_ink();
 
@@ -562,7 +562,7 @@ pub struct Shape {
     /// How many overlay requests named an owner that had already asked. **Zero, or two overlays are
     /// sharing one slot**.
     pub merged: u32,
-    /// **How many claims landed on an id that had already claimed this frame.** The register row 3,
+    /// **How many claims landed on an id that had already claimed this frame.** A register row,
     /// and the counter that catches a defect [`Shape::merged`] cannot see: two overlays with distinct
     /// *owners* whose *bodies* declare the same ids. See [`LIST`], which is the instance this file
     /// shipped and then removed.
@@ -611,9 +611,9 @@ impl Held {
 /// own counts are read off `Driver::inspect` afterwards, because an overlay body runs after every
 /// context in the base pass has been dropped.
 ///
-/// # The two lifetime annotations spec §1 measured
+/// # The two lifetime annotations that were measured
 ///
-/// `cx: &mut Ctx<'f, '_>` and `held: &'f mut Held`. §1 records that four of its five components carry
+/// `cx: &mut Ctx<'f, '_>` and `held: &'f mut Held`. Four of the five components carry
 /// no lifetime at all and *the fifth opens an overlay*; this is the screen that fifth is on, and the
 /// annotation count is two here for the same reason it was two there.
 ///
@@ -1111,7 +1111,7 @@ pub fn shape(config: Config) -> Shape {
 ///
 /// **The minimum of `frames` and not their mean**, which is `vitui-bench`'s own rule and the
 /// prototype's: a mean over a run this short is a report about whatever else the machine was doing,
-/// and the deltas §12 states are single microseconds. A minimum is the frame with the least
+/// and the stated deltas are single microseconds. A minimum is the frame with the least
 /// interference in it, and a delta between two minima is the only comparison this instrument can
 /// actually make.
 ///
@@ -1141,7 +1141,7 @@ pub fn cost(config: Config, frames: u32) -> Duration {
 
 /// **Several configurations at once, round-robin, minimum of `frames`.**
 ///
-/// The deltas §12 states are single microseconds against a base of hundreds, which is inside this
+/// The stated deltas are single microseconds against a base of hundreds, which is inside this
 /// instrument's own run-to-run spread — so [`cost`] called once per configuration measures the drift
 /// between the calls as often as it measures the configuration, and the modal's delta has been seen
 /// come out **negative** that way. Round-robin is `vitui-bench`'s own answer and the only one that
@@ -1213,7 +1213,7 @@ pub struct Opening {
 }
 
 impl Opening {
-    /// The opening frame against the steady one, as a ratio. **A report**, and the number §12 states
+    /// The opening frame against the steady one, as a ratio. **A report**, and the stated number
     /// as 40.50 → 138.04.
     pub fn ratio(self) -> f64 {
         self.opening.as_secs_f64() / self.steady.as_secs_f64().max(f64::MIN_POSITIVE)
@@ -1222,7 +1222,7 @@ impl Opening {
 
 /// **Thirty open/close cycles, and the cliff counted rather than timed.**
 ///
-/// §12: *the scrim's real price is the frame it appears on: 40.50 → 138.04 µs, 25 080 cells, over the
+/// *The scrim's real price is the frame it appears on: 40.50 → 138.04 µs, 25 080 cells, over the
 /// whole budget — once per opening.* The microseconds are a report here for R15's reason, and the
 /// cells are **unreachable** — `marked` is not on the engine's public surface for anyone
 /// ([`crate::counters::Counters::marked`]), so 25 080 is a number this crate cannot ask for and does
@@ -1304,7 +1304,7 @@ pub enum ScrimSpelling {
 }
 
 impl ScrimSpelling {
-    /// All three, in the order §12 states them.
+    /// All three, in order.
     pub const ALL: [ScrimSpelling; 3] = [
         ScrimSpelling::Under,
         ScrimSpelling::Around,
@@ -1557,7 +1557,7 @@ pub fn tooltip_flips(kind: Kind, covers: bool, frames: u32) -> u32 {
 ///
 /// The second half is read off the frame's own ring rather than out of a counter the body increments:
 /// a body is `+ 'f` and cannot borrow anything outside the frame call, which is the same fact
-/// ADR 0034 turned into the `n + 1`.
+/// forbidding `unsafe` turned into the `n + 1`.
 pub fn census(frames: u32, menu_open: std::ops::Range<u32>) -> (u32, u32) {
     let mut driver = crate::runner::driver_at(W, H, Density::Compact);
     let mut lived = 0u32;
@@ -1699,7 +1699,7 @@ pub enum Dismiss {
     /// the focus was, then backward. The dialog's stops were appended last, so backward is the last
     /// widget of the base pass — [`last_chip`], which the user was nowhere near.
     LetItVanish,
-    /// **What the refused runtime rule would have done** (architecture issue 25): seat the first stop
+    /// **What the refused runtime rule would have done**: seat the first stop
     /// in draw order. It is [`first_stop`], the menu bar's first title — *whatever draws first*.
     AsIfTheRuntimeSeatedTheFirstStop,
 }
@@ -1776,7 +1776,7 @@ pub const SUBJECTS: [&str; 2] = ["select", "overlay"];
 ///
 /// The homes are the freeze's, joined through [`crate::Family`]: `select`'s first family is
 /// `F6Input`, whose module is `input.rs`; `overlay`'s is `F9Overlays`, whose module is `overlay.rs`.
-/// A component is `fn(&mut Ctx, Rect, …) -> Response` (spec §1, rule 1), so the thing to look for is
+/// A component is `fn(&mut Ctx, Rect, …) -> Response`, so the thing to look for is
 /// a public function of the component's own name in its own family's module.
 pub const DECLARATIONS: [(&str, &str); 2] = [
     ("input.rs", "pub fn select<'f>("),
@@ -1785,7 +1785,7 @@ pub const DECLARATIONS: [(&str, &str); 2] = [
 
 /// **The needle this list carried while the scene was red, and why it could never have matched.**
 ///
-/// It read `pub fn select(`, and spec §1 already said it could not: *the fifth component opens an
+/// It read `pub fn select(`, and that was already ruled out: *the fifth component opens an
 /// overlay, and `'f` costs it two annotations*. A `select` cannot be written without them — its body
 /// captures the caller's [`PopupState`] and its option list, and a body is `+ 'f` — so the lifetime
 /// parameter sits between the name and the parenthesis and the scan reads *undeclared* about a
@@ -1821,7 +1821,7 @@ pub fn subjects_declared() -> Vec<&'static str> {
 /// `Met` over two since **components 26**. Everything below this line is drawn *through*
 /// [`crate::input::select`] and [`crate::overlay::overlay`]: the two shut widgets, the open
 /// dropdown's shell and list, the menu and its submenu, the modal's barrier and trap, and all four
-/// spellings §12 refuses.
+/// refused spellings.
 pub fn standing() -> Verdict {
     let declared = subjects_declared();
     Verdict::of(
@@ -1866,7 +1866,7 @@ pub fn owed_message(declared: &[&str], scene: &str) -> Option<String> {
 ///
 /// # Panics
 ///
-/// Panics if either subject stops being declared where the freeze homes it. Components ticket 26
+/// Panics if either subject stops being declared where the freeze homes it. The components
 /// inverted it; it stays inverted only while both files still carry their declaration.
 pub fn assert_stands_up(scene: &str) {
     if let Some(message) = owed_message(&subjects_declared(), scene) {
@@ -1955,7 +1955,7 @@ mod tests {
         }
     }
 
-    /// **The three deltas, each a different sentence of §12.**
+    /// **The three deltas, each a different sentence.**
     #[test]
     fn the_three_deltas_are_the_familys_own_arithmetic() {
         let base = shape(Config::Nothing);
@@ -1992,7 +1992,7 @@ mod tests {
 
     /// **What the one-entry-per-collection is worth here**, which is why 321 is *small*.
     ///
-    /// §12 says the closed case is small *only because a collection declares one hit entry however
+    /// The closed case is small *only because a collection declares one hit entry however
     /// many rows it has*. The other spelling is [`Config::PerRow`], and the difference is the popup's
     /// height.
     #[test]
@@ -2062,7 +2062,7 @@ mod tests {
         }
     }
 
-    /// **The base pass writes every cell of the screen exactly once.** §2, as a partition.
+    /// **The base pass writes every cell of the screen exactly once**, as a partition.
     #[test]
     fn the_base_pass_is_a_partition_of_the_screen() {
         let measured = steady(Config::Nothing, 2, Allocations::over(2, 0));
@@ -2083,7 +2083,7 @@ mod tests {
 
     /// **The scrim, in three spellings: 600 and 0 and 0.**
     ///
-    /// §12: *filled as cells under the dialog, 229 damaged cells for a dialog that is not moving;
+    /// *Filled as cells under the dialog, 229 damaged cells for a dialog that is not moving;
     /// drawn as the four rectangles around it, 0 damaged cells and 600 fewer writes; drawn as the
     /// engine's operator layer, neither.*
     ///
@@ -2126,7 +2126,7 @@ mod tests {
 
     /// **A popup that fills before it writes re-damages its own ink on every frame: 90 against 0.**
     ///
-    /// §12 remembers 107 marked cells. `marked` is unreachable from this crate
+    /// The recorded figure is 107 marked cells. `marked` is unreachable from this crate
     /// ([`crate::counters::Counters::marked`]), so what is measured is the re-damage the engine's own
     /// equality filter would price — and the quantity is arithmetic, not a reading: the ink in
     /// [`OPTIONS`] plus the mark on the chosen row.
@@ -2205,7 +2205,7 @@ mod tests {
     ///
     /// # The untrapped arm is stronger than the sentence, and it is what the shipped runtime does
     ///
-    /// §12 presumes the focus starts inside the dialog and walks out. On this runtime a standing trap
+    /// The presumption was that the focus starts inside the dialog and walks out. On this runtime a standing trap
     /// is also what *pulls* the focus in, so the modal without one never receives the keyboard at
     /// all: the focus stays on the widget the screen seated it on and six `Tab`s walk the base pass,
     /// **0 of 6 inside the dialog**. The observable is the same and the mechanism is one step
@@ -2274,11 +2274,11 @@ mod tests {
 
     /// **Where the keyboard goes when a modal closes: three spellings, three programs.**
     ///
-    /// §12 settles the first — *on the way out the owner refocuses itself, so no id belonging to
+    /// The first is settled — *on the way out the owner refocuses itself, so no id belonging to
     /// anybody else is named*. The second is what the vanish rule answers when nobody says anything,
     /// and it is the **last widget of the base pass**, because the dialog's stops were appended last
     /// and the rule walks forward before it walks back. The third is what the refused runtime rule
-    /// would have done (architecture issue 25) — *whatever draws first*.
+    /// would have done — *whatever draws first*.
     ///
     /// **The vanish arm is also what proves the seating clause is a different question.**
     /// [`draw_into`] carries `if cx.focused().is_none() { cx.focus(first_chip()) }`, and the answer is
@@ -2335,10 +2335,10 @@ mod tests {
         assert_stands_up("a select, a menu, a modal and a scrim");
     }
 
-    /// **The needle the red scene carried could not have matched, and spec §1 said so first.**
+    /// **The needle the red scene carried could not have matched, and the component shape said so first.**
     ///
     /// [`NEEDLE_WHILE_RED`] is `pub fn select(`; the component is `pub fn select<'f>(`, because its
-    /// body captures the caller's `PopupState` and its option list and a body is `+ 'f`. §1 records
+    /// body captures the caller's `PopupState` and its option list and a body is `+ 'f`. It is recorded
     /// the cost in as many words — *the fifth opens an overlay, and `'f` costs it two annotations* —
     /// so the scan was written against a spelling the spec had already ruled out.
     ///

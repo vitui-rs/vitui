@@ -1,7 +1,7 @@
 //! **One screen, drawn three ways**, which is what turns the rule from a paragraph into a
 //! number.
 //!
-//! Components ticket 06 owes three measurements and none of them can be taken on a helper in
+//! Three measurements are owed here and none of them can be taken on a helper in
 //! isolation: *routing through `fit` costs nothing against the discipline* is an equality between
 //! two whole screens; *the naive form is 43 941 against 0* is a differential between two whole
 //! screens; and *`Compact` against `Cosy`* is the same form at two densities. So the form is here,
@@ -17,7 +17,7 @@
 //!
 //! - The two that overflow are what makes the density measurement mean something. `Compact` pads one
 //!   cell and `Cosy` two, so a `Cosy` panel is **two rows shorter** and two of its widgets
-//!   fall off the bottom. Two panels, two rows each: **four widgets**, which is the number spec §3
+//!   fall off the bottom. Two panels, two rows each: **four widgets**, which is the recorded number
 //!   reports beside `20 804 / 267` against `20 992 / 263`. It is a consequence of `pad_y` and of the
 //!   panel count, not a tuned figure.
 //! - The one that does not overflow is what leaves an **unwritten tail** — *no cell never*, register
@@ -61,7 +61,7 @@ use crate::text::{FitOpts, Justify, fit_into};
 use vitui_runtime::Rect;
 use vitui_runtime::layout::rect;
 
-/// The screen's width. §20 prices every dense screen on this map at 300×80.
+/// The screen's width. Every dense screen here is priced at 300×80.
 pub const W: u16 = 300;
 /// The screen's height.
 pub const H: u16 = 80;
@@ -96,25 +96,25 @@ pub const SCREEN: u64 = W as u64 * H as u64;
 // `crate::scenes`, and components ticket 09 stands it up. What reproduces here is every *direction*
 // and every *structural* number; the magnitudes are a different screen's.
 
-/// Rect the form writes at [`Density::Compact`]. **Spec §3 remembers 20 804 on its own screen.**
+/// Rect the form writes at [`Density::Compact`]. **The recorded figure is 20 804, on another screen.**
 pub const COMPACT_WRITES: u64 = 18_912;
-/// Rect the form writes at [`Density::Cosy`]. **Spec §3 remembers 20 992.**
+/// Rect the form writes at [`Density::Cosy`]. **The recorded figure is 20 992.**
 ///
 /// It is *more* than [`COMPACT_WRITES`] and fewer widgets are standing, which is the shape of
 /// own pair and is not a paradox: a `Cosy` ring is two cells thicker on every side of every panel,
 /// and the rows the lost widgets would have written were never written by anybody — they are part
 /// of the third panel's unwritten tail either way.
 pub const COSY_WRITES: u64 = 19_206;
-/// Interactive regions at `Compact`. **Spec §3 remembers 267.**
+/// Interactive regions at `Compact`. **The recorded figure is 267.**
 pub const COMPACT_REGIONS: usize = 171;
-/// Interactive regions at `Cosy`. **Spec §3 remembers 263** — four fewer, exactly as here.
+/// Interactive regions at `Cosy`. **The recorded figure is 263** — four fewer, exactly as here.
 pub const COSY_REGIONS: usize = 167;
 /// **How many widgets fall off the bottom when the padding grows.** *four widgets*.
 ///
 /// Two panels overflow and each loses two rows, so the number is `2 × (pad_y(Cosy) − pad_y(Compact))
 /// × 2` and not a figure that was aimed at.
 pub const DROPPED_BY_COSY: usize = 4;
-/// `writes - distinct` for the naive arm at `Compact`. **ADR 0026 remembers 43 941.**
+/// `writes - distinct` for the naive arm at `Compact`. **The recorded figure is 43 941.**
 ///
 /// Read as a differential with the equality filter off, which is the only way the number means
 /// anything: the engine drops a rewrite of an identical value, so a build measured through the
@@ -125,7 +125,7 @@ pub const COSY_NAIVE_EXCESS: u64 = 40_191;
 /// **What a `block` that clears what it hands over costs, at `Compact`** — cells written twice, on
 /// every frame, whether anything moved or not.
 ///
-/// **ADR 0026 remembers 22 200 across three panels.** This form has three panels and hands over
+/// **The recorded figure is 22 200 across three panels.** This form has three panels and hands over
 /// [`COMPACT_HANDED_OVER`] cells; the double-write count is smaller than that by the third panel's
 /// unwritten tail, because a cell the content never writes is cleared once and not twice. Both
 /// numbers are here rather than one, since the ADR's figure is the *interior* and the gate's figure
@@ -201,7 +201,7 @@ pub fn by_hand(pen: &mut Pen, cx: &mut Ctx<'_, '_>, _fx: &Fixture) {
 
 /// **The correct form, with one line added: every panel clears what `block` handed it.**
 ///
-/// Criterion 2's measurement, isolated. ADR 0026 prices it at **22 200 damaged cells a frame across
+/// Criterion 2's measurement, isolated. It is priced at **22 200 damaged cells a frame across
 /// three panels**, and it is the one instance of the five that a reviewer cannot see: the clear is
 /// correct-looking, it is one line, and it makes the panel's own background reliably right. What it
 /// costs is every interior cell the content then writes again, on every frame, moving or not.
@@ -465,8 +465,8 @@ mod tests {
     /// which is what three separate defects on this map did.
     ///
     /// Shipped: **0 of 24 000 cells differ at 18 912 writes against 18 912** at `Compact`, and
-    /// 19 206 against 19 206 at `Cosy`. Spec §3 remembers 0 of 24 000 at 20 804 against 20 804, on
-    /// the dense screen components ticket 09 owns.
+    /// 19 206 against 19 206 at `Cosy`. The recorded figures are 0 of 24 000 at 20 804 against 20 804, on
+    /// the dense screen one module over.
     #[test]
     fn routing_through_fit_is_zero_cells_different_at_equal_write_counts() {
         for (density, expected) in [
@@ -578,7 +578,7 @@ mod tests {
     /// background reliably correct. What it costs is **16 224 cells written twice every frame** at
     /// `Compact` and 15 510 at `Cosy`, on a screen that is not moving.
     ///
-    /// ADR 0026 remembers **22 200 damaged cells a frame across three panels**. The quantity that
+    /// The recorded figure is **22 200 damaged cells a frame across three panels**. The quantity that
     /// figure is about is the interior itself — [`COMPACT_HANDED_OVER`], 21 312 here — and the
     /// collision count is smaller by the third panel's unwritten tail, because a cell the content
     /// never writes is cleared once rather than twice. Both are asserted, so neither can drift into
@@ -629,7 +629,7 @@ mod tests {
     /// **Criterion 6: the same form at two densities, and what falls off the bottom is reported.**
     ///
     /// Neither writes a cell twice — that is the test above, over both densities — and the numbers
-    /// here are the two that spec §3 states as a pair: `Compact` stands more regions and writes
+    /// here are the two stated as a pair: `Compact` stands more regions and writes
     /// fewer cells than `Cosy`, and four widgets do not fit.
     ///
     /// **The four is arithmetic and not a target.** `pad_y` is 1 at `Compact` and 2 at `Cosy`, two
@@ -681,7 +681,7 @@ mod tests {
 
     /// **The form leaves a tail nobody writes, and says how big it is.**
     ///
-    /// Register row 7 — *every cell of the rectangle written at least once* — was pinned red at
+    /// The sentinel gate — *every cell of the rectangle written at least once* — was pinned red at
     /// 9 956 cells of 53 280 over six panels of twelve when this was written, with the note that its
     /// detector was unreachable from this crate. **Components 40 inverted it, and this
     /// tail is deliberately still here**: the count is read off `crate::runner::Pen` — the same
@@ -718,7 +718,7 @@ mod tests {
     /// **No two widgets on this screen share an id** — the free detector, on the first
     /// screen this crate has drawn.
     ///
-    /// 110 of 338 widgets were inert on the first screen written for components ticket 01 and the
+    /// 110 of 338 widgets were inert on the first screen written here, and the
     /// screen rendered pixel for pixel correctly, which is why this is asserted and not eyeballed.
     /// The form takes its ids **outside every closure** and keys both loops.
     #[test]

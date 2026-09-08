@@ -1,6 +1,6 @@
 //! **The listing: a million rows in a viewport, and the four hostile axes standing on one screen.**
 //!
-//! Components ticket 11. Spec §5, §17 (O5), §21. This is the screen `collection`'s scenes are
+//! This is the screen `collection`'s scenes are
 //! scenes *of*, and it exists for the reason [`crate::dense`] exists one file over: **every one of
 //! the four axes was established by a defect that passed every gate then in force and looked
 //! healthier than the correct build**, and three of the four were caught only by an equality against
@@ -33,18 +33,18 @@
 //!    a collection a collection.
 //! # The wheel scene has moved, and the two substitutions that made it move are gone
 //!
-//! Components ticket 11 kept the wheel gate here, and it kept it with **two stand-ins**. A wheel
+//! The wheel gate was kept here, with **two stand-ins**. A wheel
 //! click could not be posted from this crate — `Driver::post_mouse` takes a `vitui_engine::Mouse`,
 //! which was `EngineName { name: "Mouse", reachable_as: None }`, and a `Mouse` needs a `Buttons` and
 //! a `MouseKind`, and *neither of those was in `ENGINE_NAMES` at all* — so the click's **delta** was
 //! handed to the arithmetic `Response::scrolled` would have delivered it to. And the body it played
 //! over was a row loop written beside the gate, because `collection` did not exist yet.
 //!
-//! **That first sentence is what runtime architecture issue 22 acted on**, and the rule it settled
+//! **That first sentence is what the re-export acted on**, and the rule it settled
 //! is about *construction* rather than about naming precisely because this module found the
 //! difference. Components **20** spent it: the gate is [`crate::wheel`], it posts a real notch, it
 //! plays over the shipped [`crate::collect::collection`] and over [`crate::scroll::scroll_area`],
-//! and it runs the two subjects separately because the blindness is per axis. Row 29 and scene 6
+//! and it runs the two subjects separately because the blindness is per axis. Two rows
 //! went green there.
 //!
 //! # The gate that stayed here is red for one reason, and it was never the wheel's
@@ -63,7 +63,7 @@
 //! reports a fully clipped verb as **zero columns**, so a listing that iterates its whole content
 //! and lets the clip reject the rest writes exactly what the windowed one writes — [`WRITES`], at
 //! every volume. What moves is `verbs` and `regions`, and only `regions` is a *frame structure*
-//! rather than a count of calls. So the equality components ticket 11 registers is
+//! rather than a count of calls. So the registered equality is
 //! **`regions identical at 1k and 1M`**, and it is a different question from row 4 rather than a
 //! restatement of it.
 //!
@@ -90,7 +90,7 @@ use vitui_runtime::Rect;
 // ── the screen ───────────────────────────────────────────────────────────────────────────────────
 
 /// The viewport's width. **Forty**, because the stale tail is *71 of 80 rows* and components
-/// ticket 04 reproduced it at 2 840 cells — `71 x 40`. Measuring the same defect at a second width
+/// It was reproduced at 2 840 cells — `71 x 40`. Measuring the same defect at a second width
 /// would report a second number for one finding.
 pub const W: u16 = 40;
 /// The viewport's height. **Eighty**, which is where *71 of 80* comes from.
@@ -110,7 +110,7 @@ pub const NARROW: u16 = 16;
 /// construction — [`crate::dense::widgets`] makes the same choice for the same reason.
 pub const ROW: &str = "listing row, ready, nothing wrong";
 
-/// The three volumes the scene 3 states.
+/// The three volumes stated for it.
 pub const VOLUMES: [u64; 3] = [1_000, 100_000, 1_000_000];
 
 /// **How many rows the shrink starts from. Two hundred**, and it is a constant because
@@ -126,7 +126,7 @@ pub const WRITES: u64 = W as u64 * H as u64;
 
 /// **Interactive regions a correct frame declares, at every one of [`VOLUMES`].**
 ///
-/// `1 + 80`: **one hit entry for the collection** (ADR 0028 — `Response::local` resolves the row by
+/// `1 + 80`: **one hit entry for the collection** — `Response::local` resolves the row by
 /// arithmetic, so per-row hover needs no per-row index entry) plus one target on each row that
 /// actually drew. A row outside the window has no entry, which is the runtime's half of the rule:
 /// state for an undrawn row is state nothing can reach.
@@ -175,7 +175,7 @@ pub const SHRUNK_TO: usize = 9;
 /// **Rows that differ after the shrink. The number.**
 pub const STALE_ROWS: usize = 71;
 
-/// [`STALE_ROWS`] as cells — `71 x 40`, which is what components ticket 04 measured.
+/// [`STALE_ROWS`] as cells — `71 x 40`, which is what was measured.
 pub const STALE_CELLS: usize = STALE_ROWS * W as usize;
 
 // ── the volume scene: one store, one window ──────────────────────────────────────────────────────
@@ -236,13 +236,13 @@ pub struct Shape {
 ///
 /// # It is the component now, and that is what turned four of these scenes green
 ///
-/// Components ticket 11 wrote this as a stand-in row loop, because [`crate::collect::collection`]
+/// This was a stand-in row loop, because [`crate::collect::collection`]
 /// did not exist. It does (components 12), so the stand-in is gone: **both arms are the component**
 /// — [`Volume::Windowed`] is [`collection_into`] and [`Volume::WholeContent`] is
 /// [`crate::collect::defective::whole_content`], which is that function with one value changed —
 /// and what belongs to this screen is the row drawer, the geometry and the counting.
 ///
-/// The row signature is §5's, `(cx, rect, index, Face)`, with a fifth argument the [`Ink`] seam adds
+/// The row signature is `(cx, rect, index, Face)`, with a fifth argument the [`Ink`] seam adds
 /// so a gate can see the cells; the shipped four are what [`crate::collect::collection`] hands a
 /// component author.
 ///
@@ -415,7 +415,7 @@ pub fn content(rows: usize) -> Fixture {
     Fixture::of(W, H, vec![String::from(ROW); rows])
 }
 
-/// The fixture the two axes components ticket 04 reproduced are measured on.
+/// The fixture the two reproduced axes are measured on.
 ///
 /// [`crate::runner::Fixture::lines`] at [`W`] by [`H`]: no two rows share a column, so a wrong row
 /// costs exactly forty cells and *n cells over m rows* reads as `m * 40`. **That is the property
@@ -495,7 +495,7 @@ pub fn stale() -> Diff {
 
 /// **The same defect, spelled as a terminal resize — and it scores clean.**
 ///
-/// §21 refuses to bank the shrink gate written this way, and this is the refusal as a value rather
+/// The shrink gate written this way is refused, and this is the refusal as a value rather
 /// than as a sentence.
 pub fn stale_by_resize() -> Diff {
     compare(
@@ -580,7 +580,7 @@ pub const SUBJECTS: [&str; 1] = ["collection"];
 ///
 /// The home is the freeze's, joined through [`crate::Family`]: `collection`'s first family is
 /// `F7Collections`, whose module is `collect.rs`. A component is `fn(&mut Ctx, Rect, …) -> Response`
-/// (spec §1, rule 1) with [`Rect`] in `Rect`'s place, so the thing to look for is a public function
+/// with [`Rect`] in `Rect`'s place, so the thing to look for is a public function
 /// of the component's own name in its own family's module.
 pub const DECLARATIONS: [(&str, &str); 1] = [("collect.rs", "pub fn collection(")];
 
@@ -663,7 +663,7 @@ pub fn owed_message(declared: &[&str], scene: &str) -> Option<String> {
 ///
 /// # Panics
 ///
-/// Panics while [`SUBJECTS`] is undeclared, which is **today**. Components ticket 12 inverts it.
+/// Panics while [`SUBJECTS`] is undeclared, which is **today**.
 pub fn assert_stands_up(scene: &str) {
     if let Some(message) = owed_message(&subjects_declared(), scene) {
         panic!("{message}");
@@ -707,7 +707,7 @@ mod tests {
     /// **The other direction, and it is where criterion 6's `regions` earns its place.**
     ///
     /// A listing that iterates its whole content writes **exactly what the windowed one writes** —
-    /// the engine reports a fully clipped verb as zero columns — so the register row 4, *writes
+    /// the engine reports a fully clipped verb as zero columns — so *writes
     /// flat 1k -> 1M*, is green on it. What is not green is the hit index: `Ctx::declare` does not
     /// clip, so a row declared off screen is a real entry, and the count is the content's.
     #[test]
@@ -882,14 +882,14 @@ mod tests {
         );
     }
 
-    /// **Components ticket 12: the listing stands on `collection`, and the verdict says so.**
+    /// **The listing stands on `collection`, and the verdict says so.**
     ///
     /// The exact set, in both directions: one subject, declared, and the verdict is `Met` over one
     /// rather than `Met` over nothing — [`Verdict::of`]'s vacuity refusal doing the job it was
     /// written for on the day the population stopped being empty.
     ///
     /// **This test is the inversion of `the_listing_is_red_because_collection_is_not_declared`**,
-    /// which ticket 11 pinned red and which `crate::gates::REGISTER`'s row 67 and four of
+    /// which was pinned red and which `crate::gates::REGISTER` and four of
     /// `crate::scenes`' five standings named. Changing it back is a deliberate edit in all three
     /// places — and the fifth standing, the wheel gate's, was **never** one of them: it was red
     /// because of the *defect*, it stayed red for eight tickets after this one went green, and

@@ -3,7 +3,7 @@
 //!
 //! > The register is data, not prose — one row per gate with its kind, its owner, where it stood at
 //! > the branch point and where it stands now, so the delta is a number a test asserts. The reason
-//! > is §17's: every obligation stated as a sentence on this map has been broken by someone who had
+//! > is this: every obligation stated as a sentence here has been broken by someone who had
 //! > read it.
 //!
 //! The finding this exists for is C11's, and it is the one R15 made on the runtime's map one layer
@@ -51,23 +51,23 @@
 //! - [`Standing::Unsubjected`] is the vacuity arm, and it exists because [`crate::obligations`]
 //!   already proved it necessary one file over: *a query over an obligation nobody has met yet is
 //!   the exact shape that returns green by accident*. **No gate here stands on it any more** — it
-//!   was fifteen when no component existed, six until production ticket 03 and four until production
-//!   ticket 04 — and the arm stays on the type, because what it refuses is a standing and not a
+//!   was fifteen when no component existed, then six, then four —
+//!   and the arm stays on the type, because what it refuses is a standing and not a
 //!   moment: the next row written against a component this crate has not declared belongs here. The
 //!   count in the line below is the authority; this is a summary of it.
 //!
 //! **Two hundred and twenty-eight evaluated, none red, five unreachable, none unsubjected**, and
 //! `tests::two_hundred_and_twenty_eight_rows_are_evaluated_and_the_rest_say_why_not` is what makes
 //! the next change a deliberate edit rather than a quiet one. It was eighteen / four / six / sixteen until components
-//! ticket 05, which inverted row 26 — the glyph-set count, red because it had nothing to be about —
-//! and subjected row 27, the cross-family collapse gate; ticket 07 added five, and none of them
-//! moved a standing that was already taken. **Ticket 08 added four and inverted one**, and the
+//! the glyph-set count was inverted — red because it had nothing to be about —
+//! and the cross-family collapse gate was subjected; five more arrived, and none of them
+//! moved a standing that was already taken. **Four more arrived and one inverted**, and the
 //! inversion is the one to read.
 //!
-//! **Ticket 09 added five and one of them is red on purpose.** Rows 57–60 are the dense screen —
+//! **Five more arrived and one of them is red on purpose.** Four of them are the dense screen —
 //! 338 regions, the metric row, the equality against a naive twin at two sizes, and the five
 //! re-damage instances each standing on a screen instead of in a sentence — and they are
-//! `Evaluated` over a screen rather than over a component, which is the same standing ticket 04's
+//! `Evaluated` over a screen rather than over a component, which is the same standing the
 //! four rows have and for the same reason: what they gate is that *the instrument separates a
 //! correct build from a defective one*. **Row 61 is the fourth red row**, and it is the only one on
 //! this register that is red because a *scene* has no subject rather than because a gate fails. The
@@ -76,7 +76,7 @@
 //! the failing set is computed by opening the four files components 10 will declare in and the
 //! panic names all four and the ticket.
 //!
-//! **Components ticket 11 added two and rewrote a third, and the three are three different kinds of
+//! **Two more arrived and a third was rewritten, and the three are three different kinds of
 //! change.** Row 66 is `Evaluated` — *regions identical at 1 000, 100 000 and 1 000 000 rows*, over
 //! the listing's two arms, and it exists because **row 4 cannot see the defect it is about**: the
 //! engine reports a fully clipped verb as zero columns, so a listing that iterates its whole content
@@ -87,8 +87,8 @@
 //! standing and gained its missing half**: the wheel gate's *twenty wheel clicks move the offset
 //! twenty* direction now runs, with the click's delta handed to `Response::scrolled`'s own
 //! arithmetic on both arms — and at the time the `Mouse` barrier was untouched and *still the reason
-//! the click cannot be posted*, which is the distinction row 5 got wrong. **Runtime architecture
-//! issue 22 has since lifted that barrier too**; the substitution stays until components 20, and the
+//! the click cannot be posted*, which is the distinction one row got wrong. **The
+//! re-export has since lifted that barrier too**; the substitution stays for now, and the
 //! row stays red because the defect it names is the unconditional reveal.
 //!
 //! # Row 5 was not *not yet*. It was wrong, and an `Unreachable` that is wrong is the worst standing
@@ -114,7 +114,7 @@
 //! difference between row 5 and row 45 is not the strength of the barrier, it is that one of them
 //! was checked by trying it.
 //!
-//! **That last observation is what runtime architecture issue 22 acted on**, and it is why the rule
+//! **That last observation is what the re-export acted on**, and it is why the rule
 //! it settled is about *construction* rather than about naming: a name a consumer can write but not
 //! build is a barrier wearing a re-export's clothes. `Rgb`, `Mouse`, `Buttons`, `MouseKind`, the
 //! notch, `Rect` and `Mods` are all reachable now, the three `Barrier` citations into
@@ -131,7 +131,7 @@
 //! # The instruments are values with files in them
 //!
 //! The engine's register names where an entry runs in a sentence of English, and a sentence cannot be
-//! checked — so a row whose test has been renamed still reads as wired. Runtime ticket 19 fixed that
+//! checked — so a row whose test has been renamed still reads as wired. That was fixed
 //! by making an [`Instrument`] a value with a **file** in it, and this register inherits the
 //! arrangement and adds one arm: [`Instrument::Barrier`], a line in **somebody else's** source that
 //! is the reason a row cannot run. `EngineName { name: "Rgb", reachable_as: None }` is not a claim
@@ -148,16 +148,16 @@
 //!
 //! # Two of the rows are corrected here, from the shipped code rather than from the prototypes
 //!
-//! §21 was written against twelve prototypes, and two of its sentences do not survive contact with
+//! The rules were written against twelve prototypes, and two of their sentences do not survive contact with
 //! the crates that shipped. Both corrections are recorded on the row and neither changes its
 //! standing:
 //!
-//! - **Row 33.** §21 says the geometric form of the tab-stop gate is impossible because *the ring
+//! - **The tab-stop row.** The claim is that its geometric form is impossible because *the ring
 //!   does not carry geometry* — `RingEnt::rect` is zero unless `Frame::ring_geometry` is on. The
 //!   shipped type is `vitui_runtime::focus::Stop` and its `rect` is filled on **every** entry,
 //!   unconditionally. The conclusion holds for a better reason: the rectangle recorded is the one the
 //!   widget *declared*, intersected with nothing at all.
-//! - **Row 31.** §21 says `Task` and `Worker` are `!Sync`. `Worker` is `Sync` — it is an
+//! - **The auto-trait row.** The claim is that `Task` and `Worker` are `!Sync`. `Worker` is `Sync` — it is an
 //!   `Arc<Inbox>` — and the half that is load-bearing is `Task`, which is `!Send` and `!Sync` on a
 //!   `PhantomData<*const ()>` brand.
 
@@ -327,7 +327,7 @@ pub struct Row {
     /// The count test asserts **the split** rather than the total, so a forty-fifth row has to say
     /// which side of the line it is on — the engine's and the runtime's arrangement, for its reason.
     pub on_spec_table: bool,
-    /// The gate, in the words where §21 has words for it.
+    /// The gate, in the words the rules have for it.
     pub gate: &'static str,
     /// Count, ratio, equality, relation, compile outcome or invariant.
     pub kind: Kind,
@@ -347,7 +347,7 @@ const DENSE: &str = "crates/vitui-components/src/dense.rs";
 /// The listing's own file, which is where the two rows run.
 const LISTING: &str = "crates/vitui-components/src/listing.rs";
 
-/// The wheel gate's file. Components ticket 20, and the one row on this register whose instrument
+/// The wheel gate's file, and the one row on this register whose instrument
 /// posts a pointer event.
 const WHEEL: &str = "crates/vitui-components/src/wheel.rs";
 
@@ -391,13 +391,13 @@ const FIELD_NUMBERS: &str = "crates/vitui-components/examples/field_numbers.rs";
 
 /// **The text machine's own file**, which is where the rows run. The buffer, the
 /// caret pair, the anchored selection, the undo ring and the wrap index are one module, and the
-/// spellings §11 refuses are one `defective` module inside it — so a reviewer's diff between the
+/// refused spellings are one `defective` module inside it — so a reviewer's diff between the
 /// shipped build and any of them is one value.
 const EDIT: &str = "crates/vitui-components/src/edit.rs";
 
 /// **The overlay family's own file**, which is where the rows run. The three
 /// kinds, the two axes, the sizing function, the gutter and the two halves of a modal are one module,
-/// and the spellings §12 refuses are one `defective` module inside it.
+/// and the refused spellings are one `defective` module inside it.
 const OVERLAY: &str = "crates/vitui-components/src/overlay.rs";
 
 /// The overlay family's report.
@@ -431,7 +431,7 @@ const PREVIEW_NUMBERS: &str = "crates/vitui-components/examples/preview_numbers.
 const PLAYER: &str = "crates/vitui-components/src/media/player.rs";
 
 /// **The F5 module's file**, which is where the two indicator rows run. `meter`
-/// and `sparkline` are one module because §19 homes them there, and their two claims are two calls
+/// and `sparkline` are one module because the family homes them there, and their two claims are two calls
 /// into `chart`.
 const INDICATE: &str = "crates/vitui-components/src/indicate.rs";
 
@@ -444,7 +444,7 @@ const STRUCTURE: &str = "crates/vitui-components/src/structure.rs";
 const COMPOSITE_NUMBERS: &str = "crates/vitui-components/examples/composite_numbers.rs";
 
 /// **O4's own file.** The thirteen contracts, the sweep that runs the component, and the control
-/// arm. Ticket 38.
+/// arm.
 const CONTRACT: &str = "crates/vitui-components/src/contract.rs";
 
 /// **The report**, which prints the chord that differs where the equality prints
@@ -468,7 +468,7 @@ const DOC_NUMBERS: &str = "crates/vitui-components/examples/doc_numbers.rs";
 /// what it may not mint, and the scan that opens the file and answers both halves.
 const COMPOSED: &str = "crates/vitui-components/src/composed.rs";
 
-/// O3's screens and the format they are written in. Ticket 37.
+/// The golden screens and the format they are written in.
 const GOLDEN: &str = "crates/vitui-components/src/golden.rs";
 
 /// The three-rung sweep, which is the one file outside `src/` that may name a repertoire — and the
@@ -506,14 +506,14 @@ const BUDGET_TESTS: &str = "crates/vitui-components/tests/budget.rs";
 const OBLIGATIONS: &str = "crates/vitui-components/src/obligations.rs";
 
 /// **O6's own file** — the seventh query, the seven covered rows, the two bounds and the seven
-/// deliberate defects. Components ticket 44.
+/// deliberate defects.
 const VOLUME: &str = "crates/vitui-components/src/volume.rs";
 
 /// The report, which is where the clock and its 16.7 ms denominator live.
 const VOLUME_NUMBERS: &str = "crates/vitui-components/examples/volume_numbers.rs";
 
 /// **O7's own file** — the join between the freeze and `crates/vitui-apps/examples/`, by import
-/// path. Components ticket 45.
+/// path.
 const CONSUMER: &str = "crates/vitui-components/src/consumer.rs";
 
 /// **The applications' own list**, which is where the `uses` column and the scan are compared. It
@@ -527,12 +527,12 @@ pub const SPEC_ROWS: usize = 32;
 
 /// How many rows anything evaluates today. **Forty-eight.**
 ///
-/// The number is the point of the file. §21 counted **2 of 18** at the branch point and **11 of 18**
+/// The number is the point of the file. The count was **2 of 18** at the branch point and **11 of 18**
 /// after C11's own pass, both over the prototypes; this is the first count taken over shipped code,
 /// and it is forty-eight of seventy-two because twenty-four of the rows are about components that
 /// do not exist or need a name the crate line refuses.
 ///
-/// **It was fourteen of forty until ticket 04**, which added the reference-render runner and its
+/// **It was fourteen of forty once**, before the reference-render runner and its
 /// four rows. Every one of the four is `Evaluated` over a **fixture** rather than over a component,
 /// which is a real standing and not a promoted one: what those rows gate is that *the instrument
 /// separates a correct build from a defective one*, and each is watched doing it in both directions.
@@ -550,26 +550,26 @@ pub const SPEC_ROWS: usize = 32;
 /// rather than supplying a *subject*, and it is the one worth being suspicious about the next time
 /// an `Unreachable` is written.
 ///
-/// **Components ticket 11 moved it from forty-one to forty-two, and the one row is row 66** — the
+/// **It went from forty-one to forty-two, and the one row is** the
 /// regions equality, `Evaluated` over the listing's two arms rather than over `collection`, which is
 /// the standing and its reason: what it gates is that *the instrument separates a
 /// correct build from a defective one*. The **scene** stays red, and `crate::scenes` says at length
 /// why those are not one claim. Its second row, 67, is `Red` on purpose.
 ///
-/// **Components ticket 10 moved it from thirty-six to forty-one, and one of the five is not a new
+/// **It went from thirty-six to forty-one, and one of the five is not a new
 /// row.** Rows 62–65 are the four primitives' — the partition sweep, the fill scan, the clear and
 /// the hovered chip — and the fifth is **row 61**, the one row on this register whose gate was a
 /// statement about an absence. Inverting it rewrote the *gate* and not only the standing, because a
 /// row still asserting *the four components do not exist* would now be asserting they are gone.
 /// That is the second inversion here worth being suspicious about: a red row phrased as an absence
 /// cannot be turned green by editing one field.
-/// **Components ticket 20 moved it from a hundred and eight to a hundred and ten**, and one of the
+/// **It went from a hundred and eight to a hundred and ten**, and one of the
 /// two is a new row: row 29 was **pinned red for nine tickets** and went green over the shipped
 /// path, and row 129 is criterion 6's join between the gate's subject list and the freeze. A red row
 /// inverted by supplying a *subject* is the ordinary case on this register; this one was red on a
 /// **defect**, which is why it needed the shipped code to be checked rather than written.
 ///
-/// **Components ticket 24 moved it from a hundred and eighteen to a hundred and twenty-seven**, and
+/// **It went from a hundred and eighteen to a hundred and twenty-seven**, and
 /// the seven are one inversion and six new rows. The inversion is row 85 — `field`'s three scenes
 /// had nothing to run over, and all three turned together, which is what the ticket predicted
 /// because they were pinned on one fact and it was the subject.
@@ -590,22 +590,22 @@ pub const SPEC_ROWS: usize = 32;
 /// Row 21 stays `Unreachable` and row 130 is its crate-own form, which is row 41's standing to row
 /// 2's.
 ///
-/// **Components ticket 36 moved it from a hundred and ninety-three to a hundred and ninety-six**,
+/// **It went from a hundred and ninety-three to a hundred and ninety-six**,
 /// and none of the three is an inversion: rows 210, 211 and 212 are O1's other three halves, which
 /// row 30 could not carry because it is `Kind::Count` and O1 is a count *and* a compile outcome —
 /// which is what the `mixed` in the kind column was hiding.
 ///
-/// **Components ticket 40 moved it from two hundred and eight to two hundred and nine, and the one
+/// **It went from two hundred and eight to two hundred and nine, and the one
 /// is an inversion**: row 7, the sentinel — *every cell of the rectangle written at least once* —
-/// which had been pinned red since ticket 03 with its exact failing set. It is the **second** red
+/// which had been pinned red from the start with its exact failing set. It is the **second** red
 /// row on this register whose failing set was a *defect* rather than a missing subject (row 29 was
-/// the first), and the only one whose prescribed instrument could not be built at all: §2 asks for a
-/// stamp on the base layer and a count of survivors on the composited surface, and ADR 0023 forbids
+/// the first), and the only one whose prescribed instrument could not be built at all: it asks for a
+/// stamp on the base layer and a count of survivors on the composited surface, and no cell reachable outside the engine forbids
 /// the readback as a decision. The count is read off `crate::runner::Pen` instead — which is the
 /// instrument the rule's *other* half has always been read off, and the stricter of the two, since a
 /// verb that skips the caller's `Ink` makes it larger rather than smaller.
 ///
-/// **Runtime architecture 31 moved it from two hundred and twenty to two hundred and twenty-one,
+/// **The identity-verb fix moved it from two hundred and twenty to two hundred and twenty-one,
 /// and it is the first of two inversions this register has recorded that no components ticket
 /// did.** Row 112 was red on a defect one crate down: `Ctx::with_id` re-childed its view at
 /// `self.area()`, which inside a scroll scope is the *content's* rectangle, so a keyed child past
@@ -613,7 +613,7 @@ pub const SPEC_ROWS: usize = 32;
 /// green: no row is pinned red**, and the two populations that read the standing — this count and
 /// the list beside it — are the two edits.
 ///
-/// **Production ticket 04 moved it from two hundred and twenty-four to two hundred and twenty-eight,
+/// **A later pass moved it from two hundred and twenty-four to two hundred and twenty-eight,
 /// and it emptied the `Unsubjected` column.** Rows 15 to 18 are the original's, `field`'s four, and all
 /// four named components 24 — which built the component and then filed six *new* rows for it instead
 /// of standing these up. Three of the four were stale the way rows 11 and 12 were: the instruments
@@ -644,7 +644,7 @@ pub const SPEC_ROWS: usize = 32;
 /// file, exactly what `tests::thirty_two_rows_are_the_specs_and_two_hundred_and_two_are_this_\
 /// lineages` exists to make deliberate. What a ticket adds to a spec row goes in its comment.
 ///
-/// **Production ticket 03 moved it from two hundred and twenty-two to two hundred and twenty-four,
+/// **Another moved it from two hundred and twenty-two to two hundred and twenty-four,
 /// and neither of the two is an inversion — both are standings that had gone stale.** Rows 11 and 12
 /// are the original's, `table`'s two, and both named components 15 as the ticket that would subject them;
 /// components 15 declared the component and did not edit the rows, and nothing left on any backlog
@@ -653,16 +653,16 @@ pub const SPEC_ROWS: usize = 32;
 /// made each of them able to fail: row 11's sweep now asserts that its four declared column counts
 /// are **four different tables** before asserting they draw one screen, and carries the clip-only
 /// sweep beside it as the control that steps at every arm. **Six unsubjected became four**, and all
-/// four of those are on the table too — they are the field's, and production ticket 04 takes them.
+/// four of those are on the table too — they are the field's, and a later pass takes them.
 ///
-/// **Components architecture 20 moved it from two hundred and twenty-eight to two hundred and
+/// **The indent-guide decision moved it from two hundred and twenty-eight to two hundred and
 /// twenty-nine**, and it is not an inversion: row 234 is a property the freeze had been asserting
 /// with a join that could not fail on it. Its `glyphs` column was joined to another declaration, so
 /// a row demanding an entry it draws nothing of satisfied *every entry has a demander* — four such
 /// entries stood for four tickets and five more are still standing, held in `crate::glyphs::UNDRAWN`
 /// with the issue that owns them.
 ///
-/// **Runtime architecture issue 34 moved it from two hundred and twenty-one to two hundred and
+/// **The two-colour question moved it from two hundred and twenty-one to two hundred and
 /// twenty-two, and it is the second of those** — one crate down again, and this time it lifted a
 /// barrier rather than fixing a defect. Row 161 wanted bytes on the wire and needed a driver that
 /// hands its sink back: `Clock`, `Output`, `Overrides`, `WidthSource` and `InputConfig` were not in
@@ -670,20 +670,20 @@ pub const SPEC_ROWS: usize = 32;
 /// build sent its bytes anywhere it could read. All five are re-exported now. **Six unreachable
 /// became five**, and that is the whole of the change to the split.
 ///
-/// **Components ticket 46 moved it from two hundred and eighteen to two hundred and twenty**, and
+/// **The spinner moved it from two hundred and eighteen to two hundred and twenty**, and
 /// neither of the two is an inversion: rows 232 and 233 are the twenty-ninth component's — *stored
 /// state may be an anchor, never a phase*, and the playhead's cadence beside it. It is the last row
 /// of the freeze to be built, so **every row of that table is `built` from here on** and the four
 /// populations that read the column — O1's, O2's, O3's and O7's — moved to twenty-nine with no edit
 /// to any of them.
 ///
-/// **Components ticket 45 moved it from two hundred and sixteen to two hundred and eighteen**, and
+/// **The consumer join moved it from two hundred and sixteen to two hundred and eighteen**, and
 /// neither of the two is an inversion: rows 230 and 231 are O7's — *every component this crate
 /// declares is exercised by an application*, and the `uses` column agreeing with the scan that
 /// answers it. It is the seventh obligation and the one whose **evidence is in another crate**,
 /// which is why the second row's instruments live in `crates/vitui-apps/src/lib.rs`.
 ///
-/// **Components ticket 38 moved it from a hundred and ninety-nine to two hundred and two**, and
+/// **The keyboard contracts moved it from a hundred and ninety-nine to two hundred and two**, and
 /// none of the three is an inversion either: rows 216, 217 and 218 are O4's, at the level O4 means
 /// it. Row 30's own instrument compares two lists of *ids*, which is the most a query over the
 /// freeze can ask; the chord-for-chord equality needs a value with a machine in it, and
@@ -8760,7 +8760,7 @@ pub const REGISTER: [Row; 234] = [
 /// assert_sync::<Task<u32>>();
 /// ```
 ///
-/// # §21 says `Worker` is `!Sync`, and the shipped one is not
+/// # `Worker` was said to be `!Sync`, and the shipped one is not
 ///
 /// That row reads "`Task` and `Worker` are `!Sync`; `Cell`, `RefCell`, `Worker` **are** `Send`".
 /// `Worker` is an `Arc<Inbox>` and is `Sync` as well as `Send`, which the twin above asserts rather
@@ -9000,7 +9000,7 @@ mod tests {
 
     /// **Two hundred and twenty-eight evaluated, and the other five each say why not.**
     ///
-    /// This is the number §21 asks for: *how many gates are actually evaluated is a number a test
+    /// This is the number asked for: *how many gates are actually evaluated is a number a test
     /// asserts rather than a claim in a document*. Saying it out loud is what stops the next change
     /// arriving unremarked — a row that quietly stops running has to edit this line, and a row that
     /// starts running has to edit it too.
@@ -9128,7 +9128,7 @@ mod tests {
 
     /// **Every instrument names something that exists.**
     ///
-    /// The test the whole file is shaped around, inherited from runtime ticket 19. A `Unit` must be
+    /// The test the whole file is shaped around, inherited from the runtime. A `Unit` must be
     /// a live `#[test]` in its file, a `Pair`'s hostile line must appear **inside a `compile_fail`
     /// block** — a mention in prose does not count, and neither does the twin — a `Barrier` is
     /// compared against a **trimmed** line, and a `Report` must be a file that is there and not
@@ -9230,7 +9230,7 @@ mod tests {
     /// *zero allocations in a steady frame* with no qualifier is that spelling with the division
     /// hidden.
     ///
-    /// **The needle is a word and a row can be written past it**, which components ticket 30 found
+    /// **The needle is a word and a row can be written past it**, which was found
     /// by drafting one that said *allocates*: it walked straight past the filter, and a scan that
     /// misses the row it is aimed at reports green for the population it happened to match. The
     /// answer is not a wider needle — `alloc` also matches the row about the *allocator*, which
@@ -9330,7 +9330,7 @@ mod tests {
     /// **No component here names a glyph set, and no crate in the workspace carries a private
     /// fallback table.**
     ///
-    /// Row 26, and **components ticket 05 inverted it.** It was pinned red over an empty population
+    /// The glyph-set row, **since inverted.** It was pinned red over an empty population
     /// — 0 occurrences over 0 components, which is `Verdict::of`'s vacuity refusal stated in a
     /// different file — and what was missing was the subject rather than the instrument.
     ///
@@ -9343,7 +9343,7 @@ mod tests {
     /// takes the collapse census and runs the memo rule — and it names a role and a glyph and never
     /// a repertoire. So the count is over something now.
     ///
-    /// The second half is widened to the workspace, which is what §16 asks for and what this could
+    /// The second half is widened to the workspace, which is what is asked for and what this could
     /// not do while it had nothing to be about: **no private fallback module anywhere**, engine,
     /// runtime and components together.
     ///
@@ -9351,7 +9351,7 @@ mod tests {
     /// scan whose own source matches it is the vacuous shape the engine's register records having
     /// shipped once already.
     ///
-    /// # One file is excepted, by name and by count — components ticket 27
+    /// # One file is excepted, by name and by count
     ///
     /// `CONTEXT.md` says both halves of a collision in two adjacent paragraphs. **Repertoire**: *a
     /// component branches on it rather than the engine substituting behind its back.* **Glyph**:
@@ -9359,7 +9359,7 @@ mod tests {
     /// case**, because the number of samples asked of the data changes with the rung and no table
     /// can carry that … a component names no repertoire.* The sub-cell ladder is named in the second
     /// sentence as the thing that is a branch, and a branch on the repertoire is a component naming
-    /// the repertoire. Spec §13 says the same in as many words: *§16 owns the lookup; the branch is
+    /// the repertoire. The same is said in as many words: *the theme owns the lookup; the branch is
     /// two `match`es and a 16-entry array in the component crate.*
     ///
     /// Both cannot hold, and the refinement 3 says what to do about it: **name the exception;
@@ -9544,7 +9544,7 @@ mod tests {
     ///
     /// This test used to assert the opposite, and its own failure message named the procedure:
     /// *"`{name}` has become reachable through the runtime. That inverts a row of `REGISTER` and is
-    /// a deliberate edit here."* Runtime architecture issue 22 made all four reachable at once, so
+    /// a deliberate edit here."* The re-export made all four reachable at once, so
     /// the edit is here and the assertion is inverted rather than deleted — a barrier that lifts and
     /// takes its own gate with it leaves nothing watching the direction it came from.
     ///
@@ -9587,7 +9587,7 @@ mod tests {
     /// Reading `ENGINE_NAMES` proves the inventory says so; this proves the compiler agrees, and the
     /// two together are what `cells.rs`'s header meant by *there is no second spelling*. A
     /// `Mouse` is **built** here rather than named, because construction is the half the old barrier
-    /// survived: `Driver::post_mouse` takes one, and until issue 22 no crate on this side of the
+    /// survived: `Driver::post_mouse` takes one, and until the re-export no crate on this side of the
     /// line could reach `Buttons` or `MouseKind` to make one.
     #[test]
     fn the_four_are_reachable_by_writing_them() {

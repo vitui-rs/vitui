@@ -1,6 +1,6 @@
 //! **The document: twenty fields, a pasted megabyte, and a 300 → 120 resize.**
 //!
-//! Components ticket 23. Spec §11, §21. This is the screen `field`'s two scenes are scenes *of*,
+//! This is the screen `field`'s two scenes are scenes *of*,
 //! and it exists for the reason [`crate::listing`] exists one file over: **the axis was established
 //! by a defect that passed every gate then in force and looked healthier than the correct build**,
 //! and it was caught by an equality against a reference render and by nothing else.
@@ -21,7 +21,7 @@
 //!
 //! # Four gates, and *invisible on the rendered screen* turns out to mean two different things
 //!
-//! §11 states them together:
+//! They are stated together:
 //!
 //! > The caret is always on a cluster boundary · the caret's column equals the engine's tables over
 //! > the same prefix · a spliced index equals a rebuilt one · the index's recorded width equals the
@@ -37,22 +37,21 @@
 //!   built on. They change the screen, and **no counter of the nine can tell**: the memo-key
 //!   defect draws [`STALE_ROWS`] of eighty rows wrong while writing the same cells, making the same
 //!   verbs, declaring the same regions and running **faster**. Only an equality against a reference
-//!   render reports it, which is exactly what §21 says about three of the four collection axes.
+//!   render reports it, which is exactly the case with three of the four collection axes.
 //!
 //! [`counters_that_separate`] is that claim as a list rather than as a sentence, run over all four,
-//! and register row 69 is where it is filed. **the heading is true and the reading that makes
+//! and a register row is where it is filed. **the heading is true and the reading that makes
 //! it true is not the obvious one**, which is why this paragraph is here rather than a note.
 //!
 //! # `graphemes()` is unreachable from this crate
 //!
 //! The mechanism is a caret *moved in cluster steps*, and nothing above `vitui-runtime` can name
 //! `vitui_engine::graphemes`. [`crate::clusters::next_cluster`] reconstructs a forward step out of
-//! two `truncate` probes; that module has the whole finding, and register row 68 carries it as a
+//! two `truncate` probes; that module has the whole finding, and a register row carries it as a
 //! [`Barrier`] pointing at the line in the runtime that imports what it does not re-export.
 //!
 //! **It is recorded, not decided.** The map is closed and this is the original's to report:
-//! whether the runtime grows a cluster step is components architecture's question and
-//! `.scratch/vitui-components-impl/issues/24` is the ticket that will have to ask it.
+//! whether the runtime grows a cluster step is a question for the component that would need it.
 //!
 //! # The gate was red for one reason and components 24 inverted it
 //!
@@ -172,10 +171,10 @@ pub const SURFACE_BLIND: usize = 0;
 /// Line `i` opens with its own four-digit index, so no two **lines** share a prefix and a wrong row
 /// costs a full row of cells rather than the suffix nobody was looking at. That is
 /// [`crate::runner::Fixture::lines`]'s property, restated here because this document's lines vary in
-/// length and its generator's do not — and it is the property components ticket 11 found the runner
+/// length and its generator's do not — and it is the property that was found in the runner
 /// fixture short of, where `(5i + c) mod 26` aliases every thirteenth row.
 ///
-/// # The unit is a hard line and not a visual row, and production ticket 05 measured the difference
+/// # The unit is a hard line and not a visual row, and the difference was measured
 ///
 /// [`LONG`] of these lines wrap to two rows at [`NARROW`], and **a long line's second visual row
 /// carries no index**: it is a suffix of [`crate::clusters::ROTA`]'s eight-word rota, so two second
@@ -255,7 +254,7 @@ pub fn text() -> String {
 
 /// **A pasted megabyte**, built by repeating the document until it is at least [`PASTED`] bytes.
 ///
-/// A megabyte of one repeated character would answer a different question: the cost §11 prices is
+/// A megabyte of one repeated character would answer a different question: the priced cost is
 /// *segmenting forward*, and segmentation over one-byte clusters is the cheap case.
 pub fn pasted() -> String {
     let one = text();
@@ -269,11 +268,11 @@ pub fn pasted() -> String {
 
 // ── the wrap index and the caret, which are the component's ──────────────────────────────────────
 
-/// **The machine these screens are screens of.** Components ticket 24.
+/// **The machine these screens are screens of.**
 ///
-/// Ticket 23 wrote the wrap index and the caret pair *here*, beside the gate, because `field` did
+/// The wrap index and the caret pair were written *here*, beside the gate, because `field` did
 /// not exist — and said so in as many words: *what stands in for `field` is a caret and a wrap
-/// index written in this file*. Ticket 24 built the component, so they moved into
+/// index written in this file*. The component was built, so they moved into
 /// [`crate::edit`] and this module re-exports them under the names its own tests, its scenes and
 /// `examples/field_numbers.rs` already used. **Every figure on this page is now a measurement of
 /// the shipped machine**, which is the difference between a scene that is stood up and one that is
@@ -282,7 +281,7 @@ pub use crate::edit::{Caret, Index, Text, WrapKind, boundaries, step, step_left,
 
 /// **What one `Left` at the end of a pasted megabyte costs, both ways.**
 ///
-/// The scene 12 in one measurement: *the caret pair and the index — 9 655x on one `Left`*. The
+/// The wide screen in one measurement: *the caret pair and the index — 9 655x on one `Left`*. The
 /// index is built **outside** the timing on both arms, because the argument is that a `textarea`
 /// **has that index already** — timing its construction here would price the wrapping against the
 /// caret and answer a question nobody asked.
@@ -409,7 +408,7 @@ fn shuffle(state: &mut u64) -> u64 {
 
 /// **Five hundred edits, each spliced two ways and compared against a rebuild.**
 ///
-/// §11: *a splice restarted at `row_of(at)` therefore keeps a break the edit invalidated: it agreed
+/// *A splice restarted at `row_of(at)` therefore keeps a break the edit invalidated: it agreed
 /// with a rebuild 499 times in 500 and the screen looked right. Restarting one row earlier is
 /// provably enough, and the defect was caught by an equality against a rebuild and by nothing else.*
 ///
@@ -613,7 +612,7 @@ pub enum Seat {
 /// **Which verb placed the caret being inspected**, because gate 1 can only fail on two of the
 /// three and that is the finding rather than a bookkeeping detail.
 ///
-/// A review of production ticket 04 found the first version of this walk counting one number over
+/// A review found the first version of this walk counting one number over
 /// all three, and reading a zero as *the shipped verbs are right across an edit* when for one of
 /// the three it could not have been anything else.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -646,7 +645,7 @@ pub enum Placed {
 ///
 /// The failure columns are counted rather than asserted inside the walk, because a gate that stops
 /// at the first bad caret cannot say whether the arm is wrong once or wrong everywhere — and *once
-/// in five hundred* is the shape §11 already met on the splice.
+/// in five hundred* is the shape already met on the splice.
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
 pub struct EditWalk {
     /// Carets inspected: every gesture, every edit and every undo of the script, at every position.
@@ -950,7 +949,7 @@ fn caret_seat(corpus: &Corpus) -> usize {
 /// **One arm of one scene: a buffer, an index over it, and where the caret goes.**
 ///
 /// The pair [`screens`] returns is the whole of a scene, and a `Screen` holds its index rather than
-/// building one inside the draw for a reason ADR 0026 states one file over: **the correct build and
+/// building one inside the draw for a reason stated one file over: **the correct build and
 /// the defective one must be one function with one value between them**, so that a reviewer's diff
 /// is the value and not a second drawing path.
 pub struct Screen {
@@ -958,14 +957,14 @@ pub struct Screen {
     pub w: u16,
     /// **How many one-row inputs stand above the textarea.**
     ///
-    /// Nineteen for the scene 12 — *twenty fields and a 1 MB pasted textarea* — and **zero** for
-    /// scene 13, which is one field: `Content::Fields { fields: 1, bytes: 1 048 576 }`. The two
+    /// Nineteen for the wide screen — *twenty fields and a 1 MB pasted textarea* — and **zero** for
+    /// the narrow one, which is one field: `Content::Fields { fields: 1, bytes: 1 048 576 }`. The two
     /// scenes are two screens and the difference is not decoration: nineteen inputs leave the
     /// textarea sixty-one rows, and *69 of 80* is counted over eighty.
     pub inputs: u16,
     /// **The textarea's state, which is [`crate::edit::Text`] and therefore the component's.**
     ///
-    /// Ticket 23 carried a `String`, an `Index` and a caret column here, because there was nothing
+    /// A `String`, an `Index` and a caret column were carried here, because there was nothing
     /// to hold them; the four defects were three separate substitutions in this struct. They are
     /// now three settings on one shipped state — [`crate::edit::defective::at_byte`] and
     /// `column_by_chars` for the caret pair, `keyed_on_revision` for the memo key,
@@ -1216,7 +1215,7 @@ pub fn counters_that_separate(
         .collect()
 }
 
-/// **The resize, as an equality against the correct render.** The scene 13.
+/// **The resize, as an equality against the correct render.** The narrow screen.
 ///
 /// *625 rows drawn where 875 are needed*, and on the surface [`STALE_ROWS`] of eighty rows.
 pub fn resized() -> Diff {
@@ -1226,7 +1225,7 @@ pub fn resized() -> Diff {
 /// **How many recomputes each memo key costs over the resize.** *1 against 2*.
 ///
 /// The defective key recomputes **once** — the revision did not move, so the resize is a cache hit —
-/// and the correct one recomputes **twice**, once per width. §21 states it as a reason the defect
+/// and the correct one recomputes **twice**, once per width. That is a reason the defect
 /// looks healthier, and it is: *`recomputes` points the wrong way.*
 pub fn recomputes_over_the_resize() -> (usize, usize) {
     let document = text();
@@ -1252,7 +1251,7 @@ pub fn recomputes_over_the_resize() -> (usize, usize) {
 
 // ── the corpus figures, measured and remembered ──────────────────────────────────────────────────
 
-/// **Clusters in the corpus. 167**, and §11 remembers 166. See [`crate::clusters`].
+/// **Clusters in the corpus. 167**, where 166 was recorded. See [`crate::clusters`].
 pub const CORPUS_CLUSTERS: usize = 167;
 /// **Code points in the corpus, which is how many steps a `char` caret takes. 251**, against
 /// 217.
@@ -1283,7 +1282,7 @@ pub const SUBJECTS: [&str; 1] = ["field"];
 /// Where [`SUBJECTS`] is declared, as `(module file, the declaration)`.
 ///
 /// The home is the freeze's, joined through [`crate::Family`]: `field`'s first family is `F6Input`,
-/// whose module is `input.rs`. A component is `fn(&mut Ctx, Rect, …) -> Response` (spec §1, rule 1),
+/// whose module is `input.rs`. A component is `fn(&mut Ctx, Rect, …) -> Response`,
 /// so the thing to look for is a public function of the component's own name in its own family's
 /// module.
 pub const DECLARATIONS: [(&str, &str); 1] = [("input.rs", "pub fn field(")];
@@ -1354,7 +1353,7 @@ pub fn owed_message(declared: &[&str], scene: &str) -> Option<String> {
 ///
 /// # Panics
 ///
-/// Panics while [`SUBJECTS`] is undeclared, which is **today**. Components ticket 24 inverts it.
+/// Panics while [`SUBJECTS`] is undeclared, which is **today**.
 pub fn assert_stands_up(scene: &str) {
     if let Some(message) = owed_message(&subjects_declared(), scene) {
         panic!("{message}");
@@ -1401,7 +1400,7 @@ mod tests {
 
     /// **No two lines share a prefix**, so a wrong row costs a whole row of cells.
     ///
-    /// Components ticket 11 found the runner's own fixture short of this — `(5i + c) mod 26`
+    /// The runner's own fixture turned out short of this — `(5i + c) mod 26`
     /// aliases every thirteenth row and the equality under-reports by five. A four-digit index at
     /// the head of every line is the fix, and this is the test that says it worked.
     #[test]
@@ -1521,7 +1520,7 @@ mod tests {
     ///   `Text::edit` that seats a byte-addressed caret leaves 715 wrong columns with the
     ///   off-boundary count still at zero.
     /// - **[`Placed::Restored`] is where gate 1 has teeth.** `Text::undo` restores the pair rather
-    ///   than recomputing it (§11: 0.0007 µs against 6 109), so a restored pair is only as good as
+    ///   than recomputing it — 0.0007 µs against 6 109 — so a restored pair is only as good as
     ///   the buffer it is restored into. The defective arm demonstrates it **without patching
     ///   `undo`**: the third undo puts the seat's own pair back, and on the `AtByte` arm that pair
     ///   is inside a cluster — [`WALK_INSIDE`] of them.
@@ -1759,7 +1758,7 @@ mod tests {
     /// spelled `i.row_of(at).saturating_sub(1)` inside `Text::edit` and `row.saturating_sub(1)`
     /// inside [`splice_sweep`], in two files, and a change to either would separate them here.
     ///
-    /// **Nine of five hundred and not one.** §11 remembers *499 times in 500*
+    /// **Nine of five hundred and not one.** The recorded claim is *499 times in 500*
     /// ([`REMEMBERED_SPLICE_AGREEMENTS`]) and this population reaches the defect nine times; the
     /// figure is reported as measured beside the remembered one in `examples/field_numbers.rs` and
     /// asserted here as a floor rather than as a number, because the count is a property of the
@@ -1791,7 +1790,7 @@ mod tests {
     ///
     /// The gate next door is an *inequality* between two builds — two indexes, one at 300 and one at
     /// 120, neither of them drawn — and the surface figure below it is a count of differing rows.
-    /// Neither states the property §11 states, which is about **the width being drawn**: a frame at
+    /// Neither states the property that matters, which is about **the width being drawn**: a frame at
     /// `w` columns holds an index built at `w`. Read off the state after
     /// [`crate::input::field_into`] has drawn it, so the width it is compared against is the
     /// rectangle the component was handed and not a number the test chose.
@@ -1873,7 +1872,7 @@ mod tests {
     /// **No counter of the nine separates a defective build from a correct one, for any of the
     /// four gates.**
     ///
-    /// This is register row 69 and it is the ticket's headline finding: *four gates, none of
+    /// This is a register row and it is the headline finding: *four gates, none of
     /// them visible on the rendered screen* is true, and for two of the four it is true in the sense
     /// the whole scene list is built on — the screen changes and **no counter can say so**.
     #[test]
@@ -1965,7 +1964,7 @@ mod tests {
     /// **`Left` at the end of a pasted megabyte, both ways.** A report, asserted only as a
     /// direction.
     ///
-    /// The **ratio** is what §11 states and a ratio of timings is a report; what is gated is that
+    /// The **ratio** is what is stated and a ratio of timings is a report; what is gated is that
     /// the indexed arm segments over one row and the blind arm over the whole buffer, which is a
     /// count.
     #[test]
@@ -1990,7 +1989,7 @@ mod tests {
         );
     }
 
-    /// **The document stands on its declared subject**, which is what components ticket 24
+    /// **The document stands on its declared subject**, which is what the component
     /// inverted.
     ///
     /// It was `the_document_is_red_because_field_is_not_declared` and it panicked on purpose for

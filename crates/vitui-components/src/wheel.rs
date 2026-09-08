@@ -1,6 +1,6 @@
 //! **The wheel gate: twenty clicks move the offset twenty, and a reveal fires only when asked.**
 //!
-//! Components ticket 20. Spec §17 (O5), §21, and `CONTEXT.md`, which forbids the unconditional
+//! The glossary forbids the unconditional
 //! scroll-into-view.
 //!
 //! > It fires only for a keyboard-driven focus move. A press already proves the widget was on
@@ -17,11 +17,11 @@
 //!
 //! # What replaced what, and why the gate moved out of [`crate::listing`]
 //!
-//! Components ticket 11 built the wheel scene inside the collection's own screen, over a
+//! The wheel scene was first built inside the collection's own screen, over a
 //! hand-written row loop and with **the click's delta handed to the arithmetic `Response::scrolled`
 //! would have delivered it to** — because `Driver::post_mouse` takes a `vitui_engine::Mouse`, and a
 //! `Mouse` needs a `Buttons` and a `MouseKind`, and *neither of those was in `ENGINE_NAMES` at all*.
-//! Runtime architecture issue 22 lifted that barrier. So this module is the instrument with
+//! That barrier is lifted. So this module is the instrument with
 //! the two substitutions taken out, and both removals were load-bearing:
 //!
 //! 1. **The click is posted.** [`Driver::post_mouse`] with a real [`Notch`], routed through the
@@ -42,20 +42,20 @@
 //!
 //! **The third is the original's and it is a different kind of question.** [`Subject::Table`] owns
 //! one offset in rows, like a collection, and every number it reports is a collection's — which is
-//! the point: spec §6 opens by claiming that a table's *row axis, wheel, keyboard, type-ahead and
+//! the point: a table's *row axis, wheel, keyboard, type-ahead and
 //! reveal are all `collection`'s, reached by calling it*, and until this ticket nothing had asked it
 //! a wheel question. The arm costs one `match` arm here and three
 //! [`crate::collect::defective`] entries, and what it buys is that the claim is compared rather than
 //! trusted: the assertions are *`table` equals `collection`, arm for arm*, not three constants
 //! written twice.
 //!
-//! **The fourth is the original's and the fifth production 07's, and both are the third's shape on
+//! **The fourth and fifth arrived later, and both are the third's shape on
 //! another component.** [`Subject::Pane`] reaches its offset through `scroll_area` and
 //! [`Subject::Tree`] reaches its through `collection`, so the assertions on both are *equal to the
 //! component it calls, arm for arm* rather than constants written twice. Three instances make it a
 //! rule: **a component whose spec says *reached by calling it* is compared against the component it
 //! calls.** What each cost is one `match` arm; what the tree arm bought beyond the table's is the
-//! **press** clause, because §7 adds a second pointer gesture on the chevron column and *a press
+//! **press** clause, because a tree adds a second pointer gesture on the chevron column and *a press
 //! still selects a row and still refuses to pull the viewport* is therefore a question rather than
 //! an inheritance.
 //!
@@ -107,7 +107,7 @@ pub const W: u16 = crate::listing::W;
 /// The viewport's height. [`crate::listing::H`]'s eighty.
 pub const H: u16 = crate::listing::H;
 
-/// How many rows the collection holds. A million, which is the scene 6.
+/// How many rows the collection holds. A million, which is the wheel scene's volume.
 pub const ROWS: u64 = 1_000_000;
 
 /// **The area's content, in cells and on both axes.**
@@ -169,7 +169,7 @@ impl Preview for Doc {
     }
 }
 
-/// The decode, as spec §15 requires it: a free function over an identity.
+/// The decode, as the preview pane requires it: a free function over an identity.
 fn decode(id: u64, _cancel: &Cancel) -> Doc {
     Doc(id)
 }
@@ -215,13 +215,13 @@ pub enum Subject {
     /// **body's**. The component applies a delta and never asks for one.
     Area,
     /// A [`crate::collect::table`]: **one offset, in rows, and it is `collection`'s** — the row
-    /// axis, the wheel and the reveal are all reached by calling it, which is the sentence spec §6
+    /// axis, the wheel and the reveal are all reached by calling it, which is the sentence the table
     /// opens with.
     ///
     /// **That is why it is a third subject rather than a fourth assertion about the first.**
     /// *`table` is `collection`* is the claim; a gate that plays the wheel over `collection` and
     /// takes the claim on trust is a gate that would stay green if the column split ever grew a
-    /// second offset, a second store or a reveal of its own. Production 06 asked it directly, and
+    /// second offset, a second store or a reveal of its own. It was asked directly, and
     /// what it costs is one `match` arm — which is the measure of how much of the sentence is
     /// true.
     Table,
@@ -229,7 +229,7 @@ pub enum Subject {
     /// `scroll_area`'s** — the pane calls it, hands it the document's extent and keeps its
     /// [`AreaState`] as a field.
     ///
-    /// **Production 09's, and it is [`Subject::Table`]'s shape on the other family.** Spec §15
+    /// **It is [`Subject::Table`]'s shape on the other family.** The preview pane
     /// states the pane as *a scroll area over a document that arrives from another thread* and the
     /// component is `scroll::scroll_area_into` with a virtualising body in front of it — so the
     /// wheel, the reveal and both clamps are reached by calling it, and nothing had ever asked. The
@@ -245,11 +245,11 @@ pub enum Subject {
     /// [`PANE_EXTENT`], which is [`EXTENT`] so that the two subjects share one clamp.
     Pane,
     /// A [`crate::collect::tree`]: **one offset, in rows, and it is `collection`'s** — the row
-    /// axis, the wheel and the reveal are all reached by calling it, which is the sentence spec §7
+    /// axis, the wheel and the reveal are all reached by calling it, which is the sentence a tree
     /// opens with and which nothing had ever asked a wheel question of.
     ///
-    /// **Production 07's, and it is [`Subject::Table`]'s shape on the third member of the same
-    /// family.** §7 states it in more words than §6 does — *there is no second selection store, no
+    /// **It is [`Subject::Table`]'s shape on the third member of the same family.** A tree states
+    /// it in more words than a table does — *there is no second selection store, no
     /// second scan cursor, no second [`Mode`], **no second offset** and no second press edge* — so
     /// the assertions here are *`tree` equals `collection`, arm for arm* rather than three
     /// constants written twice. What it costs is one `match` arm and two
@@ -527,7 +527,7 @@ pub fn wheeled(play: Play) -> Wheeled {
 /// A build whose reveal was **deleted** rather than made conditional answers `(0, 0)` here, and that
 /// is why the gate has two halves. *An offset that moves when nothing asked is a failure* on its own
 /// is satisfied by a build that can no longer follow the keyboard at all, and
-/// `.scratch/vitui-components-impl/issues/20` says so in as many words: *a one-directional spelling
+/// It is said in as many words: *a one-directional spelling
 /// would go green the moment somebody deleted the call entirely, which loses the keyboard behaviour
 /// instead of fixing the pointer one.*
 pub fn revealed(subject: Subject, reveal: Reveal, from: (i32, i32)) -> (i32, i32) {
@@ -578,7 +578,7 @@ pub fn revealed(subject: Subject, reveal: Reveal, from: (i32, i32)) -> (i32, i32
 /// **Whether one frame at `offset`, with nobody's cursor having moved, leaves a request behind.**
 ///
 /// The gate's other direction, as a count of the one structure that crosses the frame boundary
-/// (ADR 0015 — sixteen bytes, an area and a delta, no `Rect`).
+/// (sixteen bytes, an area and a delta, no `Rect`).
 ///
 /// # The offset is a parameter and it is the whole test
 ///
@@ -909,7 +909,7 @@ fn collection_frame(cx: &mut Ctx<'_, '_>, st: &mut CollState, play: Play) {
 /// The elastic middle is what makes the row a partition of [`W`] with no column *boundary* falling
 /// short of it. A band whose columns are all `Fixed` and sum to less than the viewport used to leave
 /// the remainder unwritten — a **second** shrink surface, and `crate::grid::COLUMN_RESIDUE_WAS`'s
-/// measurement rather than this gate's. Architecture issue 24 answered it: the band writes its own
+/// measurement rather than this gate's. It is answered: the band writes its own
 /// slack now, so an all-`Fixed` list is no longer a partition defect, and the elastic middle here is
 /// about where the columns *are* rather than about which cells get written.
 fn columns() -> [Column; 3] {
@@ -1136,7 +1136,7 @@ pub fn area_max() -> (i32, i32) {
 /// A `Chord` this gate posts, for the report to print.
 ///
 /// `Ctrl+Home` and not `Home`: `crate::nav::step` reads a bare `Home` too, and the chord is the one
-/// spec §5 measures beside `Ctrl+A` — *move the cursor, leave the selection alone*, which is the
+/// is measured beside `Ctrl+A` — *move the cursor, leave the selection alone*, which is the
 /// gesture a reveal is legitimately downstream of.
 pub const REVEAL_CHORD: Chord = Chord::new(Code::Home).ctrl();
 
@@ -1341,7 +1341,7 @@ mod tests {
         assert!(leaves_no_request(play, scrolled));
     }
 
-    /// **Production 06: the same gate over the shipped `table`, and the sentence is checked
+    /// **The same gate over the shipped `table`, and the sentence is checked
     /// rather than trusted.**
     ///
     /// > There is no second selection store, no second scan cursor and no second `Mode`. The row
@@ -1427,7 +1427,7 @@ mod tests {
         }
     }
 
-    /// **Production 07: the same gate over the shipped `tree`, and the sentence is checked rather
+    /// **The same gate over the shipped `tree`, and the sentence is checked rather
     /// than trusted.**
     ///
     /// > There is **no second selection store**, **no second scan cursor** — the row's `Face`
@@ -1437,7 +1437,7 @@ mod tests {
     /// > `collection`'s, reached by calling it. What this function adds is two verbs a row and a
     /// > one-slot request.
     ///
-    /// That is `crate::collect::tree`'s own claim — **stated in more words than §6 states the
+    /// That is `crate::collect::tree`'s own claim — **stated in more words than the table states the
     /// table's** — and until this ticket nothing had asked it a wheel question either. The numbers
     /// are `collection`'s to the click, which is the finding: **two verbs a row and a one-slot fold
     /// request cost the row axis nothing**, and a build where they did would show up here as one of
@@ -1532,7 +1532,7 @@ mod tests {
         }
     }
 
-    /// **Production 09: the same gate over the shipped `file_preview_pane`, and the sentence is
+    /// **The same gate over the shipped `file_preview_pane`, and the sentence is
     /// checked rather than trusted.**
     ///
     /// > The file preview pane: **a scroll area over a document that arrives from another thread**.

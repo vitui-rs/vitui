@@ -1,7 +1,7 @@
 //! **What a scroll area writes and its body does not: the tail past the content, and the bands
 //! beside it.**
 //!
-//! Production ticket 09. Spec §9, §17 (O5), §21. This is the screen `scroll_area`'s shrink axis and
+//! This is the screen `scroll_area`'s shrink axis and
 //! `sticky`'s scroll axis are scenes *of* — [`crate::area`] carries this family's other four,
 //! own scenes 17, 18, 19 and 30, and the two files divide the way the questions do: that one is
 //! **how big the parts are** and this one is **what is in them**.
@@ -13,7 +13,7 @@
 //!
 //! # Both are one question and it is *who owes this cell*
 //!
-//! Spec §2 gives every component every cell of its rectangle, and `scroll_area` is the one place on
+//! Every component owes every cell of its rectangle, and `scroll_area` is the one place on
 //! this map where the rectangle is **partitioned between a component and its caller**: the body gets
 //! [`Parts::view`](crate::scroll::Parts::view), and the area keeps the two bars, the corner, the
 //! four bands and the tail. So both axes here are the same sentence asked twice —
@@ -24,7 +24,7 @@
 //!
 //! — and both are decided by **the one offset the area owns**: the tail begins at
 //! `[extent, offset + viewport)`, and a band's translation is
-//! [`Shares::of`](crate::scroll::Shares::of) of that same pair. Production 05 put three scenes in
+//! [`Shares::of`](crate::scroll::Shares::of) of that same pair. Three scenes went in
 //! one module because one integer decided all three; this is that, at two.
 //!
 //! # Neither may be played at offset zero, and the existing gates both are
@@ -37,7 +37,7 @@
 //!   written* on **one** frame, over four extents, with no refusal beside it. The `shrunk` axis is
 //!   *content shrinking inside a rectangle that does not move* — a defect of the second frame given
 //!   the first — so a one-frame gate over a state nothing has moved is the trap
-//!   `.scratch/vitui-production/README.md` records production 04 finding twice.
+//!   the same finding turned up twice before.
 //! - `scroll::tests::a_band_is_a_view_and_the_arithmetic_spelling_re_damages_what_is_under_it` is
 //!   played at offset **`(0, 0)`**, where four of `crate::scroll::Shared`'s five arms draw the same
 //!   screen. It catches the fifth, which is the one it was written for; the scroll axis was
@@ -493,7 +493,7 @@ fn against_the_short_content(refused: Refused, short: (u32, u32)) -> Diff {
     subject.cropped(r).diff(&reference.cropped(r))
 }
 
-/// **The spelling §21 refuses, kept as a number rather than as a sentence**: the same refusal played
+/// **The refused spelling, kept as a number rather than as a sentence**: the same refusal played
 /// into a rectangle the shrink has already resized.
 ///
 /// The correction to this axis is that *the version written against a terminal resize passes*
@@ -704,9 +704,9 @@ pub const BANDS: [Refused; 3] = [
 /// play silently.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum On {
-    /// Scene 43: the extent shrunk to [`SHORT`] over two frames.
+    /// The tail scene: the extent shrunk to [`SHORT`] over two frames.
     TheTail,
-    /// Scene 44: five bands at one offset, one frame.
+    /// The band scene: five bands at one offset, one frame.
     TheBands {
         /// Which offset. **A field and not two variants**, because the counters' answer is
         /// different at [`FAR`] and at [`NEAR`] and that difference is the reading.
@@ -812,11 +812,11 @@ fn band_counters(at: (i32, i32), shape: AreaShape, allocations: Allocations) -> 
 /// name.
 pub const SUBJECTS: &[&str] = &["scroll_area", "sticky"];
 
-/// **What scene 43 stands up: a `scroll_area`, and no band is on that screen** — the tail scene's
+/// **What the tail scene stands up: a `scroll_area`, and no band is on that screen** — its
 /// options cut none.
 pub const TAIL_SCREEN: &[&str] = &["scroll_area"];
 
-/// **What scene 44 stands up: both**, because a band exists only inside the area that cuts it.
+/// **What the band scene stands up: both**, because a band exists only inside the area that cuts it.
 ///
 /// The one row of the two that names two components, and it is not a generous join: the rule is
 /// that *`scroll_area` calls `sticky` for all four of its bands and nothing else in this crate opens
@@ -849,7 +849,7 @@ mod tests {
         );
     }
 
-    /// **Scene 43: the tail omitted is [`STALE`], the vertical half of it is [`STALE_DOWN`], and
+    /// **The tail scene: the tail omitted is [`STALE`], the vertical half of it is [`STALE_DOWN`], and
     /// the resize spelling scores it clean.**
     #[test]
     fn the_omitted_tail_is_every_row_of_the_viewport_and_the_resize_spelling_misses_it() {
@@ -920,11 +920,11 @@ mod tests {
         );
     }
 
-    /// **Scene 44: a band and the reference agree about where a content coordinate is, and every
+    /// **The band scene: a band and the reference agree about where a content coordinate is, and every
     /// translation refusal breaks it.**
     ///
     /// > That is what makes a title and the cells under it unable to disagree about where a column
-    /// > is: they are the same number. (§9, on [`crate::scroll::sticky`])
+    /// > is: they are the same number. (On [`crate::scroll::sticky`].)
     #[test]
     fn the_bands_agree_with_the_reference_and_every_translation_refusal_disagrees() {
         assert!(

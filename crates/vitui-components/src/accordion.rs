@@ -1,6 +1,6 @@
 //! **The accordion, and the fold set: the two scenes no golden-cell gate can see.**
 //!
-//! Components ticket 21. Spec §8, §21. Two rows of the table stand here — row 11, *an accordion of
+//! Two rows of the table stand here — *an accordion of
 //! twelve sections, 0 / 6 / 12 open*, and row 10, *a 200 000-line document with 4 167 folds and an
 //! insert above them* — and they are one module because they are one component's. The whole claim
 //! is that **a section of an accordion and a closed fold are the same machine**; the file is named
@@ -38,7 +38,7 @@
 //! The screen is a prototype this ticket does not own: `crates/proto-c14-app` on branch
 //! `prototype/c14-collapsible` drew the accordion under a menu bar, a toolbar of sixteen chips and
 //! four rows of status chips, none of which this crate can build — `menu_bar` is components ticket
-//! 35's and `field` is ticket 24's. So the declaration figures are **this screen's plus one
+//! elsewhere's and `field` is the input family's. So the declaration figures are **this screen's plus one
 //! constant pair**, [`CHROME_ENTRIES`] and [`CHROME_STOPS`], and the pair is fixed from **one** row
 //! of the table and then used to predict the other five.
 //!
@@ -57,15 +57,15 @@
 //!
 //! # The fold half reproduces exactly, and it is not a screen at all
 //!
-//! A fold set is a `Vec<u32>` and a document is a `Vec<Line>`; neither draws, and §8 is explicit
+//! A fold set is a `Vec<u32>` and a document is a `Vec<Line>`; neither draws, and it is explicit
 //! that the closed folds are **caller state** for the same forced reason a collection's selection
-//! is. So scene 10 is standable today in full: 200 000 lines, a block every twelve, eight lines
+//! is. So the fold screen is standable today in full: 200 000 lines, a block every twelve, eight lines
 //! long, every fourth block closed is **4 167 folds**; ten lines inserted at line 24 leaves **4 166
 //! of 4 167** on a line that opens no block, and [`Anchor::Shifted`] leaves **0 of 4 167**. Both
 //! numbers are the original's and both are asserted rather than reported.
 //!
 //! What is *not* here is `collapsible`. The fold set is the input the component reads; the index it
-//! builds, the splice, the tween and the two-state machine are components ticket 22's, and until
+//! builds, the splice, the tween and the two-state machine are the collapsible's, and until
 //! that ticket lands both scenes are [`Standing::Red`] waiting for their subject — [`standing`],
 //! [`owed_message`] and [`assert_stands_up`], inherited from [`crate::listing`] whole because the
 //! distinction is the same one: *a scene that fails because it is unimplemented and a scene that
@@ -147,7 +147,7 @@ pub const TITLES: [&str; SECTIONS] = [
 /// **Hit entries a correct frame declares with all twelve sections closed. Thirteen.**
 ///
 /// One for the accordion's scrollable region and one for each header. A closed section's body is not
-/// called, so it declares nothing at all — which is the rule §8 states in one line: *a body is
+/// called, so it declares nothing at all — which is the rule in one line: *a body is
 /// handed a rectangle and draws inside it.*
 pub const CLOSED_ENTRIES: usize = 1 + SECTIONS;
 
@@ -206,7 +206,7 @@ pub const SPEC_TWELVE_US: f64 = 45.71;
 
 /// **The height the collapsing section is caught at. Two rows of its body left.**
 ///
-/// §8 states the mid-transition pair as *273 ring entries against 247* and states no height beside
+/// The mid-transition pair is *273 ring entries against 247*, with no height beside
 /// it. Two is the height at which the difference is 26, which is that pair's own subtraction, and
 /// the two absolutes reconcile there with the same [`CHROME_ENTRIES`] the steady rows use — which
 /// is what makes two the answer rather than a fit. See
@@ -469,7 +469,7 @@ pub const fn admitted(h: u16) -> usize {
 /// **clears the residue itself**: the cells between the last section's last row and the bottom of
 /// the viewport are inside the accordion's rectangle and no section owns them.
 ///
-/// # It draws **through** [`collapsible`](crate::disclose::collapsible) since components ticket 22
+/// # It draws **through** [`collapsible`](crate::disclose::collapsible)
 ///
 /// Every section is one call, and the arm that does not cull is [`disclose::defective::zero_rect`] —
 /// the shipped component and the refused spelling, one function apart. What used to be a stand-in
@@ -642,8 +642,8 @@ pub fn shape(s: Screen) -> Shape {
 /// [`shape`], over `frames` measured frames, with the **per-frame** time beside it.
 ///
 /// **The duration is a report and never a gate** (the rule, and R15's before it). It is here at
-/// all because §8 states µs beside every one of its declaration figures, and a report that printed
-/// the counts without them would be answering a question §8 did not ask.
+/// all because µs is stated beside every declaration figure, and a report that printed
+/// the counts without them would be answering a question nobody asked.
 ///
 /// # Panics
 ///
@@ -1009,7 +1009,7 @@ impl Live {
 
     /// **The application collapses everything on the next frame**, keeping the focus or not.
     ///
-    /// §8: *`Drop` is the component's answer; `Stash` belongs to whoever owns the content's
+    /// *`Drop` is the component's answer; `Stash` belongs to whoever owns the content's
     /// identity* — the caller, by capturing `Frame::focus`. `keep` is that capture.
     pub fn collapse_everything<I: Ink>(&mut self, ink: &mut I, keep: Keep) {
         self.collapse_all = true;
@@ -1059,7 +1059,7 @@ pub fn collapse_all(keep: Keep) -> (u64, bool) {
 
 /// **A two-hundred-millisecond collapse of one section, frame by frame, through the component.**
 ///
-/// §8 states *14 frames to quiet, 46.00 µs worst, 1 789 cells, 0 allocations* and states no cadence.
+/// The recorded figures are *14 frames to quiet, 46.00 µs worst, 1 789 cells, 0 allocations*, with no cadence.
 /// The frame count is therefore a cadence wearing a count's clothes — see
 /// [`crate::disclose`]'s own note — so what this returns is the whole sequence and the gate is the
 /// relation over it. `allocations` is the caller's, for [`counters`]'s reason.
@@ -1318,7 +1318,7 @@ pub fn misanchored_after_the_edit(anchor: Anchor) -> (usize, usize) {
 
 /// **What the reanchor costs, beside what the document edit it sits next to costs.**
 ///
-/// `(reanchor, edit)`, each a minimum over `repeats`. §8 states 1.04 µs against 72.83, and the
+/// `(reanchor, edit)`, each a minimum over `repeats`. The recorded pair is 1.04 µs against 72.83, and the
 /// prototype's own last commit is *the fold anchor's cost was being reported as the document edit it
 /// sits beside* — which is why the two are returned as a pair rather than as one number.
 ///
@@ -1353,7 +1353,7 @@ pub fn reanchor_cost(repeats: u32) -> (Duration, Duration) {
 
 // ── the subject, and the scan that says whether it is here ───────────────────────────────────────
 
-/// **The component both scenes are scenes of, and components ticket 22 declared it.**
+/// **The component both scenes are scenes of.**
 ///
 /// One subject and not two, which is [`Verdict::of`]'s vacuity refusal doing its job on a population
 /// of one: *no component exists* was `Unmet` over one rather than `Met` over nothing, and it is now
@@ -1521,7 +1521,7 @@ mod tests {
 
     /// **The two surfaces are identical, and no counter that reads a cell can see the defect.**
     ///
-    /// The scene's whole argument, as two assertions. The first is the equality §8 states in the
+    /// The scene's whole argument, as two assertions. The first is the equality stated in the
     /// same sentence as the numbers — *the two surfaces are identical* — and the second is that
     /// argument as a list: of the nine counters, exactly `regions` and `tab stops` move.
     #[test]
@@ -1580,7 +1580,7 @@ mod tests {
         assert_eq!(quiet.stops, defective.stops);
     }
 
-    /// **The ring and the tab-stop count are equal here, and that is why §8 needs two constants.**
+    /// **The ring and the tab-stop count are equal here, and that is why there are two constants.**
     ///
     /// A `ScopeKind::Group` collapses its whole range onto one stop while leaving every entry in the
     /// ring. This screen opens no group, so the two columns agree everywhere — which is what makes
@@ -1611,7 +1611,7 @@ mod tests {
     /// — and then predicts the other five to the unit. That is what makes it a reconciliation and
     /// not a fit: five predictions out of one constant pair, and the fifth is
     /// [`the_mid_transition_pair_is_this_screen_plus_the_same_chrome`], which is a different table
-    /// of §8 again.
+    /// of the same sentence again.
     ///
     /// The twelve-open row is the one that needs [`PROTO_VIEWPORT`], and it is the reason that
     /// constant exists: the content is 132 rows, and whether an eighth section is reached at all is
@@ -1697,9 +1697,9 @@ mod tests {
     /// **The mid-transition pair is this screen plus the same chrome, at the height where the original's
     /// subtraction is 26.**
     ///
-    /// §8 states *273 ring entries against 247* and no height beside it. Two rows of body left is
+    /// The recorded pair is *273 ring entries against 247*, with no height beside it. Two rows of body left is
     /// the height at which the difference is 26, and — the part that makes two an answer rather
-    /// than a fit — **both absolutes** land on §8's, with the [`CHROME_ENTRIES`] fitted from a
+    /// than a fit — **both absolutes** land on the recorded ones, with the [`CHROME_ENTRIES`] fitted from a
     /// different row of a different table.
     #[test]
     fn the_mid_transition_pair_is_this_screen_plus_the_same_chrome() {
@@ -1719,7 +1719,7 @@ mod tests {
     /// **Twelve open sections declare fewer than twice six, because a section off screen declares
     /// nothing.**
     ///
-    /// §8 states this as a cost ratio — *1.05x six open rather than 2x* — and a timing is a report
+    /// This is a cost ratio — *1.05x six open rather than 2x* — and a timing is a report
     /// (R15). The count is the mechanism the timing is a symptom of, and it is a relation rather
     /// than an equality because the number belongs to the viewport: eight sections are reached at
     /// [`H`] and seven at [`PROTO_VIEWPORT`], which is one section and exactly `1 + 34` entries.
@@ -1757,7 +1757,7 @@ mod tests {
     ///
     /// Criterion 4. The height is monotone, ends at zero, and the tween goes quiet exactly when the
     /// clock reaches `start + dur` — the relation, which holds at every cadence. The **count** is a
-    /// cadence: at sixty hertz it is [`FRAMES_AT_SIXTY`] and §8 states [`SPEC_TRANSITION_FRAMES`]
+    /// cadence: at sixty hertz it is [`FRAMES_AT_SIXTY`] and the recorded figure is [`SPEC_TRANSITION_FRAMES`]
     /// beside no cadence at all, so the two are printed rather than reconciled.
     #[test]
     fn a_two_hundred_millisecond_collapse_is_monotone_and_goes_quiet_at_the_duration() {
@@ -1799,7 +1799,7 @@ mod tests {
     /// **A click on an open header goes six open to five on the frame it lands**, and the frame's
     /// declarations drop with it.
     ///
-    /// Criterion 6's region half at the screen's scale: §8 states *6 open → 5 open on the same frame*
+    /// Criterion 6's region half at the screen's scale: *6 open → 5 open on the same frame*
     /// and the declarations are what makes *the same frame* checkable — a section that closed a frame
     /// late would still declare its body's [`PER_BODY`] entries on this one.
     #[test]
@@ -1942,7 +1942,7 @@ mod tests {
 
     /// **Both scenes stand, and they stand on the shipped component.**
     ///
-    /// The inversion components ticket 22 owed. `Verdict::of` refuses vacuity in its constructor, so
+    /// The inversion that was owed. `Verdict::of` refuses vacuity in its constructor, so
     /// this is `Met` over one rather than `Met` over nothing, and what makes it a standing rather
     /// than a rename is that [`draw_into`] reaches [`collapsible`](crate::disclose::collapsible):
     /// every figure in this module is now a measurement of the component.

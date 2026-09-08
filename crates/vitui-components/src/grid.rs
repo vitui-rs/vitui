@@ -1,6 +1,6 @@
 //! **The grid: twelve columns over a million rows, both edges pinned, and the band that overflows.**
 //!
-//! Components ticket 14. Spec §6, §21. This is the screen `table`'s two scenes are scenes *of*, and
+//! This is the screen `table`'s two scenes are scenes *of*, and
 //! it exists for the reason [`crate::listing`] exists one file over: **the defect it is about passed
 //! every gate then in force and looked healthier than the correct build** — identical writes,
 //! identical verbs, identical time, and a band of cells re-damaged on every steady frame forever.
@@ -26,7 +26,7 @@
 //!
 //! # The band defect, and the two instruments that see half of it each
 //!
-//! §6 states it as one sentence: *written the tempting way — the offset as arithmetic, no view — the
+//! It is one sentence: *written the tempting way — the offset as arithmetic, no view — the
 //! scrolling band's edge column overwrites the pinned band: identical writes, identical verbs,
 //! identical time, and 345 cells re-damaged on every steady frame forever. No gate left by C01, C02
 //! or C03 sees it.*
@@ -46,20 +46,20 @@
 //!    over 0 rows**. Watched doing exactly that in
 //!    `tests::the_equality_is_blind_to_the_band_and_the_pair_is_not`.
 //!
-//! What does see it is the pair `writes` against `distinct`, which is the register row 6 — C02's
+//! What does see it is the pair `writes` against `distinct`, which is a register row — an earlier
 //! *no cell twice*, filed there as a **report per component**. So the honest form of the sentence
 //! is that no gate C01, C02 or C03 left behind was *being run*; C02 had already named the counter.
 //! The equality's job on this screen is the **other** defect on the same axis, the inverted
 //! horizontal sign, which draws a partly blank band and measures as an improvement — and that one no
 //! counter separates.
 //!
-//! That is [`crate::dense`]'s *two instruments, two halves* one axis over, and it is why §21 lists
+//! That is [`crate::dense`]'s *two instruments, two halves* one axis over, and it is why the rules list
 //! this screen once and this module stands two scenes on it.
 //!
 //! # `visible_cols` is as load-bearing as `visible_rows`
 //!
 //! The column half of *frame cost is proportional to visible cells*. [`ColVirt::ClipOnly`] declares
-//! every column and lets the clip discard what does not fit; §6 prices it at **3.3x the frame and
+//! every column and lets the clip discard what does not fit, priced at **3.3x the frame and
 //! 7.2x the verbs** at 120 declared columns. Here the frame is a report and the verbs are a ratio —
 //! `tests::the_clip_only_spelling_costs_verbs_and_no_writes_at_all` — and the **writes are
 //! identical**, because the engine reports a fully clipped verb as zero columns. That is
@@ -88,7 +88,7 @@
 //! is not, and undoing it leaves both arms writing the same numbers at the same call sites with one
 //! `child` between them.
 //!
-//! Ticket 15 inherits the omission as a real problem rather than as a simplification: a `table` with
+//! The component inherits the omission as a real problem rather than as a simplification: a `table` with
 //! a sticky header cannot be measured by either recorder without one of them learning the frame's
 //! own origin, and `Ctx` has no public accessor for it.
 //!
@@ -101,9 +101,9 @@
 //! that rots; what asserts it green is `tests::the_grid_stands_on_the_table_it_is_a_screen_of`.
 //!
 //! **The register rows 11 and 12 are this file's**, and they read `Evaluated` since production
-//! ticket 03 — which is later than it sounds: the instruments below were green from the day
+//! later — which is later than it sounds: the instruments below were green from the day
 //! components 15 declared the component and nothing edited the standings, so both rows spent the
-//! rest of that backlog claiming to have nothing to run over while running. What ticket 03 added is
+//! rest of the register claiming to have nothing to run over while running. What was added is
 //! the half that lets row 11's sweep fail — the four declared counts are asserted to be four
 //! *different* tables, and the clip-only sweep beside them steps at every arm.
 //!
@@ -137,10 +137,10 @@ pub const H: u16 = 80;
 pub const CELLS: u64 = W as u64 * H as u64;
 
 /// The three volumes the collection scenes state, reused because a table's row axis is a
-/// collection's row axis and §6 asserts the frame flat at all three.
+/// collection's row axis, and the frame is asserted flat at all three.
 pub const VOLUMES: [u64; 3] = [1_000, 100_000, 1_000_000];
 
-/// The declared-column counts §6 sweeps. **Twelve is the scene's; the other three are the sweep.**
+/// The declared-column counts swept. **Twelve is the scene's; the other three are the sweep.**
 pub const DECLARED: [usize; 4] = [12, 40, 120, 240];
 
 /// **The vertical offset every frame here is drawn at. Zero, and it is a finding rather than a
@@ -149,10 +149,10 @@ pub const DECLARED: [usize; 4] = [12, 40, 120, 240];
 /// The row 7 states the gesture as `rows: 0` — this scene's axis is the horizontal one, and the
 /// vertical one is the row 4, `collection`'s. So a zero here would be the right answer anyway.
 ///
-/// For components ticket 14 it was also **the only answer available**, because
+/// It was also **the only answer available** at the time, because
 /// [`Ctx::scroll_scope`](vitui_runtime::Ctx::scroll_scope) scrolled the wrong way — C03's inverted
 /// scroll sign inside the runtime's own verb, filed as
-/// `.scratch/vitui-runtime-architecture/issues/26` and negated there. That half is spent: the scope
+/// the runtime, and negated there. That half is spent: the scope
 /// now answers `offset..offset + h`, `tests::a_scroll_scope_at_a_nonzero_offset_shows_its_content`
 /// asserts the corrected sign, and what keeps this constant at zero is the gesture and nothing
 /// else.
@@ -165,8 +165,8 @@ pub use crate::collect::visible_columns as visible;
 /// **The column vocabulary is [`crate::collect`]'s, re-exported here under the names this screen
 /// has always used.**
 ///
-/// Components ticket 14 wrote these types on this screen because there was no `table` to own them.
-/// Components ticket 15 declared the component, and the screen now draws *through* it — so a second
+/// These types were written on this screen because there was no `table` to own them.
+/// The component was declared later, and the screen now draws *through* it — so a second
 /// definition here would be exactly what [`crate::ink`] refuses one file over: **a gate written
 /// against a copy of the code tests the copy.** `ColSpec` keeps its spelling because the scene and
 /// this module's whole vocabulary use it; the component calls it [`crate::collect::Column`], and the
@@ -273,7 +273,7 @@ pub const BAND_OVERRUN: u16 = RIGHT_W;
 
 /// **Cells the arithmetic band re-damages on every steady frame, forever.** `BAND_OVERRUN x H`.
 ///
-/// §6 states **345** on the prototype's screen. The number here is different and it is the same
+/// The recorded figure is **345** on the prototype's screen. The number here is different and it is the same
 /// quantity: it is arithmetic over this screen's geometry rather than a measurement of it, which is
 /// what makes it checkable — see [`BAND_OVERRUN`].
 pub const RE_DAMAGED: u64 = BAND_OVERRUN as u64 * H as u64;
@@ -288,7 +288,7 @@ pub const COLUMNS_DRAWN: usize = 11;
 /// **Columns of [`COLUMNS_DRAWN`] whose own text fills them exactly**, and which therefore cost
 /// **one** verb rather than two: `pid` at eight columns and `cpu` at seven.
 ///
-/// §6 says *two verbs a cell is the floor and there is no cheaper correct shape*, and the floor is
+/// *Two verbs a cell is the floor and there is no cheaper correct shape*, and the floor is
 /// exact for a cell with any padding in it. A cell narrower than its own content has none —
 /// [`Ink::run`] is handed a zero-length run and refuses to issue one — so the honest form of the
 /// sentence is **at most two a cell, two whenever anything is padded**. It is a refinement of
@@ -356,7 +356,7 @@ pub const INVERTED_CELLS: usize = 17_022;
 
 /// **Cells the inverted sign writes**, against [`CELLS`] for every correct arm.
 ///
-/// §3.3 measured the same defect as **4 271 writes fewer** and forty microseconds faster with the
+/// The same defect measured **4 271 writes fewer** and forty microseconds faster with the
 /// same verbs issued. Here it is 15 360 fewer, and the verbs are identical to the verb.
 pub const INVERTED_WRITES: u64 = 8_640;
 
@@ -530,12 +530,12 @@ pub struct Opts {
     pub hsign: HSign,
     /// Whether the tail below the content is written.
     pub tail: TailShape,
-    /// Whether the band writes the part of itself no column claims (architecture issue 24).
+    /// Whether the band writes the part of itself no column claims.
     pub slack: Slack,
 }
 
 impl Default for Opts {
-    /// Every choice made the way §6 makes it.
+    /// Every choice made the way the design makes it.
     fn default() -> Opts {
         Opts {
             band: BandShape::View,
@@ -553,7 +553,7 @@ impl Opts {
         Opts::default()
     }
 
-    /// The arm §6 refuses: the offset as arithmetic, no view.
+    /// The refused arm: the offset as arithmetic, no view.
     pub fn arithmetic_band() -> Opts {
         Opts {
             band: BandShape::Arithmetic,
@@ -561,7 +561,7 @@ impl Opts {
         }
     }
 
-    /// The arm §3.3 refuses: the horizontal sign inverted.
+    /// The other refused arm: the horizontal sign inverted.
     pub fn inverted_sign() -> Opts {
         Opts {
             hsign: HSign::Minus,
@@ -569,7 +569,7 @@ impl Opts {
         }
     }
 
-    /// The arm §6 prices at 3.3x the frame and 7.2x the verbs: every declared column drawn.
+    /// The arm priced at 3.3x the frame and 7.2x the verbs: every declared column drawn.
     pub fn clip_only() -> Opts {
         Opts {
             cols: ColVirt::ClipOnly,
@@ -578,7 +578,7 @@ impl Opts {
     }
 
     /// **The arm the `shrunk` axis is about**: the rows the content reaches and nothing below
-    /// them. Production 06.
+    /// them.
     pub fn stale_tail() -> Opts {
         Opts {
             tail: TailShape::Omitted,
@@ -601,7 +601,7 @@ impl Opts {
 /// **Draw one frame of the grid**, and return how many rows the body iterated.
 ///
 /// **This is [`crate::collect::table`] and its four refused twins, and nothing else.** Components
-/// ticket 14 wrote a stand-in row loop here because there was no component to call; ticket 15
+/// A stand-in row loop was written here because there was no component to call; the component
 /// declared one, and the arm is now chosen by picking which function to call rather than by a branch
 /// inside a loop this file owns. That is what makes every number below a number about `table` — the
 /// arrangement [`crate::listing::draw_into`] took one component earlier, and its reason: *a gate
@@ -612,7 +612,7 @@ impl Opts {
 /// all.
 ///
 /// The rectangle is the whole context. One hit entry, one tab stop, and the cell under the pointer
-/// is arithmetic on both axes (ADR 0028 on the row axis, the cumulative array on the column axis) —
+/// is arithmetic on both axes — the row axis by index, the column axis by a cumulative array —
 /// which is why there is no per-cell target and no per-row one.
 ///
 /// # Panics
@@ -948,7 +948,7 @@ pub fn counters_that_separate(
 }
 
 /// **Which counters two readings disagree about**, and it is one function because two copies of a
-/// filter are two answers to *what does §20 make visible*.
+/// filter are two answers to *what do the counters make visible*.
 ///
 /// A counter that is [`Reading::Unreachable`](crate::counters::Reading::Unreachable) on both arms —
 /// `marked`, and it will stay that way — contributes nothing either way and is skipped rather than
@@ -1124,8 +1124,8 @@ pub fn banded_straddling(pen: &mut Pen, cx: &mut Ctx<'_, '_>, _fx: &Fixture) {
     );
 }
 
-/// **The table against a reference render of itself, under a horizontal offset.** Register row 12's
-/// shape, and scene 30.
+/// **The table against a reference render of itself, under a horizontal offset.** The
+/// reference-render shape.
 ///
 /// `compare(per_cell, arm, …)` — one `Ctx::set` a cell over the oracle's own rows, against the
 /// table drawn the way the arm draws it.
@@ -1137,7 +1137,7 @@ pub fn equality(arm: crate::runner::Painter, hoff: i32) -> Diff {
 
 /// **The rows the table is edited down to. Nine.**
 ///
-/// [`crate::listing::SHRUNK_TO`]'s own, reached rather than restated: §21 states the stale tail as
+/// [`crate::listing::SHRUNK_TO`]'s own, reached rather than restated: the stale tail is stated as
 /// *71 of 80 rows* on the collection's screen, and this is the same shrink on the component built
 /// on it. A second nine here would be a second number for one finding, and the two would come to
 /// disagree the first time either moved.
@@ -1232,7 +1232,7 @@ pub fn narrow_columns() -> Vec<ColSpec> {
 ///
 /// # It was 21 760 and the repair took it to zero
 ///
-/// Architecture issue 24, resolved 2026-09-05, and the answer is §2's: **a component handed a
+/// Resolved 2026-09-05, and the answer is the partition rule's: **a component handed a
 /// rectangle writes all of it**, so the band's slack is the component's and `table_with` writes one
 /// run a row from the last column's right edge to the band's. It is `collection`'s tail one axis
 /// over, down to the paint — [`crate::collect::CollOpts::tail`]'s Role — which is what made it a
@@ -1253,7 +1253,7 @@ pub fn narrow_columns() -> Vec<ColSpec> {
 /// viewport less what its columns claim. The slack is the same size; it is now written.
 pub const COLUMN_RESIDUE: usize = 0;
 
-/// **What the band's slack left untouched before architecture issue 24. 21 760 of 24 000.**
+/// **What the band's slack used to leave untouched. 21 760 of 24 000.**
 ///
 /// Kept as the *defective* arm's figure rather than as history in a sentence: the repair is
 /// measured against [`crate::collect::defective::an_unwritten_band_slack`], which is the shipped
@@ -1268,7 +1268,7 @@ pub const COLUMN_RESIDUE_WAS: usize = 21_760;
 /// **How many cells of a row the narrow band's columns do not claim. Two hundred and seventy-two** —
 /// [`VIEW_W`]'s viewport less the two ten-cell columns inside it.
 ///
-/// *Left unwritten* until architecture issue 24; **written by the band** since. The number is the
+/// *Left unwritten* once; **written by the band** now. The number is the
 /// same either way, because it is read off the solve rather than off a screen.
 ///
 /// **A literal and not `COLUMN_RESIDUE / H`**, which is what it was until a review said so: a
@@ -1280,7 +1280,7 @@ pub const COLUMN_RESIDUE_WAS: usize = 21_760;
 /// The row figure is the one that transfers: the ledger application's is 66 on the same arithmetic
 /// and a different column list.
 ///
-/// **It is unchanged by architecture issue 24**, and that is the point of it being read off the
+/// **It is unchanged by the band writing its slack**, and that is the point of it being read off the
 /// solve: the slack is still 272 cells wide, and since the repair the component *writes* them. What
 /// moved is [`COLUMN_RESIDUE`], which counts what nobody touched.
 pub const COLUMN_RESIDUE_PER_ROW: usize = 272;
@@ -1405,7 +1405,7 @@ pub fn unwritten_with(specs: &[ColSpec], rows: u64, opts: Opts) -> usize {
 /// draws [`SHRUNK_TO`]. The spelling of the axis — *content shrinking inside a rectangle that
 /// does not move* — and the rectangle is [`W`] by [`H`] on both frames.
 ///
-/// The reference arm is the **shipped table over the same two frames**, which is production 05's
+/// The reference arm is the **shipped table over the same two frames**, which is the
 /// oracle shape one component over: what the equality is independent of is the tail and not the row
 /// drawing, so a defect in `emit`, in the column solve or in the band is invisible to it and belongs
 /// to scenes 7 and 30 above.
@@ -1415,7 +1415,7 @@ pub fn stale() -> Diff {
 
 /// **The same defect spelled as a terminal resize — and it scores clean.**
 ///
-/// §21 refuses to bank the shrink gate written this way, and this is the refusal as a number rather
+/// The shrink gate written this way is refused, and this is the refusal as a number rather
 /// than as a sentence: the **rectangle** becomes the content's height, so there is nowhere for a
 /// residue to sit and the arm that omits the tail draws the same screen as the rule.
 ///
@@ -1487,7 +1487,7 @@ pub fn shrunk_counters_that_separate(rule: Allocations, refused: Allocations) ->
 
 // ── components ticket 15's two measurements over this screen ─────────────────────────────────────
 
-/// **The two loop structures §6 weighs against each other, as shapes.** `(one row pass, per band)`.
+/// **The two loop structures weighed against each other, as shapes.** `(one row pass, per band)`.
 ///
 /// They write the same cells — that is the whole reason the refusal needs an argument rather than a
 /// counter. A [`Tally`] over each is how *the same cells* stops being a claim.
@@ -1518,7 +1518,7 @@ fn band_pass_shape(per_band: bool) -> Shape {
 /// **The per-frame cost of each loop structure.** `(one row pass, per band)`, a report and never a
 /// gate.
 ///
-/// §6 states the difference as **4% cheaper and refused**. What the refusal buys is on the other
+/// The difference is **4% cheaper and refused**. What the refusal buys is on the other
 /// side of the equals sign and no timer can see it: three loops share nothing but the author writing
 /// the same bounds three times, and each of the three has to seek its own
 /// [`Scan`](crate::collect::Scan) — so the `O(log k + h)` becomes `3·(log k + h)` on a selection
@@ -1791,7 +1791,7 @@ pub fn owed_message(declared: &[&str], scene: &str) -> Option<String> {
 ///
 /// # Panics
 ///
-/// Panics while [`SUBJECTS`] is undeclared, which it no longer is — components ticket 15 declared
+/// Panics while [`SUBJECTS`] is undeclared, which it no longer is — the component declared
 /// `table`. Kept because it is the only thing that says so out loud the day it stops being true.
 pub fn assert_stands_up(scene: &str) {
     if let Some(message) = owed_message(&subjects_declared(), scene) {
@@ -1807,7 +1807,7 @@ mod tests {
     /// The offset the scroll-scope sign is measured at. A thousand rows into a million.
     const OFF: i32 = 1_000;
 
-    /// **Production 06, scene 37: the table's content shrinks inside a rectangle that does not
+    /// **The shrink scene: the table's content shrinks inside a rectangle that does not
     /// move, and seventy-one of eighty rows keep what was drawn in them.**
     ///
     /// Both halves, because a comparison whose correct arm has never been watched agreeing reports
@@ -1850,7 +1850,7 @@ mod tests {
 
     /// **The refused build is cheaper on every counter that moves, and nothing rises.**
     ///
-    /// The other half of scene 37, and the half that says why the equality is needed at all: this
+    /// The other half of it, and the half that says why the equality is needed at all: this
     /// is a build that does [`TAIL_WRITES`] fewer cells of work, issues [`TAIL_VERBS`] fewer verbs,
     /// and is wrong on seventy-one of eighty rows.
     ///
@@ -1921,7 +1921,7 @@ mod tests {
     /// **The shipped table writes the band's slack, and this assertion was the tripwire that said
     /// so when it stopped being true.**
     ///
-    /// It read *written by nothing* until architecture issue 24, and it was a **tripwire** and not
+    /// It read *written by nothing* once, and it was a **tripwire** and not
     /// an approval: 21 760 untouched cells of 24 000, with its own failure message saying that
     /// failing meant the defect had been repaired. It fired. The rule is what decided it — *a
     /// component handed a rectangle writes all of it* — and the failure mode is what made the
@@ -2197,7 +2197,7 @@ mod tests {
     /// **The column axis of the data-volume invariant: identical writes and identical verbs at 12,
     /// 40, 120 and 240 declared columns.**
     ///
-    /// The register row 11, and row 75 beside it — the screen's own copy of the same equality,
+    /// Two register rows read this — the screen's own copy of the same equality,
     /// which is the standing this one had while it waited. Both are drawn through the component
     /// since components 15. The extras are
     /// appended after the nine that decide the window, so the viewport admits the same columns at
@@ -2218,7 +2218,7 @@ mod tests {
     /// first — [`DECLARED`] columns each, and a scrolling [`Solved::content_w`] that strictly grows
     /// with them — and only then to draw the same screen.
     ///
-    /// The other half of the same requirement is the control below: the same sweep drawn the way §6
+    /// The other half of the same requirement is the control below: the same sweep drawn the way the design
     /// refuses **steps at every arm**, so this equality is watched failing by the gate that asserts
     /// it, over the one defect whose whole shape is *the declared count reaches the frame*.
     ///
@@ -2312,7 +2312,7 @@ mod tests {
     ///
     /// `crate::listing`'s discovery arriving on the column axis: the engine reports a fully clipped
     /// verb as **zero columns**, so a table that declares every column and lets the clip discard the
-    /// rest writes exactly what the virtualised one writes. The register row 4 — *writes flat
+    /// rest writes exactly what the virtualised one writes — *writes flat
     /// 1k → 1M* — and every write-count gate in the stack are green on it.
     ///
     /// What moves is `verbs`, and `asked` beside it is where the cells went: the columns were
@@ -2374,9 +2374,9 @@ mod tests {
 
     /// **The band defect: the equality is blind to it and the pair is not.**
     ///
-    /// Criterion 3, and the scene's whole finding. §6 says *no gate left by C01, C02 or C03 sees
-    /// it*; measured here, one does — C02's `writes == distinct`, the register row 6, which §21
-    /// itself files as a **report per component**. What is true is the half §6 states in the clause
+    /// Criterion 3, and the scene's whole finding. *No gate then in force sees it*; measured here,
+    /// one does — the `writes == distinct` pair, which is itself filed as a **report per
+    /// component**. What is true is the half stated in the clause
     /// before: the *screen* is correct, so the equality against a reference render reports **0 cells
     /// over 0 rows** on a build that will re-damage [`RE_DAMAGED`] cells every frame for ever.
     ///
@@ -2507,7 +2507,7 @@ mod tests {
 
     /// **The inverted horizontal sign: caught by the equality, and by nothing else.**
     ///
-    /// C03's trap on the other axis, and the register row 12 doing the job the research assigned
+    /// The trap on the other axis, and the reference render doing the job the research assigned
     /// it. The defective arm issues **every verb** it would have issued and the clip eats most of
     /// the writes, so it draws a partly blank band and measures as an improvement — fewer writes, a
     /// shorter frame, the same verbs.
@@ -2630,16 +2630,16 @@ mod tests {
 
     /// **`Ctx::scroll_scope` scrolled the wrong way, and this is that measurement inverted.**
     ///
-    /// Not a gate on this crate's own code. Components ticket 14 wrote it red: the runtime read a
+    /// Not a gate on this crate's own code. It was written red: the runtime read a
     /// scroll offset as **positive** everywhere it did arithmetic — `Area::into_view` compares
     /// against `offset..offset + window`, `Scrollable::between((0, 0), (0, max))` answers `DOWN` —
     /// while the engine's rule is that *a viewport scrolled `n` rows down is `scrolled(0, -n)`*, and
     /// `scroll_scope` passed `+n`. At an offset of a thousand the scope answered `-1000..-920`, a
     /// write at content row 1 000 reported zero columns, and a write at −1 000 landed.
     ///
-    /// Runtime architecture issue 26 negated the sign, and this is the same measurement asserting
+    /// The sign was negated in the runtime, and this is the same measurement asserting
     /// the corrected answer — kept rather than deleted, because a gate that was red for one
-    /// integration and green after it is the register working. Register row 77.
+    /// integration and green after it is the register working.
     ///
     /// **It is no longer the reason [`OFFSET`] is zero**; the gesture for this scene is
     /// `rows: 0`, and that was always the other reason.
@@ -2684,7 +2684,7 @@ mod tests {
     /// **The two loop structures write the same cells, which is why the refusal needs an
     /// argument.**
     ///
-    /// §6 refuses one pass per band while calling it *4% cheaper*. This is the half a counter can
+    /// One pass per band is refused while being *4% cheaper*. This is the half a counter can
     /// check: identical writes, identical distinct cells, identical verbs. The timing half is
     /// [`band_pass_costs`] and it is a **report** — and the 4% does not reproduce, see
     /// `examples/table_numbers.rs`.
@@ -2715,7 +2715,7 @@ mod tests {
 
     /// **The two scenes stand on the component they are scenes of.**
     ///
-    /// Components ticket 14 wrote this test red and named its inverter; components ticket 15 is that
+    /// This test was written red with its inverter named; the component is that
     /// inverter, and the edit is the one it promised in three files — here, in `crate::scenes`'s two
     /// standings and in `crate::gates::REGISTER`.
     ///

@@ -1,7 +1,7 @@
-//! **The dense screen: 300×80, 338 interactive regions, and the five re-damage instances ADR 0026
+//! **The dense screen: 300×80, 338 interactive regions, and the five re-damage instances the rule
 //! prices — each one reachable, each one measured.**
 //!
-//! Components ticket 09. Spec §2, §21.
+//! The partition rule at the size everything else is priced at.
 //!
 //! > | where | cells re-damaged every steady frame |
 //! > |---|---|
@@ -12,8 +12,8 @@
 //! > | a `panel` drawing its top border as one run and writing its title over it | **15** |
 //!
 //! That table is the whole argument for the partition rule, and until this ticket **not one of its
-//! five rows was standing on a screen anything ran**. Ticket 06 reproduced the last one at 15 on a
-//! panel; the other four were sentences. A sentence cannot be inverted, which is why ticket 10 —
+//! five rows was standing on a screen anything ran**. The last one was reproduced at 15 on a
+//! panel; the other four were sentences. A sentence cannot be inverted, which is why the four components —
 //! *`text`, `chip`, `button`, `panel`, and clearing once* — needs this file before it can prove
 //! anything: **a defect that is not on a screen is proved against a review.**
 //!
@@ -30,22 +30,22 @@
 //!
 //! # The screen is a partition of 24 000 cells, and that is what makes the equality possible
 //!
-//! [`crate::form`]'s screen deliberately leaves a tail nobody writes, so that register row 7's
+//! [`crate::form`]'s screen deliberately leaves a tail nobody writes, so that the sentinel gate's
 //! *no cell never* has something to stand on. This one deliberately does the opposite: **every one
 //! of the 24 000 cells is written exactly once by exactly one branch**, so the correct build and
-//! the naive twin are equal *cell for cell* rather than equal-except-the-tail. §2 states the two
+//! the naive twin are equal *cell for cell* rather than equal-except-the-tail. The two
 //! halves as one sentence — *the owner of a rectangle writes all of it; a component handed a
 //! rectangle writes all of that* — and the two screens are the two halves.
 //!
 //! It is also why the correct arm needs no `cx.clear` at all. *the correct build clears once,
-//! on its first frame and on a resize* is a property of an application **loop** and ticket 10 owns
+//! on its first frame and on a resize* is a property of an application **loop** and `app` owns
 //! it; what this file can show is the other end of the same fact, that a screen which covers itself
 //! has nothing for a clear to fix and pays 0 where the every-frame spelling pays
 //! [`CLEARED_EVERY_FRAME`].
 //!
 //! # Four components, and the screen is now drawn through them
 //!
-//! `text`, `chip`, `button` and `panel` are components ticket 10's, and they exist:
+//! `text`, `chip`, `button` and `panel` are shipped components, and they exist:
 //! [`crate::text::text`], [`crate::text::chip`], [`crate::input::button`],
 //! [`crate::structure::panel`]. For one ticket this screen stood on their **construction** instead
 //! — [`crate::text::fit`], [`crate::frame::block`] and [`crate::state::press`], which is exactly
@@ -62,12 +62,12 @@
 //! at.
 //!
 //! **One figure moved when the components landed**, and it is written down rather than absorbed:
-//! [`CHIP_FILLED_FACE`] is 1 095 where ticket 09 measured 1 149, because a chip's label wears its
+//! [`CHIP_FILLED_FACE`] is 1 095 where 1 149 was measured, because a chip's label wears its
 //! own face. See that constant — the 54 is a defect the stand-in had and the component does not.
 //!
 //! # Density is theme data and it changes rectangles, so 338 is a `Compact` figure
 //!
-//! Spec §3. At `Compact` a panel's ring is one cell and its interior is 74 rows; at `Cosy` it is
+//! Density is theme data. At `Compact` a panel's ring is one cell and its interior is 74 rows; at `Cosy` it is
 //! two and 72. The region count is `2 + 3 × (1 + rows + rows.div_ceil(2))`, which is **338** at 74
 //! rows and 329 at 72 — so every measurement here names its density, and
 //! [`crate::runner::play`]'s `Density::default()` (which is `Cosy`) is never what this screen is
@@ -87,11 +87,11 @@ use vitui_runtime::layout::rect;
 
 // ── the screen ───────────────────────────────────────────────────────────────────────────────────
 
-/// The screen's width. §2 prices the dense screen at 300×80 and the row states it.
+/// The screen's width. The dense screen is priced at 300×80 and the row states it.
 pub const W: u16 = 300;
 /// The screen's height.
 pub const H: u16 = 80;
-/// **The second size the equality runs at.** §2: *the two screens are the same screen: 0 of 24 000
+/// **The second size the equality runs at.** *The two screens are the same screen: 0 of 24 000
 /// cells differ, at 300×80 and at 120×40.*
 pub const NARROW: (u16, u16) = (120, 40);
 /// How many panels stand side by side. 300 and 120 are both divisible by it, which is what keeps
@@ -184,7 +184,7 @@ pub const WRITES: u64 = SCREEN;
 
 /// **Rect re-damaged every steady frame by `cx.clear(body)` at the top of the frame.**
 ///
-/// §2 remembers **6 662** on C01's screen and this one says **9 024**. The quantity is *cells whose
+/// The recorded figure is **6 662** on another screen and this one says **9 024**. The quantity is *cells whose
 /// steady value is not a space painted [`Role::Body`]* — the clear writes one into every cell and
 /// the content writes its own value back — so it is a measure of **how much of a screen is ink**,
 /// which is a property of the screen and not of the rule. 9 024 of 24 000 is 37.6% against C01's
@@ -193,14 +193,14 @@ pub const WRITES: u64 = SCREEN;
 pub const CLEARED_EVERY_FRAME: u64 = 9_024;
 /// **Rect re-damaged every steady frame by a chip that fills its face before drawing its label.**
 ///
-/// §2 remembers **2 648**, R07's original. The quantity is the *label* cells of every chip and not
+/// The recorded figure is **2 648**. The quantity is the *label* cells of every chip and not
 /// the chip's: the fill writes the face over all twelve, the padding cells it lands on already carry
 /// the face and cost nothing, and the label writes itself back over the rest. So it is
 /// `Σ label cells whose value differs from a space in the face` over 222 chips, and it is
 /// arithmetic — `3 panels × (18 × (2 + 3 + 4 + 11) + 2 + 3)` for the four values a row cycles
 /// through, the fourth of which is elided to the chip's own twelve columns.
 ///
-/// # It was 1 149 until components ticket 10, and the 54 that went is a finding
+/// # It was 1 149 once, and the 54 that went is a finding
 ///
 /// The stand-in chip painted its label [`Role::Dim`] on a face painted `Role::Face`, so
 /// **every** cell of the label differed from the fill and the fourth value contributed all twelve of
@@ -216,26 +216,26 @@ pub const CLEARED_EVERY_FRAME: u64 = 9_024;
 pub const CHIP_FILLED_FACE: u64 = 1_095;
 /// **Rect re-damaged every steady frame by a chip that does not narrow.**
 ///
-/// §2 remembers **432**. The quantity is `overrunning chips × overrun width`: one value in four is
+/// The recorded figure is **432**. The quantity is `overrunning chips × overrun width`: one value in four is
 /// eighteen columns in a twelve-column chip, so 54 chips of 222 overrun 6 columns each into the
 /// column beside them, and the neighbour writes them back every frame. `54 × 6 = 324`, and both
 /// factors are the screen's rather than the rule's.
 pub const CHIP_NOT_NARROWED: u64 = 324;
 /// **Rect re-damaged every steady frame by a scrim filled under the dialog.**
 ///
-/// §2 remembers **229**, and this screen says **600 — the whole dialog**, which is a stronger
+/// The recorded figure is **229**, and this screen says **600 — the whole dialog**, which is a stronger
 /// statement and not a looser one. The quantity is *the dialog's cells whose value differs from the
 /// scrim's*: the scrim writes its own paint into all six hundred and the dialog writes its border,
 /// its title, its text and its padding back. Here nothing in the dialog is painted in the scrim's
 /// role, so the difference is total; the 229 says that on C01's screen 371 of the dialog's 600
 /// cells already carried what the scrim wrote. **The number this screen can be held to is the
-/// relation** — 600 against [`Arm::ScrimAroundTheDialog`]'s 0 — and the relation is the one §2
+/// relation** — 600 against [`Arm::ScrimAroundTheDialog`]'s 0 — and the relation is the one
 /// states.
 pub const SCRIM_UNDER: u64 = 600;
 /// **Rect re-damaged every steady frame by one panel's border run written over its own title.**
 ///
-/// §2 remembers **15**, and **it reproduces exactly**, because the number *is* the title's width.
-/// Ticket 06 measured the same 15 as `writes - distinct` on one panel; this is the same defect
+/// The recorded figure is **15**, and **it reproduces exactly**, because the number *is* the title's width.
+/// The same 15 was measured as `writes - distinct` on one panel; this is the same defect
 /// counted as re-damage on a screen, and the screen carries [`PANELS`] of them.
 pub const BORDER_OVER_TITLE: u64 = 15;
 /// [`BORDER_OVER_TITLE`] across the screen's three panels.
@@ -292,7 +292,7 @@ pub enum Arm {
     ///
     /// Not one of the five — it is the sixth arm, and it is here because it is the only one
     /// of them that is **green at 300×80 and red at 120×40**, which is the whole reason the equality
-    /// runs at two sizes. The scene 15 states the shape for `chart` at 60×20; this is it for
+    /// runs at two sizes. The overlap scene states the shape for `chart` at 60×20; this is it for
     /// `text` on the screen `text` is drawn on.
     LabelDoesNotNarrow,
     /// **A panel's top border drawn as one run with its title written over it.** The 15-cell
@@ -748,7 +748,7 @@ pub fn widgets(n: usize) -> Fixture {
     Fixture::of(W, H, vec![String::from("widget"); n])
 }
 
-/// The dense screen, one step, at the size §2 and §21 both state it at.
+/// The dense screen, one step, at the size everything states it at.
 pub fn screen() -> Vec<Fixture> {
     vec![widgets(REQUESTED)]
 }
@@ -773,7 +773,7 @@ pub fn shape(arm: Arm, size: (u16, u16), requested: usize) -> Shape {
     shape
 }
 
-/// **The metric row §21 reports every scene in**, for one arm at 300×80.
+/// **The metric row every scene is reported in**, for one arm at 300×80.
 ///
 /// `us / marked / writes / verbs / regions / stops / allocations`, and `marked` prints
 /// `unreachable` — printing `0` there would be the first refinement arriving as a column.
@@ -823,7 +823,7 @@ pub fn steady(arm: Arm, frames: u32) -> Redamage {
 
 /// **The application loop the clearing rule is about, drawn for `frames` frames.**
 ///
-/// Components ticket 10, criterion 5. [`Clears`] at the top of every frame and the correct screen
+/// Criterion 5. [`Clears`] at the top of every frame and the correct screen
 /// under it: the first frame clears, and every frame after it re-damages **0** — against
 /// [`CLEARED_EVERY_FRAME`]'s 9 024 for the same call written without the state.
 ///
@@ -900,14 +900,14 @@ fn run_frames(frames: u32, mut paint: impl FnMut(u32, &mut Pen, &mut Ctx<'_, '_>
 // ── the four subjects, and the scan that says whether they are here ──────────────────────────────
 
 /// **The four components this screen is a screen of.** The freeze gives each of them
-/// `constructions: 1`, and **components ticket 10 declared all four**.
+/// `constructions: 1`, and **all four are declared**.
 pub const SUBJECTS: [&str; 4] = ["text", "chip", "button", "panel"];
 
 /// Where each of [`SUBJECTS`] is declared, as `(module file, the declaration)`.
 ///
 /// The home is the freeze's, joined through [`crate::Family`]: `text` and `chip` are F1 and are
 /// homed in `text.rs`, `button` is F6 and `panel` is F2. A component is
-/// `fn(&mut Ctx, Rect, …) -> Response` (spec §1, rule 1) — with `Rect` in `Rect`'s place, which is
+/// `fn(&mut Ctx, Rect, …) -> Response` — with `Rect` in `Rect`'s place, which is
 /// [`vitui_runtime::layout::rect`]'s argument — so the thing to look for is a public function of the component's
 /// own name in its own family's module.
 ///
@@ -1048,7 +1048,7 @@ mod tests {
     /// Two counts and not one — what the draw believes it declared and what the runtime's hit index
     /// actually holds. They agree, and a widget that collided with another would move the second
     /// without moving the first, which is the free detector: 110 of 338 widgets were inert on
-    /// the first screen written for components ticket 01 and the screen rendered pixel for pixel
+    /// the first screen written here, and the screen rendered pixel for pixel
     /// correctly.
     #[test]
     fn the_dense_screen_stands_three_hundred_and_thirty_eight_regions_at_three_hundred_by_eighty() {
@@ -1196,7 +1196,7 @@ mod tests {
     /// **Criterion 6, and the point of the whole ticket: all five instances, each measured.**
     ///
     /// The table, standing on a screen. The correct arm re-damages **0** on every steady
-    /// frame and each defective arm re-damages its own row, so ticket 10 can be proved against a
+    /// frame and each defective arm re-damages its own row, so the components can be proved against a
     /// screen rather than against a review.
     ///
     /// Every one of the five is invisible to the counters that are not this one: the defective build
@@ -1295,7 +1295,7 @@ mod tests {
     ///
     /// A label that is not truncated fits its column at 300 and does not at 120, so the wide
     /// equality is clean and the narrow one is not. The overlap is the same shape one component
-    /// over, and §21 records it as *green at 300×80 and red at 60×20*.
+    /// over, and it is recorded as *green at 300×80 and red at 60×20*.
     ///
     /// # The equality sees one half of this defect and the re-damage count sees the other
     ///
@@ -1336,7 +1336,7 @@ mod tests {
 
     /// **Criterion 5: content shrinking inside a rectangle that does not move.**
     ///
-    /// §21 refuses to bank *the surface after a shrink equals a freshly built one* written against a
+    /// *The surface after a shrink equals a freshly built one* is refused when written against a
     /// terminal resize, because a fresh rectangle has nowhere for the residue to survive — that
     /// spelling tests the resize path and not the defect. So the shrink here is
     /// [`Fixture::shrunk_to`], the rectangle is 300×80 on every step, and
@@ -1407,14 +1407,14 @@ mod tests {
         assert!(shape.dropped > 0, "the panels are asked for more than fits");
     }
 
-    /// **Components ticket 10: the screen stands on its four subjects, and the verdict says so.**
+    /// **The screen stands on its four subjects, and the verdict says so.**
     ///
     /// The exact set, in both directions: four subjects, all four declared, and the verdict is `Met`
     /// over four rather than `Met` over nothing — which is [`Verdict::of`]'s vacuity refusal doing
     /// the one job it was written for on the day the population stopped being empty.
     ///
     /// **This test is the inversion of `the_dense_screen_is_red_because_its_four_components_are_not_
-    /// declared`**, which was pinned red by ticket 09 and named by `crate::gates::REGISTER`'s row 61
+    /// declared`**, which was pinned red and named by `crate::gates::REGISTER`
     /// and by `crate::scenes`'s three standings. Changing it back is a deliberate edit in all three
     /// places.
     #[test]

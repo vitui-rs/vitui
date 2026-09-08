@@ -15,7 +15,7 @@
 //! |---|---|---|
 //! | `counter` | **no loop could be written at all** — `Driver` owned its `Screen` privately and `attach` dropped the `WakeHandle`, so the only shape available was a spin at 100% of a core | every test builds its own `Engine`; none of them writes an application's `while` |
 //! | `counter` | **nothing holds the focus until an application says so** — 0 of 5 arrow presses, presenting as *the terminal lost focus* | a one-widget test seats the focus by clicking |
-//! | `latency` | **`chart`'s rasteriser painted the whole column prefix for every point** — 952.61 ms against 2.72 at a million | every counter §20 has is an *output* counter, and the cost was in work that produces none |
+//! | `latency` | **`chart`'s rasteriser painted the whole column prefix for every point** — 952.61 ms against 2.72 at a million | every counter here is an *output* counter, and the cost was in work that produces none |
 //! | `ledger` | **a table drew its header one column into the border** when handed a panel's interior | every gate in the crate plays at `x == 0`, where the header's coordinates and the body's agree |
 //!
 //! Four defects, four different reasons, one shape: **a gate exercises the component where its

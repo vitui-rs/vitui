@@ -1,7 +1,7 @@
 //! **The forest: a million nodes at depth 59 999, a fold over 349 524 rows, and the partition at
 //! four widths.**
 //!
-//! Components ticket 16 and production ticket 07. Spec §7, §17 (O5), §21. This is the screen
+//! This is the screen
 //! `tree`'s **three** scenes are scenes *of*, and it stands beside [`crate::listing`] one file over
 //! for the same reason that file stands beside [`crate::dense`]: **the scene list is what makes the
 //! defect catchable, not the gate.**
@@ -17,7 +17,7 @@
 //! The sentence about the unclamped indent ends *on a shallow tree the same flag is invisible: a
 //! statement about the scene list, not about the gate.* That reads as a fact about the
 //! **depth**, and the scene above it fixes the width at [`W`] and varies only the depth. Production
-//! 07's scene fixes the depth at [`SHALLOW`] — where scene 8 says the flag is invisible — and
+//! The narrow scene fixes the depth at [`SHALLOW`] — where the deep one says the flag is invisible — and
 //! varies the **width**, and the flag reappears at twenty-two columns.
 //!
 //! So it is a fact about the **pair**, and the two halves are not interchangeable: at [`DEEP`] the
@@ -68,10 +68,10 @@
 //! `tree` is not declared. [`standing`] is a [`Verdict`] over one subject, [`subjects_declared`]
 //! opens the file the freeze homes it in, and [`owed_message`] is the sentence that separates
 //! *waiting for its subject* from *the code is wrong* — criterion 7,
-//! inherited whole through components ticket 11. Inverted by **components 17**.
+//! inherited whole from the listing. Since inverted.
 //!
 //! Unlike the five, both of these are waiting for the same thing, so there is one pin and
-//! not two. That is not a simplification of the split: the split existed because scene 6's
+//! not two. That is not a simplification of the split: the split existed because the wheel scene's
 //! failing set is *the defect itself*, and neither of these two has a defect standing in shipped
 //! code. What the unclamped indent is, is a **negative case** — a spelling stood up here so the
 //! instrument can be watched catching it — and a negative case is not a red gate.
@@ -139,7 +139,7 @@ pub const NODES: u64 = 1_000_000;
 ///
 /// `4 x 87 381`, and 87 381 is `(4^9 - 1) / 3` — the four complete four-ary subtrees under one
 /// node. [`Forest::folded`] is built to make it exact rather than approximated, because every other
-/// figure of scene 9 is arithmetic over it: 500 000 selected minus 349 524 folded away is
+/// figure of the fold scene is arithmetic over it: 500 000 selected minus 349 524 folded away is
 /// [`KEPT`], and the round trip the prototype's defect returns is [`ROUND_TRIP_WRONG`].
 pub const FOLD_ROWS: u64 = 349_524;
 
@@ -168,7 +168,7 @@ pub const ROUND_TRIP_WRONG: u64 = 349_526;
 
 /// **How many runs the same selection breaks into under a sort. 249 940 against one.**
 ///
-/// §21 remembers **297 180**, and that figure is a property of *that* forest's key shuffle rather
+/// The recorded figure is **297 180**, and it is a property of *that* forest's key shuffle rather
 /// than of the mechanism — which is why this one is a constant with a seed behind it
 /// ([`Forest::key_of`]'s shuffle has a seed) instead of a number a report prints. A contiguous half of a
 /// million rows through a uniform permutation is expected to break into about `n·p·(1−p)` maximal
@@ -208,7 +208,7 @@ pub const REMEMBERED_VERBS: (u64, u64, u64) = (418, 640, 2_497);
 ///
 /// # A verb is a structural currency here and not a timing one
 ///
-/// §6 prices the three drawings in time as well as in verbs — 48.79 µs for a tree against 165.6 for
+/// The three drawings are priced in time as well as in verbs — 48.79 µs for a tree against 165.6 for
 /// a twelve-column table, **3.4x for the same 23 030 cells**. On this runtime the same rectangle
 /// drawn with **160, 320 and 1 920 verbs costs the same frame**, within 1%
 /// (`examples/tree_numbers.rs`). That is R15's rule arriving from the other side: a gate written on
@@ -216,12 +216,12 @@ pub const REMEMBERED_VERBS: (u64, u64, u64) = (418, 640, 2_497);
 /// the count.
 pub const VERBS_A_ROW: (u64, u64, u64) = (2, 4, 24);
 
-/// The three volumes the frame is asserted flat across. §7: *flat at 1k / 100k / 1M nodes*.
+/// The three volumes the frame is asserted flat across: *flat at 1k / 100k / 1M nodes*.
 pub const VOLUMES: [u64; 3] = [1_000, 100_000, 1_000_000];
 
 /// **Verbs the tree costs at [`DEEP`], against [`VERBS_A_ROW`]'s four a row at [`SHALLOW`].**
 ///
-/// Three a row, not four. §7 says the frame is *unchanged at depth 59 999* and that is true of every
+/// Three a row, not four. The frame is *unchanged at depth 59 999* and that is true of every
 /// counter here except this one: a clamped indent of `w - 2` leaves the label one column, the label
 /// fills it, and **the trailing pad has nothing to pad**. The prototype's own table says the same
 /// thing in the same column — 634 at the deepest page against 640 at 1M all-open — so this is the
@@ -370,7 +370,7 @@ impl Forest {
 /// One row of the flatten index.
 ///
 /// **Deliberately not the record.** `Row { node: u32, depth: u16, flags: u8, h: u8 }` and the
-/// gate that asserts it is eight bytes are components ticket 17's, and a scenes ticket that shipped
+/// gate that asserts it is eight bytes belong to `order`, and a scenes pass that shipped
 /// them would leave that ticket asserting something already here. What this holds is the two fields
 /// a *scene* needs — which node, and how deep — and nothing else.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -484,7 +484,7 @@ impl Flat {
     /// No threshold and no rebuild path. The crossover is at about **99.7% of the index removed** —
     /// in a tree, only at the root, where the rebuild wins by doing nothing — and a branch that has
     /// to stay correct is not worth 340 µs once. That sentence is here rather than in a `match`
-    /// because §7 asks for it that way.
+    /// because that is the shape asked for.
     pub fn fold(&mut self, i: usize) -> Splice {
         let removed = self.span(i);
         self.rows.drain(i + 1..i + 1 + removed);
@@ -506,7 +506,7 @@ impl Flat {
     ///
     /// The subtree is regenerated from the forest, which is the one place this stand-in reaches back
     /// into the data: nothing was kept when it was folded, because keeping it is what a `Vec<u32>`
-    /// order does and §7 says the index is not one.
+    /// order does and the index is not one.
     pub fn unfold(&mut self, forest: &Forest, i: usize) -> Splice {
         let node = self.rows[i].node;
         let root = node as usize;
@@ -776,7 +776,7 @@ pub struct Reconciled {
 /// **Both arms of the reconciliation, over one selection and one fold.**
 ///
 /// Returns `(under a splice, under a permutation)`. The permutation arm is a **sort**, which is the
-/// gesture §7 contrasts a fold with: *a sort is a permutation and a fold is an interval*.
+/// gesture a fold is contrasted with: *a sort is a permutation and a fold is an interval*.
 pub fn reconciled(forest: &Forest) -> (Reconciled, Reconciled, Duration, Duration) {
     let flat = Flat::expanded(forest);
     let order: Vec<u32> = flat.nodes().collect();
@@ -841,7 +841,7 @@ pub fn round_trip(forest: &Forest, straddle: Straddle) -> u64 {
 
 /// **The component's own [`Indent`], re-exported rather than declared a second time.**
 ///
-/// This module used to carry its own copy, because components ticket 16 had no component to reach
+/// This module used to carry its own copy, because there was no component to reach
 /// for. [`crate::collect::indent_columns`] is the one decision now, and it is the function
 /// [`crate::collect::tree`] calls — so the number this screen sums and the number the run is drawn
 /// with come out of the same place rather than out of two that agree today.
@@ -857,7 +857,7 @@ pub enum Drawn {
     List,
     /// A tree: those two, plus the pair — the indent run and the chevron cell.
     Tree,
-    /// A twelve-column table, as the control. **Components ticket 14 owns the table's own screen**;
+    /// A twelve-column table, as the control. **The table has its own screen**;
     /// this arm is here so the verb comparison has its third column and nothing else.
     Table,
 }
@@ -949,7 +949,7 @@ pub struct Shape {
 ///
 /// Every row sits at [`Plan::depth`], which is what makes the frame at depth 10 and the frame at
 /// depth 59 999 the *same* frame with one number changed. Building it is proportional to the data
-/// by construction — that is what materialising is — and §10 prices doing it in a frame at 211 frame
+/// by construction — that is what materialising is — and doing it in a frame costs 211 frame
 /// budgets, so it happens here, once, outside every measurement bracket.
 pub fn index_for(plan: Plan) -> Order {
     let rows = usize::try_from(plan.rows).unwrap_or(usize::MAX);
@@ -961,7 +961,7 @@ pub fn index_for(plan: Plan) -> Order {
 }
 
 /// **A flatten index whose rows alternate between [`SHALLOW`] and one deeper, so half of them have
-/// a child.** Production 07's, and both of that ticket's scenes take it.
+/// a child**, and both of the narrow scenes take it.
 ///
 /// # Why [`index_for`] would not do, and it is a fact about scenes 8 and 9
 ///
@@ -1292,7 +1292,7 @@ pub fn the_numbers(depth: u16) -> (Shape, Shape) {
 
 // ── the narrow axis: §7's partition read as a function of the width ──────────────────────────────
 
-/// **The four widths the narrow scene is played at.** Production 07.
+/// **The four widths the narrow scene is played at.**
 ///
 /// [`W`] is the control, and the other three are the three regimes the clamp has. `min(depth * 2,
 /// w - 2)` reserves two columns — the chevron and one cell of label — so a row at depth *d* passes
@@ -1339,7 +1339,7 @@ pub const BINDS_BOTH: u16 = 21;
 /// **How many rows the narrow screen's content holds. A hundred and sixty**, twice [`H`].
 ///
 /// More than the viewport, so the tree is virtualised and the screen is a real one; **not** [`NODES`]
-/// , because the width is this scene's variable and the row count is scene 8's. A million-entry
+/// , because the width is this scene's variable and the row count is the deep one's. A million-entry
 /// `Order` built four times over two arms would price the fixture and not the axis.
 pub const NARROW_ROWS: usize = 2 * H as usize;
 
@@ -1403,7 +1403,7 @@ pub const PRESSED: [(usize, usize); 4] = [(20, 20), (20, 20), (20, 20), (19, 20)
 /// two to differ.
 ///
 /// The row drawer is `label_and_pad`'s arithmetic — truncate to the room, then fill it — because
-/// §2 gives the row drawer every cell of the rectangle it was handed and a caller that wrote past
+/// The row drawer owes every cell of the rectangle it was handed, and a caller that wrote past
 /// it would be measuring its own defect rather than the component's.
 pub fn narrow_screen(width: u16, indent: Indent) -> (Canvas, u64, u64) {
     let index = nested(NARROW_ROWS);
@@ -1647,7 +1647,7 @@ pub fn owed_message(declared: &[&str], scene: &str) -> Option<String> {
 ///
 /// # Panics
 ///
-/// Panics while [`SUBJECTS`] is undeclared, which is **today**. Components ticket 17 inverts it.
+/// Panics while [`SUBJECTS`] is undeclared, which is **today**.
 pub fn assert_stands_up(scene: &str) {
     if let Some(message) = owed_message(&subjects_declared(), scene) {
         panic!("{message}");
@@ -1818,10 +1818,10 @@ mod tests {
         );
     }
 
-    /// **Scene 46: the partition is exact at every width, and the width is the second dimension
+    /// **The narrow scene: the partition is exact at every width, and the width is the second dimension
     /// of the statement about the scene list.**
     ///
-    /// Production 07, `(tree, narrow)`. Three readings, and no one of them can see the other two.
+    /// `(tree, narrow)`. Three readings, and no one of them can see the other two.
     ///
     /// # The equality is the gate
     ///
@@ -2069,7 +2069,7 @@ mod tests {
     /// **The index: a splice equals a rebuild, and a fold's interval is the forest's subtree.**
     ///
     /// Half of the row 14. The equality is against a walk of the forest, which is the *slow*
-    /// producer §7 keeps only as an oracle — proportional to what remains, at 85 ns a row on a
+    /// producer kept only as an oracle — proportional to what remains, at 85 ns a row on a
     /// shuffled forest.
     #[test]
     fn a_spliced_index_equals_a_rebuilt_one() {
@@ -2147,7 +2147,7 @@ mod tests {
         );
     }
 
-    /// **Scene 9: a sort is a permutation and a fold is an interval.**
+    /// **The fold scene: a sort is a permutation and a fold is an interval.**
     ///
     /// One selection, one million rows, 349 524 removed. Under the splice it is **one run, no bytes,
     /// and a transform proportional to the runs**; under the permutation the run list shatters into
@@ -2214,7 +2214,7 @@ mod tests {
 
     /// **Criterion 6, inverted: the two scenes stand on the component they are scenes of.**
     ///
-    /// It read *the forest is red because `tree` is not declared* until components ticket 17, and
+    /// It read *the forest is red because `tree` is not declared* once, and
     /// inverting it was a deliberate edit in three files — here, in [`crate::scenes`]'s two
     /// standings and in [`crate::gates::REGISTER`].
     ///

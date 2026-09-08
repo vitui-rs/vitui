@@ -1,6 +1,6 @@
 //! **The file preview pane's three screens: a re-sort, a streamed directory and twenty selections.**
 //!
-//! Components ticket 31. Spec §15, §21. This is the screen the three preview-pane scenes are scenes
+//! This is the screen the three preview-pane scenes are scenes
 //! *of*, and it takes the shape every other one on this map has — [`crate::dense`],
 //! [`crate::listing`], [`crate::grid`], [`crate::forest`], [`crate::area`], [`crate::accordion`],
 //! [`crate::document`], [`crate::clusters`], [`crate::popup`], [`crate::series`], [`crate::wheel`]
@@ -44,7 +44,7 @@
 //!
 //! # The screen partitions and the headline number does not
 //!
-//! §15 prices the unclamped offset at *1 650 writes against 4 166*, and a screen that writes every
+//! The unclamped offset is priced at *1 650 writes against 4 166*, and a screen that writes every
 //! cell of its rectangle — the rule, which every component in this crate obeys — writes
 //! [`CELLS`] either way. So this screen reports **two** numbers: [`Shape::writes`], which is 24 000
 //! on every arm because the partition holds, and [`Drawn::content_writes`], which is the body's own
@@ -93,12 +93,12 @@ pub const BODY_W: u16 = 198;
 /// The preview body's height, which is also the viewport the offset table is written against.
 pub const BODY_H: u16 = 74;
 
-/// How many cells the body is. **14 652**, and [`body_percent`] is what §15 states beside it.
+/// How many cells the body is. **14 652**, and [`body_percent`] is what is stated beside it.
 pub const BODY_CELLS: u32 = BODY_W as u32 * BODY_H as u32;
 
 /// **The pane's rectangle's width: the body plus its reserved vertical gutter.**
 ///
-/// §15 says a preview pane is *a positive case for bars-reserved rather than a new question for it*,
+/// A preview pane is *a positive case for bars-reserved rather than a new question for it*,
 /// and [`crate::files::PaneOpts`] takes that as [`Hide::Never`](crate::scroll::Hide::Never): the
 /// gutter is cut whether or not there is anything to scroll, because a pane's extent is a property
 /// of the **file** and a gutter that came and went would make the furniture jump every time the
@@ -120,7 +120,7 @@ pub const FOOT_ROWS: u16 = 2;
 
 /// **The document's line width, read out of the pair.**
 ///
-/// §15 prices the unclamped offset at *1 650 writes against 4 166*. The difference is the body's own
+/// The unclamped offset is priced at *1 650 writes against 4 166*. The difference is the body's own
 /// content — **2 516** — and 2 516 is **74 × 34** exactly, over a 74-row viewport. So the
 /// prototype's preview document was 34 columns wide and this one is too. The number is derived
 /// rather than chosen, which is the difference between reproducing a figure and engineering one.
@@ -181,7 +181,7 @@ pub const FOOT_RULE_Y: i32 = (H - FOOT_ROWS) as i32;
 /// a torn frame visible: one value, read twice, printed twice.
 pub const BOTTOM_STATUS_Y: i32 = (H - 1) as i32;
 
-/// What the body is as a percentage of the screen, to two places. §15 states **61.0%**.
+/// What the body is as a percentage of the screen, to two places. The recorded figure is **61.0%**.
 pub fn body_percent() -> f64 {
     f64::from(BODY_CELLS) * 100.0 / f64::from(CELLS)
 }
@@ -252,10 +252,10 @@ pub use crate::files::{Bump, Taken};
 
 /// **How fast the selection repeats, against how long a decode takes.**
 ///
-/// §15 states the crossover as a relation and not as a number of milliseconds: *1 picture when the
+/// The crossover is stated as a relation and not as a number of milliseconds: *1 picture when the
 /// key repeats faster than the decode, 20 pictures at a 30 ms repeat when it does not*. The arms
 /// are named for the relation for that reason — the ticket's own paraphrase (*a 30 ms key repeat
-/// and a slower one*) reads the crossover the other way round, and §15 is the authority.
+/// and a slower one*) reads the crossover the other way round, and the relation is the authority.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Repeat {
     /// A 30 ms repeat over a decode that finishes inside it. **Every selection lands.**
@@ -333,8 +333,8 @@ impl Build {
 /// **What a file's document is made of**, which is what decides how wide it is and what its cells
 /// cost.
 ///
-/// The join with §14: a preview pane is the one component on this map whose body may be *either*
-/// text or a picture, and §15 prices both — a text document is [`LINE_COLUMNS`] wide and its cells
+/// The join with the media family: a preview pane is the one component here whose body may be *either*
+/// text or a picture, and both are priced — a text document is [`LINE_COLUMNS`] wide and its cells
 /// are the theme's, a photograph is as wide as the viewport and every one of its cells is outside
 /// the theme.
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
@@ -373,7 +373,7 @@ pub const FILES: usize = 200;
 pub const CURSOR: usize = 42;
 
 /// **The three positions a re-sort leaves alone**, which is what makes the moved count 197 and not
-/// 200. §21 states *197 of 200 positions move*; three fixed points is what states it.
+/// 200. The claim is *197 of 200 positions move*; three fixed points is what states it.
 pub const FIXED: [usize; 3] = [0, 100, 199];
 
 /// Which order the listing is in.
@@ -462,7 +462,7 @@ pub struct Doc {
 
 /// **What makes a `Doc` an answer**: the identity of the question it answers, and how large it is.
 ///
-/// The identity is the eight bytes §15 puts on the payload, and the equality against it is the
+/// The identity is the eight bytes on the payload, and the equality against it is the
 /// pane's — [`PaneState::land`] drops an answer that fails it without a cell written. The extent is
 /// the precondition as a field of the answer, which is what makes a preview pane a positive case
 /// for bars-reserved.
@@ -822,7 +822,7 @@ impl Screen {
 
     /// **One frame**, drawn through `ink`.
     ///
-    /// The order is §15's: the landing is taken at the top of the view, and then the screen is drawn
+    /// The order is fixed: the landing is taken at the top of the view, and then the screen is drawn
     /// — the pane asks its question inside its own draw, which is where a component's question
     /// belongs. [`Taken::InsideTheDraw`] is the same frame with the first of those moved into the
     /// second, which is the whole of the torn-frame case.
@@ -1074,7 +1074,7 @@ struct Strip {
     /// How many sub-rows a cell has, read off the theme at the call site.
     ///
     /// **Read and not named**: a component names a role and a glyph and never a repertoire, and
-    /// `crate::media` is the one file on this map excepted from that (register row 26). A screen
+    /// `crate::media` is the one file here excepted from that. A screen
     /// that spelled the repertoire type would be a second exception.
     sub: u32,
 }
@@ -1243,7 +1243,7 @@ pub struct Resort {
     pub wrong: u32,
 }
 
-/// **Scene 25.** 200 files, one re-sort, and a hundred frames afterwards.
+/// **The re-sort screen.** 200 files, one re-sort, and a hundred frames afterwards.
 ///
 /// The gesture is one line of application code and no keystroke at all, which is what makes this the
 /// memo-key rule's sharpest arrival: there is no wake to correct it, because *the question still
@@ -1328,7 +1328,7 @@ pub fn arrival() -> Vec<File> {
     files
 }
 
-/// **Scene 24.** Seven batches, no input at all, and a cursor whose file changes under it.
+/// **The streamed screen.** Seven batches, no input at all, and a cursor whose file changes under it.
 pub fn batches(build: Build) -> Batches {
     let arriving = arrival();
     let mut have: Vec<File> = arriving[..SEED].to_vec();
@@ -1389,7 +1389,7 @@ pub const SELECTIONS: usize = 20;
 /// **What a picture costs on the wire**, in bytes: [`BODY_CELLS`] at the stated **37.5 B/cell**.
 ///
 /// It is arithmetic and not a measurement, and it stays arithmetic. What row 161 measures since
-/// runtime architecture issue 34 is one screen's bytes through one engine; this figure is a *price
+/// the two-colour question is one screen's bytes through one engine; this figure is a *price
 /// list* over a count — how many pictures were drawn, times a B/cell — and multiplying by a
 /// measurement taken on the picture screen would make this scene's number a fact about that one.
 /// **The figure is 4.1% under what that screen measures** (39.05 against 37.5), which is the
@@ -1417,7 +1417,7 @@ impl Wire {
         self.bytes * 1_000 / u64::from(self.millis)
     }
 
-    /// The picture's own size in KiB. **536.57**, which §15 prints as *536 KB* — truncated, not
+    /// The picture's own size in KiB. **536.57**, printed elsewhere as *536 KB* — truncated, not
     /// rounded, and that one character is what the total beside it is built out of.
     pub fn picture_kib() -> f64 {
         PICTURE_BYTES as f64 / 1024.0
@@ -1442,7 +1442,7 @@ pub fn photographs_directory() -> Vec<File> {
         .collect()
 }
 
-/// **Scene 23.** Twenty selections at a key repeat, against a decode that does or does not fit
+/// **The crossover screen.** Twenty selections at a key repeat, against a decode that does or does not fit
 /// inside it.
 ///
 /// The schedule is a virtual clock in milliseconds and the mechanism decides the answer: a question
@@ -1632,7 +1632,7 @@ pub struct Mismatched {
 /// **An answer to a question nobody asked**, and the door an answer-ordering test never opens.
 ///
 /// The generation is current — the job was started for the right question, so [`Task::take`] hands
-/// it over — and the payload is another file's. That is the defect §15 puts eight bytes on the
+/// it over — and the payload is another file's. That is the defect the eight bytes on the
 /// payload for, and *a test on the answer cannot see it*: an ordering test asserts that answers
 /// arrive in the order they were asked for, and a question that was never asked is not out of order.
 ///
@@ -1929,7 +1929,7 @@ pub fn steady(entries: usize) -> Shape {
 
 /// **One steady frame at a million entries with a photograph selected.**
 ///
-/// §15: *one `Theme::custom` per cell of the pane*, which is [`BODY_CELLS`] and is what this
+/// *One `Theme::custom` per cell of the pane*, which is [`BODY_CELLS`] and is what this
 /// returns — the pane's viewport is a partition and the photograph is as wide as it.
 pub fn photograph_frame(entries: usize) -> Shape {
     let mut files = many(entries);
@@ -2165,7 +2165,7 @@ pub const PICKER_MAY_NOT: [(&str, &str); 4] = [
 
 /// **What `file_picker` must contain**: its three parts, by name.
 ///
-/// **`collection_shaped` and not `collection_into` since production 08**, which is where the row
+/// **`collection_shaped` and not `collection_into`**, which is where the row
 /// loop went when the picker's listing gained the refused spellings `shrunk` and `wheeled`
 /// axes need: the picker *is* `collection` inside a layer, so the mistakes `collection` has arms for
 /// are mistakes a picker's listing can make too, and until scenes 41 and 42 asked there was no way
@@ -2215,12 +2215,12 @@ pub const SUBJECTS: [&str; 2] = ["file_preview_pane", "file_picker"];
 /// Where [`SUBJECTS`] belong, as `(module file, the declaration)`.
 ///
 /// The home is [`crate::Family::F12Files`]'s, whose module is `files.rs`. A component is
-/// `fn(&mut Ctx, Rect, …) -> Response` (spec §1, rule 1), so the thing to look for is a public
+/// `fn(&mut Ctx, Rect, …) -> Response`, so the thing to look for is a public
 /// function of the component's own name in its own family's module.
 ///
 /// # The needle problem, met a fourth time, and this time by the ticket that owns the answer
 ///
-/// Components 26 read `pub fn select(` for a component §1 already says costs two lifetime
+/// One scan read `pub fn select(` for a component that already costs two lifetime
 /// annotations; components 30 read `pub fn picture(` for one whose `…` is a type parameter; both
 /// would have gone green *by deleting the thing that mattered*. Components 31 met it a third time
 /// and answered it differently — a longer needle would have been that ticket dictating this one's
@@ -2245,7 +2245,7 @@ pub const DECLARATIONS: [(&str, &str); 2] = [
 /// **What the pane's signature owes, beyond its own name.**
 ///
 /// Each of these is a parameter that could be deleted while leaving the declaration scan green, and
-/// each is a mechanism §15 assigns somewhere other than the widget. The task is the application's
+/// each is a mechanism assigned somewhere other than the widget. The task is the application's
 /// (R02's sweep, refused); the state is the caller's; the line drawer is the caller's, which is what
 /// makes the frame's cost the *rectangle*'s rather than the document's.
 pub const PANE_OWES: [(&str, &str); 3] = [
@@ -2439,7 +2439,7 @@ pub const PICTURES: [u32; 2] = [1, SELECTIONS as u32];
 /// **The rate the twenty-picture arm runs at, in bytes a second. 18 315 000 — the 18.3 MB/s.**
 pub const WIRE_RATE: u64 = 18_315_000;
 
-/// **What §15 states the total is**, in decimal MB. It is the rounded 536 KiB read as 536 kB and
+/// **What the total is stated as**, in decimal MB. It is the rounded 536 KiB read as 536 kB and
 /// multiplied by twenty; the rate printed in the same sentence needs the unrounded product.
 pub const SECTION_15_TOTAL_MB: f64 = 10.7;
 
@@ -2476,7 +2476,7 @@ pub const UNCLAMPED_WRITES: u64 = 21_484;
 
 /// **Decode units that run on the app thread when the decode is called from the view.**
 ///
-/// [`SELECTIONS`] photographs of [`BODY_H`] rows each. §15 states **5 076**, which is a prototype's
+/// [`SELECTIONS`] photographs of [`BODY_H`] rows each. The recorded figure is **5 076**, which is a prototype's
 /// document; what is gated is the pair — **0 against this** — because the claim is about the thread
 /// and not about the size of the decode.
 pub const DECODE_UNITS_IN_THE_VIEW: u64 = SELECTIONS as u64 * BODY_H as u64;
@@ -2541,7 +2541,7 @@ mod tests {
         );
     }
 
-    /// **Scene 25.** The memo-key rule, through the door nothing else opens.
+    /// **The re-sort screen.** The memo-key rule, through the door nothing else opens.
     ///
     /// Both arms ask on every frame — **103 either way** — and the only counter that moves is the
     /// spawn count, because the question still matches, so nothing posts, so nothing wakes, so no
@@ -2567,7 +2567,7 @@ mod tests {
         assert_eq!(identity.moved, MOVED);
     }
 
-    /// **Scene 24.** The same hole with no user in it.
+    /// **The streamed screen.** The same hole with no user in it.
     ///
     /// Seven batches, no input at all. The settled pane is wrong after **7 of 7** under a position
     /// key and after none under an identity key, and *wrong for exactly 1 frame* is the
@@ -2598,7 +2598,7 @@ mod tests {
         assert_eq!(SEED + BATCHES * BATCH, FILES);
     }
 
-    /// **Scene 23.** The crossover, read as a count.
+    /// **The crossover screen**, read as a count.
     ///
     /// *The regime in which cancellation saves nothing is exactly the regime in which every picture
     /// is drawn* — so the bytes and the wasted CPU peak together. Neither arm is branched on: a
@@ -2622,7 +2622,7 @@ mod tests {
 
     /// **The three wire figures cannot all be readings of one product, and two of them are.**
     ///
-    /// 14 652 cells at 37.5 B/cell is 549 450 bytes — **536.57 KiB**, which §15 prints as *536 KB*
+    /// 14 652 cells at 37.5 B/cell is 549 450 bytes — **536.57 KiB**, printed elsewhere as *536 KB*
     /// by truncating it — and twenty of them is 10 989 000 bytes, which is **10.99 MB** and is
     /// exactly what *18.3 MB/s over 600 ms* requires. **10.7 MB** is that truncated 536 read
     /// as decimal kB and multiplied by twenty, so the total and the rate printed in one sentence are
@@ -2733,7 +2733,7 @@ mod tests {
     ///
     /// `1 000 000 * 13 * 8 / 7` is **14 857 142**, and the shipped map is worse than that: buckets
     /// round to a power of two and `(u64, u32)` pads to sixteen bytes rather than packing to twelve.
-    /// The estimate is gated because it is §15's; the measurement is asserted to be larger, because
+    /// The estimate is gated because it is the recorded one; the measurement is asserted to be larger, because
     /// a refusal that got easier when it was checked would be worth checking again.
     #[test]
     fn a_per_file_map_at_a_million_is_fourteen_million_bytes_against_a_slots_four() {
@@ -2865,7 +2865,7 @@ mod tests {
 
     /// **Requirement 9, as a count and not a microsecond: 0 decode units on the app thread.**
     ///
-    /// The same decode, over the same twenty selections, with the answer still arriving. §15 states
+    /// The same decode, over the same twenty selections, with the answer still arriving. The claim is
     /// the other arm at 5 076 units and this document is smaller; what is gated is the pair, because
     /// the claim is about which thread ran them.
     #[test]
@@ -2943,7 +2943,7 @@ mod tests {
     }
 
     /// **A million entries with a photograph selected: 14 652 customs**, one a cell of the pane's
-    /// viewport, which is the number and the join with §14.
+    /// viewport, which is the number and the join with the media family.
     ///
     /// A preview pane is *not a cheap version of a full-screen picture; it is most of one*. What
     /// what this screen adds is that the customs are a **partition** of the pane's viewport
@@ -2979,7 +2979,7 @@ mod tests {
     /// **And the counter is watched seeing it**, on the same three verbs at the same width, because
     /// a pair asserted only in the direction that passes is a pair nobody has watched.
     ///
-    /// **Over heights as well since components 40**, which is where the other half of §2 met this
+    /// **Over heights as well**, which is where the other half of the partition rule met this
     /// component: the face is the rectangle it was handed and not the first row of it. See
     /// [`shut_faces`], whose header carried the sentence this corrected.
     #[test]
@@ -3159,7 +3159,7 @@ mod tests {
 
     /// **The task scan fires in both directions**, and it is the half a longer needle could not buy.
     ///
-    /// §15 refuses R02's sweep twice, and the second refusal is about a job's lifetime: a pane that
+    /// The sweep is refused twice, and the second refusal is about a job's lifetime: a pane that
     /// minted its own `Task` would cost **10 spawns and 10 decodes over ten tab switches against 1
     /// and 1**, whatever its signature said. Nothing is declared today, so the scan answers `false`
     /// over an empty file — which is why the predicate is watched over two sources instead.
