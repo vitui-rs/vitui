@@ -1,9 +1,9 @@
 //! **O6 — every component that takes a data volume holds sixty hertz at a million inputs**, as a
 //! query over [`crate::INVENTORY`] and an instrument that runs the shipped components.
 //!
-//! Spec §17 states its obligations as queries over the freeze; components ticket 44
+//! The obligations are queries over the freeze, and this one
 //! states this one **after the map closed**, and it is an implementation ticket rather than an
-//! architecture issue because the *instrument* is buildable without reopening anything. ADR 0049 is
+//! architecture question because the *instrument* is buildable without reopening anything. The decision is
 //! the decision and the table carries the row.
 //!
 //! # The hole this closes, stated once
@@ -29,7 +29,7 @@
 //!
 //! # What is gated, and why neither half would do on its own
 //!
-//! **A count, twice.** [`Measured::work`] is a step count — the runtime's scene 19 arrangement one
+//! **A count, twice.** [`Measured::work`] is a step count — the chunked-source arrangement one
 //! crate down, and for that scene's stated reason: *a step count is the same number on every
 //! machine*, where a microsecond figure is three orders apart between a debug binary and a release
 //! one and would be three different orders somewhere else. The absolute frame time is a **report**
@@ -55,7 +55,7 @@
 //! answers — a [`Spelling::Folded`] memo is a value keyed on a data revision, which is what folding
 //! on the edit *is*.
 //!
-//! Ticket 44 names six rows in its own parenthesis: the four `L2` rows and `chart` and `plot`. The
+//! Six rows are named: the four `L2` rows and `chart` and `plot`. The
 //! derivation answers **seven**, because `sparkline` holds
 //! [`crate::chart::raster::PlotState`]'s two memos as well — it is `chart`'s body with the chrome
 //! deleted (components 34) and it folds a million points through the same `Raster`. That is the
@@ -141,7 +141,7 @@ const STRIP: (u16, u16) = (20, 5);
 /// **The rung the two bar folds are measured at, and the one the marks fold is.**
 ///
 /// `RUNGS[1]` and `RUNGS[2]` rather than the repertoire's own names: **a file in `src/` may not
-/// spell a `GlyphSet`** (§16, and `crate::gates`' scan holds the one exception to three lines).
+/// spell a `GlyphSet`**, and `crate::gates`' scan holds the one exception to three lines.
 /// `chart::raster::RUNGS` is the door, and this is the fourth caller it was made public for.
 const BARS_AT: GlyphSet = RUNGS[1];
 /// See [`BARS_AT`]. The braille rung, where a cell's states are a power set.
@@ -593,7 +593,7 @@ fn plot_run(arm: Arm, n: u64) -> Reading {
 
 /// `field` — one `Left` at the end of an `n`-byte buffer.
 ///
-/// **The component's own index decides where the walk starts**, which is the whole of §11: a
+/// **The component's own index decides where the walk starts**, which is the whole point: a
 /// [`WrapKind::Ruler`] index exists so that a boundary is never more than one window behind the
 /// caret. The defective arm starts from the only boundary a build with no index has.
 ///
@@ -719,7 +719,7 @@ fn table_run(arm: Arm, n: u64) -> Reading {
 
 /// `tree` — row-drawer calls in one frame over an `n`-node flatten index.
 ///
-/// **The index is built outside the frame**, which is what materialising is: spec §10 prices doing
+/// **The index is built outside the frame**, which is what materialising is: doing
 /// it inside one at 211 frame budgets, and what O6 is asking about here is the row loop.
 fn tree_run(arm: Arm, n: u64) -> Reading {
     let index = Order::built(

@@ -3,13 +3,13 @@
 //! > A memo carries the theme in its key **iff its value is made of paints or glyphs**, and the key
 //! > is the theme's own `Revision` and never an enumeration of the axes.
 //!
-//! The rule is R20 §3's, one word longer since ADR 0032 — *or glyphs* — because a declared
+//! The rule is one word longer than it was — *or glyphs* — because a declared
 //! repertoire is a real input to the ten distinction bits, so a repertoire swap is a new revision
 //! and a value made of clusters is as stale after `Ctrl+G` as a value made of paints is after `t`.
 //!
 //! # Why a list, and why it is joined to the freeze
 //!
-//! Components ticket 41 states the criterion as *a gate enumerates them from `INVENTORY` rather
+//! The criterion is *a gate enumerates them from `INVENTORY` rather
 //! than from a grep*, and the two halves are not the same instrument. A grep answers **where the
 //! word `Memo` appears**; the join answers **which of the twenty-nine rows of the freeze
 //! keeps a value between frames**, which is the question the rule is about. [`MEMOS`] is that
@@ -90,7 +90,7 @@ pub struct Memoised {
 }
 
 impl Memoised {
-    /// **Whether it obeys ADR 0030.** The rule is an `iff`, so a memo carrying the theme in the key
+    /// **Whether it obeys the memo-key rule.** The rule is an `iff`, so a memo carrying the theme in the key
     /// of a value the theme has no say in is as much a row of [`owed`] as one that leaves it out —
     /// the first is a value rebuilt on every `t` for nothing.
     pub const fn holds(&self) -> bool {
@@ -159,7 +159,7 @@ pub fn owed() -> Vec<&'static Memoised> {
     MEMOS.iter().filter(|m| !m.holds()).collect()
 }
 
-/// **The memos one row of the freeze keeps**, which is the join ticket 41 asks the enumeration to
+/// **The memos one row of the freeze keeps**, which is the join the enumeration has to
 /// go through.
 pub fn held_by(id: &str) -> Vec<&'static Memoised> {
     MEMOS.iter().filter(|m| m.holders.contains(&id)).collect()
@@ -190,7 +190,7 @@ pub fn key(theme: &Theme, data: vitui_runtime::Revision) -> vitui_runtime::Revis
 mod tests {
     use super::{INVENTORY, MEMOS, MadeOf, Spelling, held_by, owed, without};
 
-    /// **ADR 0030 over the census.** The rule is an `iff` and it is checked as one.
+    /// **The memo-key rule over the census.** The rule is an `iff` and it is checked as one.
     #[test]
     fn every_memo_carries_the_theme_iff_its_value_is_made_of_paints_or_glyphs() {
         assert!(
@@ -219,7 +219,7 @@ mod tests {
     ///
     /// Not one shipped memo in this crate holds a paint or a cluster: every one of them holds bits,
     /// offsets or floats, and the picture is derived from the theme in front of the frame. So the
-    /// gate ticket 41 owes could not have been this census — it is
+    /// gate that is owed could not have been this census — it is
     /// [`crate::gallery::swap_on`]'s count over the surface, and
     /// [`crate::gallery::Keying::DataAndTier`] is the arm that makes it fail.
     #[test]

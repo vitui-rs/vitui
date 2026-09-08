@@ -1,9 +1,9 @@
 //! **The order, the index and the memo: one structure, five names, and the revision that makes a
 //! stale position noticeable.**
 //!
-//! Components ticket 13. Spec §10, [ADR 0030](../../docs/adr/0030-a-memo-key-is-every-input.md) and
+//! A memo's key is every input, and
 //! half of
-//! [ADR 0031](../../docs/adr/0031-a-collection-stores-positions-in-an-order-the-caller-owns.md).
+//! a collection stores positions in an order the caller owns.
 //!
 //! It is a **prefactor**: it lands before `table`, `tree`, `field` and `collapsible` so that none of
 //! them invents a fifth name for the thing all five of them are.
@@ -41,7 +41,7 @@
 //!
 //! [`Order::splice`] is all three in one call, which is the only shape that makes the sentence
 //! checkable: a caller who could do the first without the third would leave the revision behind and
-//! get the permutation answer on the next frame, which is exactly the state ADR 0031 says is
+//! get the permutation answer on the next frame, which is exactly the state that is
 //! indistinguishable from a correct screen.
 //!
 //! # Everything a collection stores is a position
@@ -70,7 +70,7 @@
 //! # A memo's key is every input
 //!
 //! [`Keyed`] is this crate's memo, and it differs from `vitui_runtime::Memo` in exactly the two ways
-//! ADR 0030 says matter: **it takes the whole key** rather than one `Revision`, and it **records the
+//! matter: **it takes the whole key** rather than one `Revision`, and it **records the
 //! input it was built at** ([`Keyed::built_at`]) so a stale hit is detectable by something other
 //! than the rendered screen.
 //!
@@ -96,11 +96,11 @@ use crate::collect::{Selection, Span};
 ///
 /// **No `Id`.** `node` is the *caller's* key — a row id, a byte offset, a line number — which is
 /// what makes the index persistable and keeps the rule satisfied by construction.
-/// # It is eight bytes, and it was sixteen until components ticket 17
+/// # It is eight bytes, and it was sixteen
 ///
-/// Spec §7 states the record with its widths — `struct Row { node: u32, depth: u16, flags: u8, h: u8
-/// } // 8 bytes` — and §10, which is where *one structure, five names* is written, states the four
-/// field **names** and no widths at all. Components ticket 13 built this type from §10 and widened
+/// The record is stated with its widths — `struct Row { node: u32, depth: u16, flags: u8, h: u8 }
+/// // 8 bytes` — while *one structure, five names* states the four field **names** and no widths at
+/// all. This type was built from the second and widened
 /// three of the four; the divergence went unremarked because the criterion, *a gate asserts its
 /// size*, is the original's and had nothing to run over yet.
 ///
@@ -111,7 +111,7 @@ use crate::collect::{Selection, Span};
 /// *7 → 11 MB* to the megabyte. See [`ENTRY_BYTES`] and [`index_bytes`].
 ///
 /// The three ceilings it costs are stated rather than discovered: a caller's key is bounded at
-/// `u32::MAX`, a row's flags at eight bits — §10 names four — and a row's screen height at 255.
+/// `u32::MAX`, a row's flags at eight bits — four are named — and a row's screen height at 255.
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Default, Hash)]
 pub struct Entry {
     /// The caller's own key for whatever this row shows. Never an [`Id`](vitui_runtime::Id).
@@ -175,9 +175,9 @@ pub const ENTRY_BYTES: usize = size_of::<Entry>();
 
 /// **What an index of `rows` rows costs, with and without the variable-height prefix sum.**
 ///
-/// `(index, index + prefix sum)` in bytes. §7 states *the index grows 57% (7 → 11 MB at a million
+/// `(index, index + prefix sum)` in bytes. The claim is *the index grows 57% (7 → 11 MB at a million
 /// rows)*; the prefix sum is a `Vec<u32>`, so the growth is exactly `4 / ENTRY_BYTES` — **50%** — and
-/// the two absolute figures are 7.63 MiB and 11.44 MiB, which is what §7 rounds.
+/// the two absolute figures are 7.63 MiB and 11.44 MiB, which is what those round to.
 pub const fn index_bytes(rows: usize) -> (usize, usize) {
     let index = rows * ENTRY_BYTES;
     (index, index + rows * size_of::<u32>())
@@ -286,7 +286,7 @@ pub const REVISION_BYTES: usize = size_of::<Revision>();
 ///
 /// The revision is the order's own and is stamped by [`Order::splice`] and [`Order::permute`]. A
 /// caller that reaches past both and edits the entries directly cannot: `entries` is private, which
-/// is the *anything else that moves the index leaves the revision behind* half of ADR 0031 as a
+/// is the *anything else that moves the index leaves the revision behind* half, as a
 /// visibility rather than as a rule.
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub struct Order {
@@ -311,7 +311,7 @@ impl Order {
 
     /// **The materialisation, done once and not in a frame.**
     ///
-    /// It is proportional to the data by construction — that is what materialising *is* — and §10
+    /// It is proportional to the data by construction — that is what materialising *is* — and the rule
     /// prices doing it in a frame at 21 158 µs at a million rows, 211 frame budgets. What makes it
     /// affordable is that it happens on the edit and nowhere else.
     pub fn built(entries: Vec<Entry>) -> Order {
@@ -401,7 +401,7 @@ impl Order {
 
 // ── the flatten index: the interval a fold removes, read from `depth` ─────────────────────────────
 
-/// **The flatten index's own three verbs**, which are the ones §7 is about.
+/// **The flatten index's own three verbs**, which are the ones the measurements are about.
 ///
 /// They are on [`Order`] rather than on a type of their own because the whole ruling is that
 /// `tree`'s flatten index **is** the order — *three names for one mechanism is already one too many*.
@@ -492,7 +492,7 @@ impl Order {
     /// nothing under it.
     ///
     /// The rows are collected first, because *did it insert anything* is not answerable of an
-    /// `IntoIterator` without asking it. That is one allocation on the **edit**, which is where §10
+    /// `IntoIterator` without asking it. That is one allocation on the **edit**, which is where the rule
     /// puts the whole cost of an edit; the frame is untouched.
     pub fn unfold(&mut self, i: usize, rows: impl IntoIterator<Item = Entry>) -> Splice {
         let at = (i + 1).min(self.entries.len());
@@ -759,10 +759,10 @@ pub fn reconcile_position(at: Option<usize>, splice: &Splice) -> Option<usize> {
 /// **The prefix sum over [`Entry::h`], built in the same pass and only when rows can differ.**
 ///
 /// *variable row height is a fourth field*. `Row::h` is a byte the record already had; this is
-/// the `Vec<u32>` beside it, and the three things §7 states about it are all measurements here rather
+/// the `Vec<u32>` beside it, and the three things stated about it are all measurements here rather
 /// than sentences:
 ///
-/// - **the index grows 50%** — a `u32` a row against an eight-byte record ([`index_bytes`]; §7 says
+/// - **the index grows 50%** — a `u32` a row against an eight-byte record ([`index_bytes`]; the claim was
 ///   57% over a seven-byte one);
 /// - **a splice costs 2.25×**, because the tail it has already moved must be re-accumulated
 ///   ([`Heights::spliced`]);
@@ -925,7 +925,7 @@ pub enum Ask {
 
 /// **The one-slot request a component leaves behind, drained by the caller after the draw.**
 ///
-/// One slot and not a queue, for the reason ADR 0016 gives the routing edge one edge: a frame that
+/// One slot and not a queue, for the reason a frame consumes at most one routing edge: a frame that
 /// could ask for two edits would need the caller to apply them in an order nobody stated, against an
 /// index the second one's coordinates are computed in. The last ask of a frame wins, and there is
 /// only ever one gesture in a frame that can produce one.
@@ -1009,8 +1009,8 @@ pub const ASKED_BYTES: usize = size_of::<Asked>();
 
 /// **A memo whose key is every input, and which records the input it was built at.**
 ///
-/// ADR 0030. `vitui_runtime::Memo<T>::get` takes one `Revision` and cannot express any of the six
-/// arrivals §10 tabulates — the width, the sort, the expansion set, the repertoire, the theme's
+/// `vitui_runtime::Memo<T>::get` takes one `Revision` and cannot express any of the six
+/// arrivals tabulated for it — the width, the sort, the expansion set, the repertoire, the theme's
 /// revision, the axis policy — so the components-side decision is that **the key is spelled out at
 /// every call site**, and this is the type that makes spelling it possible.
 ///
@@ -1035,7 +1035,7 @@ pub const ASKED_BYTES: usize = size_of::<Asked>();
 /// assert_eq!(*wrapped.get((7, 300), || unreachable!("the memo is warm")), 625);
 /// assert_eq!(wrapped.recomputes, 1);
 ///
-/// // The width moved and the revision did not, which is the arrival §10 measures.
+/// // The width moved and the revision did not, which is the arrival that was measured.
 /// assert_eq!(*wrapped.get((7, 120), || 875), 875);
 /// assert_eq!(wrapped.recomputes, 2);
 /// assert_eq!(wrapped.built_at(), Some(&(7, 120)), "and it says what it was built at");
@@ -1229,7 +1229,7 @@ pub fn splice_vs_permutation(
     (spliced, permuted)
 }
 
-/// **An interval edit on the selection store, against a bit vector.** The register row 13.
+/// **An interval edit on the selection store, against a bit vector.**
 ///
 /// `(spans_touched, bits_touched)`. The span list touches the spans that meet the interval — one,
 /// for a contiguous selection — and a bit vector has to move every bit after it, because a bit's
@@ -1238,7 +1238,7 @@ pub fn splice_vs_permutation(
 /// bit vector otherwise looks like the obvious answer: it is `O(1)` to query and `O(1)` to toggle,
 /// and this is the operation it cannot do cheaply at all.
 ///
-/// A count and not a timing, which is what §21 asks a gate to be.
+/// A count and not a timing, which is what a gate has to be.
 pub fn interval_edit_against_a_bitset(len: usize, removed: Range<usize>) -> (usize, usize) {
     let mut sel = Selection::new();
     sel.insert(0, len / 2);
@@ -1330,7 +1330,7 @@ pub fn flattened(forest: &[u16]) -> Order {
 ///
 /// `(from_the_index, from_the_forest)` in nanoseconds, minimum of `rounds`. Both answer the same
 /// number over the same forest; the difference is that the index is a contiguous scan over
-/// eight-byte records and the forest arm is one random access per row, which is what §7 means by
+/// eight-byte records and the forest arm is one random access per row, which is what is meant by
 /// *without touching the forest*.
 ///
 /// The forest arm is deliberately given the **shuffled** access pattern a real caller has — a node's
@@ -1724,7 +1724,7 @@ mod tests {
     ///
     /// The structural claim, asserted rather than timed: whatever the interval, a contiguous
     /// selection comes out of a splice as **at most two** spans, and a permutation of the same edit
-    /// comes out as one span a row. That is a count, which is what §21 asks a gate to be — the
+    /// comes out as one span a row. That is a count, which is what a gate has to be — the
     /// microseconds are `examples/order_numbers.rs`'s.
     #[test]
     fn a_splice_cannot_shatter_a_span_list_and_a_permutation_always_does() {
@@ -1951,7 +1951,7 @@ mod tests {
     ///
     /// # The magnitudes are this corpus's and the structure is
     ///
-    /// §10 records **625 rows drawn where 875 are needed; 69 of 80 rows differ**, over C06's
+    /// The recorded figures are **625 rows drawn where 875 are needed; 69 of 80 rows differ**, over a
     /// document, which is not in this repository. [`document`] is stated rather than fitted, so what
     /// reproduces is the shape — fewer rows, most of the window wrong, one recomputation against two
     /// — and the numbers are printed rather than engineered to match.

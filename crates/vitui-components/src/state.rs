@@ -6,11 +6,11 @@
 //!
 //! # It exists for a disagreement, not for a state machine
 //!
-//! The `PressState` `architecture.md` §3 named **was built and its field was never read.**
+//! The `PressState` an earlier proposal named **was built and its field was never read.**
 //! `Response` already carries `hovered`, `pressed`, `press_began`, `released`, `clicked`,
 //! `double_clicked` and `long_pressed`, all seven resolved by the runtime from the index that has
 //! just drawn, and there is no cross-frame fact left for a component to keep. **`press_began` is
-//! the seventh, and it arrived by deleting two** (runtime architecture 29): `collection` was
+//! the seventh, and it arrived by deleting two**: `collection` was
 //! keeping a copy of last frame's `pressed` to reconstruct the edge the runtime already had, which
 //! is the cross-frame fact this argument said did not exist — a finding, and it got its own
 //! ticket. So the type is not here, and its absence is gated by path rather than remembered —
@@ -29,7 +29,7 @@
 //!    applies as a background restyle at `end`, from the index that has just drawn, so that the
 //!    hover lands on the *first* frame of an overlap instead of a frame later.
 //!
-//! ADR 0026 prices the relation between them: *a restyle is free only when the component's own next
+//! The relation between them is priced: *a restyle is free only when the component's own next
 //! draw already produces the value the restyle produced.* A deferred hover award satisfies that —
 //! **when the widget also branches on `hovered`, to the same face.** Written by hand the two
 //! statements are ten lines apart, the screen is **correct on every frame** because the restyle
@@ -43,7 +43,7 @@
 //!
 //! # Focus is a `Faces` field, because `frame::focus_ring` is deleted
 //!
-//! Spec §3 strikes the helper out and says where it went: *a `Role` into `block`, a `Faces` into
+//! The helper was struck out and where it went is recorded: *a `Role` into `block`, a `Faces` into
 //! `press`*. [`crate::frame::BlockOpts::border`] is the first half and [`Faces::focus`] is the
 //! second. A focused chip is drawn in a different role **before its cells are written**, never
 //! restyled after — see [`crate::frame::WhyThereIsNoFocusRing`] for what the restyle form costs.
@@ -56,7 +56,7 @@
 //! `Response::hovered` could not be made true by a gesture here, and neither could the runtime's
 //! award winner.
 //!
-//! **Runtime architecture issue 22 lifted that**: `Mouse` is `vitui_runtime::Mouse` and the three
+//! **That is lifted**: `Mouse` is `vitui_runtime::Mouse` and the three
 //! types needed to build one came with it. The substitution below is kept because it is what the
 //! shipped fixture does and because it measures the **state** deliberately; what it is no longer is
 //! forced.
@@ -199,12 +199,12 @@ pub const FRAMES: u32 = 60;
 ///
 /// The award restyles a background the chip's own cells already carry, so it writes nothing; and
 /// the next frame draws the same value into every one of the eight, so that writes nothing either.
-/// Both halves are the same sentence of ADR 0026 — *a restyle is free only when the component's own
+/// Both halves are the same sentence — *a restyle is free only when the component's own
 /// next draw already produces the value the restyle produced*.
 pub const PRESS_STEADY: u64 = 0;
 /// **Rect the hand-written chip re-damages per steady frame. Eight**, which is the chip.
 ///
-/// Spec §3 and ADR 0026 both state it as *8 cells for as long as the pointer rests on the chip*,
+/// Two documents state it as *8 cells for as long as the pointer rests on the chip*,
 /// and it reproduces exactly because the number **is** the chip's width: every cell of the face is
 /// drawn in one role and restyled to another, every frame, for ever.
 pub const HAND_STEADY: u64 = 8;
@@ -316,7 +316,7 @@ pub struct Resting {
 ///
 /// `marked` is [`crate::counters::Reading::Unreachable`] and stays that way:
 /// `crates/vitui-engine/src/damage.rs` is `pub(crate)` from top to bottom and `Presented` carries
-/// no count, so no crate above the engine can read the engine's damage — components ticket 03
+/// no count, so no crate above the engine can read the engine's damage — which
 /// established it and [`crate::counters::Counters::marked`] panics rather than answering `0`.
 ///
 /// What is knowable from here is the **rule** that decides it. The engine filters a write whose
@@ -375,7 +375,7 @@ pub fn resting(paint: Chip, frames: u32) -> Resting {
 /// The proposal named it, it was built, and **its field was never read**. `Response` carries
 /// `hovered`, `pressed`, `released`, `clicked`, `double_clicked` and `long_pressed`, every one of
 /// them resolved by the runtime from the index that has just drawn (`Ctx::interact`), and a
-/// component that keeps a copy of any of them keeps a stale one — ADR 0012, *what survives one draw
+/// component that keeps a copy of any of them keeps a stale one: *what survives one draw
 /// is five flat structures rebuilt from the next draw*. There is no cross-frame fact left for this
 /// type to hold. **If one is found, that is a finding and it gets its own ticket**, because a field
 /// nobody reads is the shape being removed and not the shape being asked for.
@@ -717,7 +717,7 @@ mod tests {
     /// module could call it, *there is no path on which the two can be given different values*
     /// would be a claim about this file rather than about the crate.
     ///
-    /// **This was two files and is now one**, which is the one place components architecture issue
+    /// **This was two files and is now one**, which is the one place the question
     /// 17 made the crate simpler rather than merely different. The verb used to reach the runtime
     /// through two hops — `cells.rs` declared `Cells::hover_style` and `ink.rs` routed it through
     /// the seam — because a component could not name `Rect` and needed a method on the crate's own
@@ -775,12 +775,12 @@ mod tests {
     /// `Style` is `vitui_engine::Style` and this crate cannot name it at all (C6), so the
     /// half that bites is the other one: a helper that reaches a repertoire is a helper that has
     /// started branching on the glyph axis, which is the twenty-four repertoire-qualified
-    /// occurrences across four component crates that ADR 0032 exists because of — the literal is
+    /// occurrences across four component crates that the degradation rule exists because of — the literal is
     /// not written here, because `inventory::tests::no_component_source_names_the_repertoire` scans
     /// this file too and a scan its own documentation satisfies is a scan that always fails. Both
     /// needles are scanned anyway,
     /// because *the compiler already stops it* is exactly the argument that was made about the
-    /// wildcard dependency versions right up to the thirteen `error[wildcard]` in §19.
+    /// wildcard dependency versions right up to the thirteen `error[wildcard]` a check reports.
     ///
     /// `frame.rs` is scanned whole, which is stricter than the criterion asks: `block` lives beside
     /// `face_paint` and neither may spell one.

@@ -6,15 +6,15 @@
 //!
 //! # All seven run, and why that does not make the vacuity refusal a spare part
 //!
-//! **O1 is green since components ticket 36, O3 since 37, O4 since 38, O2 — both halves — since 39,
-//! O6 since 44, O7 — both halves — since 45, and O5 since production 07**, which is all nine
-//! queries. O5 was last on purpose: it is the one §17 says is worth more than the other four
+//! **All nine queries are green**, and O5 turned last, which is all nine
+//!
+//! queries. O5 was last on purpose: it is the one worth more than the other four
 //! together, its evidence is thirty-four `(component, axis)` pairs, and production tickets 05 to 09
 //! took the fourteen of them that had no scene. **A query over an obligation nobody has met yet is
 //! the exact shape that returns green by accident**, and three of them had it:
 //!
 //! - *every panel in the gallery is in the freeze* over an empty gallery is **vacuously true** —
-//!   which is what [`PANELS`] read until ticket 39, and the reason the query is written over the
+//!   which is what [`PANELS`] read for a while, and the reason the query is written over the
 //!   panel list rather than over the freeze;
 //! - *every component has at least one scene per declared axis* over an empty scene list, written
 //!   as a loop over scenes rather than over components, is **vacuously true**;
@@ -25,7 +25,7 @@
 //!
 //! **O7's population is read out of the source rather than off a column**, and that is the one place
 //! the seven differ about what *the freeze says* means: [`o1`] and [`o3`] trust `built`, and
-//! components ticket 33 found that column reading `built: true` for `slider` through two tickets
+//! that column read `built: true` for `slider` for a while
 //! with no `slider` anywhere in the crate. [`crate::consumer::declared`] opens each row's home
 //! module instead.
 //!
@@ -36,7 +36,7 @@
 //! **ordered list** rather than as a subset — a row that leaves the population is a failing test in
 //! `crate::volume` before it is a smaller `over` here.
 //!
-//! Three of the seven have that shape, and §21 has already been bitten by the neighbouring version
+//! Three of the seven have that shape, and the neighbouring version has already bitten
 //! of it twice: the gallery's theme-swap gate asserted `changed > 0` — *the theme changed and not
 //! one cell moved* — and **one cell of 4 800 satisfies it** while 3 583 carried the old palette;
 //! every prototype reported `allocs / n` with n between 40 and 200, so **a frame allocating on n−1
@@ -54,7 +54,7 @@
 //! `tests::all_nine_obligation_queries_are_met_and_o5_was_the_last_to_turn` writes the number down,
 //! so each one that turns is a deliberate edit here rather than a silent change of colour. **All
 //! seven have turned and each cost that edit** — and this sentence itself said *five* while six
-//! were green, which is the defect production 10 was opened for, met inside the file it was opened
+//! were green, which is the defect a later pass was opened for, met inside the file it was opened
 //! about. What changes when one turns is the arm it is watched failing on: a `Met` verdict cannot
 //! be watched panicking, so the `#[should_panic]` moves from
 //! *The evidence is empty* to *the evidence is one row wrong*, and for O2 and O7 that is one arm
@@ -67,7 +67,7 @@
 //!
 //! Every query takes what it is checking against as a slice, and this crate shipped each of those
 //! slices **empty with the ticket that fills it named**. That is what keeps the queries pure functions
-//! over the freeze: ticket 39 built the gallery, [`PANELS`] stopped being empty, and `o2` started
+//! over the freeze: the gallery was built, [`PANELS`] stopped being empty, and `o2` started
 //! answering a real question **with no change to either query**.
 //!
 //! **[`DOC_TESTED`] was the first one to be filled, and filling it needed a second value beside
@@ -164,7 +164,7 @@ impl Verdict {
 
 /// The ids that carry a rustdoc page with a **compiled** example. O1's evidence.
 ///
-/// **Twenty-eight of twenty-nine, and filled by components ticket 36.** Every built row of the
+/// **Twenty-eight of twenty-nine.** Every built row of the
 /// freeze carries a doctest that calls it from outside the crate — which is C01's actual question —
 /// beside the `**Hostile axes:**` line its page owes and the `#![deny(missing_docs)]` the crate
 /// compiles under. The twenty-ninth is `spinner`; see [`o1`].
@@ -211,7 +211,7 @@ pub const DOC_TESTED: &[&str] = &[
 
 /// The ids the gallery binary shows a panel for. O2's evidence.
 ///
-/// **Twenty-eight, filled by components ticket 39.** The gallery is a gate rather than a demo:
+/// **Twenty-eight.** The gallery is a gate rather than a demo:
 /// every defect on the map that survived every gate then in force was invisible on the
 /// screen of the ticket that owned the mechanism and visible on the screen where the components
 /// meet.
@@ -302,7 +302,7 @@ pub const GOLDENS: &[(&str, u8)] = &[
 
 /// The ids whose keyboard contract is **documented** and rendered as help. O4's first half.
 ///
-/// Thirteen, and components ticket 38 filled it. Written out for [`AXIS_SCENES`]'s reason: a
+/// Thirteen. Written out for [`AXIS_SCENES`]'s reason: a
 /// `const fn` over [`crate::contract::CONTRACTS`] would make the population and the evidence one
 /// expression. What holds it honest is `crate::contract::tests::the_written_lists_and_the_sweep_agree`.
 ///
@@ -355,42 +355,40 @@ pub const KEYBOARD_REGISTERED: &[&str] = &[
 
 /// The scenes that exist, as `(component, axis)` pairs. O5's evidence.
 ///
-/// **Twenty-five of thirty-four.** Ticket 04 put twelve here off the rows, ticket 09
-/// added two, ticket 20 added one, components 32 added three, production 05 added `field`'s last
-/// three and production 06 `table`'s last two, and neither components ticket 10 nor components
-/// ticket 11 moved it at all.
+/// **Twenty-five of thirty-four**, filled in over many passes: twelve off the rows to begin with,
+/// then two, then one, then three, then `field`'s last three and `table`'s last two.
 ///
 /// **The three are the first entries here that no components ticket could have added**,
-/// and the distinction is worth keeping beside the original's and the below. Ticket 10's
+/// and the distinction is worth keeping beside the others. One was
 /// finding was *a component is not a scene*; the original's was *a standing is not a pair*; ticket
-/// 20's was *a pair §21 had no way to state*. This one is none of those: §21 states one `field`
+/// another was *a pair there was no way to state*. This one is neither: there is one `field`
 /// row, the freeze declares four axes for the component, and the other three were expressible from
 /// the day the freeze was written. Nothing had scheduled them — which is the gap
-/// `.scratch/vitui-production/` exists to close, and the reason an assertion that is accurate about
+/// the production backlog exists to close, and the reason an assertion that is accurate about
 /// the present is not a plan.
 ///
-/// **The original's is the pair §21 could not state**, and it is worth separating from the two below it
-/// for the same reason they are separated from each other. §21 carries the wheel as one row over one
+/// **The first is the pair that could not be stated**, and it is worth separating from the two below
+/// it for the same reason they are separated from each other. The wheel is one row over one
 /// component, which is exactly what was writable while the click was an arithmetic substitution — a
 /// delta added to an offset has no second axis to be wrong on. `scroll_area` has declared
-/// `owns_offset` since ticket 01 and had no scene claiming the axis; scene 33 is that scene, and
+/// `owns_offset` from the start and had no scene claiming the axis; one exists now, and
 /// what it decided is a pair rather than a number: a body dead downward is alive sideways.
 ///
-/// **Ticket 11 built five scenes for `collection` and added no pair either, for a reason worth
-/// separating from ticket 10's.** The original's was *a component is not a scene*; this one is *a
+/// **Five scenes were built for `collection` and added no pair either, for a reason worth
+/// separating from the last.** That one was *a component is not a scene*; this one is *a
 /// standing is not a pair*. The three pairs `collection` declares — scrolled, shrunk, wheeled — were
-/// already claimed here by ticket 04, off the **scene** rows 4, 5 and 6. What ticket 11 changed is that
+/// already claimed here, off three **scene** rows. What changed is that
 /// those three scenes stopped being `Unsubjected` and became `Red` with an exact failing set, and
 /// [`axis_scenes_of`](crate::scenes::axis_scenes_of) does not read `standing` at all: its one filter
 /// is `owed`, because the `(owed)` marks a scene *whose number was never measured*, and a red
 /// scene's numbers are measured. The fifth scene, the narrow collection, deliberately claims **no**
 /// pair — `INVENTORY` sets `narrow: false` on `collection` because a row truncates through
-/// `text::fit`, which is `text`'s flag, and scene 28 already carries `(text, narrow)`. A pair here
+/// `text::fit`, which is `text`'s flag, and a scene already carries `(text, narrow)`. A pair here
 /// for an axis the freeze does not set is evidence for nothing and would inflate the count silently.
 ///
-/// Ticket 10 built four components and added no pair, which is not an oversight and is worth the
+/// Four components were built and added no pair, which is not an oversight and is worth the
 /// sentence: `panel` and `button` declare **no** hostile axis at all, and the axes `text` and `chip`
-/// do declare — [`Axis::Narrow`], both of them — already have scene 28, which ticket 09 wrote
+/// do declare — [`Axis::Narrow`], both of them — already have that scene, which was written
 /// *before* either component existed. **O5 is a query about axes and not about components**, which
 /// is exactly why it was written over `INVENTORY` rather than over the scene list: building a
 /// component cannot move it, and only a scene can. Each names a component **and** the mechanism of an axis it declares; the join lives on
@@ -547,7 +545,7 @@ pub const AXIS_SCENES: &[(&str, Axis)] = &[
 /// **The ids whose data-volume cost has been measured and answers both of O6's bounds.** O6's
 /// evidence.
 ///
-/// Seven, and components ticket 44 filled it. Written out for [`DOC_TESTED`]'s reason: a `const fn`
+/// Seven. Written out for [`DOC_TESTED`]'s reason: a `const fn`
 /// over [`crate::volume::COVERED`] would make the population and the evidence one expression, and
 /// an equality between two things derived from each other holds. What holds it honest is
 /// [`crate::volume::met`], which **runs the shipped component** at ten thousand, a hundred thousand
@@ -573,11 +571,11 @@ pub const VOLUME_MEASURED: &[&str] = &[
 ///
 /// # The population is `built`, and that is a finding rather than a convenience
 ///
-/// §17 states O2's second equality as *everything **`built`** must have a panel* and states O1's
+/// The second equality is *everything **`built`** must have a panel*, and the first states
 /// count with no population at all — *components with 0 doc-tests == 0* — so the reading is owed
 /// rather than given. **It is the same population, for the same reason.** `spinner` is the one row
 /// of the twenty-nine that no ticket has built: its mechanism is *a component that owns a clock*,
-/// it is still §22's, and it is the original's to prototype. A doc page for a function that
+/// it is still out of scope, and somebody else's to prototype. A doc page for a function that
 /// does not exist is not a page anybody can write, and asking for one puts a permanent row in the
 /// failing set that **no ticket on this backlog can invert** — which turns a query that is
 /// measuring something into a query that always reads red and is therefore never read.
@@ -642,7 +640,7 @@ pub fn o2_everything_built_has_a_panel(panels: &[&str]) -> Verdict {
 ///
 /// # The population is `built`, and it is [`o1`]'s finding a second time
 ///
-/// §17 states O2's second equality over `built` and states O3's count over nothing at all, so the
+/// The second equality is over `built` and the count is over nothing at all, so the
 /// reading was owed here as it was there. **A golden for a function that does not exist is not a
 /// screen anybody can draw**: `spinner` is the one unbuilt row of the freeze — *a component that
 /// owns a clock*, which is components 42's prototype and no ticket on this backlog ships — so
@@ -679,7 +677,7 @@ pub fn o3(goldens: &[(&str, u8)]) -> Verdict {
 
 /// **O4 — the declared keyboard contract, rendered as help.**
 ///
-/// An equality: documented == registered. §21 adds the two checks that keep it honest — the
+/// An equality: documented == registered, with two checks that keep it honest — the
 /// walkthrough (*the walk repeats no id, and reaches every stop unless a trap is standing*) and *a
 /// chord pressed into every focusable types nothing* — and both need a form to run over.
 ///
@@ -796,7 +794,7 @@ pub fn o6(measured: &[&str]) -> Verdict {
 
 /// **The ids at least one application in `crates/vitui-apps/examples/` exercises.** O7's evidence.
 ///
-/// Twenty-eight, and components ticket 45 filled it. Written out for [`DOC_TESTED`]'s reason: a
+/// Twenty-eight. Written out for [`DOC_TESTED`]'s reason: a
 /// `const fn` over [`crate::consumer::applied`] would make the population and the evidence one
 /// expression, and an equality between two things derived from each other holds. What holds it
 /// honest is [`crate::consumer::coverage`], which opens every application in the directory and
@@ -874,7 +872,7 @@ pub fn o7_nothing_exercised_is_absent_from_the_freeze(applied: &[&str]) -> Verdi
 ///
 /// [`o1`] and [`o3`] are over `built`, because a page or a screen for a function that does not exist
 /// is not a thing anybody can write, and the reading is the same one here — with the column
-/// replaced by the source it claims. **`built` is a claim**: components ticket 33 found `slider`'s
+/// replaced by the source it claims. **`built` is a claim**: `slider`'s
 /// row reading `built: true` for two tickets with no `slider` anywhere in the crate, and the two
 /// joins that look as though they should have caught it were each blind for a stated reason. So the
 /// population arrives as a slice from [`crate::consumer::declared`], which opens each row's home
@@ -946,7 +944,7 @@ mod tests {
     }
 
     /// **The subjects a posted wheel notch is played over are counted here and nowhere else.**
-    /// Register row 129, and the second half of criterion 6.
+    /// The second half of criterion 6.
     ///
     /// `crate::wheel` asserts the freeze *declares* the axis for both subjects it plays over; this
     /// asserts the other direction, which is the one that can go quietly wrong: **O5 holds a pair
@@ -967,15 +965,15 @@ mod tests {
     /// family over: a tree's notch has a collection's cadence exactly, because `tree` hands its
     /// rectangle to `collection_shaped`. So the join below is still over three sources and
     /// [`crate::wheel::Subject::ALL`] is at **five**. **The rule is: a new cadence is a new source
-    /// and a new subject of an existing cadence is not** — the two screens production 09 adds post
+    /// and a new subject of an existing cadence is not** — the two screens that post
     /// no notch at all, and neither does the narrow one.
     ///
-    /// # The population is two gates' subject lists, not one, since production 05
+    /// # The population is two gates' subject lists, not one
     ///
-    /// This read `Subject::ALL` alone for twenty-six tickets, and production 05 minted a wheel
-    /// scene in a **second** file — [`crate::window`]'s scene 36, twenty posted notches over a
+    /// This read `Subject::ALL` alone for a long time, and then a wheel
+    /// scene arrived in a **second** file — [`crate::window`]'s, twenty posted notches over a
     /// `field`, whose notch path is the component consuming `Response::scrolled` itself rather than
-    /// `crate::wheel`'s two-subject drive loop. Production 08 minted a **third**:
+    /// `crate::wheel`'s two-subject drive loop. A **third** followed:
     /// [`crate::dropped`]'s scenes 40 and 42, over the two overlay owners, whose cadence is two
     /// opening frames rather than one because a layer's entries are only in the hit index a notch is
     /// resolved against once the layer has been placed. So the population is
@@ -990,13 +988,13 @@ mod tests {
     /// subject, and a body inside a layer are three cadences and no one loop has all three.
     ///
     /// # The equality is over **sorted** lists, and it stopped being over ordered ones in
-    /// production 06
+    /// a later pass
     ///
     /// The two sides carry two different orders and neither is wrong. [`AXIS_SCENES`] is **scene
     /// order** — that is what [`crate::scenes::axis_scenes`] derives and what the ordered
     /// comparison one module over is written on — and `Subject::ALL` is the order the drive loop
     /// enumerates its subjects in. They coincided while the wheel gate's subjects happened to be
-    /// the first wheel scenes written; production 06 added `table` to a gate whose subjects predate
+    /// the first wheel scenes written; `table` was added to a gate whose subjects predate
     /// `field`'s scene and whose scenes follow it, and the two orders parted.
     ///
     /// **What this test is about is a population and not an order**, so sorting both sides is the
@@ -1048,17 +1046,17 @@ mod tests {
     /// deliberate edit too. There is no longer a query that names the ticket which inverts it,
     /// which is what this test existed to make impossible to reach quietly.
     ///
-    /// **O1 was the first**, and components ticket 36 was the deliberate edit this test was written
+    /// **O1 was the first**, and the deliberate edit this test was written
     /// to force: it stood at zero for thirty-five tickets, twenty-five of which shipped a component
     /// entitled to add a row to [`DOC_TESTED`] and none of which did. **O3 is the second**, and
-    /// components ticket 37 is its edit — thirty-three screens over the twenty-eight built rows,
+    /// its edit is the golden screens — thirty-three over the twenty-eight built rows,
     /// with the equalities in `crates/vitui-components/tests/golden.rs`. **O4 is the third**, and
-    /// components ticket 38 is its edit — thirteen contracts, and the equality that matters is one
+    /// its edit is the keyboard contracts — thirteen of them, and the equality that matters is one
     /// level down in `crate::contract`, chord for chord against a sweep that runs the component.
-    /// **O2 is the fourth, in both halves at once**, and components ticket 39 is its edit — the
+    /// **O2 is the fourth, in both halves at once**, and its edit is the gallery — the
     /// twenty-eight panels of `crate::gallery`, whose table the application iterates and whose ids
     /// [`crate::gallery::panel_ids`] derives so that the two lists are two sources rather than one
-    /// read twice. **O6 is the fifth**, and components ticket 44 is its edit — seven rows that take
+    /// read twice. **O6 is the fifth**, and its edit is the volume screens — seven rows that take
     /// a data volume, each measured at a million inputs by an instrument that runs the shipped
     /// component and counts its steps. **O5 was the last and it is the one worth more than the
     /// other four together** — production tickets 05 to 09 took the fourteen `(component, axis)`
@@ -1334,7 +1332,7 @@ mod tests {
 
     /// **The five, each watched failing.** A gate nobody has watched fail is not a gate.
     ///
-    /// §21 records that three for three: engine ticket 13 left a `cargo test --workspace` step that
+    /// That is three for three: a `cargo test --workspace` step once
     /// had never passed, R15 found a `clippy` step that had never passed under its own
     /// `-D warnings`, and C11 found a `cargo deny` job that had never passed at all. The
     /// corresponding mistake for a query is a `Verdict` nobody ever asserts on, which reads as a
@@ -1497,7 +1495,7 @@ mod tests {
     /// **A met verdict does not panic**, which is the other direction of `assert_met` and the
     /// reason the nine `should_panic` tests above are evidence rather than decoration. **This line
     /// said seven while nine arms stood above it** — one per query, since O2 and O7 are watched in
-    /// both directions — and production 10 corrected it: the same stale count, in the same file,
+    /// both directions — and it was corrected: the same stale count, in the same file,
     /// as the header two hundred lines up that it was opened to fix.
     #[test]
     fn a_met_obligation_is_silent() {

@@ -1,6 +1,6 @@
 //! **The picture screen: a full-screen picture at three colour depths, and the two gated traps.**
 //!
-//! Components ticket 29. Spec §14, §21. This is the screen the media family's scene is a scene
+//! This is the screen the media family's scene is a scene
 //! *of*, and it takes the shape every other one on this map has — [`crate::dense`],
 //! [`crate::listing`], [`crate::grid`], [`crate::forest`], [`crate::area`], [`crate::accordion`],
 //! [`crate::document`], [`crate::clusters`], [`crate::popup`], [`crate::series`] and
@@ -49,7 +49,7 @@
 //! therefore price it at the whole screen. The byte half says **11 731 bytes — 1.25% of a full
 //! repaint** — because the engine's scroll pre-pass prices the rows the shift exposed, and 11 731
 //! is one row's own 11 715 plus sixteen bytes of scroll sequence. Both halves are needed and the
-//! byte half is the one that was unreadable until runtime architecture issue 34.
+//! byte half is the one that was unreadable until the runtime re-exported the engine's config.
 //!
 //! **A QR module must be square and a cell is not.** [`Modules`] is the matrix and
 //! [`readback`] is the readback: the drawn cells are decoded back into modules through the four
@@ -60,7 +60,7 @@
 //! # What the screen could not ask, and both answers came back as verbs
 //!
 //! This is the section that used to say *filed rather than worked around*, and it is kept in that
-//! shape because the sequence is the finding. Runtime architecture issue 34 answered both halves.
+//! shape because the sequence is the finding. Both halves are answered now.
 //!
 //! **Two of this ticket's measurements are bytes on the wire, and no crate above the engine could
 //! read a byte the engine wrote.** [`vitui_runtime::Config`] was reachable and `Clock`, `Output`,
@@ -71,7 +71,7 @@
 //! re-exported; [`bytes_over`] and [`bytes_by_shift`] are what that bought, and both halves of the
 //! door mattered — the sink for the bytes, the `Overrides` for the tier they are a tier's bytes of.
 //!
-//! **One measurement is a quantiser, and the route to it was a contrivance that worked.** §14 asks
+//! **One measurement is a quantiser, and the route to it was a contrivance that worked.** The design asks
 //! how many of a picture's horizontal distinctions survive at sixteen colours;
 //! [`vitui_runtime::Theme::custom`] said in as many words that the component calling it *owes a
 //! branch on the terminal's own capabilities* and gave it no verb to ask with —
@@ -349,8 +349,8 @@ fn picture_opts(build: Build) -> PictureOpts {
 ///
 /// # The screen is a dispatch and no longer a painter
 ///
-/// Components ticket 29 wrote the loop here because `crate::media` carried no `pub fn picture(`;
-/// ticket 30 declared it, so [`Build`]'s three defect axes become **which entry point the screen
+/// The loop was written here because `crate::media` carried no `pub fn picture(`; it was declared
+/// later, so [`Build`]'s three defect axes become **which entry point the screen
 /// calls**. [`Pairing::Inverted`] and [`Ladder::Braille`] are `crate::media::defective`'s arms —
 /// the shipped body with one argument changed — and every figure this file measures is therefore a
 /// measurement of the component.
@@ -562,7 +562,7 @@ fn driver_for(build: Build) -> Driver {
 
 /// **A driver whose bytes land somewhere this crate can read, at the build's own tier.**
 ///
-/// Runtime architecture issue 34, part 2. Until it resolved, `Driver::headless` was the only
+/// Until the runtime re-exported the engine's config, `Driver::headless` was the only
 /// headless door above the engine: its sink is a `Vec` moved into the engine and never returned, and
 /// its tier is hard-coded to truecolor. Both halves mattered here — a byte count needs the sink and
 /// a byte count *per tier* needs the override — and neither `Output`, `Clock`, `Overrides`,
@@ -603,7 +603,7 @@ fn tapped_driver_for(build: Build) -> (Driver, Tap) {
 /// `Send` because `Output::Sink` asks for it — on a real clock the box crosses to the render thread
 /// — and shared through an `Arc<Mutex<..>>` because *the engine owns the writer* is the invariant
 /// that made this measurement unreachable in the first place. There is no `unsafe` here and none is
-/// available: ADR 0034 is workspace-wide.
+/// available: no `unsafe` in any shipped crate, workspace-wide.
 struct Tap(Arc<Mutex<Vec<u8>>>);
 
 impl Tap {
@@ -659,7 +659,7 @@ pub fn bytes_over(build: Build, frames: u32) -> Vec<u64> {
 
 /// **Bytes a translation by `rows` whole cell rows costs, on an already-painted screen.**
 ///
-/// The byte half of [`cells_changed_by_shift`], and the trap §14 asks to be gated: a whole-row
+/// The byte half of [`cells_changed_by_shift`], and the trap that has to be gated: a whole-row
 /// translation changes **every** cell, so a repaint that priced it by the cell would price it at the
 /// whole screen. The number is what the engine's serializer actually emits, which is the
 /// comfortable-number check the cell count cannot perform.
@@ -856,7 +856,7 @@ pub fn cost(build: Build, frames: u32) -> Duration {
 ///
 /// **It is now the runtime's own verb, and it was a contrivance for one ticket.**
 /// `Theme::colours_differ_on_wire` is `roles_differ_on_wire` asked of two colours instead of two
-/// roles — runtime architecture issue 34, which this screen filed and which named this function as
+/// roles — a question this screen filed, and which named this function as
 /// the friction. What it replaced authored a whole thirteen-role theme per colour pair, which is
 /// why [`Distinctions`] memoises.
 ///
@@ -885,7 +885,7 @@ pub fn cost(build: Build, frames: u32) -> Duration {
 /// `base08` and `base0A` **verbatim** onto [`Role::Danger`](vitui_runtime::Role::Danger) and [`Role::Warn`](vitui_runtime::Role::Warn), both over the page
 /// and both with no attributes, so a theme authored with two arbitrary colours in those two slots
 /// answered this question through the shipped quantiser. It worked, and *that it worked* is why
-/// components register row 158 is `Evaluated` rather than `Unreachable` — the discipline that
+/// its register row is `Evaluated` rather than `Unreachable` — the discipline that
 /// catches a wrong `Unreachable` is trying it. The friction was filed instead, and the answer came
 /// back as a verb.
 ///
@@ -1027,7 +1027,7 @@ pub const SUBJECTS: [&str; 2] = ["picture", "qr"];
 /// Where [`SUBJECTS`] belong, as `(module file, the declaration)`.
 ///
 /// The home is [`crate::Family::F11Media`]'s, whose module is `media.rs`. A component is
-/// `fn(&mut Ctx, Rect, …) -> Response` (spec §1, rule 1), so the thing to look for is a public
+/// `fn(&mut Ctx, Rect, …) -> Response`, so the thing to look for is a public
 /// function of the component's own name in its own family's module.
 ///
 /// # The picture's needle is generic, and a needle that was not could never have matched
@@ -1106,7 +1106,7 @@ pub fn owed_message(declared: &[&str], scene: &str) -> Option<String> {
 ///
 /// # Panics
 ///
-/// Panics while [`SUBJECTS`] are undeclared, which is **today**. Components ticket 30 inverts it.
+/// Panics while [`SUBJECTS`] are undeclared, which is **today**.
 pub fn assert_stands_up(scene: &str) {
     if let Some(message) = owed_message(&subjects_declared(), scene) {
         panic!("{message}");
@@ -1228,14 +1228,14 @@ pub const QR_MODULE_COUNT: u32 = (QR_SIDE as u32) * (QR_SIDE as u32);
 /// **The horizontal distinctions a photograph keeps at truecolor, 256, 16 and none**, of
 /// [`HORIZONTAL_PAIRS`].
 ///
-/// §14 states **50.7% gone at sixteen colours** and this screen's photograph loses **35.84%**. The
+/// The recorded figure is **50.7% gone at sixteen colours** and this screen's photograph loses **35.84%**. The
 /// magnitude is the source's and the shape is not: see [`DISTINCTIONS_GRADIENT`], which loses
 /// **99.27%** of the same adjacencies at the same rung.
 pub const DISTINCTIONS: [u64; 4] = [23_920, 23_899, 15_347, 0];
 
 /// **The same four for a gradient. 20 400, 473, 174, 0.**
 ///
-/// The finding §14 has no row for: on the *distinction* axis the source decides a great deal.
+/// The finding there is no row for: on the *distinction* axis the source decides a great deal.
 /// Adjacent samples of noise are far apart in colour space and survive a quantiser; adjacent
 /// samples of a ramp are one step apart and do not. **35.84% against 99.27% at sixteen colours** —
 /// 2.8x — where the B/cell claim is that the source moves the wire by 9%.
@@ -1244,7 +1244,7 @@ pub const DISTINCTIONS_GRADIENT: [u64; 4] = [20_400, 473, 174, 0];
 /// **Bytes the engine writes for this screen's first four frames, at truecolor.**
 /// `[937 233, 0, 0, 0]`.
 ///
-/// Runtime architecture issue 34 is what made this readable at all: `Driver::headless` moves its
+/// The re-exported config is what made this readable at all: `Driver::headless` moves its
 /// `Vec` into the engine and never returns it, so until `Output`, `Clock` and `Overrides` reached
 /// `vitui_runtime::line::ENGINE_NAMES` no crate above the engine could read a byte the engine wrote.
 ///
@@ -1254,7 +1254,7 @@ pub const DISTINCTIONS_GRADIENT: [u64; 4] = [20_400, 473, 174, 0];
 /// encoding is the shape — *a still picture costs its screen once and then nothing* — and that is
 /// what [`WIRE_STEADY_FRAMES`] asserts.
 ///
-/// §14 prices the same screen at **900 134 and then 0, 0, 0**. The zeros reproduce exactly; the
+/// The same screen was priced at **900 134 and then 0, 0, 0**. The zeros reproduce exactly; the
 /// total is 4.1% larger, which is a prototype's photograph and not a defect.
 pub const WIRE_FRAMES: [u64; 4] = [937_233, 0, 0, 0];
 
@@ -1268,7 +1268,7 @@ pub const WIRE_STEADY_FRAMES: usize = 3;
 
 /// **Bytes a cell costs on the wire at truecolor. 39.05.**
 ///
-/// [`WIRE_FRAMES`]`[0] / `[`CELLS`]. §14 says **37.5**, and it is the same measurement on a
+/// [`WIRE_FRAMES`]`[0] / `[`CELLS`]. The recorded value is **37.5**, and it is the same measurement on a
 /// different photograph: reported, never gated.
 pub const WIRE_PER_CELL: f64 = 39.05;
 
@@ -1279,7 +1279,7 @@ pub const WIRE_PER_CELL: f64 = 39.05;
 /// screen. The engine's scroll pre-pass emits the region and repaints the one row the shift exposed:
 /// 11 731 bytes against a row's own 11 715, so the sixteen extra bytes are the scroll sequence.
 ///
-/// §14 says **5 885**, which cannot be reconciled with its own 37.5 B/cell — a 300-cell row at 37.5
+/// The recorded value is **5 885**, which cannot be reconciled with 37.5 B/cell — a 300-cell row at 37.5
 /// is 11 250, not 5 885. The measured pair is internally consistent and the remembered one is not; both are
 /// printed by `examples/media_numbers.rs`.
 pub const WIRE_SHIFTED: u64 = 11_731;
@@ -1294,7 +1294,7 @@ pub const WIRE_SHIFT_SHARE_CEILING: f64 = 0.02;
 /// **Bytes the first frame costs at truecolor, 256, 16 and no colour at all.**
 /// `[937 233, 520 567, 166 463, 72 168]`.
 ///
-/// The other half of what issue 34 unblocked, and the half `Driver::set_theme` could never have
+/// The other half of what the re-export unblocked, and the half `Driver::set_theme` could never have
 /// reached: seating a `Theme::resolve(tier)` narrows the **thirteen roles** and says nothing about
 /// what the engine quantises a `custom` paint into — and every cell here is `custom`. The tier is
 /// pinned on `Config::overrides` so that the bytes are the tier's.
@@ -1308,7 +1308,7 @@ pub const ASPECT_NOMINAL: [f32; 2] = [0.5, 1.0];
 
 /// **The same pair on a measured 8.0 x 16.5 cell. 0.48 and 0.97.**
 ///
-/// §14 states the pair as **0.97 against 0.50**, and no single cell aspect produces both: the two
+/// The pair is recorded as **0.97 against 0.50**, and no single cell aspect produces both: the two
 /// are one factor of two apart by construction, so `0.97` needs a cell of 0.485 and `0.50` needs
 /// one of 0.500. The pair is a nominal cell's floor beside a measured cell's ceiling. Both columns
 /// are printed rather than one being fitted to the other; **the gate is the relation**, which is
@@ -1562,8 +1562,8 @@ mod tests {
     /// **The wire: a still picture costs its screen once and then nothing, and a whole-row
     /// translation costs a row rather than a screen.**
     ///
-    /// Components register row 161, and the gate that could not be written from this crate at all
-    /// until runtime architecture issue 34 re-exported `Clock`, `Output`, `Overrides`,
+    /// The gate that could not be written from this crate at all until the runtime re-exported
+    /// `Clock`, `Output`, `Overrides`,
     /// `WidthSource` and `InputConfig`. Four assertions and **none of them is a byte total**: a
     /// golden byte string is refused in this workspace because the encoding is the part allowed to
     /// change, and a byte count is one step from a byte string. What is gated is what survives an
@@ -1580,7 +1580,7 @@ mod tests {
     ///    thirteen roles and every cell of this screen is outside them.
     ///
     /// The totals themselves are [`WIRE_FRAMES`], [`WIRE_SHIFTED`] and [`WIRE_BY_TIER`], and
-    /// `examples/media_numbers.rs` prints them beside §14's.
+    /// `examples/media_numbers.rs` prints them beside the recorded ones.
     #[test]
     fn a_still_picture_costs_nothing_and_a_translation_costs_a_row() {
         let correct = Build::correct();
@@ -1820,7 +1820,7 @@ mod tests {
     /// **The scene stands on its two components, and the sentence that says otherwise is still
     /// live.**
     ///
-    /// Components ticket 30 inverted this. What changed is which side of [`owed_message`] the crate
+    /// This has since inverted. What changed is which side of [`owed_message`] the crate
     /// is on, not whether the sentence exists: the message is handed an empty declaration list below
     /// and read, because *a scene that fails because it is unimplemented and a scene that fails
     /// because the code is wrong are the same failure unless the message separates them*.

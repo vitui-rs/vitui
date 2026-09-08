@@ -1,6 +1,6 @@
 //! **The cluster corpus, and the forward cluster step this crate had to reconstruct to have one.**
 //!
-//! Components ticket 23. Spec §11, §21.
+//! The cluster corpus.
 //!
 //! > Every number and every gate runs on clusters that are not one code point: a combining acute,
 //! > two marks on one base, a ZWJ family, a skin-tone modifier, `U+FE0F`, a regional-indicator pair,
@@ -36,10 +36,10 @@
 //! wrong and that test is what says so rather than a caret landing in the wrong column six months
 //! later.
 //!
-//! What this costs `field` is a real number and it belongs to components ticket 24: a step is two
+//! What this costs `field` is a real number and it belongs to the field: a step is two
 //! `truncate` calls where the engine would answer in one `Graphemes::next`, and the O(prefix)
-//! backward question §11 is about is unchanged. It is recorded here as
-//! [`crate::gates::Instrument::Barrier`] on register row 68 rather than argued, because the map is
+//! backward question is unchanged. It is recorded here as
+//! [`crate::gates::Instrument::Barrier`] rather than argued, because the map is
 //! closed and *a ticket that appears to require reopening a decision has found something, not
 //! decided something*.
 //!
@@ -60,7 +60,7 @@
 //! through the engine's tables and one does not, so the day the engine's Unicode version moves under
 //! this crate, derivation 1 is the one that disagrees and the failure names a cluster.
 //!
-//! # The count is a hundred and sixty-seven and §11 says a hundred and sixty-six
+//! # The count is a hundred and sixty-seven and the recorded figure is a hundred and sixty-six
 //!
 //! [`CYCLES`] whole turns of an eight-word rota is 167 clusters, and there is no arrangement of
 //! whole cycles that is 166. **Padding to 166 was refused**: a corpus with a hand-added cluster on
@@ -70,9 +70,9 @@
 
 use vitui_runtime::layout::text::{truncate, width};
 
-/// One of the seven kinds spec §11 names, plus the plain ASCII the wrap needs.
+/// One of the seven named kinds, plus the plain ASCII the wrap needs.
 ///
-/// **`Kind::Ascii` is an eighth arm and not a smuggled ninth kind.** §11 lists seven, and a corpus
+/// **`Kind::Ascii` is an eighth arm and not a smuggled ninth kind.** Seven are listed, and a corpus
 /// of nothing but them has no spaces in it — which would make the wrap scene next door a scene about
 /// a string with no break opportunities. It is named so a report can say how much of the corpus is
 /// the easy case.
@@ -123,7 +123,7 @@ impl Kind {
         }
     }
 
-    /// Whether §11 names this kind. **Seven of the eight.** See [`Kind::Ascii`].
+    /// Whether this kind is one of the named ones. **Seven of the eight.** See [`Kind::Ascii`].
     pub fn named_by_spec(self) -> bool {
         self != Kind::Ascii
     }
@@ -289,7 +289,7 @@ impl Corpus {
         &self.columns
     }
 
-    /// How many clusters. **167**, and §11 remembers 166 — see this module's header.
+    /// How many clusters. **167**, where 166 was recorded — see this module's header.
     pub fn len(&self) -> usize {
         self.clusters.len()
     }
@@ -308,7 +308,7 @@ impl Corpus {
     /// **How many of those steps land inside a cluster**, which is [`Corpus::chars`] minus
     /// [`Corpus::len`].
     ///
-    /// §11 states it as a third figure — *51 of 217*, beside *166* — and it is not a third
+    /// It was recorded as a third figure — *51 of 217*, beside *166* — and it is not a third
     /// measurement: a cluster of `k` code points is crossed in `k` char steps, `k − 1` of which land
     /// inside it, so `inside == chars − clusters` for **any** string at all. The relation reproduces
     /// exactly; the magnitudes are this corpus's and are reported as such.
@@ -470,7 +470,7 @@ pub fn boundaries_by_truncate(s: &str) -> Vec<usize> {
 mod tests {
     use super::*;
 
-    /// **Every kind §11 names is in the corpus, and none of them is there once by accident.**
+    /// **Every named kind is in the corpus, and none of them is there once by accident.**
     ///
     /// The ticket's own sentence is *the corpus is not optional and is not sampled*, and this is the
     /// form that survives a later ticket deciding one kind is inconvenient.

@@ -8,7 +8,7 @@
 //! draws through a wrapper, so `fit` and `block` cannot take a `Tally`.
 //!
 //! The alternative that was not taken is a second implementation of `fit` and `block` written
-//! against `Tally` for the gate to run over. That is the shape §21 spent three refinements on:
+//! against `Tally` for the gate to run over. That is the shape three refinements went into:
 //! **a gate written against a copy of the code tests the copy.** Twelve prototypes each computed
 //! the counters their own way inside their own binary, and `crate::counters` exists because of it.
 //!
@@ -71,9 +71,9 @@ impl fmt::Display for Repeat<'_> {
 ///
 /// It carried two methods while `fit` and `block` were the only helpers, and its own note said *a
 /// third would be a place for a helper to write something the gate cannot see*. [`Ink::award`] is
-/// the exception that note predicts rather than a breach of it: components ticket 07's
+/// the exception that note predicts rather than a breach of it: the
 /// [`crate::state::press`] declares a **deferred hover award**, the runtime applies it as a
-/// background restyle at `end`, and ADR 0026 prices the whole helper on a relation between that
+/// background restyle at `end`, and the whole helper is priced on a relation between that
 /// restyle and the widget's next draw — *a restyle is free only when the component's own next draw
 /// already produces the value the restyle produced*. An award the instrument cannot see is exactly
 /// the write the gate is about, so it goes through the seam with the two that draw.
@@ -104,7 +104,7 @@ pub trait Ink {
     /// happen to be**: `run` returns without a verb at a count of zero, so a row that exactly fills
     /// its width costs one verb and a row that does not costs two.
     ///
-    /// Components ticket 23 found that with a number, on the memo-key defect: a stale index's rows
+    /// That was found with a number, on the memo-key defect: a stale index's rows
     /// are *the whole line truncated*, so they fill exactly, and `verbs` reports the defective
     /// build as **cheaper** — a counter separating two arms in the direction that approves the
     /// defect. Its own screen fixed it by writing one padded verb a row, and this is that verb, so
@@ -293,7 +293,7 @@ impl Ink for Pen {
     /// `EngineName { name: "Mouse", reachable_as: None }` in `crates/vitui-runtime/src/line.rs`,
     /// and `Driver::plant` reaches the grab, the focus and the click and not the pointer.
     ///
-    /// **Runtime architecture issue 22 lifted it.** The stand-in is kept — this instrument models
+    /// **That is lifted.** The stand-in is kept — this instrument models
     /// the runtime's restyle and does not need a gesture to do it — but it is a choice now rather
     /// than the only arrangement available.
     fn award(&mut self, cx: &mut Ctx<'_, '_>, cells: Rect, resp: &Response, role: Role) {

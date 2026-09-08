@@ -3705,7 +3705,7 @@ mod field_tests {
     /// **Criterion 10: one hit entry for the widget, and the per-cluster spelling is the negative
     /// case.**
     ///
-    /// §11: *a text widget declares 79 regions against 621 for one per visible cluster*. Both arms
+    /// *A text widget declares 79 regions against 621 for one per visible cluster.* Both arms
     /// draw **exactly the same cells** — the per-cluster arm declares and paints nothing extra —
     /// so the count is the gate and no reader of the surface can see the difference.
     #[test]

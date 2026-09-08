@@ -43,7 +43,7 @@
 //!   [`crate::counters::sentinel`] exists because *what was already there is almost always right*.
 //!   Rendering it as a space would make a golden agree with itself about the cells the shrink axis
 //!   is about.
-//! - **The style plane names a [`Role`], because that is all a component ever said.** ADR 0018: a
+//! - **The style plane names a [`Role`], because that is all a component ever said.** A
 //!   component names a role and never a colour, and a [`vitui_runtime::Paint`] is opaque here. So
 //!   the legend resolves each paint against the theme's thirteen roles and prints the name; a paint
 //!   that is none of them came from `Theme::custom` or `Theme::mix` and prints as such. That is
@@ -355,7 +355,7 @@ fn describe_cluster(cluster: &str) -> String {
 
 /// **How a paint reads in the legend: the role a component asked for.**
 ///
-/// ADR 0018 is why this is a search and not a field read — a component names a role and never a
+/// This is a search and not a field read because a component names a role and never a
 /// colour, and a `Paint` is opaque here — and it is also why the answer is the *useful* one. A paint
 /// that is none of the thirteen came from `Theme::custom` or `Theme::mix`, which is the stated
 /// exception for a picture and one for a chart's palette, and it says so rather than guessing.
@@ -463,7 +463,7 @@ fn blessing() -> bool {
 /// The engine's report is *the first line that differs*, which is right for a 300x80 screen where
 /// printing both copies would bury the one character that moved — and it is the whole of what a
 /// reviewer gets. It cannot tell a one-cell defect from a whole-screen one, and this crate's own
-/// [`crate::runner::Diff`] has said `n cells over m rows` since ticket 04 because *6 662 cells over
+/// [`crate::runner::Diff`] has always said `n cells over m rows` because *6 662 cells over
 /// 80 rows is a whole screen wrong and 6 662 over 9 is a band*. So a failing golden reports both.
 ///
 /// **A cell counts once**, however many of the two planes disagree about it: the planes are two

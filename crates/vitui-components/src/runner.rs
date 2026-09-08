@@ -8,9 +8,9 @@
 //! faster marking 226x less**, and twenty wheel clicks moved the offset **0 against 16**. No counter
 //! in the stack disapproved of any of them. An equality did.
 //!
-//! # The reference arm is not engine ticket 04's, and that is a result rather than a shortcut
+//! # The reference arm is not the engine's own, and that is a result rather than a shortcut
 //!
-//! `.scratch/vitui-components-impl/issues/04` says *the second implementation is engine 04's, not a
+//! It was written as *the second implementation is the engine's, not a
 //! new one* and asks this ticket to name what the engine's compositor cannot reach. The answer is
 //! **all of it**, and there are three independent barriers, any one of which is sufficient:
 //!
@@ -31,7 +31,7 @@
 //! reference *for* changes with it. There is a fourth barrier standing behind the first three that
 //! would survive removing all of them:
 //!
-//! 4. **Nothing reads a cell.** ADR 0023 — *the cell is never visible in the public API* — is a
+//! 4. **Nothing reads a cell.** *The cell is never visible in the public API* is a
 //!    decision, and it holds against the engine's own callers as well as this crate's: no `Surface`,
 //!    `View`, `Screen` or `Presented` method returns a cell, a handle or a style bit. That is
 //!    [`crate::gates::REGISTER`]'s row 2, `Unreachable`, and **this module does not invert it**.
@@ -65,7 +65,7 @@
 //!
 //! # The four defects ship as fixtures, because a gate nobody has watched fail is not a gate
 //!
-//! [`defective`] holds one painter per axis, each writing the defect §17 names in the words §17
+//! [`defective`] holds one painter per axis, each writing the named defect in the words the freeze
 //! names it. They are the evidence that the runner works: a runner validated only against a correct
 //! painter reports `0 cells over 0 rows` for the same reason a broken one would.
 
@@ -128,7 +128,7 @@ pub struct Canvas {
     cells: Vec<Option<Cell>>,
     /// Rect whose value a verb has changed since the last [`Canvas::take_repaints`]. **Distinct
     /// cells and not events**: a chip cell that a draw changes and a restyle then changes back is
-    /// one cell the frame re-damaged, which is the unit ADR 0026 prices its five instances in.
+    /// one cell the frame re-damaged, which is the unit the five re-damage instances are priced in.
     repainted: BTreeSet<(u16, u16)>,
 }
 
@@ -189,7 +189,7 @@ impl Canvas {
     /// **Apply a deferred hover award to this surface**, as the runtime applies it: a background
     /// restyle over the rectangle, after the draw and before `present`.
     ///
-    /// `as_painted` is `theme.paint(role)` — handed in because a [`Paint`] is opaque (ADR 0018:
+    /// `as_painted` is `theme.paint(role)` — handed in because a [`Paint`] is opaque:
     /// a component names a role and never a colour) and this crate cannot ask a paint what its
     /// background is. It is what makes the model **exact in the case that matters**: a cell already
     /// carrying `theme.paint(role)` carries `role`'s background, so restyling it to `role` writes
@@ -255,7 +255,7 @@ impl Canvas {
     /// The engine's damage is a per-row **bitset** and this is deliberately the other structure:
     /// `crates/vitui-engine/src/damage.rs` measured *one span per surface row* and rejected it —
     /// 2.53x on three dialogs standing apart, 37.07x on a sub-cell chart, against 1.00x everywhere
-    /// for the bitset. The x8.4 amplification and the scene 19 are stated **under the model
+    /// for the bitset. The x8.4 amplification and the chunked scene are stated **under the model
     /// that lost**, so a scene that has to report an amplification factor needs both numbers over
     /// one frame: [`Canvas::repaints`] is what the shipped structure charges and the sum of these
     /// spans is what the other one would have.
@@ -313,7 +313,7 @@ impl Canvas {
     /// **A window onto this surface as a surface of its own**, so that a comparison can be made
     /// over part of a screen without a second comparison being written.
     ///
-    /// Production 08's, and what it is for is stated where it is used: a reserved scrollbar is a
+    /// What it is for is stated where it is used: a reserved scrollbar is a
     /// function of the **offset** ([`crate::overlay::overlay`]'s gutter over
     /// [`crate::scroll::Span`]), so a reference render cut at row `k` and drawn at offset 0
     /// cannot carry the same thumb as a subject drawn at offset `k`. A comparison including that
@@ -461,7 +461,7 @@ pub struct Pen {
 /// `Ctx::hover_style` declares an intent and `Driver::frame` applies it *after the draw and before
 /// `present`*, which is what makes it land in the same frame. A model that applied it at the
 /// declaration would have the restyle happen before the widget's own cells were written, and would
-/// then score the widget's draw as undoing it — the opposite of the relation ADR 0026 states. So an
+/// then score the widget's draw as undoing it — the opposite of the stated relation. So an
 /// award is recorded here and applied by [`Pen::end_frame`].
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub struct Award {
@@ -626,7 +626,7 @@ fn clusters(s: &str, limit: u16) -> Vec<(u16, u16, &str)> {
 /// > which is content shrinking inside a rectangle that does not move.
 ///
 /// [`Fixture::shrunk_to`] changes `rows` and leaves `w` and `h` alone; [`Fixture::resized`] changes
-/// `w` and `h`. Both exist and they are not the same gesture — the second is the spelling §21 says
+/// `w` and `h`. Both exist and they are not the same gesture — the second is the spelling that
 /// may stand beside the first and may not stand instead of it.
 ///
 /// # It is small on purpose
@@ -794,10 +794,10 @@ pub fn rows_at_a_time(pen: &mut Pen, cx: &mut Ctx<'_, '_>, fx: &Fixture) {
     }
 }
 
-/// **One painter per hostile axis, each writing the defect §17 names.**
+/// **One painter per hostile axis, each writing the named defect.**
 ///
 /// A runner validated only against a correct painter reports `0 cells over 0 rows` for the same
-/// reason a broken one would, and §21 has that finding three times over from the other direction: a
+/// reason a broken one would, and that finding turns up three times over from the other direction: a
 /// CI job nobody has watched go green is not a gate, whatever it checks. These are what the runner
 /// has been watched catching.
 ///
@@ -909,7 +909,7 @@ impl Run {
         Counters::of(&self.driver, self.pen.tally(), allocations)
     }
 
-    /// The one-line metric row §21 reports every scene in.
+    /// The one-line metric row every scene is reported in.
     pub fn row(&self, scene: &'static str, allocations: Allocations) -> MetricRow {
         MetricRow {
             scene,
@@ -1133,7 +1133,7 @@ impl SizePair {
     }
 }
 
-/// **Render a scene at two sizes and compare the content**, which is the axis §13 is red on.
+/// **Render a scene at two sizes and compare the content**, which is the axis the charts are red on.
 ///
 /// Not a cell-for-cell equality: a row drawn at 300 columns and the same row at 60 differ in every
 /// cell past column 59 and carry the same content. What is compared is [`Canvas::row_text`] at the
@@ -1182,7 +1182,7 @@ mod tests {
     /// **The two correct arms agree cell for cell**, which is what makes every disagreement below
     /// evidence about the painter rather than about the runner.
     ///
-    /// The scene 2, in its own words: *the same screen drawn naive and correct* — 0 of 24 000 cells
+    /// In its own words: *the same screen drawn naive and correct* — 0 of 24 000 cells
     /// apart. This is the same equality over a fixture small enough for a per-cell oracle.
     #[test]
     fn the_same_screen_drawn_both_ways_is_equal_cell_for_cell() {

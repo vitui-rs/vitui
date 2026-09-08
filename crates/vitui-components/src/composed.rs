@@ -68,13 +68,13 @@ impl Found {
 
 /// **The nine components Tier 2 is, and what each of them is.**
 ///
-/// Six arrived with ticket 34 and the last three — `status_bar`, `pagination` and `form` — with
+/// Six arrived together and the last three — `status_bar`, `pagination` and `form` — with
 ///A row for a component that does not exist is a row no scan can falsify, so
 /// `tests::every_built_tier_two_row_is_surveyed` counts the two sets against each other in both
-/// directions; it is what made this table grow rather than agree with itself the day ticket 35
+/// directions; it is what made this table grow rather than agree with itself the day the last three
 /// landed.
 ///
-/// **The three composites are the ones §18 warns about.** R3 is *a composition of shipped
+/// **The three composites are the ones to watch.** A composition is *shipped
 /// components with no new mechanism*, and it is **the class that requires the most care, because
 /// composition without a new mechanism is exactly the claim that turns out to be false when it is
 /// false.* So each of the three carries the mechanism it may not mint in the shape that would make
@@ -477,7 +477,7 @@ mod tests {
 
     /// **Every built Tier 2 row is surveyed, and every surveyed row is a built Tier 2 row.**
     ///
-    /// The join components ticket 33 shipped one file over, on this table instead of on the module
+    /// The join shipped one file over, on this table instead of on the module
     /// tree: a claim about six rows that silently covered five would be `crate::obligations`'s
     /// vacuity accident with a different shape.
     #[test]
@@ -512,7 +512,7 @@ mod tests {
     ///
     /// The join is possible here and nowhere else, because [`TIER_TWO`] is the one place in this
     /// crate that carries a component's own **section** of its file. It found a row that had been
-    /// under-declared since components ticket 34: `rule` goes through `crate::glyphs::elide` and
+    /// under-declared from the start: `rule` goes through `crate::glyphs::elide` and
     /// declared `HLine` and `VLine` alone.
     ///
     /// Both directions, so that adding `Ellipsis` to a row that cannot draw one fails too.

@@ -4,9 +4,9 @@
 //! > O2 — a panel in the gallery binary | **two** equalities: nothing shown may be absent from the
 //! > freeze, and everything `built` must have a panel.
 //!
-//! Components ticket 39. The binary is `crates/vitui-apps/examples/gallery.rs`; what lives here is
-//! the **screen**, and the reason it lives here rather than in the application is that spec §21
-//! names two defects to be measured *on the assembled gallery* — the sentinel (register row 7) and
+//! The binary is `crates/vitui-apps/examples/gallery.rs`; what lives here is
+//! the **screen**, and the reason it lives here rather than in the application is that two defects
+//! have to be measured *on the assembled gallery* — the sentinel and
 //! the palette swap (row 8), green since components 41 — and both are components tickets whose gate
 //! is `cargo test`. A screen
 //! only an application can reach is a screen no gate can measure.
@@ -48,10 +48,10 @@
 //! second take panics — which is right, because a panel drawn twice in one frame is two widgets
 //! under one id.
 //!
-//! # The nine-cell matrix is reachable from this crate, and register row 45 said it was not
+//! # The nine-cell matrix is reachable from this crate, and it used not to be
 //!
 //! Row 45 is `Unreachable { needs: "`ColorDepth`" }`, and its own `inverted_by` names runtime
-//! architecture issue 22 — **the issue that lifted the barrier**. `crates/vitui-runtime/src/line.rs`
+//! the re-export — **what lifted the barrier**. `crates/vitui-runtime/src/line.rs`
 //! now files `ColorDepth` as `reachable_as: Some("vitui_runtime::ColorDepth")`, so the colour axis
 //! is a value this crate can hold and `Theme::resolve` is a call it can make. That is the near-miss
 //! runtime 22 warned about arriving on this register: *a `Barrier` citation that still passes while
@@ -61,7 +61,7 @@
 //!
 //! Components 39 delivered the screen and left both rows red with their figures printed on it;
 //! **components 40 inverted row 7** — *every cell of the rectangle written at least once* — and
-//! **components 41 inverted row 8**. What the second half of §2 cost this screen is four numbers and
+//! **the second row inverted later**. What the second half of the partition rule cost this screen is four numbers and
 //! three mechanisms:
 //!
 //! | | cells at 300x80 | who owns it |
@@ -89,7 +89,7 @@
 //! [`swap_on`] plays a **second gallery** at the destination theme from its first frame and
 //! [`Swap::stale`] is what the two disagree about.
 //!
-//! And [`crate::memos`] found the rule ADR 0030 states has **nothing in this crate subject to it**:
+//! And [`crate::memos`] found the memo-key rule has **nothing in this crate subject to it**:
 //! every shipped memo holds bits, floats or byte offsets, and every cluster and paint is derived
 //! from the theme in front of the frame. So the memo is built here, as [`Keying`] — one axis, a
 //! right arm and a wrong one, over the same twenty-eight call sites — which is [`Remainder`]'s
@@ -248,7 +248,7 @@ pub struct Panel {
 
 /// **The panels, one per built row of the freeze, in the freeze's own order.**
 ///
-/// **Twenty-nine, which is every row of the freeze** since components ticket 46 built `spinner` —
+/// **Twenty-nine, which is every row of the freeze** now that `spinner` is built —
 /// the population [`crate::obligations::o2_everything_built_has_a_panel`] asks about is `built`, and
 /// it moved by itself the moment that column flipped.
 pub const PANELS: &[Panel] = &[
@@ -464,7 +464,7 @@ pub enum Keying {
     /// theme is not, so it invalidates on `Ctrl+L` — the one axis that moves nothing on any panel
     /// — and is a **hit** on `t` and on `Ctrl+G`, which are the two that move everything.
     ///
-    /// It is the spelling ticket 41 names, and its shape is why: an enumeration of axes is a list
+    /// It is the named spelling, and its shape is why: an enumeration of axes is a list
     /// the next reader forgets one of, and the theme's own `Revision` is the one key that cannot be
     /// short.
     DataAndTier,
@@ -630,7 +630,7 @@ pub const CHROME_ROWS: u16 = 2;
 ///
 /// **The tiles tile the grid exactly** either way; see [`Gallery::ui_into`], where the boundaries
 /// are `grid.w * k / cols` rather than `k * tile_w`. A gap between tiles is a cell nobody writes,
-/// and the second half is the whole subject of register row 7.
+/// and the second half is the whole subject of the sentinel gate.
 pub const fn grid(w: u16, h: u16) -> (u16, u16, usize) {
     let body = h.saturating_sub(CHROME_ROWS);
     let max_cols = w / MIN_TILE.0;
@@ -903,7 +903,7 @@ impl Gallery {
         self.themes.set_glyphs(rung);
     }
 
-    /// The density every theme in the set is built with. Spec §3: density is theme data.
+    /// The density every theme in the set is built with: density is theme data.
     pub fn set_density(&mut self, density: Density) {
         self.themes.set_density(density);
     }
@@ -1581,7 +1581,7 @@ mod draws {
     }
 
     /// **Shut, and the popup is a layer.** `select`'s own screen is its face; the popup's interior
-    /// is measured by `crate::popup`, because an overlay body takes no ink (spec §1, components 26).
+    /// is measured by `crate::popup`, because an overlay body takes no ink.
     pub fn select<'f>(
         b: &mut Bag,
         o: &mut Owners<'f>,
@@ -2045,7 +2045,7 @@ pub struct Shape {
     pub stops: usize,
     /// Widgets that arrived under an id another widget had already claimed.
     pub merges: u32,
-    /// **Cells no verb wrote on the frame measured.** Register row 7, **green since components
+    /// **Cells no verb wrote on the frame measured.** The sentinel gate, **green since
     /// 40** — `tests::no_cell_of_the_assembled_gallery_is_written_by_nobody` is the sweep and
     /// [`Remainder::LeftAlone`] is the arm it is watched failing on.
     ///
@@ -2107,7 +2107,7 @@ fn read_shape(
 /// **The recorded surface [`shape`] counts** — for a gate that has to say *where* the cells nobody
 /// wrote are, and not only how many there were.
 ///
-/// Register row 7's failing set was a table of six panels, and a total cannot be checked against
+/// The failing set was a table of six panels, and a total cannot be checked against
 /// one: `tests::the_remainder_left_alone_is_three_drawings_and_the_grids_own_slack` attributes every
 /// cell of it to the tile it is in.
 pub fn screen(w: u16, h: u16, frames: u32, remainder: Remainder) -> crate::runner::Canvas {
@@ -2155,12 +2155,12 @@ fn play(
 ///
 /// `frames` is the warm-up: two is what a gallery needs for the hover index and the ring, and three
 /// is what the preview pane needs — the answer arrives on a frame after the one that asked (spec
-/// §15).
+/// the media family's own note).
 pub fn shot(id: &str, w: u16, h: u16, frames: u32) -> crate::runner::Canvas {
     shot_as(id, w, h, frames, Remainder::Written)
 }
 
-/// [`shot`], at either arm of [`Remainder`] — which is how the per-panel half of register row 7 is
+/// [`shot`], at either arm of [`Remainder`] — which is how the per-panel half of the gate is
 /// watched failing on the drawing that owns each cell of it.
 pub fn shot_as(
     id: &str,
@@ -2210,10 +2210,10 @@ pub struct Swap {
     /// leaves alone are left alone *correctly*. A rung change moves the cells drawn from the theme's
     /// glyph table and no others, so the letters of every label are `kept` and right; the colour
     /// axis moves nothing on any panel at all, so `kept` reads 100% on a screen with
-    /// nothing wrong with it. Register row 8's subject is [`Swap::stale`], which is a different
+    /// nothing wrong with it. The swap gate's subject is [`Swap::stale`], which is a different
     /// number measured against a different arm.
     pub kept: usize,
-    /// **Cells that carry the previous theme's value a frame after the swap.** Register row 8's
+    /// **Cells that carry the previous theme's value a frame after the swap.** The swap gate's
     /// subject, and the gate.
     ///
     /// It is a count over the surface against an **oracle** and not a threshold on a delta: the
@@ -2260,7 +2260,7 @@ pub struct Swap {
 
 /// **One theme swap over the assembled gallery, read cell for cell.**
 ///
-/// The screen register row 8 is measured on, and green since components 41. [`Swap::stale`] is the
+/// The screen the swap gate is measured on, and green. [`Swap::stale`] is the
 /// gate; [`Swap::changed`] and [`Swap::kept`] are the delta, printed and never gated, because both
 /// are on the wrong side of the question — see [`swap_on`].
 pub fn swap(w: u16, h: u16, change: Change) -> Swap {
@@ -2268,7 +2268,7 @@ pub fn swap(w: u16, h: u16, change: Change) -> Swap {
 }
 
 /// [`swap`], at either arm of [`Remainder`] — which is how *the two rows are independent* stops
-/// being a sentence. §21 pins rows 7 and 8 together (*the swap excess equal to it on five of six*)
+/// being a sentence. The two rows are pinned together (*the swap excess equal to it on five of six*)
 /// and on this screen closing the first moves nothing in the second: the surface is carried across
 /// the change and the first frame clears, so a cell nobody writes on a steady frame is inside
 /// `written` already.
@@ -2559,7 +2559,7 @@ pub struct MatrixCell {
     /// distinction bits.
     ///
     /// So *the colour axis of the matrix is not observable on a canvas above the engine at all*,
-    /// and that is ADR 0018 working rather than a hole: a component is handed the same paint whatever
+    /// and that is the role rule working rather than a hole: a component is handed the same paint whatever
     /// the terminal can show, which is what *a component names a role and never a colour* means. The
     /// column is reported so that the nine rows show the axis moving in
     /// [`MatrixCell::roles_collapsed`] and standing still here — the refinement 1, *a counter on
@@ -2968,8 +2968,8 @@ mod tests {
 
     /// **The matrix, nine cells, and the two axes move in different columns.**
     ///
-    /// Register row 45 filed this `Unreachable { needs: "`ColorDepth`" }` with runtime architecture
-    /// issue 22 — *the issue that lifted the barrier* — as its inverter, so the citation had been
+    /// This was filed `Unreachable { needs: "`ColorDepth`" }` with the re-export — *what lifted the
+    /// barrier* — as its inverter, so the claim had been
     /// passing while meaning the opposite. `vitui_runtime::ColorDepth` is a name this crate can
     /// write and `Theme::resolve` is a call it can make.
     ///
@@ -3401,16 +3401,16 @@ mod tests {
 
     /// **No cell of the assembled gallery is written by nobody**, at every size and on every page.
     ///
-    /// Register row 7, and this is the half §21 states over the assembled screen: *distinct cells
+    /// The sentinel gate, and this is the half stated over the assembled screen: *distinct cells
     /// touched == area.w * area.h*. It was pinned red for nine tickets with **10 252 cells of
     /// 24 000 at 300x80 and 525 of 3 000 at 100x30** as its failing set, and the pin was on this
     /// screen since components 39 built it.
     ///
     /// # The detector is the recorder and not the sentinel, and that is the finding
     ///
-    /// Spec §2 prescribes a **sentinel**: stamp a paint no role can produce over the base layer,
+    /// A **sentinel** is prescribed: stamp a paint no role can produce over the base layer,
     /// draw one more frame, count the cells still carrying it. Two of its three barriers are gone
-    /// and the third is a decision — ADR 0023, *the cell is never visible in the public API* — so
+    /// and the third is a decision — *the cell is never visible in the public API* — so
     /// counting survivors on the composited surface has no expression to write, in this crate or in
     /// the engine's own callers. It does not need one:
     ///
@@ -3481,7 +3481,7 @@ mod tests {
     /// | `collapsible` | **410** | `Disclosure::used` — every row below the section is the caller's |
     /// | six slots with no panel | **4 128** | the grid's: twenty-nine panels in a seven-by-five grid |
     ///
-    /// **Every figure moved when components ticket 46 added the twenty-ninth panel, and none of them
+    /// **Every figure moved when the twenty-ninth panel arrived, and none of them
     /// moved because a component changed.** A page holds `cols * rows` tiles and twenty-nine panels
     /// need a wider grid than twenty-eight, so every tile is smaller and every remainder with it —
     /// which is why these are asserted as measured rather than carried forward. The **shape** is the
@@ -3490,7 +3490,7 @@ mod tests {
     ///
     /// **At 100x30 it is 145 and all of it is the scrollbar's**, because a page of twelve fills the
     /// grid exactly and `collapsible` is on page two — one size agreeing with a law the other breaks
-    /// is how a gate over one size stays green (§21, and this module has met it twice).
+    /// is how a gate over one size stays green, and this module has met it twice.
     #[test]
     fn the_remainder_left_alone_is_three_drawings_and_the_grids_own_slack() {
         let attribute = |w: u16, h: u16| -> Vec<(&'static str, usize)> {
@@ -3537,7 +3537,7 @@ mod tests {
         assert_eq!(shape_as(100, 30, 3, Remainder::LeftAlone).unwritten, 145);
     }
 
-    /// **Every panel writes every cell of the interior it was handed**, which is register row 7 per
+    /// **Every panel writes every cell of the interior it was handed**, which is the sentinel gate per
     /// component and over the shipped call site rather than over a second arrangement of it.
     ///
     /// The account of why this row survived: *the per-component forms were report-only across
@@ -3591,7 +3591,7 @@ mod tests {
         assert_eq!(left("file_picker"), 0);
     }
 
-    /// **Register row 8: no cell carries the previous palette a frame after a swap.**
+    /// **No cell carries the previous palette a frame after a swap.**
     ///
     /// **0 of 24 000 at 300x80 and 0 of 3 000 on every page at 100x30**, on all three axes and at
     /// both arms of [`Remainder`]. It is the last of the two pinned reds and the second whose

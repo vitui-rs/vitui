@@ -1,12 +1,12 @@
 //! The fifteen families of the union catalogue, and the module each one is the home of.
 //!
-//! Spec §19: **a module is a family.** The tree follows the survey's families so that a reader who
+//! **A module is a family.** The tree follows the survey's families so that a reader who
 //! knows what they want finds it without a search, and [`crate::Component::families`] is the join
 //! that makes the mapping checkable rather than a naming convention.
 //!
 //! # The spelling is not a decision, and the rule is
 //!
-//! Spec §19 is explicit: `architecture.md` §2 lists sixteen module directories under the
+//! An earlier proposal listed sixteen module directories under the
 //! pre-correction *ten families*, and **no ticket ratified the directory names**. They are a
 //! starting point, not a decision, and renaming one reopens nothing. What is settled is the join —
 //! a component's home module is the module of the first family it declares — and
@@ -18,7 +18,7 @@
 //! F15 row reads *not here — `vitui-runtime`*, by `COMPONENT-HIERARCHY.md`'s T2 test:
 //! all twenty-three of its entries **emit no cells**. [`Family::module`] returns `None` for it, and
 //! the `None` is the statement — a family with an empty module directory would read as *not yet
-//! done*, which is exactly the confusion spec §18 says is never allowed to arise.
+//! done*, which is exactly the confusion that is never allowed to arise.
 
 /// One family of the union catalogue.
 ///
@@ -49,14 +49,14 @@ pub enum Family {
     /// and one mapping.
     F10Charts,
     /// F11 media — a picture as `Solid`/`Half`, QR, waveform, player chrome. 16 entries, and no v1
-    /// component: §14 built the mechanisms and the freeze ships none of them as a row.
+    /// component: the mechanisms are built and the freeze ships none of them as a row.
     F11Media,
     /// F12 files — `collection` + `scroll_area` + worker + the preview pane. ~35 entries.
     F12Files,
     /// F13 system — `meter`, `table`, `plot`, a log `collection`. ~30 entries, no v1 component.
     F13System,
     /// F14 terminal-native — `canvas` at three rungs, `pty`. ~24 entries, no v1 component; `pty` is
-    /// one of the two §18 exemplars that were **not** built.
+    /// one of the two exemplars that were **not** built.
     F14TerminalNative,
     /// F15 behavioural — **not here**. All twenty-three entries emit no cells, so they are
     /// `vitui-runtime`'s by the T2 test. [`Family::module`] is `None`.
@@ -68,7 +68,7 @@ impl Family {
     ///
     /// The array is also what keeps [`Family::F15Behavioural`] constructed: warnings are denied
     /// workspace-wide, and a variant no row of [`crate::INVENTORY`] names would otherwise be a
-    /// build failure rather than the deliberate absence spec §18 records.
+    /// build failure rather than the deliberate absence that is recorded.
     pub const ALL: [Family; 15] = [
         Family::F1Text,
         Family::F2Structure,

@@ -16,8 +16,8 @@
 //!
 //! # The finding that made this ticket buildable, and it inverts a register row
 //!
-//! Components ticket 03 filed six gate families as [`Unreachable`](crate::gates::Standing::Unreachable)
-//! against `Mods`, and register row 5 stated the conclusion in as many words: *its `mods` field is
+//! Six gate families were filed as [`Unreachable`](crate::gates::Standing::Unreachable)
+//! against `Mods`, and the conclusion was stated in as many words: *its `mods` field is
 //! `vitui_engine::Mods`, which is `reachable_as: None`. So no key can be posted and no chord can be
 //! pressed.*
 //!
@@ -45,7 +45,7 @@
 //! Two things, and neither is a component's to fix:
 //!
 //! 1. **~~Five of the eight modifier bits cannot be constructed here.~~ Lifted by runtime
-//!    architecture issue 22.** It read: `Chord` has `ctrl`, `alt` and `shift` builders and no others,
+//!    the re-export.** It read: `Chord` has `ctrl`, `alt` and `shift` builders and no others,
 //!    so `SUPER`, `HYPER`, `META`, `CAPS` and `NUM` have no reachable spelling — and the
 //!    **exhaustive table** is 8 states of 256 rather than the rule. `Mods` is `vitui_runtime::Mods`
 //!    now and its eight bits are `pub const`, so [`press_with`] builds a key at any of the 256 and
@@ -109,7 +109,7 @@ pub const BITS: [Chord; 2] = [Chord::key(MASK_KEY).ctrl(), Chord::key(MASK_KEY).
 /// and `SUPER`, `HYPER`, `META`, `CAPS` and `NUM` had no reachable spelling at all: `Mods` was
 /// `reachable_as: None` and its eight `pub const` bits were behind a name this crate could not write.
 ///
-/// **Runtime architecture issue 22 re-exported `Mods`**, so `Mods::SUPER` and its four siblings are
+/// **`Mods` is re-exported now**, so `Mods::SUPER` and its four siblings are
 /// writable here and [`press_with`] builds a key at any of the 256. The exhaustive table is now
 /// exhaustive, which is the difference between *the rule reads all eight bits off a key it is handed*
 /// and *the rule is checked against all eight bits* — the module used to be able to state only the
@@ -255,7 +255,7 @@ pub fn press_at(c: Chord, at: Instant) -> Pressed {
 ///
 /// The door [`REACHABLE_STATES`] became 256 through. A `Chord` reaches three of the eight bits, so a
 /// gate that wants `Super` or a lock has to build the key rather than bind it — which needs a `Mods`
-/// **value** whose type this crate can name, and it can since runtime architecture issue 22.
+/// **value** whose type this crate can name, and it can now.
 ///
 /// Deliberately beside `press` rather than replacing it: a `Chord` is what an application actually
 /// binds, and a gate that stops going through one stops exercising the path components use.
@@ -345,7 +345,7 @@ pub fn typed(arm: Arm, start: &str, chords: &[Chord]) -> Typed {
 
 /// Press one chord into a sink that already holds `start`, and answer what reached the application.
 ///
-/// The shape register row 5 gates: [`Typed::gained`] must be `0` and [`Typed::reached`] must be `1`.
+/// The gated shape: [`Typed::gained`] must be `0` and [`Typed::reached`] must be `1`.
 pub fn chord_into(arm: Arm, start: &str, c: Chord) -> Typed {
     typed(arm, start, &[c])
 }
@@ -364,7 +364,7 @@ pub fn chord_into(arm: Arm, start: &str, c: Chord) -> Typed {
 /// opens [`crate::INVENTORY`] and fails on a name that is not a row of it, which is
 /// `crate::gates::Instrument`'s rule applied to a population instead of to a file.
 ///
-/// **All seven exist in this crate since components ticket 35**, and the gate says so by reading the
+/// **All seven exist in this crate**, and the gate says so by reading the
 /// source rather than [`crate::Component::built`] — which was the *prototype's* column when this
 /// list was written and is the shipped one now. When it was none of the seven, what row 5 stood over
 /// was seven **sinks**, one per row of this list, and that was a real standing: the claim is *the
@@ -407,7 +407,7 @@ pub const CODE_ALONE: &str = "value 0shi";
 /// **`Ctrl+S, h, i` read through [`text`].** The chord was declined and the two letters landed.
 pub const THROUGH_TEXT: &str = "value 0hi";
 /// **`Ctrl+S, h, i` read by declining on `INTENT`.** Indistinguishable from the right answer on this
-/// input, which is why the third arm needs the capital and why spec §3 changes the input mid
+/// input, which is why the third arm needs the capital and why the input changes mid
 /// sentence.
 pub const THROUGH_INTENT: &str = "value 0hi";
 
@@ -485,7 +485,7 @@ mod tests {
     ///
     /// Over the three reachable bits the predicate agrees with the mask on every combination. The
     /// other 248 states need `SUPER`, `HYPER`, `META`, `CAPS` or `NUM`, none of which has a
-    /// reachable spelling — see this module's header and register row 5.
+    /// reachable spelling — see this module's header.
     #[test]
     fn the_predicate_agrees_with_the_mask_on_every_reachable_state() {
         const BIT: [(&str, Mods); 8] = [
@@ -535,7 +535,7 @@ mod tests {
     /// A lock cannot be written *through a `Chord`* — it has no `caps` builder — so this asserts the
     /// projection rather than the state: the predicate masks the locks off before it reads anything,
     /// which is the same projection R12's `INTENT` is. The locks themselves are reachable since
-    /// runtime issue 22 and `the_predicate_agrees_with_the_mask_on_every_reachable_state` holds
+    /// the re-export, and `the_predicate_agrees_with_the_mask_on_every_reachable_state` holds
     /// them, including the 64 states where a lock is down.
     #[test]
     fn the_predicate_masks_the_locks_before_it_reads_anything() {
@@ -583,7 +583,7 @@ mod tests {
     /// **And the capital, which is where the third arm fails.** `"i"` where `"Hi"` is right.
     ///
     /// All three arms, because the interesting fact is that **each of the three gives a different
-    /// answer on the same two keys** — which is what makes this one sentence in spec §3 worth a
+    /// answer on the same two keys** — which is what makes this one sentence worth a
     /// helper.
     #[test]
     fn a_capital_is_not_a_chord_and_the_intent_reading_says_it_is() {
@@ -636,7 +636,7 @@ mod tests {
 
     // ── row 5: a chord pressed into every focusable types nothing ────────────────────────────────
 
-    /// **Acceptance criterion 3 and register row 5: a chord pressed into every focusable types
+    /// **A chord pressed into every focusable types
     /// nothing.**
     ///
     /// Over [`TEXT_BEARING`], which is the freeze's text-bearing set, and in **both directions** —
@@ -680,7 +680,7 @@ mod tests {
     ///
     /// The second half is a scan of `src/` and **not** a reading of [`crate::Component::built`]:
     /// that column is the prototype's and is `true` for six of the seven. What row 5 needs to be
-    /// honest about is what its population *is*, and components ticket 12 changed it: `collection`
+    /// honest about is what its population *is*, and that changed: `collection`
     /// is declared, so the population is **six sinks and one component**.
     ///
     /// # The needle had a false negative, and it is the shape this file already warns about

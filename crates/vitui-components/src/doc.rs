@@ -42,7 +42,7 @@
 //! is a `pub fn text(` in `document.rs` and another in `keys.rs`, a `pub fn chip(` in `state.rs`
 //! and a `pub fn table(` in `gates.rs`. None of them is a component, and nothing here has to know
 //! that: the file is [`crate::inventory::Component::module`]'s, which is the first entry of the freeze's own
-//! `families` column, so the join that finds the page is the same join §19 already gates the module
+//! `families` column, so the join that finds the page is the same join that already gates the module
 //! tree with.
 //!
 //! # Why the axes are a line and not a paragraph

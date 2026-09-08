@@ -1,6 +1,6 @@
 //! **The series screen: two million-point series, at 300x80 and at 60x20, and 175 712 axis pairs.**
 //!
-//! Components ticket 27. Spec §13, §21. This is the screen `chart`'s and `plot`'s scenes are scenes
+//! This is the screen `chart`'s and `plot`'s scenes are scenes
 //! *of*, and it is the third of these after [`crate::dense`] and [`crate::listing`].
 //!
 //! | scene | what it decides |
@@ -13,7 +13,7 @@
 //! [`crate::listing`] satisfies *frame cost is proportional to visible cells* by **never folding**:
 //! the window says which rows can be reached and the rest are never touched. A plot must fold,
 //! because which of a million points land in the rectangle is not knowable without looking at them.
-//! So §13 splits the cost in two instead:
+//! So the cost splits in two instead:
 //!
 //! > **The frame costs the rectangle. The edit costs the data. There is no third option, and the
 //! > memo is the only thing standing between them.**
@@ -70,7 +70,7 @@
 //! # The screen stands on its subjects
 //!
 //! [`standing`] is a [`Verdict`] over two subjects, and [`owed_message`] is the sentence that
-//! separated *waiting for its subject* from *the code is wrong* while it had none — ticket 09's
+//! separated *waiting for its subject* from *the code is wrong* while it had none — the
 //! criterion 7, inherited whole and kept live so the hostile case is one call away.
 
 use std::fmt::Write as _;
@@ -112,7 +112,7 @@ pub const NARROW_H: u16 = 20;
 /// makes a shared cell possible at all — one series never shares a cell with itself.
 pub const SERIES: usize = 2;
 
-/// The three data volumes the scene 15 states.
+/// The three data volumes the overlap scene states.
 pub const VOLUMES: [usize; 3] = [1_000, 100_000, 1_000_000];
 
 /// **Interactive regions the screen declares. Two** — one for the plot and one for the chart.
@@ -142,7 +142,7 @@ pub struct Build {
 }
 
 impl Build {
-    /// The correct screen: braille, truecolor, both panes as §13 states them.
+    /// The correct screen: braille, truecolor, both panes as stated.
     pub fn correct() -> Build {
         Build {
             glyphs: RUNGS[2],
@@ -269,7 +269,7 @@ fn legend_drawn<I: Ink>(
     }
 }
 
-/// **The spellings ADR 0026 prices, kept because a gate nobody has watched fail is not a gate.**
+/// **The priced spellings, kept because a gate nobody has watched fail is not a gate.**
 pub mod defective {
     use super::{Ctx, Ink, Opts, Rect, legend_drawn};
 
@@ -734,7 +734,7 @@ pub const SUBJECTS: [&str; 2] = ["chart", "plot"];
 /// Where [`SUBJECTS`] belong, as `(module file, the declaration)`.
 ///
 /// The home is the freeze's, joined through [`crate::Family`]: both name `F10Charts`, whose module
-/// is `chart.rs`. A component is `fn(&mut Ctx, Rect, …) -> Response` (spec §1, rule 1), so the thing
+/// is `chart.rs`. A component is `fn(&mut Ctx, Rect, …) -> Response`, so the thing
 /// to look for is a public function of the component's own name in its own family's module.
 pub const DECLARATIONS: [(&str, &str); 2] =
     [("chart.rs", "pub fn chart("), ("chart.rs", "pub fn plot(")];
@@ -811,7 +811,7 @@ pub fn owed_message(declared: &[&str], scene: &str) -> Option<String> {
 ///
 /// # Panics
 ///
-/// Panics while [`SUBJECTS`] are undeclared, which is **today**. Components ticket 28 inverts it.
+/// Panics while [`SUBJECTS`] are undeclared, which is **today**.
 pub fn assert_stands_up(scene: &str) {
     if let Some(message) = owed_message(&subjects_declared(), scene) {
         panic!("{message}");
@@ -891,7 +891,7 @@ pub const RUNG_PLOT_CELLS: usize = 882;
 pub const RUNG_CHART_CELLS: usize = 0;
 
 /// **Cells ASCII and Unicode disagree about, over the whole screen. 7 276, over 80 of 80 rows** —
-/// ADR 0009 literally, a different construction rather than the same one with worse glyphs.
+/// Degradation at construction, literally: a different build rather than the same one with worse glyphs.
 pub const ASCII_CELLS: usize = 7_276;
 
 /// Cells the culled arm gets wrong.
@@ -956,7 +956,7 @@ mod tests {
     /// rectangle, every *count* identical. **Verbs are not one of them and must not be gated as
     /// one**: a run ends where a cell's owner changes, so the verb count tracks the picture and is
     /// **not monotone in `n`** — which is the proof rather than an excuse. What is gated is the bound
-    /// the invariant actually claims, `verbs <= writes`, and §21 says *never verb equality across
+    /// the invariant actually claims, `verbs <= writes`, and the rule is *never verb equality across
     /// sizes* in as many words.
     #[test]
     fn the_frame_costs_the_rectangle_and_the_verbs_track_the_picture() {
@@ -1004,7 +1004,7 @@ mod tests {
         }
     }
 
-    /// **The verb count is not monotone in `n`**, at the size §13 states it at.
+    /// **The verb count is not monotone in `n`**, at the size it is stated at.
     ///
     /// The original's 2 551 / 3 772 / 2 472 does not reproduce and the **shape** does: this screen is
     /// **2 554 / 3 775 / 2 475**, three more at every volume and the same rise and fall. The three
@@ -1218,7 +1218,7 @@ mod tests {
 
     /// **ASCII is a different construction and not the same one with worse glyphs.**
     ///
-    /// 7 276 cells over **80 of 80 rows**, which is ADR 0009 literally.
+    /// 7 276 cells over **80 of 80 rows**, which is degradation at construction literally.
     #[test]
     fn ascii_is_a_different_construction_over_every_row_of_the_screen() {
         let ascii = render(Build::correct().at(RUNGS[0]), (W, H), COMPARED_AT);
@@ -1294,7 +1294,7 @@ mod tests {
     /// Twenty-five cells of the plot pane carry two series at once. A braille cell has one `Paint`
     /// for all eight dots; a quadrant carries a foreground *and* a background — so the ladder is not
     /// monotone in what it can express. The per-cell quadrant fallback that would recover it is named
-    /// in spec §22 and not built.
+    /// named and not built.
     #[test]
     fn the_third_rung_costs_colour_where_two_series_share_a_cell() {
         for set in [RUNGS[1], RUNGS[2]] {
@@ -1340,7 +1340,7 @@ mod tests {
         assert_eq!(tally.whole_max_passes, 1);
     }
 
-    /// **The precondition §9 needs is false for ordinary data, and here is the instance.**
+    /// **The precondition is false for ordinary data, and here is the instance.**
     ///
     /// *A narrower plotting area may not produce a wider label* is what would make the loop
     /// converge. It fails here because the window's own contents change: a narrower area shows fewer
@@ -1350,7 +1350,7 @@ mod tests {
     ///
     /// # the illustration is not reachable on a 1 / 2 / 5 ladder, and it is not the mechanism
     ///
-    /// §13 offers `0 2.5 5 7.5 10` against `0 5 10` as the reason fewer ticks are not a subset of
+    /// `0 2.5 5 7.5 10` against `0 5 10` is the reason fewer ticks are not a subset of
     /// more. `nice_step(10, 5)` on a 1 / 2 / 5 x 10^k ladder is **2.0**, not 2.5, so that particular
     /// pair needs a ladder with 2.5 on it. The *finding* survives untouched — the sweep oscillates on
     /// 464 pairs — because the mechanism that produces it is the second sentence of the original's
@@ -1392,7 +1392,7 @@ mod tests {
     /// **The screen stands on its two declared components**, and the fact is computed rather than
     /// typed.
     ///
-    /// criterion 7, inverted by ticket 28. [`subjects_declared`] opens the file the
+    /// criterion 7, since inverted. [`subjects_declared`] opens the file the
     /// freeze homes both components in and reads what is declared there, so the day one of them
     /// moves this test fails and the standing is a deliberate edit — in the same direction it was
     /// made in. It is the same shape `crate::dense`'s went through one ticket family earlier, and

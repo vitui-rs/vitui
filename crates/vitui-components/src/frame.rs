@@ -1,4 +1,4 @@
-//! **`block` — border, title and padding ring — `face_paint`, and the helper spec §3 deleted.**
+//! **`block` — border, title and padding ring — `face_paint`, and the helper that was deleted.**
 //!
 //! Two of the helpers and the one it struck out live here, and they are the same argument
 //! twice. [`block`] returns the rectangle it did not write, so nobody clears what somebody else is
@@ -9,25 +9,25 @@
 //! keeps the deleted item deleted.
 //!
 //! The table gives `block` one job and one shape: *border, title, padding ring* · **draws its
-//! frame, returns the rectangle it did not write.** ADR 0026 states the consequence as a number: a
+//! frame, returns the rectangle it did not write.** The consequence is a number: a
 //! `block` that clears what it hands over costs **22 200 damaged cells a frame** across three
 //! panels, every frame, for a screen that is not moving.
 //!
 //! # The interior is returned and not handed to a closure, and that is a measurement
 //!
 //! The candidate this ticket was written expecting is `block(cx, opts, |cx| …)`: the interior
-//! arrives through [`Ctx::child`], is never named, and the crux of runtime architecture issue 22
+//! arrives through [`Ctx::child`], is never named, and the crux of the reachability rule
 //! evaporates. It matches the shape — *the clip stack **is** the call stack* — so it reads
 //! like the better design rather than a workaround. **It is refused, and on evidence rather than on
 //! taste.**
 //!
-//! - **~~It costs the counter, which is the whole ticket.~~ It did not, and components ticket 19
+//! - **~~It costs the counter, which is the whole point.~~ It did not, and a later change
 //!   struck this ground.** The argument was that `Ctx::child` narrows the clip *and* moves the
 //!   origin, so one tally over a closure-form panel would union the border's `(0, 0)` with the
 //!   interior's first cell — also `(0, 0)` — and report **124 double writes on a panel that has
 //!   none**. The 124 were real and they were the *recorder's*: `Tally::distinct` unioned in the
-//!   coordinates each verb was called in, and ticket 19 moved it into the frame's root coordinates
-//!   (`vitui_runtime::Ctx::origin`, runtime architecture issue 32). The excess is now zero, and
+//!   coordinates each verb was called in, and it moved into the frame's root coordinates
+//!   (`vitui_runtime::Ctx::origin`). The excess is now zero, and
 //!   `tests::a_child_context_no_longer_collides_the_border_with_the_interior` is the same
 //!   measurement inverted rather than deleted. **A ground that turned out to be an artefact of the
 //!   instrument is struck rather than quietly kept**, and the decision does not move, because of
@@ -43,7 +43,7 @@
 //!
 //! So `block` returns, on the identity rule alone. What it returns is a [`Rect`] and not a `Rect`, because `Rect` cannot be
 //! named from this package at all — [`vitui_runtime::layout::rect`] is that argument in full, and it is the
-//! components-side answer to runtime architecture issue 22.
+//! components-side answer to the reachability rule.
 //!
 //! # The 15-cell instance lives here
 //!
@@ -73,7 +73,7 @@ const PAD: &str = " ";
 ///
 /// # `focus` is a [`Role`] on this struct and there is no `focus_ring`
 ///
-/// Spec §3 deletes `frame::focus_ring` and says where it went: *a `Role` into `block`, a `Faces`
+/// `frame::focus_ring` was deleted, and where it went is recorded: *a `Role` into `block`, a `Faces`
 /// into `press`*. The `Role` is [`BlockOpts::border`] — a focused panel is drawn with
 /// [`Role::Focus`] instead of [`Role::Border`], **before** the cell is written. See
 /// [`WhyThereIsNoFocusRing`].
@@ -321,7 +321,7 @@ fn fill_rows<I: Ink>(ink: &mut I, cx: &mut Ctx<'_, '_>, cells: Rect, st: vitui_r
 
 /// **What a row is, as five independent bits.**
 ///
-/// Spec §3 narrowed C02's `selection` to this, and ADR 0026 states the shape: *selection becomes
+/// An earlier `selection` was narrowed to this, and the shape is *selection becomes
 /// `face_paint`, a `Paint` the row drawer is handed — which is a row signature, `(cx, rect, index,
 /// Face)`.*
 ///
@@ -504,7 +504,7 @@ pub mod defective {
 /// the correct one, because a restyle repaints the row's sub-widgets.
 ///
 /// So focus is a [`Role`] into [`block`] — [`BlockOpts::border`] — and a `Faces` into `press`, which
-/// components ticket 07 builds. **A paint chosen before a cell is written, never a restyle laid over
+/// is built one crate over. **A paint chosen before a cell is written, never a restyle laid over
 /// a drawn row.**
 ///
 /// # The twin, naming the protected item by path
@@ -666,7 +666,7 @@ mod tests {
     }
 
     /// **One of the two grounds for returning the interior rather than handing it to a closure was
-    /// an instrument defect, and components ticket 19 removed it.**
+    /// an instrument defect, and it was removed.**
     ///
     /// This test used to assert the opposite of what it asserts now, and the change is worth
     /// reading rather than skipping. The closure form delivers the interior through [`Ctx::child`],
@@ -676,8 +676,8 @@ mod tests {
     /// measurement against the closure form.
     ///
     /// It was never a fact about the closure; it was a fact about the counter. `Tally::distinct`
-    /// unioned in the coordinates each verb was called in, and components ticket 19 moved it into
-    /// the frame's root coordinates — `vitui_runtime::Ctx::origin`, runtime architecture issue 32.
+    /// unioned in the coordinates each verb was called in, and it moved into
+    /// the frame's root coordinates — `vitui_runtime::Ctx::origin`.
     /// The excess is now **zero**, and this test is what says so.
     ///
     /// **The decision does not move with it**, and that is the point of keeping the test rather

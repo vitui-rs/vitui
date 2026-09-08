@@ -1,8 +1,8 @@
 //! **The text machine: a buffer, a caret pair, an anchored selection, an undo ring and a wrap
 //! index.**
 //!
-//! Components ticket 24. Spec §11. This is what [`crate::input::field`] is, and
-//! [`crate::document`] — the screens ticket 23 built beside it — now draws *through* it rather
+//! This is what [`crate::input::field`] is, and [`crate::document`] — the screens beside it — now
+//! draws *through* it rather
 //! than through a caret and an index written next to the gate.
 //!
 //! # the headline, and it is the reason every type here is one type
@@ -72,7 +72,7 @@ pub enum WrapKind {
 /// **The wrap index: visual-row starts, the revision it was built at, and the width it was built
 /// at.**
 ///
-/// §11 describes it as a `Vec<u32>` of visual-row starts plus a sentinel, keyed on
+/// It is a `Vec<u32>` of visual-row starts plus a sentinel, keyed on
 /// `(revision, width)`. Two departures, both stated rather than slipped in:
 ///
 /// 1. **A row carries its end as well as its start.** A greedy break consumes the space it broke
@@ -320,7 +320,7 @@ impl Index {
 /// correct on every cluster and is **2 988 µs a frame at 1 MB against 80.12** — thirty budgets, on a
 /// screen where nothing happened.
 ///
-/// # The fields are private, and that is the API consequence §11 asks for
+/// # The fields are private, and that is the API consequence
 ///
 /// > **There is no such thing as "put the caret at byte N."**
 ///
@@ -432,9 +432,9 @@ pub fn step_left(text: &str, caret: Caret, from: Caret) -> Caret {
 
 /// **[`step_left`], with the clusters it walked counted.**
 ///
-/// The runtime's scene 19 arrangement one crate down — `chunked.get(i, &mut hops)` — and it is here
+/// The chunked-source arrangement one crate down — `chunked.get(i, &mut hops)` — and it is here
 /// for that scene's reason: *a step count is the same number on every machine*, where the
-/// microseconds §11 states are three orders apart between a debug binary and a release one and
+/// microseconds are three orders apart between a debug binary and a release one and
 /// would be three different orders somewhere else. [`crate::volume`] is what reads it, and
 /// [`defective::blind_left`] is the arm it separates: **one `Left` at the end of a pasted megabyte
 /// is one cluster from the row start and a million from byte 0**, which is the whole of
@@ -464,7 +464,7 @@ pub fn step_left_counted(text: &str, caret: Caret, from: Caret, steps: &mut u64)
     prev
 }
 
-/// **`Right`, one cluster.** Cheap from anywhere, which is why §11 is about `Left`.
+/// **`Right`, one cluster.** Cheap from anywhere, which is why the interesting case is `Left`.
 pub fn step_right(text: &str, caret: Caret) -> Caret {
     match step(&text[caret.byte..]) {
         Some(cluster) => Caret {
@@ -520,7 +520,7 @@ impl Entry {
 /// The fixed part of an [`Entry`]: the offset, the pair, the anchor and the two string headers.
 const FIXED: usize = std::mem::size_of::<usize>() * 4 + std::mem::size_of::<Caret>() + 32;
 
-/// **How many entries the ring holds by default. 256**, which is the cap §11 prices the frame at.
+/// **How many entries the ring holds by default. 256**, which is the cap the frame is priced at.
 pub const RING_ENTRIES: usize = 256;
 
 /// **How many bytes the ring holds by default. 25 600**, the second bound.
@@ -606,7 +606,7 @@ impl Ring {
     /// an entry that removed nothing and has not already reached a word break*. Anything else opens
     /// an entry: a deletion, a replacement, a paste that lands elsewhere, and a newline.
     ///
-    /// **The word break is the rule and not a refinement of it.** §11 gives the reason in the same
+    /// **The word break is the rule and not a refinement of it.** The reason is in the same
     /// sentence as the ratio — *undoing a sentence is 414 presses instead of 1 012* — and a run
     /// that closed at nothing but a line break would make undoing a sentence **one** press, which
     /// is not an undo history, it is a checkpoint. Whitespace joins the run it ends, so `the ` is
@@ -660,7 +660,7 @@ impl Ring {
 ///
 /// # The revision does not move when the caret does
 ///
-/// §11 states it as a measurement — **200 recomputes at 306.51 µs/key against 1 at 1.587** — and it
+/// It is a measurement — **200 recomputes at 306.51 µs/key against 1 at 1.587** — and it
 /// is a rule about which field the bump lives on: [`Text::revision`] moves in [`Text::edit`] and in
 /// nothing else. A caret step, a selection, a click and a resize all leave it alone, so the wrap
 /// memo is a hit on every frame where nothing was typed.
@@ -680,7 +680,7 @@ pub struct Text {
 
 /// **The two ways a `Text` can be false that are not on any option**, as one value.
 ///
-/// Both are §11 gates, both are cheaper than the correct build, and both are *keys* rather than
+/// Both are gated, both are cheaper than the correct build, and both are *keys* rather than
 /// behaviours — which is why they are a field here and not a second machine written beside the
 /// gate. A reviewer's diff between the shipped build and either refusal is one enum variant, and
 /// the code that reads them is the code that ships. [`defective::keyed_on_revision`] and
@@ -825,7 +825,7 @@ impl Text {
     /// Both halves of the key, and the second one is the fourth gate: *the index's recorded width
     /// equals the width being drawn*. A memo keyed on the revision alone is a **hit** on a resize —
     /// the revision did not move — and what comes back was built at the old width.
-    /// [`defective::stale_at`] is that key, and `crate::document`'s scene 13 is it drawn.
+    /// [`defective::stale_at`] is that key, and `crate::document`'s narrow screen is it drawn.
     pub fn index(&mut self, w: u16) -> &Index {
         // **The defect the key carries is in [`Text::index_of`]**, which this delegates to, so the
         // memo key is written once: with `Key::Revision` the width is not in it, a resize is a
@@ -846,7 +846,7 @@ impl Text {
 
     /// **`Right`, one cluster — and the column is re-seated on the row it lands in.**
     ///
-    /// The byte is one forward step and costs nothing, which is why §11 is about `Left`. The
+    /// The byte is one forward step and costs nothing, which is why the interesting case is `Left`. The
     /// **column** is not: a caret's column is a *screen* column, reset at every row start, and a
     /// greedy break consumes the space it broke at — so a step that crossed a row boundary and kept
     /// accumulating would report a column no cell is at. It is re-read from the caret's own row
@@ -1190,12 +1190,12 @@ impl Text {
 
 // ── the refused spellings, kept runnable ─────────────────────────────────────────────────────────
 
-/// **The four builds §11 refuses, each one somebody would ship.**
+/// **The four builds that are refused, each one somebody would ship.**
 ///
 /// Every arm is simpler than the correct one and three of the four are cheaper, which is the
 /// property that makes a gate over them worth having. None of them is a strawman: the caret at a
 /// byte offset is the API every text buffer in the survey has, the run list is the selection
-/// one family over, the naive splice restart is the one a reader of §10 writes, and the memo keyed
+/// one family over, the naive splice restart is the one an unwary caller writes, and the memo keyed
 /// on the revision is the key a reader of `CONTEXT.md`'s **Memo** paragraph writes.
 pub mod defective {
     use super::{Caret, Index, Text, WrapKind, step, step_right};
@@ -1234,7 +1234,7 @@ pub mod defective {
     /// [`super::step_left_counted`], whose twin this is.
     ///
     /// O6 reads this arm and the shipped one over the same buffer at the same three volumes, and
-    /// the two numbers are *the same claim §11 makes about the two microsecond figures*: the walk
+    /// the two numbers are *the same claim the two microsecond figures make*: the walk
     /// from byte 0 is the buffer and the walk from the row start is a row.
     pub fn blind_left_counted(text: &str, caret: Caret, steps: &mut u64) -> Caret {
         super::step_left_counted(text, caret, Caret::HOME, steps)
@@ -1331,7 +1331,7 @@ pub mod defective {
     /// **Key the wrap memo on the revision alone.** Gate 4's defect, installed on a real state.
     ///
     /// One field, so the shipped build and this one are the same function — `crate::document`'s
-    /// scene 13 draws through [`crate::input::field`] either way, and the reviewer's diff between
+    /// the narrow screen draws through [`crate::input::field`] either way, and the diff between
     /// the two arms is this call.
     pub fn keyed_on_revision(st: &mut Text) {
         st.shape.key = super::Key::Revision;
@@ -1585,7 +1585,7 @@ mod tests {
 
     /// **Coalescing is an entry count and not a time win.**
     ///
-    /// §11 states **2.4×** over 1 012 keystrokes and gives the reason in the same sentence: undoing
+    /// The recorded figure is **2.4×** over 1 012 keystrokes, and the reason is in the same sentence: undoing
     /// a sentence is 414 presses instead of 1 012. What is asserted is the direction and the
     /// mechanism — a run of typing is one entry and a word break opens the next — and the ratio is
     /// printed by `examples/field_numbers.rs` rather than pinned here.
@@ -1713,7 +1713,7 @@ mod tests {
 
     /// **Criterion 9: a keystroke at 1 MB splices rather than rebuilds.**
     ///
-    /// §11 prices it at **34.34 µs against 3 216 to rebuild**. A timing is a report (R15), so what
+    /// It is priced at **34.34 µs against 3 216 to rebuild**. A timing is a report, so what
     /// is gated is the relation the timing is about: the splice keeps the rows before the edit and
     /// the rebuild does not keep any — and the two answer the same index.
     #[test]

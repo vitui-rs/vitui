@@ -10,9 +10,9 @@
 //!
 //! # Why a family, and why the pairwise gate is the wrong gate
 //!
-//! §17 first wrote the collapse gate pairwise, and run literally it fires on `panel`, `table` and
+//! The collapse gate was first written pairwise, and run literally it fires on `panel`, `table` and
 //! everything else with a border — **the nine box-drawing entries are all `+` at ASCII on purpose**,
-//! which is exactly the 36 of 190 pairs §16 measures collapsing there, `9 × 8 / 2`. A corner
+//! which is exactly the 36 of 190 pairs measured collapsing there, `9 × 8 / 2`. A corner
 //! collapsing onto a corner loses nothing.
 //!
 //! The defect the gate has to catch is C09's, and it is a collapse **across** families: the shadow
@@ -160,7 +160,7 @@ pub struct Drawer {
 /// The freeze's `glyphs` column says which component *demands* an entry; it never said which line
 /// *draws* one, and `the_glyph_table_is_twenty_entries_and_every_one_of_them_has_a_demander` joins a
 /// declaration to a declaration — so an entry demanded by a row that draws nothing satisfied it.
-/// Four such entries stood for four tickets and components architecture 20 struck them; five more
+/// Four such entries stood for a long time and were struck; five more
 /// are real and are [`UNDRAWN`].
 ///
 /// **One site per entry, not every site.** The question is *does anything draw this*, and a second
@@ -301,11 +301,11 @@ pub const UNDRAWN: &[Undrawn] = &[
 /// **An entry a component's *caller* must be able to spell, and the component that hands it over.**
 ///
 /// The answer, and it exists because the freeze's `glyphs` column turned out to
-/// be answering two questions with one list. Issue 20 settled the column's verb — it is **draws** —
+/// be answering two questions with one list. The column's verb is settled — it is **draws** —
 /// and then five entries were left demanded by `table` and drawn by nothing, which read as the same
-/// false claim one row over. It is not the same claim, and the difference is §6:
+/// false claim one row over. It is not the same claim, and the difference is the table's:
 ///
-/// > A table draws its **columns**. Its column separators are its caller's cells (§2: the cell
+/// > A table draws its **columns**. Its column separators are its caller's cells (the cell
 /// > drawer owes every cell of its rectangle).
 ///
 /// So a caller drawing a table's separators needs a rule down, a rule across where the header
@@ -319,11 +319,11 @@ pub const UNDRAWN: &[Undrawn] = &[
 /// 20 struck `tree`'s `VLine`, `TeeLeft` and `BottomLeft` rather than re-homing them, and refused to
 /// invent an *allocation* meaning for the column silently. The two cases differ on one fact and it
 /// is decisive: **a tree's indent guide cannot be drawn by anyone**, because a guide column at depth
-/// *d* is a fact about *d* ancestors and §7 refuses all four routes to it — so there is no caller to
+/// *d* is a fact about *d* ancestors and all four routes to it are refused — so there is no caller to
 /// delegate to and the entries were owed to nobody. A table's separators can be drawn, by exactly
-/// the caller §6 assigns them to, in the cell drawer it already has.
+/// the caller they are assigned to, in the cell drawer it already has.
 ///
-/// Inventing it **deliberately** was the third option issue 25 named, and this is it, with the
+/// Inventing it **deliberately** was the third option, and this is it, with the
 /// column split rather than overloaded: `Component::glyphs` stays *what this component draws* and
 /// this is *what its caller must be able to spell*. Two lists, two verbs, and
 /// `tests::the_demand_column_is_filled_and_joined_against_the_table` reads their union — so no
@@ -545,7 +545,7 @@ pub fn drawing_region(file: &str, source: &str) -> String {
 
 /// One cell of the repertoire × tier matrix, as four counts.
 ///
-/// **A count, not a screenshot.** §16 is explicit that nine screens is not the instrument: what a
+/// **A count, not a screenshot.** Nine screens is explicitly not the instrument: what a
 /// component acts on is the last field, and it is far smaller than the pair count — because most
 /// role pairs are never asked to be told apart.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -608,7 +608,7 @@ pub fn cross_family_collapses(theme: &Theme) -> Vec<(Glyph, Glyph)> {
 
 /// Every **within-component** cross-family collapse, over the whole freeze.
 ///
-/// The gate spec §16 states, joined to [`Component::glyphs`]: a collapse matters when one component
+/// The gate, joined to [`Component::glyphs`]: a collapse matters when one component
 /// draws both halves of it. `tree` draws `Ellipsis` and `ArrowRight`, which is how the ASCII `>`
 /// became visible; nothing draws two corners that are ever confusable, because the corners only ever
 /// collapse onto each other.
@@ -645,7 +645,7 @@ pub fn role_collapses(theme: &Theme) -> Vec<(Role, Role)> {
     out
 }
 
-/// Indistinguishable signal pairs — the number ADR 0032 reports as `21 → 1 677 of 37 128`.
+/// Indistinguishable signal pairs — the number reported as `21 → 1 677 of 37 128`.
 ///
 /// # It is the product of the two censuses, and that is worth stating rather than discovering
 ///
@@ -738,7 +738,7 @@ pub fn distinctions_of(c: &Component) -> Vec<Distinction> {
 /// Two slices and no allocation, because this is the shape a drawing verb wants: `text::fit` writes
 /// the head, then the marker, then the remainder. The marker is `""` when nothing was cut.
 ///
-/// **The one-cell rule made callable**, which is the only form of it §16 says is enforceable: a
+/// **The one-cell rule made callable**, which is the only enforceable form of it: a
 /// three-cell `...` where one cell was reserved writes three cells where the reserved one was, and
 /// `writes`, `verbs` and `marked` are identical either way — so the defect has no signature at any
 /// counter and only the surface disagrees.
@@ -786,7 +786,7 @@ pub(crate) fn elided_row_into<I: crate::ink::Ink>(
     written
 }
 
-/// A memo key for a value **made of glyphs**, which is the word ADR 0032 adds to R20's rule.
+/// A memo key for a value **made of glyphs**, which is the word the degradation rule adds.
 ///
 /// > A memo carries the theme in its key iff its value is made of paints **or glyphs**.
 ///
@@ -802,10 +802,10 @@ pub fn glyph_memo_key(theme: &Theme, data: vitui_runtime::Revision) -> vitui_run
     theme.memo_key(data)
 }
 
-/// A tree gutter as a memoised value: **598 glyph cells over 200 rows**, which is scene 21.
+/// A tree gutter as a memoised value: **598 glyph cells over 200 rows**.
 ///
 /// Two of the rows are roots and draw no indent guide, so the count is `198 × 3 + 2 × 2` rather than
-/// `200 × 3`. That is the corpus §10 priced the repertoire-blind memo key against, and it is built
+/// `200 × 3`. That is the corpus the repertoire-blind memo key was priced against, and it is built
 /// here rather than in the test so that the report and the gate measure the same thing.
 ///
 /// **It is a corpus and not `tree`'s output.** `collect::tree` draws no guide at all — components
@@ -1292,7 +1292,7 @@ mod tests {
     ///
     /// The first draft read whole files. `collect.rs` homes four components and `input.rs` five, and
     /// two of the other eight are the reason that could not stand: `table`'s freeze row still
-    /// demands `VLine`, `TeeLeft` and `BottomLeft`, and **components architecture 25 — filed by this
+    /// demands `VLine`, `TeeLeft` and `BottomLeft`, and **the decision — filed by this
     /// very ticket — is the question of whether `table` should draw its own rules**. The day it is
     /// answered yes, a file-wide scan fires an assertion whose message says `tree` has learned to
     /// draw indent guides and sends the reader to reopen architecture 20. A `slider` gaining an

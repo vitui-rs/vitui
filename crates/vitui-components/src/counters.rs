@@ -1,6 +1,6 @@
 //! The nine per-frame counters, **as a value that says which of them this crate can read**.
 //!
-//! §20 prices every screen on this map in the same nine columns — `writes`, `distinct cells
+//! Every screen here is priced in the same nine columns — `writes`, `distinct cells
 //! touched`, `verbs`, `marked`, `regions`, `tab stops`, `merges`, `content layers`, `allocations` —
 //! and twelve prototypes each computed them their own way, inside their own binary, on their own
 //! screen. This module is the one place they come from, so that a gate written against `merges` and
@@ -31,7 +31,7 @@
 //!
 //! # Why a `Reading` and not an `Option<u64>`
 //!
-//! An absent counter that arrives as `0` is the failure mode §21 is built out of: *a threshold on
+//! An absent counter that arrives as `0` is the failure mode the rules are built out of: *a threshold on
 //! the wrong side of the question is not a weak gate, it is a green one*, and `marked == 0` is a
 //! gate that passes trivially when nothing is counting. So [`Reading::get`] **panics**, with the
 //! counter's name and with what would have to become public — the shape
@@ -54,7 +54,7 @@
 //!
 //! Taking four scalars is not an ergonomic choice: `Rect` is named by twenty-seven of the runtime's
 //! public declarations and reachable through **none** of them
-//! (`vitui_runtime::line::ENGINE_NAMES`, architecture issue 22), so a `fn filled(&mut self, r: Rect)`
+//! (`vitui_runtime::line::ENGINE_NAMES`), so a `fn filled(&mut self, r: Rect)`
 //! in this crate is `error[E0412]: cannot find type` before anything runs.
 
 use std::collections::BTreeSet;
@@ -99,7 +99,7 @@ impl Counter {
         Counter::Allocations,
     ];
 
-    /// The column heading spec §20 prints.
+    /// The column heading a report prints.
     pub fn word(self) -> &'static str {
         match self {
             Counter::Writes => "writes",
@@ -165,7 +165,7 @@ impl Reading {
 
 /// **An allocation figure, which is a total over a run and never a mean over `n`.**
 ///
-/// > A mean cannot see anything below `n`; a total can see one. (§21, refinement 2)
+/// > A mean cannot see anything below `n`; a total can see one.
 ///
 /// Every component prototype reported `allocs / n` with `n` between 40 and 200, so a frame
 /// allocating on `n − 1` of `n` frames reported **0**. Run as a total, eleven panels are 0 and one
@@ -229,7 +229,7 @@ impl Allocations {
 /// A verb starting left of the clip consumes clusters that are discarded (
 /// clamp-and-discard), so `x + cells` is not where the write landed in that case and the union is
 /// wrong by the discarded prefix. [`Tally::text`] is honest for a fixture that draws inside its
-/// context, which is what §2 requires of a component in the first place, and a fixture that draws
+/// context, which is what the partition rule requires of a component in the first place, and a fixture that draws
 /// outside one is already failing the rule the tally is measuring.
 #[derive(Clone, Default, Debug)]
 pub struct Tally {
@@ -339,19 +339,19 @@ impl Tally {
 
     /// How many distinct cells were touched, **in the coordinates of the frame's root**.
     ///
-    /// # Components ticket 19 moved this into root coordinates, and it was a defect
+    /// # This moved into root coordinates, and the old reading was a defect
     ///
     /// The union used to be taken in the coordinates each verb was *called* in, which is exact for
-    /// a fixture drawn straight into the frame and wrong for every component that narrows. Spec §6
+    /// a fixture drawn straight into the frame and wrong for every component that narrows. A pinned column
     /// met it first — *both recorders union in the coordinates of the `Ctx` the verb was called on,
     /// so a translated band makes `distinct` meaningless* — and components 19 met it as a number: a
     /// scroll area with a sticky header reported **299 double writes on a frame that has none**,
     /// because the band's first cell and the body's first cell are both `(0, 0)` in their own
     /// contexts and land 299 columns and one row apart on the surface.
     ///
-    /// The repair is [`vitui_runtime::Ctx::origin`], which the runtime did not publish until
-    /// runtime architecture issue 32. Nothing that draws at the root moved: every fixture on this
-    /// map before ticket 19 draws at origin `(0, 0)`, where the two readings are the same number.
+    /// The repair is [`vitui_runtime::Ctx::origin`], which the runtime did not publish at first.
+    /// Nothing that draws at the root moved: every fixture written before it draws at origin
+    /// `(0, 0)`, where the two readings are the same number.
     pub fn distinct(&self) -> u64 {
         self.cells.len() as u64
     }
@@ -463,10 +463,10 @@ impl Counters {
 ///
 /// This is the second half of the partition rule, and the half that **had no counter on either
 /// map** — a cell nobody writes keeps what was already there, and what was already there is almost
-/// always right. Components ticket 40 inverted it; what follows is why it is a reading of a
-/// [`crate::runner::Canvas`] rather than the surface probe spec §2 prescribes.
+/// always right. It has since inverted; what follows is why it is a reading of a
+/// [`crate::runner::Canvas`] rather than the surface probe originally prescribed.
 ///
-/// # Spec §2 asks for a screen probe, and the recorder is the stricter instrument
+/// # A screen probe was asked for, and the recorder is the stricter instrument
 ///
 /// The prescription is: stamp a `Theme::custom` paint no role can produce over the **base** layer
 /// between frames, draw one more, count the cells still carrying it. It has to be the base layer,
@@ -474,10 +474,10 @@ impl Counters {
 /// that filter a cell rewritten with what it already held is indistinguishable from one never
 /// written. Three barriers stood in front of it, and the third is a decision rather than a gap:
 ///
-/// 1. **The stamp's value — lifted** by runtime architecture issue 22. `Rgb` is
+/// 1. **The stamp's value — lifted** when the runtime re-exported it. `Rgb` is
 ///    `vitui_runtime::Rgb` now, so `Theme::custom(fg, bg)` is callable here.
 /// 2. **The stamp's reach — never a barrier.** `Ctx::clear` writes the whole of a context.
-/// 3. **The readback — ADR 0023, and it holds.** No `Surface`, `View`, `Screen` or `Presented`
+/// 3. **The readback — no cell is visible outside the engine, and it holds.** No `Surface`, `View`, `Screen` or `Presented`
 ///    method returns a cell, a handle or a style bit, to this crate or to the engine's own callers.
 ///
 /// **It does not need lifting, and the reason is the pair.** `writes == distinct` — the rule's
@@ -551,7 +551,7 @@ mod tests {
     /// **The sentinel answers, and it answers about the surface it was handed.**
     ///
     /// It used to be the loud one beside [`marked_panics_rather_than_answering_zero`] — three
-    /// barriers, `Reading::Unreachable`, and a `should_panic` naming ADR 0023. Components 40
+    /// barriers, `Reading::Unreachable`, and a `should_panic` naming the cell rule. It
     /// inverted it: see [`sentinel`] for why the readback that decision forbids is not what this
     /// question needs.
     ///

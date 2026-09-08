@@ -42,7 +42,7 @@
 //!
 //! # A pointer gesture is a binding like any other
 //!
-//! Spec §5 recorded Ctrl-click and Shift-click as inexpressible; runtime 10 put `mods: Mods` on
+//! Ctrl-click and Shift-click were once inexpressible; the runtime put `mods: Mods` on
 //! `Response` and [`crate::collect::from_click`] reads it. They are declared here with the keys,
 //! and the sweep asks the same question of them in the only form a click has: **a modified click
 //! and a plain one leave different pictures**. A component that ignores the modifier byte leaves
@@ -594,7 +594,7 @@ mod live {
         Rect::new(0, 0, 24, 1)
     }
 
-    /// **A collection is swept twice, with a selection and without** — architecture issue 22.
+    /// **A collection is swept twice, with a selection and without.**
     ///
     /// `Escape` is answered only when there is something to clear. It is the one chord in the table
     /// whose default owner is the *container* rather than the widget, so a collection with nothing
@@ -1311,14 +1311,14 @@ const COLLECTION_FULL: &[Bind] = &[
 
 /// Where [`COLLECTION_FULL`] stops being a pager's contract and starts being a listing's.
 ///
-/// **Twenty-two since architecture issue 22**, which moved `Escape` across the line: a pager is
+/// **Twenty-two since `Escape` moved across the line**: a pager is
 /// [`crate::collect::Mode::Options`] and `apply` ignores [`crate::collect::Gesture::Nothing`] there,
 /// so the key it declared could never clear anything.
 ///
 /// **Twenty-one since the applications**, which moved `Ctrl+A` across it for the same sentence one
 /// gesture over: `apply` answers [`crate::collect::Gesture::All`] in
 /// [`crate::collect::Mode::Multi`] **alone**, so *select every row* was a line in a pager's help bar
-/// that no press could ever perform. Issue 22 narrowed one key and left the two beside it, and
+/// that no press could ever perform. That narrowed one key and left the two beside it, and
 /// `crate::collect::owns` is that narrowing said of the whole vocabulary — this constant is the
 /// half of it a help bar can see. `Space` did **not** move: a pager toggles with it, because
 /// `apply` answers [`crate::collect::Gesture::Toggle`] in every mode but
@@ -1340,7 +1340,7 @@ const COLLECTION: &[Bind] = COLLECTION_FULL.split_at(PAGER_BINDS).0;
 /// `Mode::Single` plus the popup's own `Enter` and `Esc`. Three lines therefore name both meanings,
 /// because one spelling does two things across the two states.
 ///
-/// **Both owners declare it, since architecture issue 23.** They were one drawing (components 32)
+/// **Both owners declare it now.** They were one drawing
 /// and two declarations, and the second was an `OVERLAY_OWNER` of four binds — the picker's *owner*,
 /// with its popup declaring nothing, because its popup answered nothing. That constant is gone and
 /// the equality is the type system's; what is still asserted is that the two **bodies** answer the
@@ -1656,7 +1656,7 @@ pub const TYPE_AHEAD_LAPSES: &str = "the buffer lapses after a second";
 /// **What a `file_picker`'s open popup does not answer that a `select`'s does. 0 — it was 27.**
 ///
 /// The two are one family and one drawing (components 32) and were **two keyboards** for eight
-/// tickets, which is what components architecture issue 23 was filed about. `select`'s popup takes
+/// a while, which is what the keyboard question was filed about. `select`'s popup takes
 /// the keyboard from its owner — `if cx.is_focused(owner) { cx.focus(list) }`, components 26's
 /// repair after `console` found the arrows dead — and reads `Enter` and `Esc` through
 /// `collect::Refusal`. `file_picker`'s popup did neither: it drew a collection, seated no focus and
@@ -1668,7 +1668,7 @@ pub const TYPE_AHEAD_LAPSES: &str = "the buffer lapses after a second";
 /// It rendered perfectly, which is why nothing caught it: every gate in `crate::files` and
 /// `crate::preview` drives the picker with a pointer or asserts about the pane.
 ///
-/// **Issue 23 repaired it and this constant is kept at 0 rather than deleted**, because the gate
+/// **It was repaired and this constant is kept at 0 rather than deleted**, because the gate
 /// that reads it — `tests::the_two_overlay_owners_declare_one_contract` — is what would catch the
 /// two coming apart again, and a number that records a repair carries the reason a deleted one
 /// cannot. The repair also settled the pointer half nobody had named: the picker answered a click
@@ -2134,13 +2134,13 @@ mod tests {
 
     /// **`select` and `file_picker` declare one contract, and the day they stopped was the defect.**
     ///
-    /// They are one family and one drawing (components 32), and until architecture issue 23 the
+    /// They are one family and one drawing, and until the keyboard question resolved the
     /// keyboard was the half that stayed transcribed: `select`'s popup takes the keyboard and reads
     /// `Enter` and `Esc`, and `file_picker`'s seated no focus and declared no refusal, so an open
     /// picker could only be used with a mouse. **35 against 8 over one family**, held here as
     /// [`PICKER_IS_MISSING`] so that the repair would fail this gate rather than quietly widen it.
     ///
-    /// Issue 23 repaired it and this is the gate the other way up: the two share **one `&[Bind]`**,
+    /// It was repaired and this is the gate the other way up: the two share **one `&[Bind]`**,
     /// so the equality is now the type system's and what is left to assert is that the *sweep*
     /// agrees — two components running two different bodies answering the same thirty-three
     /// spellings. `PICKER_IS_MISSING` stays as the number, at **0**, because a count that records a

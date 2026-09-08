@@ -28,7 +28,7 @@
 //! [`crate::obligations::o1`] and [`crate::obligations::o3`] are over `built`, because a page or a
 //! screen for a function that does not exist is not a thing anybody can write. This one is over the
 //! rows this crate **actually declares**, read out of the module that homes each — because the
-//! `built` column is a *claim*, and components ticket 33 found it had been lying for two tickets:
+//! `built` column is a *claim*, and it had been lying for a while:
 //! `slider`'s row read `built: true` and [`crate::input::MEMBERS`] listed the name while **no
 //! `slider` existed anywhere in the crate**. The column is joined against the source by
 //! `crate::inventory::tests::every_built_row_is_declared_in_the_module_that_homes_it`, so the two
@@ -58,7 +58,7 @@
 //!
 //! # Three rows share one machine, and the exception is named, counted and necessary
 //!
-//! Spec §1 gives every component three spellings — the ninety-per-cent one, `_with` and `_into` —
+//! Every component has three spellings — the ninety-per-cent one, `_with` and `_into` —
 //! and [`crate::input`]'s three toggles share the last two: `checkbox`, `radio` and `switch` are
 //! `toggle_with` and `toggle_into` with one field of `ToggleOpts` between them, which
 //! `crate::input::tests::the_three_toggles_are_one_machine_and_each_answers_with_a_response` reads
@@ -163,7 +163,7 @@ pub fn spellings(module_source: &str, id: &str) -> Vec<String> {
 
 /// **Every `(module, item)` pair an application imports from this crate.**
 ///
-/// The whole of the join. A `use` statement is a *statement* and not a line — runtime issue 22's
+/// The whole of the join. A `use` statement is a *statement* and not a line — the re-export's
 /// finding, whose first scan reported *the engine is unreachable* about a crate re-exporting all of
 /// it — so this walks from `use <crate>::` to the `;` that closes it, however many lines that is.
 ///

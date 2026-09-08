@@ -1,6 +1,6 @@
 //! **The one rule the correct build had to buy separately: the screen clears once.**
 //!
-//! Components ticket 10. Spec §2:
+//! The one rule an application owns rather than a component:
 //!
 //! > Earning the equality cost one rule of its own: **the correct build clears once, on its first
 //! > frame and on a resize**, because a screen whose gaps are never painted is not the same screen.
@@ -19,7 +19,7 @@
 //! Clearing every frame is the largest row — **9 024 cells** on [`crate::dense`]'s screen,
 //! every frame, for a screen that is not moving. Clearing *never* is the other defect: the gaps
 //! nobody paints keep whatever was there before, and the screen stops being the same screen. Neither
-//! shows up on a counter of its own. What separates the three spellings is the pair of gates §2
+//! shows up on a counter of its own. What separates the three spellings is the pair of gates the rule
 //! states together — the naive twin's **0 of 24 000 cells differ** and the correct arm's **0
 //! re-damaged** — and a build can only pass both by clearing exactly once.
 //!
@@ -134,7 +134,7 @@ impl Clears {
     ///
     /// **It is not a substitute for the partition rule.** Steady frames are untouched — this fires
     /// only on the transition — so a screen that clears here and leaves cells to nobody on every
-    /// other frame is a screen this verb cannot save. That is register row 7, **green since
+    /// other frame is a screen this verb cannot save. That is gated, **green since
     /// components 40**, and the two are different halves rather than one: this closes the *sequence*
     /// half, which a caller owns and no per-frame count can state, and the rule closes the frame.
     /// The 525 cells above are 0 on the shipped gallery now.
