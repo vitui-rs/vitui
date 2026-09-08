@@ -176,9 +176,10 @@ fn attrs_of(old: Style, d: &Restyle<'_>) -> u16 {
 /// preserve-everything-else contract has exactly one implementation.
 pub(crate) fn channels(tables: &Tables, old: Style) -> ExtStyle {
     match old.ext_handle() {
-        Some(h) => tables.exts.get(h).expect(
-            "every surface in a layer stack speaks that stack's handle space (spec §3, ADR 0011)",
-        ),
+        Some(h) => tables
+            .exts
+            .get(h)
+            .expect("every surface in a layer stack speaks that stack's handle space"),
         None => ExtStyle {
             fg: old.foreground(),
             bg: old.background(),

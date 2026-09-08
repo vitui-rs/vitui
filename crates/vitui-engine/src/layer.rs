@@ -1412,7 +1412,7 @@ fn remapped(links: &[LinkId], id: LinkId) -> LinkId {
     };
     *links
         .get(i)
-        .expect("a link id in a surface's table was minted by that table (spec §3, ADR 0011)")
+        .expect("a link id in a surface's table was minted by that table")
 }
 
 #[cfg(test)]

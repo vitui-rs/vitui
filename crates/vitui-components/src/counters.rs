@@ -128,9 +128,6 @@ pub enum Reading {
     Unreachable {
         /// **Exactly what would have to become public**, named as an item and not as a wish.
         needs: &'static str,
-        /// The implementation ticket that would carry the change, as `components NN`, or the
-        /// architecture issue it is filed against.
-        inverted_by: &'static str,
     },
 }
 
@@ -146,9 +143,8 @@ impl Reading {
     pub fn get(self, counter: Counter) -> u64 {
         match self {
             Reading::Measured(n) => n,
-            Reading::Unreachable { needs, inverted_by } => panic!(
-                "`{}` is unreachable across the crate line: it needs {needs}. Inverted by \
-                 `{inverted_by}`",
+            Reading::Unreachable { needs } => panic!(
+                "`{}` is unreachable across the crate line: it needs {needs}",
                 counter.word()
             ),
         }
@@ -423,7 +419,6 @@ impl Counters {
             verbs: Reading::Measured(drawn.verbs()),
             marked: Reading::Unreachable {
                 needs: Counters::MARKED_NEEDS,
-                inverted_by: "runtime architecture issue 22",
             },
             regions: Reading::Measured(frame.hits().len() as u64),
             tab_stops: Reading::Measured(frame.stop_count() as u64),

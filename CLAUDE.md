@@ -108,7 +108,7 @@ MSRV **1.88** — `Cargo.toml` is the authority and the `msrv` CI job is what ke
   since ticket 45 that is obligation **O7** rather than a habit: `vitui_components::consumer` joins
   the freeze against the import paths here.
 - **Active work: `.scratch/vitui-production/`** (opened 2026-09-01) — the whole workspace's road to a
-  published crate, twenty tickets in seven groups: the paperwork, the six unsubjected register rows
+  published crate, twenty-one tickets in seven groups: the paperwork, the six unsubjected register rows
   (**all six standing**, by production 03 and 04),
   the fourteen hostile axes O5 still owed (**the group is closed**: `field`'s three taken by
   production 05, `table`'s two by 06, the overlay family's four by 08, the scroll family's three by
@@ -139,9 +139,24 @@ MSRV **1.88** — `Cargo.toml` is the authority and the `msrv` CI job is what ke
   item, over 3,391 documented ones of which twelve carry a heading and every one of those is a
   *module* header — and it is **not** on 15's line, because an added example is a compatible
   change.
+  **21 is what a re-check of 19 found outside the gate's population** (2026-09-08): the rule holds
+  in exactly what `docs.rs` reads — rustdoc lines and ordinary comments — and **a citation written
+  as a string literal is invisible to it.** Six sites a user meets were fixed in that session: two
+  engine `.expect` messages ending `(spec §3, ADR 0011)`, the `fuzz` oracle's *architecture ticket
+  20*, `order::Use`'s `section` field documented *Where the spec says so*,
+  `counters::Reading::Unreachable`'s `inverted_by` reaching a caller through a panic, and seven
+  prose citations across the root and `vitui-apps` READMEs — one of which carried a **stale O5
+  count**, *32 of 34 pairs and both are `tree`'s*, four tickets after 07 turned it. **What 21 owns
+  is the gating asymmetry underneath, which nobody chose**: the engine's `register`, `audit`,
+  `ledger` and `gates` are `#[cfg(test)] mod` and never compile into a shipped build, the runtime's
+  `ledger` is a plain private `mod`, and every one of `vitui-components`' instruments is `pub mod` —
+  so one sentence is unreachable from a release build of one crate and ships in another, and the
+  runtime's `ledger` carries a literal `docs/adr/` path the needle cannot see because the line is a
+  struct field. 298 non-comment lines in the shipped crates, plus 937 in `tests/` and `examples/`
+  which 19 put out of scope by design. Not on 15's line either.
   **One ticket on the release path can start today and it is still 02**, which is `ready-for-human`
-  — it needs a public repository; by number the frontier for an agent is 17, with 18 and 20 beside
-  it. **15 is the release frontier and it cannot start**: its one edge is 02, the five
+  — it needs a public repository; by number the frontier for an agent is 17, with 18, 20 and 21
+  beside it. **15 is the release frontier and it cannot start**: its one edge is 02, the five
   components architecture questions it also waited on — that map's 19, 22, 23, 24 and 25, not this
   backlog's numbers — having all resolved by 2026-09-05, and what they decided is listed below.
   **Windows is last, as 16**, blocked by the publish — which carries the consequence that no shipped

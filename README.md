@@ -22,7 +22,7 @@ this section before the numbers below it.
 |---|---|
 | `vitui-engine` | **implementation-complete.** All 26 implementation tickets resolved, all 31 verification-register entries wired, none pinned red. |
 | `vitui-runtime` | **implementation-complete.** All 21 tickets resolved. `data`, `layout`, `theme` with its fourteen schemes, `keys`, `ctx`, `id`, `route`, `focus`, `sizing`, `work`, `anim`, `overlay` and `scroll`; the register is 48 entries and the scene list 20, both green. |
-| `vitui-components` | **implementation-complete.** All 46 tickets resolved, and spec §17's v1 freeze is **29 of 29 components built**, as a value the tests iterate. The register is 234 rows, 229 evaluated with none pinned red and none left unsubjected. Obligation O5 — every component under every hostile axis it can meet — is at 32 of 34 pairs and is the one left; both are `tree`'s. |
+| `vitui-components` | **implementation-complete.** All 46 tickets resolved, and the v1 freeze is **29 of 29 components built**, as a value the tests iterate. The register is 234 rows, 229 evaluated with none pinned red and none left unsubjected. Every component is exercised under every hostile axis it can meet — 34 of 34 pairs — and all seven documentation and verification obligations are met. |
 | `vitui` | facade re-export of the three. |
 | `vitui-apps` | 21 applications, one file each, and the surface's only consumer. Never published. |
 
@@ -43,12 +43,11 @@ Three things a prospective user should know, stated here rather than discovered:
   CI has been watched go green. Every green run behind the numbers below is a shared local GitLab on
   one machine: linux/arm64, one OS, one architecture.
 - **No architecture question is open on any of the three maps.** The last five were the components
-  map's and all five resolved on 2026-09-05: an edit that costs the data volume is obligation O6's
-  other half and not a seventh obligation (19); `Esc` over a plain `collection` is now declined
-  whenever there is no selection to clear, so a list in a modal no longer swallows it (22);
-  `file_picker`'s popup has a keyboard (23); a `table` writes the part of its band no column claims
-  (24); and the demand column answers *draws*, with what a caller must be able to spell kept beside
-  it (25).
+  map's and all five resolved on 2026-09-05: an edit that costs the data volume is the other half of
+  the flat-frame obligation and not a seventh one; `Esc` over a plain `collection` is now declined
+  whenever there is no selection to clear, so a list in a modal no longer swallows it;
+  `file_picker`'s popup has a keyboard; a `table` writes the part of its band no column claims; and
+  the demand column answers *draws*, with what a caller must be able to spell kept beside it.
 
 ## The frame, as a sequence
 
@@ -86,17 +85,17 @@ is also why nothing above the engine can force a full repaint.
 
 ## The decisions that constrain everything
 
-These are architectural, not stylistic. Each cost a session and has an ADR or a measurement behind
-it in `docs/adr/`.
+These are architectural, not stylistic. Each cost a session and has a decision record or a
+measurement behind it.
 
 - **The engine lays nothing out.** Callers bring rectangles; no layout concept may enter through the
-  `Surface` API (ADR 0002).
+  `Surface` API.
 - **The engine never iterates application data.** It offers clipping and offset viewports; culling is
   the caller's job. Checked at both ends: a component drawing against `visible_rows()` costs 54 µs
   flat at 1 000, 100 000 and 1 000 000 rows, and a 1k-row list and a 1M-row list showing the same 80
   rows produce identical damage, identical run counts and identical emitted cells.
 - **crossterm is invisible.** Input and terminal mode only, never output, and it appears in no public
-  signature (ADR 0001).
+  signature.
 - **Damage is marked at write time, not derived by diffing.** Prior art measured ratatui's
   full-buffer diff at ~170 µs on 300×80 — already over the budget for a whole frame.
 - **A cell holds an interned grapheme-cluster handle, not a `char`**, forced by UAX #29. 16 bytes,

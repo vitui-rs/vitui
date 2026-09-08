@@ -392,16 +392,16 @@ fn checkpoint(screen: &mut Screen, before: &Surface, data: &[u8], frame: u32) ->
         for x in 0..w {
             // **The allowance, turned the right way up.** Where this file used to skip a column at
             // which the oracle's own picture left a pair in halves, it now asserts that no such
-            // column exists. That is architecture the answer read as a gate: the only way
-            // to build one was a `View::child` whose clip bisected a pair, and the drawing verbs'
+            // column exists. That is a settled answer read as a gate: the only way to build one
+            // was a `View::child` whose clip bisected a pair, and the drawing verbs'
             // repair is bounded by the surface rather than by the clip, so there is no longer a
             // way. Asserted of the **oracle** and not of the frame, because the oracle is the one
             // that reports what the layers handed it.
             assert!(
                 !orphaned(&after, x, y),
                 "frame {frame}: the reference compositor's own picture leaves a pair in halves at \
-                 ({x}, {y}), which architecture ticket 20 decided cannot happen\n    oracle: \
-                 {}\n     input: {}",
+                 ({x}, {y}), which no clip can produce: the drawing verbs' repair is bounded by \
+                 the surface and not by the clip\n    oracle: {}\n     input: {}",
                 row_picture(&after, y),
                 hex(data)
             );

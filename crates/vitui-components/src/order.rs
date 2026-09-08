@@ -192,8 +192,6 @@ pub struct Use {
     pub name: &'static str,
     /// Which of `Entry`'s four fields it uses.
     pub fields: &'static [&'static str],
-    /// Where the spec says so.
-    pub section: &'static str,
 }
 
 /// **The five names one structure has**, as a value rather than as a paragraph.
@@ -206,31 +204,26 @@ pub const USES: [Use; 5] = [
         owner: "table",
         name: "the sort/filter order",
         fields: &["node"],
-        section: "spec §6",
     },
     Use {
         owner: "tree",
         name: "the flatten index",
         fields: &["node", "depth", "flags"],
-        section: "spec §7",
     },
     Use {
         owner: "field",
         name: "the wrap index",
         fields: &["node"],
-        section: "spec §11",
     },
     Use {
         owner: "collapsible",
         name: "the fold index",
         fields: &["node", "flags"],
-        section: "spec §8",
     },
     Use {
         owner: "table",
         name: "the variable-row-height prefix sum",
         fields: &["node", "h"],
-        section: "spec §6, §7",
     },
 ];
 

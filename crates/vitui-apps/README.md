@@ -159,10 +159,10 @@ different random draw.
   alone — so the key was consumed to do nothing, `out.changed` was set for a frame that changed
   nothing, and the container above never saw it. `commander` could not type a space at its shell
   prompt and `cluster` had moved k9s's `space` mark to `Ctrl+Space` for the life of the port.
-  `collect::owns` is components architecture 22's narrowing said of the whole vocabulary — the
-  component owns a key exactly when `apply` would do something with it, and the three cursor movers
-  are owned unconditionally, because by the time a `Plain` arrives the caller has already moved the
-  cursor. `commander`'s prompt takes its spaces now and `cluster` binds k9s's own `space` beside the
+  `collect::owns` is `owns_escape`'s own rule said of the whole vocabulary — the component owns a
+  key exactly when `apply` would do something with it, and declines it otherwise — and the three
+  cursor movers are owned unconditionally, because by the time a `Plain` arrives the caller has
+  already moved the cursor. `commander`'s prompt takes its spaces now and `cluster` binds k9s's own `space` beside the
   `Ctrl+Space` it had to invent. What it cost was two numbers: `Ctrl+A` came off `PAGER_BINDS`
   (22 → 21) and off `SELECT`, because a pager is `Mode::Options` and a popup's list is
   `Mode::Single` and neither answers `Gesture::All` — *select every row* was a help line no press
