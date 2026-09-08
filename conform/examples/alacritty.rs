@@ -11,7 +11,7 @@
 //!
 //! # The capture surface, established before anything was written
 //!
-//! Production ticket 12 predicted this arm would have **no** capture surface — Alacritty has no
+//! a later pass predicted this arm would have **no** capture surface — Alacritty has no
 //! remote-control socket, no screen-dump facility, and no AppleScript dictionary — and told the
 //! session to establish that rather than assume it. It is wrong, and the thing that makes it wrong
 //! is on Alacritty's own command line: **`--ref-test`**. Alacritty's reference tests are captured by

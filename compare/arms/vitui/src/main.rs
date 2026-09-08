@@ -15,7 +15,7 @@
 //! are scenes this engine was designed against. `full-repaint` is on the list precisely because it
 //! is the one row where nothing this engine does can help.
 //!
-//! **`Clock::Manual`, and it is not a test fixture.** It is public API (spec §14), and it is the
+//! **`Clock::Manual`, and it is not a test fixture.** It is public API (the engine's design), and it is the
 //! mode in which `present` composites, packs, serialises and writes inline on the calling thread
 //! before returning. That is the honest arrangement for a byte measurement: the alternative puts
 //! serialisation on another thread, and the bytes would then be counted from a process that had not
@@ -184,7 +184,7 @@ fn caret(screen: &mut Screen, stack: &mut Stack, n: u32, _w: u16, _h: u16) {
         view.text(0, 0, TITLE, Style::new());
     }
     // `set_cursor` rather than a cell, and this is the engine's own decision showing up in a
-    // comparison: ADR 0005 puts the caret on the engine because a runtime that computes its column
+    // comparison: the rule puts the caret on the engine because a runtime that computes its column
     // itself is five columns wrong on one family emoji. Here it costs the shortest cursor encoding
     // and a show/hide, and no cell is touched at all.
     //
@@ -235,7 +235,7 @@ fn list_scroll(screen: &mut Screen, stack: &mut Stack, n: u32, w: u16, _h: u16) 
     let mut view = screen.layers().view(stack.base).expect("the base layer");
     // **The culling query, and it is the reason this arm can claim the data-volume invariant.**
     // `scrolled` offsets the view and `visible_rows` says which rows of the offset space the clip
-    // can still reach; ten thousand rows never enter the loop. See ADR 0002 — the engine does not
+    // can still reach; ten thousand rows never enter the loop. See the rule — the engine does not
     // iterate application data, and this is what "the caller does the culling" looks like at a call
     // site.
     let mut list = view.scrolled(0, -top);
@@ -287,7 +287,7 @@ fn modal_over_list(screen: &mut Screen, stack: &mut Stack, n: u32, w: u16, h: u1
         _ => {
             // **Two layers and one primitive.** The dim is an *operator* layer — one `Mix` toward
             // black over the whole screen — and the dialog is a content layer above it, so it is
-            // untouched by an operator that is below it. This is spec §6's "blending is one
+            // untouched by an operator that is below it. This is the engine's design's "blending is one
             // primitive" at a call site: a shadow, a modal dim and a fade are the same mechanism,
             // and the caller never pre-computes a colour.
             //
@@ -335,7 +335,7 @@ fn modal_over_list(screen: &mut Screen, stack: &mut Stack, n: u32, w: u16, h: u1
     };
     let _ = dim;
     // The spinner, and nothing else. One cluster a frame over a 4 800-cell screen with an operator
-    // layer over three quarters of it — which is §7's "a status bar across three dialogs" shape,
+    // layer over three quarters of it — which is the engine's design's "a status bar across three dialogs" shape,
     // and it is the reason the operator's reach has cost this backlog five defects.
     let mut view = screen.layers().view(dialog).expect("the dialog layer");
     let glyph = SPINNER[usize::try_from(n).expect("120 frames") % SPINNER.len()];
@@ -446,7 +446,7 @@ fn latency(w: u16, h: u16) {
         // A minimal decoder, and deliberately minimal: an escape sequence arrives in pieces and the
         // quantity being measured is the reaction to a *complete* keystroke. Anything still
         // incomplete waits for the next byte rather than being answered with a guess — which is
-        // ADR 0007's rule, and it is the right rule for a benchmark too: an arm that answered a
+        // the rule's rule, and it is the right rule for a benchmark too: an arm that answered a
         // half-arrived escape would be advertising a latency for a keystroke that had not happened.
         let name = match pending.as_slice() {
             [0x03] => Some("C-c".to_string()),

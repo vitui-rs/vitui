@@ -1,4 +1,4 @@
-//! §14's first target: draw sequences against the naive reference compositor.
+//! the engine's design's first target: draw sequences against the naive reference compositor.
 //!
 //! Four lines of body, and that is the design. The decoding and the oracle are
 //! `vitui_engine::fuzz::draw_sequence`, inside the engine, because the committed corpus replayed as

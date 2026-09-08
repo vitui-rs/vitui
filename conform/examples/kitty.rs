@@ -12,7 +12,7 @@
 //!
 //! # It is a better instrument than the Ghostty arm, on three axes
 //!
-//! Production ticket 04 predicted two of these and underestimated the third.
+//! a later pass predicted two of these and underestimated the third.
 //!
 //! 1. **No TCC grant and no window index.** `kitten @ --to unix:…` is a real remote-control socket,
 //!    so there is no macOS automation consent dialog, no clipboard to clobber and no z-order to

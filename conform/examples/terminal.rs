@@ -30,7 +30,7 @@
 //! declared once, and [`common::Arm::no_style`] is what carries it into the two scenes it reaches:
 //! all eleven rows of scene 01, and scene 04's one row whose value is a style it reports.
 //!
-//! Production ticket 04 recorded this arm as *glyph-grid scenes only* on the strength of that `sdef`
+//! a later pass recorded this arm as *glyph-grid scenes only* on the strength of that `sdef`
 //! line, and then scene 05 was built and made the sentence too small. A cursor report comes back **in
 //! band on the scene's own tty**, so the capture surface is not in its path at all — which is why
 //! this arm answers scene 05 in full, scene 04 as text, scene 06 in full, and only scene 01 not at
@@ -259,7 +259,7 @@ fn one_scene(which: &str) -> Result<(Arm, common::Capture, Vec<u8>, String), Str
 
     // The set difference is still checked, even though the line above named the window directly:
     // `first window whose selected tab is t` is a query, and a query that matched two windows would
-    // have returned one of them rather than failing. Ticket 04's rule, and it costs one round trip.
+    // have returned one of them rather than failing. An earlier pass's rule, and it costs one round trip.
     //
     // **`id of every window` is cumulative, not live**, and that was measured rather than assumed:
     // a closed window stays in the list for the life of the Terminal.app process, with `visible`

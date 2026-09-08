@@ -15,7 +15,7 @@ const KITTY_SCENE01: &[u8] = include_bytes!("../fixtures/kitty-0.48.2-scene01-at
 const WEZTERM_SCENE01: &[u8] =
     include_bytes!("../fixtures/wezterm-20240203-110809-5046fc22-scene01-attrs.vt");
 
-// ── Scene 04, the four captures that answered architecture ticket 20 ─────────────────────────────
+// ── Scene 04, the four captures that answered an architecture decision ─────────────────────────────
 
 const SCENE04: &[u8] = include_bytes!("../fixtures/ghostty-1.3.1-scene04-pairs.vt");
 const KITTY_SCENE04: &[u8] = include_bytes!("../fixtures/kitty-0.48.2-scene04-pairs.vt");
@@ -312,7 +312,7 @@ fn the_attrs_fixture_carries_every_attribute_it_was_sent() {
 
 #[test]
 fn a_wide_glyph_arrives_with_no_padding_and_the_parser_does_not_invent_one() {
-    // 28 bytes that decide how ticket 06's scene has to be built. `AB漢CD` is five clusters, and
+    // 28 bytes that decide how an earlier pass's scene has to be built. `AB漢CD` is five clusters, and
     // there is nothing in the dump to distinguish it from five narrow ones — so this asserts the
     // *limitation*, which is the finding, rather than asserting a column.
     let d = parse(WIDE, 2, Dialect::TmuxCapturePane).unwrap();
@@ -485,7 +485,7 @@ fn the_tmux_dialect_does_not_mangle_a_colon_colour() {
     );
 }
 
-// ── Scene 01 on the second family, which is what production ticket 05 asked for ──────────────────
+// ── Scene 01 on the second family, which is what a later pass asked for ──────────────────
 
 /// The eleven rows of scene 01 and the one attribute each is supposed to be wearing.
 ///
@@ -522,7 +522,7 @@ fn row_style(dump: &Dump, i: usize, label: &str) -> Option<Style> {
 
 #[test]
 fn tmux_holds_all_eleven_attribute_bits_in_its_own_grid() {
-    // **The second family production ticket 05 required.** `capture-pane -e` re-serialises tmux's
+    // **The second family a later pass required.** `capture-pane -e` re-serialises tmux's
     // own cells, so this says what tmux *stored* — and it stored all eleven, overline included. The
     // fixture beside it says what tmux *forwards*, and those two are not the same number.
     let d = parse(TMUX_SCENE01, 11, Dialect::TmuxCapturePane).unwrap();
@@ -781,10 +781,10 @@ fn scene04_text(bytes: &[u8], dialect: Dialect) -> Vec<String> {
 
 #[test]
 fn every_family_blanks_the_orphaned_half_and_they_do_not_disagree_about_it() {
-    // **Architecture ticket 20, as an assertion over bytes four terminals produced.**
+    // **An architecture decision, as an assertion over bytes four terminals produced.**
     //
-    // The question was which of two spec sentences yields at a `View::child` clip: §3's *a wide head
-    // is always followed by a `CONTINUATION`*, or §4's *a child cannot widen its clip*. Both could
+    // The question was which of two spec sentences yields at a `View::child` clip: the engine's design's *a wide head
+    // is always followed by a `CONTINUATION`*, or the engine's design's *a child cannot widen its clip*. Both could
     // be argued from the document, which is how the ticket came to be filed rather than decided.
     //
     // These bytes decide it. Row `over-cont` prints `AB漢CD` and then one narrow cluster over the
@@ -793,7 +793,7 @@ fn every_family_blanks_the_orphaned_half_and_they_do_not_disagree_about_it() {
     // of a clip to consult**, so a surface holding a wide head with no continuation is a surface none
     // of them can be made to show — the engine's mirror would believe a cell the screen does not
     // have, damage tracking would never repaint it, and the artifact would stand until something
-    // else wrote there. That is the corruption §3 names, and it is why §3 keeps its sentence.
+    // else wrote there. That is the corruption the engine's design names, and it is why the engine's design keeps its sentence.
     for (bytes, dialect, who) in [
         (SCENE04, Dialect::Ecma48, "Ghostty 1.3.1"),
         (KITTY_SCENE04, Dialect::Ecma48, "kitty 0.48.2"),
@@ -810,7 +810,7 @@ fn every_family_blanks_the_orphaned_half_and_they_do_not_disagree_about_it() {
         (WEZTERM_SCENE04, Dialect::Ecma48, "WezTerm 20240203"),
         // **The sixth, and the first whose capture is not an escape stream at all.** It is read out
         // of Alacritty's own grid, where a double-width cluster occupies two cells and the second
-        // carries `WIDE_CHAR_SPACER` — dropped by the reader, for the reason §02 gives about every
+        // carries `WIDE_CHAR_SPACER` — dropped by the reader, for the reason the engine's design gives about every
         // other surface here emitting no padding cell. Six unanimous text rows through a channel
         // with no serialiser in it is the strongest form this row has been asserted in.
         (
@@ -835,7 +835,7 @@ fn every_family_blanks_the_orphaned_half_and_they_do_not_disagree_about_it() {
 #[test]
 fn the_families_disagree_about_what_the_blanked_half_wears_and_that_is_the_sharper_finding() {
     // The four rows above are unanimous. This one is not, and it is the row that turns architecture
-    // ticket 20's answer from *the engine may as well repair* into *the engine must*.
+    // an earlier pass's answer from *the engine may as well repair* into *the engine must*.
     //
     // The wide glyph carries a red background and the cluster written over its continuation does
     // not. **kitty, WezTerm, Alacritty and iTerm2 keep the orphan's own background; Ghostty and
@@ -1521,7 +1521,7 @@ const SYNC_ARMS: [(&str, &[u8]); 5] = [
 
 #[test]
 fn every_arm_in_sync_arms_tracks_mode_2026_and_the_three_that_do_not_are_below() {
-    // The three families of spec §10's tier 1, answering about themselves. `serial.rs` wraps every
+    // The three families of the engine's design's tier 1, answering about themselves. `serial.rs` wraps every
     // frame in this mode where the terminal has it, and until this scene the evidence that any of
     // them does was `detect.rs` believing a reply it also wrote the parser for.
     //
@@ -1548,7 +1548,7 @@ fn every_arm_in_sync_arms_tracks_mode_2026_and_the_three_that_do_not_are_below()
 #[test]
 fn one_reset_undoes_two_sets_because_a_dec_mode_is_not_a_counter() {
     // The last two rows of the batch, read on their own because this is the one row of the five
-    // whose answer the engine depends on: §8 wraps a frame in a **balanced** pair, and a terminal
+    // whose answer the engine depends on: the engine's design wraps a frame in a **balanced** pair, and a terminal
     // that counted would hold a frame past the close that was sent for it.
     for (who, bytes) in SYNC_ARMS {
         let seen = mode_reports(bytes, 2026, 5).unwrap_or_else(|e| panic!("{who}: {e}"));
@@ -1757,7 +1757,7 @@ fn ucd_rs_cites_a_vs16_disagreement_and_this_is_the_first_capture_here_that_repr
     // Terminal.app 2.15 does not widen it. So the paragraph's claim is about a population this
     // suite had been sampling from one end of, and `ucd.rs` now says so with a date and this
     // fixture beside it. **The decision is untouched**: a terminal that answers 1 here is not
-    // misbehaving in any sense this repository acts on, and spec §8's `CHA`-after-non-ASCII rule is
+    // misbehaving in any sense this repository acts on, and the engine's design's `CHA`-after-non-ASCII rule is
     // what bounds it.
     let at = OBSERVED
         .iter()
@@ -2371,7 +2371,7 @@ fn the_stored_rows_are_a_ring_and_reading_them_in_order_would_stand_the_scene_on
 fn a_wide_pair_is_one_cluster_in_the_grid_and_the_spacer_is_not_a_column() {
     // **The one place this reader makes a decision rather than copying a field.** Alacritty stores a
     // double-width cluster in two cells — the head with `WIDE_CHAR` and a `WIDE_CHAR_SPACER` after
-    // it — where every other capture surface here emits no padding cell at all (`SCENES.md` §02).
+    // it — where every other capture surface here emits no padding cell at all (`SCENES.md` the engine's design).
     // Dropping the spacer is what makes this arm's six rows comparable with the other five's, and
     // getting it wrong would show up as `AB漢 CD` against a scene that expects `AB漢CD`.
     //

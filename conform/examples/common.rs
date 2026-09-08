@@ -4,9 +4,9 @@
 //! arms declared one by one, so this file is a module the examples include rather than an example of
 //! its own that fails for having no `main`.
 //!
-//! # Why it exists, and it is production ticket 05 that forced it
+//! # Why it exists, and it is a later pass that forced it
 //!
-//! Stage 1 had one arm and one file, and the scene lived in it. Ticket 05 asks for the eleven
+//! Stage 1 had one arm and one file, and the scene lived in it. An earlier pass asks for the eleven
 //! attribute facts *on at least two families*, which makes the scene and the comparison the parts
 //! that must be **identical** across arms while the launching, capturing and closing are the parts
 //! that cannot be. A second copy of `scene01` would make a disagreement between the arms
@@ -130,7 +130,7 @@ pub struct Mode {
 ///
 /// DEC private modes are set and reset, not pushed and popped, so two `h` and one `l` leave the
 /// mode **reset**. A terminal that counted them would hold a frame back past the `l` the engine
-/// sent, and §8's twenty bytes of framing are a balanced pair per frame — so a counting terminal
+/// sent, and the engine's design's twenty bytes of framing are a balanced pair per frame — so a counting terminal
 /// would be one where a frame that opened a block twice never appeared. Nothing in this repository
 /// does that, which is exactly why nothing here would notice.
 pub fn scene06() -> [Mode; 5] {
@@ -282,7 +282,7 @@ pub fn scene01() -> [Case; 11] {
 ///
 /// **The row is read as text, and that is the whole trick.** A grid-to-text dump emits a
 /// double-width glyph with no padding cell and no continuation marker, so *what is at column 3* is
-/// not a question this instrument can ask — production ticket 04 predicted that and scene 02 is the
+/// not a question this instrument can ask — a later pass predicted that and scene 02 is the
 /// scene kept to prove it. ASCII sentinels convert it into one it can: put `A` and `B` to the left
 /// and `C` and `D` to the right, and the row read as a string says which columns survived without
 /// anyone deriving a width. The width tables are the thing under test, so they may not be in the
@@ -309,7 +309,7 @@ pub struct Pair {
 
 /// Scene 04 — a pair bisected, and what the terminal does with the orphan.
 ///
-/// # This is the scene that answers architecture ticket 20, and it cannot be drawn with the engine
+/// # This is the scene that answers an architecture decision, and it cannot be drawn with the engine
 ///
 /// Every other scene here drives the engine and compares what came back. This one must not, and the
 /// reason is the answer itself: the engine's drawing verbs repair a bisected pair before the bytes
@@ -400,7 +400,7 @@ pub struct Glyph {
     /// # Why three rows carry a number and twelve do not
     ///
     /// The engine's own tables are **authoritative by decision**: `ucd.rs` says so in as many words,
-    /// and spec §8's `CHA`-after-non-ASCII rule is what bounds the disagreement instead of following
+    /// and the engine's design's `CHA`-after-non-ASCII rule is what bounds the disagreement instead of following
     /// it. So a terminal that answers 6 for a ZWJ family emoji is not misbehaving in any sense this
     /// repository acts on — there is no mechanism that would read such a `quirks.rs` row — and a
     /// `FAILED` there would be this instrument inventing a defect.
@@ -430,10 +430,10 @@ pub struct Glyph {
 /// # It is a survey and not a comparison, and that is a decision rather than a shortfall
 ///
 /// `ucd.rs`'s module docs already say the engine does not follow the terminal here — *our tables are
-/// authoritative*, with three named policies and spec §8's `CHA`-after-non-ASCII rule bounding what
+/// authoritative*, with three named policies and the engine's design's `CHA`-after-non-ASCII rule bounding what
 /// a disagreement can cost. What that paragraph cites for the disagreement is a **survey of 23
 /// terminals in a research document**. This scene is the first thing in this repository to observe
-/// any of it, on the families §10 puts in tier 1.
+/// any of it, on the families the engine's design puts in tier 1.
 pub fn scene05() -> [Glyph; 15] {
     [
         Glyph {
@@ -922,7 +922,7 @@ fn ask(batch: &str, after: Duration, finished: impl Fn(&[u8]) -> bool) -> Vec<u8
 /// `quirks.rs`'s synchronised-output table has four rows and every one of them has the same
 /// provenance — *the implementation, read* — because a force flush is a **rendering** event and
 /// nothing a process inside a terminal can ask reports whether the terminal painted. Production
-/// ticket 05 asked for Ghostty's row to be measured and it could not be: the only capture this
+/// an earlier pass asked for Ghostty's row to be measured and it could not be: the only capture this
 /// repository has is an AppleScript round trip four runs put between 136 ms and 623 ms, which is
 /// the same order as Alacritty's entire 150 ms limit.
 ///
@@ -1164,7 +1164,7 @@ pub fn ready_timeout(which: &str) -> Duration {
 /// Block until the scene has presented *and stopped changing*, or give up loudly.
 ///
 /// **This replaces the fixed delay** — the mechanism by which a capture races the paint, and a raced
-/// capture is exactly the empty one ticket 04 predicted would read as agreement. It waits for two
+/// capture is exactly the empty one an earlier pass predicted would read as agreement. It waits for two
 /// distinct things, because the first live run proved one was not enough:
 ///
 /// 1. a stamp exists at all, so a frame has been presented;
@@ -1541,7 +1541,7 @@ pub enum Excluded {
     ///
     /// The row is the quirk table working, not a terminal misbehaving, and a `FAILED` here would
     /// blame the emulator for this repository's own decision. It arrived the session after
-    /// production ticket 10 wired `attrs_dropped` on to the wire: the tmux arm had reported 11/11
+    /// a later pass wired `attrs_dropped` on to the wire: the tmux arm had reported 11/11
     /// while the engine still sent SGR 53, and reported ten the first time it was run afterwards.
     ///
     /// **It costs the instrument the measurement that earned the entry**, and that is not a defect
@@ -2389,7 +2389,7 @@ pub fn publish(arm: &Arm, report: &str, asked: usize, failures: usize) -> Result
 ///
 /// **It will not overwrite one**, which turns *a capture is never regenerated to make something
 /// pass* from a sentence in three files into something the code will not do. The finding that earned
-/// that rule is in `SCENES.md`: production ticket 10 wired `attrs_dropped` on to the wire and the
+/// that rule is in `SCENES.md`: a later pass wired `attrs_dropped` on to the wire and the
 /// tmux arm stopped being able to ask the question its fixture had already answered. The fixture is
 /// what preserved it.
 ///

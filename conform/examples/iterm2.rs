@@ -11,7 +11,7 @@
 //!
 //! # The capture surface was established rather than assumed, and there were two candidates
 //!
-//! Production ticket 13 named both and refused to pick one in advance, because the last time this
+//! a later pass named both and refused to pick one in advance, because the last time this
 //! repository took a citation on trust it was wrong. Both were read before a line of this file was
 //! written, and they are not close.
 //!
@@ -256,7 +256,7 @@ fn one_scene(which: &str) -> Result<(Arm, common::Capture, Vec<u8>, String), Str
     let window = Window(id.clone());
 
     // The set difference is still checked, even though the line above named the window directly:
-    // ticket 04's rule, and it costs one round trip. `was` is read immediately before the open, so a
+    // an earlier pass's rule, and it costs one round trip. `was` is read immediately before the open, so a
     // window the user opened in that instant makes it two and fails the run — which is the outcome
     // the check exists for.
     let fresh: Vec<String> = window_ids()?

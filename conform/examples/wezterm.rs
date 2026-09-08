@@ -12,7 +12,7 @@
 //!
 //! # It is the fifth family, and the two claims it was aimed at
 //!
-//! Production ticket 11 opened with spec §10's inference: WezTerm ships kitty's keyboard *encoding*
+//! a later pass opened with the engine's design's inference: WezTerm ships kitty's keyboard *encoding*
 //! while implementing none of the flag stack, and has the protocol off by default. **Neither is a
 //! question this instrument asks.** All four scenes are about cell state, bisected pairs, in-band
 //! width verdicts and mode 2026; none of them sends a keystroke, and the keyboard protocol has no
@@ -97,7 +97,7 @@
 //! most careful to keep out.
 //!
 //! So this arm's answer is `cannot ask` twice, and **the difference from kitty is entirely in what
-//! evidence was available outside the capture**. Ticket 11 asked for a quirk entry if a real
+//! evidence was available outside the capture**. An earlier pass asked for a quirk entry if a real
 //! misbehaviour was observed; none was, because on these two rows this instrument cannot see far
 //! enough to observe one.
 //!

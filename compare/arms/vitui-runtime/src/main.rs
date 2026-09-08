@@ -9,7 +9,7 @@
 //!
 //! **It redraws the whole picture every frame, on all nine scenes.** That is not a shortcut and it
 //! is not laziness — it is what the runtime *is*. There is no scene tree and no retained structure
-//! (ADR 0012): the clip stack is the call stack and the id path is the closure tree, so a component
+//! (the rule): the clip stack is the call stack and the id path is the closure tree, so a component
 //! that wants to be on the screen on frame *n* is a function that runs on frame *n*. `arms/vitui`
 //! writes only the cells that changed, because the engine's three verbs mark damage as they write
 //! and a caller at that level knows what it changed. Both are ordinary code at their own layer, and
@@ -17,7 +17,7 @@
 //! redraw. It is the number this arm exists to produce.
 //!
 //! **It cannot say *the terminal's default colours*, and four scenes ask for them.** A `Paint` comes
-//! from a `Theme` (ADR 0018: a component names a role and can never construct a paint), and a
+//! from a `Theme` (the rule: a component names a role and can never construct a paint), and a
 //! `Theme` is thirteen concrete colour pairs. There is no role, and no [`Theme::custom`] argument,
 //! that means *leave it alone* — `Theme::custom` takes two `Rgb`, and `Rgb` is three channels. So
 //! this arm names the two colours the suite has already declared for exactly this problem:
@@ -233,7 +233,7 @@ fn caret(cx: &mut Ctx<'_, '_>, n: u32, w: u16, _h: u16) {
     cx.interact(id, Rect::new(0, 0, w, 1), Interest::FOCUS);
     cx.focus(id);
     if n.is_multiple_of(2) {
-        // `caret_with` and not a cell: the caret is the engine's (ADR 0005) and the runtime hands it
+        // `caret_with` and not a cell: the caret is the engine's (the rule) and the runtime hands it
         // through, so this row measures the same mechanism `arms/vitui` measures with one more call
         // in front of it.
         cx.caret_with(
@@ -275,7 +275,7 @@ fn list_scroll(cx: &mut Ctx<'_, '_>, n: u32, w: u16, _h: u16) {
     let mut list = cx.scrolled(0, -top);
     // The runtime's own culling query, which is the engine's under a different name: `visible_rows`
     // says which rows of the offset space the clip can still reach, and ten thousand never enter the
-    // loop. The data-volume invariant is the runtime's to keep as much as the engine's — spec §20's
+    // loop. The data-volume invariant is the runtime's to keep as much as the engine's — the engine's design's
     // scene 2 gates it at 15 876x, flat from a thousand rows to a million.
     for row in list.visible_rows() {
         if !(0..LIST_ROWS).contains(&row) {
@@ -296,7 +296,7 @@ fn list_scroll(cx: &mut Ctx<'_, '_>, n: u32, w: u16, _h: u16) {
 /// rather than reading one, and its own documentation says a component that calls it per cell is
 /// paying per cell and should publish the census. This is that census: 4 800 calls a frame, because
 /// a 24-bit ramp is not thirteen roles and no theme has a role for *the colour at column c*. It is
-/// the price of ADR 0018 on the one picture that is nothing but colour, and it is in the CPU column
+/// the price of the rule on the one picture that is nothing but colour, and it is in the CPU column
 /// rather than the byte column — the wire is the same wire.
 fn full_repaint(cx: &mut Ctx<'_, '_>, n: u32, w: u16, h: u16) {
     let shift = i32::try_from(n).expect("120 frames fit in an i32");

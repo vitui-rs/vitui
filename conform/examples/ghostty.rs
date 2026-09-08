@@ -10,7 +10,7 @@
 //! ```
 //!
 //! The scene, the readiness handshake and the comparison are in [`common`], shared with the tmux arm
-//! — because ticket 05 asks for the eleven attribute facts on *two* families, and two copies of the
+//! — because an earlier pass asks for the eleven attribute facts on *two* families, and two copies of the
 //! scene would make a disagreement between the arms unattributable. What is here is what only this
 //! arm can do: AppleScript, a window server, and a temp directory nobody reports the path of.
 //!
@@ -24,7 +24,7 @@
 //!
 //! # The refusals, written before the first assertion
 //!
-//! Ticket 04 predicted the failure mode and it is the reason this file is shaped around guards:
+//! an earlier pass predicted the failure mode and it is the reason this file is shaped around guards:
 //! `screen -X hardcopy` exits 0 and writes a zero-byte file, and *an empty capture compares equal
 //! against a blank region and the row goes green.* Every step below therefore fails loudly rather
 //! than continuing with less:
@@ -65,7 +65,7 @@ use vitui_conform::Dialect;
 /// overline and wrote it back as a parameter that means blink. A control probe with no engine in it
 /// reproduces that from a raw `printf`, so it is tmux's capture writer and not the engine.
 ///
-/// That leaves the question ticket 05 actually needs answered, and no dump of tmux's own grid can
+/// That leaves the question an earlier pass actually needs answered, and no dump of tmux's own grid can
 /// answer it: **does tmux *forward* overline to the terminal it is running inside?** `capture-pane`
 /// and the redraw path are different code in tmux, and `attrs_dropped` is about what a terminal
 /// renders. So this variant puts tmux in the middle and photographs **Ghostty**: tmux parses the
@@ -161,7 +161,7 @@ impl Through {
     /// The rows this run will not compare, and why.
     ///
     /// **The tmux variant lost its whole point to the entry it earned.** It was built to answer
-    /// *does tmux forward overline*, it answered no, and production ticket 10 then wired
+    /// *does tmux forward overline*, it answered no, and a later pass then wired
     /// `attrs_dropped` on to the wire — so the engine no longer sends SGR 53 to a terminal that
     /// answers XTVERSION `tmux …`, and this arm can no longer take the measurement. `FAILED` would
     /// blame tmux for a decision of ours; `by design` says whose it is.
@@ -304,7 +304,7 @@ fn drive(
         ready.display()
     ))?;
 
-    // The set difference is the address. Ticket 04 established that window *indices* are z-order and
+    // The set difference is the address. An earlier pass established that window *indices* are z-order and
     // shift between `osascript` calls, and that `focused terminal` raises -1728 on a fresh window, so
     // neither is usable; the terminal id is stable for the surface's life.
     let terminal = new_terminal(&was)?;
@@ -394,7 +394,7 @@ fn capture_and_compare(
 /// reverse as `filter: invert(100%)` and throws the colours away.
 ///
 /// Returns the bytes and how long the round trip took. **The second half is not decoration**: it is
-/// the measured reason production ticket 05 gives for `mode 2026`'s force-flush limits being out of
+/// the measured reason a later pass gives for `mode 2026`'s force-flush limits being out of
 /// reach of this instrument. A limit of 150 ms cannot be bracketed by a capture that costs more than
 /// that to ask for.
 fn capture(terminal: &str) -> Result<(Vec<u8>, Duration), String> {

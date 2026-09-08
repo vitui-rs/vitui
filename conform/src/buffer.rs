@@ -25,7 +25,7 @@
 //!    glyph and hand back a row whose styles are all correct and all in the wrong place.
 //! 2. **A double-width cluster's far half is a cell with *zero* code points**, and no character of
 //!    its own appears in `text`. Dropping it is what makes this capture agree with every other
-//!    arm's — `SCENES.md` §02 established that a grid-to-text dump emits no padding cell, and scene
+//!    arm's — `SCENES.md` the engine's design established that a grid-to-text dump emits no padding cell, and scene
 //!    04's six rows are written against that.
 //! 3. **A never-written cell is not reported at all.** `bold` on a forty-column screen comes back as
 //!    four cells, not forty. That is the kitty arm's *a never-written cell is not a painted blank*

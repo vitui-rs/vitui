@@ -26,7 +26,7 @@
 //!    scene upside down and each row's text intact, which is the shape a comparison passes on.
 //! 2. **A double-width cluster occupies two cells and the second is a spacer.** `WIDE_CHAR_SPACER`
 //!    is dropped here, which is what makes this capture agree with every other arm's: `SCENES.md`
-//!    §02 established that a grid-to-text dump emits no padding cell, and scene 04's six rows are
+//!    the engine's design established that a grid-to-text dump emits no padding cell, and scene 04's six rows are
 //!    written against that. `LEADING_WIDE_CHAR_SPACER` is **kept** — it is a blank cell a wide
 //!    cluster declined to start in, not the far half of one, and no scene here produces one.
 //! 3. **Combining marks live beside the cluster rather than in it.** `Cell::c` is one `char` and the

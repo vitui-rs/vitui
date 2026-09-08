@@ -4,7 +4,7 @@
 //! driver, with `--scene 01` it is the scene, and the driver launches the scene by re-running its own
 //! [`std::env::current_exe`]. The scene, the readiness handshake and the comparison come from
 //! [`common`] and are byte-for-byte the ones the Ghostty arm runs — which is the whole reason this
-//! file exists as a sibling rather than as a copy. Production ticket 05 asks for the eleven attribute
+//! file exists as a sibling rather than as a copy. A later pass asks for the eleven attribute
 //! facts *on at least two families*; two copies of the scene would make a disagreement between the
 //! arms unattributable, since it could be the software or it could be the drift.
 //!
@@ -16,7 +16,7 @@
 //!
 //! `capture-pane -p -e` re-serialises **tmux's** grid. The engine's bytes are parsed by tmux, stored
 //! in tmux's cells, and handed back by tmux — the emulator on the other side of tmux never sees them
-//! and is not being measured. That is a legitimate target and never a proxy: tmux is in spec §10's
+//! and is not being measured. That is a legitimate target and never a proxy: tmux is in the engine's design's
 //! own tier-1 list, and `quirks.rs` already cites its 1 s synchronised-output limit. `SCENES.md` says
 //! so at the top, and so does every report this writes.
 //!
@@ -77,7 +77,7 @@ const SESSION: &str = "conform";
 ///
 /// **`capture-pane -e` spells every one of the eleven, overline included** — this arm reported 11/11
 /// on 2026-08-23 and the committed fixture holds all eleven. What changed is not tmux: production
-/// ticket 10 wired `attrs_dropped` on to the wire, so the engine consults `quirks.rs`, sees the
+/// an earlier pass wired `attrs_dropped` on to the wire, so the engine consults `quirks.rs`, sees the
 /// fourth entry, and does not send SGR 53 to a terminal that answers XTVERSION `tmux …`.
 ///
 /// So the row is the quirk table working. `FAILED` would blame tmux for a decision of ours, and

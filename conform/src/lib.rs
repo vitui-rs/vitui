@@ -6,7 +6,7 @@
 //! emulator, no window server and no automation grant in the loop.
 //!
 //! It is the same trade `fuzz/` makes — the committed corpus is the gate and the live run is the soak
-//! — and it is why this is stage 2 of ticket 04 rather than the last thing built. A comparator nobody
+//! — and it is why this is stage 2 of an earlier pass rather than the last thing built. A comparator nobody
 //! can run is worth less than one that runs on every commit against bytes a terminal really sent.
 //!
 //! # What a dump can and cannot say
@@ -748,7 +748,7 @@ pub struct Reply {
 /// Why a batch of cursor reports is not a measurement.
 ///
 /// **The refusals come first here for the reason they came first for the dump**, and the shape of
-/// the accident is the same one ticket 04 predicted: a missing answer that reads as agreement.
+/// the accident is the same one an earlier pass predicted: a missing answer that reads as agreement.
 /// `screen -X hardcopy` exits 0 and writes a zero-byte file; a terminal that does not implement DSR
 /// answers nothing at all, and a survey with no rows in it prints as a clean survey.
 #[derive(Clone, PartialEq, Eq, Debug)]
