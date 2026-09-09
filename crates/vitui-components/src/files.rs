@@ -563,9 +563,9 @@ where
     clippy::too_many_arguments,
     reason = "the component's own six — a context, an id, a rectangle, the state, the task the \
               answer comes through and the question — plus the options, the line drawer and the \
-              `Ink` seam's writer. The task and the question cannot be folded together: that is \
-              §15's own finding, a job's lifetime is the question's and the question changes every \
-              time the cursor moves"
+              `Ink` seam's writer. The task and the question cannot be folded together: a \
+              job's lifetime is the question's and the question changes every time the cursor \
+              moves"
 )]
 pub fn file_preview_pane_into<I, T, F, L>(
     ink: &mut I,
@@ -901,8 +901,8 @@ impl Default for PickerOpts {
     clippy::too_many_arguments,
     reason = "the component's own five — a context, a rectangle, the owner's state, the body's \
               state and the listing — plus the task, the decode and the options. The two states \
-              cannot be folded together: that is §12's finding, and the task cannot join them \
-              because its lifetime is the question's"
+              cannot be folded together, and the task cannot join them because its lifetime \
+              is the question's"
 )]
 pub fn file_picker<'f, T>(
     cx: &mut Ctx<'f, '_>,
@@ -1199,8 +1199,8 @@ where
     clippy::too_many_arguments,
     reason = "the body's own four plus the two function pointers the owner cannot close over, the \
               list's width and the pane's options. Every one of them is a thing the body may not \
-              capture by reference, which is `'f`'s whole cost — and since production 08 the `Ink` \
-              seam's writer and the one value carrying every refused spelling"
+              capture by reference, which is `'f`'s whole cost — beside the `Ink` seam's \
+              writer and the one value carrying every refused spelling"
 )]
 pub(crate) fn picker_body<'f, I: Ink, T>(
     ink: &mut I,

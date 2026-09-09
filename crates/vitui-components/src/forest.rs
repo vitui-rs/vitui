@@ -1610,7 +1610,6 @@ pub fn standing() -> Verdict {
          run against a permutation's hundreds of thousands, and its round trip coming back 349 526 \
          of 500 000 under the prototype's own splice are measured and green; what is missing is the \
          subject",
-        "components 17",
     )
 }
 

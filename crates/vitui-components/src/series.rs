@@ -770,7 +770,6 @@ pub fn standing() -> Verdict {
          is a stand-in pane and not the components. The screen, its 2 regions, its 21 872 writes at \
          1k / 100k / 1M, its equality at 300x80 and at 60x20, its three false greens and its \
          175 712 axis pairs are measured and green; what is missing is the subject",
-        "components 28",
     )
 }
 

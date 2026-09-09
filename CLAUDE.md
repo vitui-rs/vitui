@@ -177,24 +177,40 @@ MSRV **1.88** — `Cargo.toml` is the authority and the `msrv` CI job is what ke
   19's own front-page example, recovered from `git log -L` rather than guessed, and the same
   paragraph called `Driver::suspend`'s block *giving the terminal to `vi`* four tickets after the
   `$EDITOR` arm was removed. It is `no_run` because it **stops this process**.
-  **21 is what a re-check of 19 found outside the gate's population** (2026-09-08): the rule holds
-  in exactly what `docs.rs` reads — rustdoc lines and ordinary comments — and **a citation written
-  as a string literal is invisible to it.** Six sites a user meets were fixed in that session: two
-  engine `.expect` messages ending `(spec §3, ADR 0011)`, the `fuzz` oracle's *architecture ticket
-  20*, `order::Use`'s `section` field documented *Where the spec says so*,
-  `counters::Reading::Unreachable`'s `inverted_by` reaching a caller through a panic, and seven
-  prose citations across the root and `vitui-apps` READMEs — one of which carried a **stale O5
-  count**, *32 of 34 pairs and both are `tree`'s*, four tickets after 07 turned it. **What 21 owns
-  is the gating asymmetry underneath, which nobody chose**: the engine's `register`, `audit`,
-  `ledger` and `gates` are `#[cfg(test)] mod` and never compile into a shipped build, the runtime's
-  `ledger` is a plain private `mod`, and every one of `vitui-components`' instruments is `pub mod` —
-  so one sentence is unreachable from a release build of one crate and ships in another, and the
-  runtime's `ledger` carries a literal `docs/adr/` path the needle cannot see because the line is a
-  struct field. 298 non-comment lines in the shipped crates, plus 937 in `tests/` and `examples/`
-  which 19 put out of scope by design. Not on 15's line either.
+  **21 is resolved** (2026-09-08) and it is what a re-check of 19 found outside the gate's
+  population: the rule held in exactly what `docs.rs` reads — rustdoc lines and ordinary comments —
+  and **a citation written as a string literal was invisible to it.** Six sites a user meets were
+  fixed in that re-check session: two engine `.expect` messages ending `(spec §3, ADR 0011)`, the
+  `fuzz` oracle's *architecture ticket 20*, `order::Use`'s `section` field, `counters::Reading::
+  Unreachable`'s `inverted_by` reaching a caller through a panic, and seven prose citations across
+  the root and `vitui-apps` READMEs — one carrying a **stale O5 count**, *32 of 34 pairs and both
+  are `tree`'s*, four tickets after 07 turned it. **What 21 settled is the rule underneath, as a
+  boundary and not an exemption list**: *provenance is data, and a pointer may live only where a
+  reader meets it by asking* — which is `#[cfg(test)]` (offered to nobody) or `#[doc(hidden)]` (the
+  crate saying *this is not the surface you are offered*), **read off each crate's own `lib.rs`**
+  and never listed in the gate. **Half its premise was false**: the runtime's `ledger` is
+  `#[cfg(test)]` and always has been, so the asymmetry is two-way rather than three, and what
+  reaches its `docs/adr/` path is the fourteen examples that `#[path]`-include the file.
+  `#[cfg(test)]` is **priced and refused** for `vitui-components` — forty-seven of its fifty-three
+  modules are named from outside `src/`, over thirty examples and six integration tests, and the
+  largest instrument is a 9 893-line register, so `#[path]`-inclusion is thirty copies rather than
+  the same arrangement written differently. 39 citing lines in offered modules went to zero, ten of
+  them `#[expect]`/`#[allow]` reason strings; `Composition::source` became `Composition::stated` with
+  the pointer relocated to `composed::EDGE_SOURCES` and joined by `(of, on)` — **the check it
+  replaced could not fail**, since `contains('§')` asks whether a field that cannot be absent
+  carries a mark; `obligations::Verdict::inverted_by` went the way `counters`' did, a **breaking**
+  change to a public `const fn` at 24 call sites and free only before the publish. The gate gained a
+  **third population** — `Standing::literals`, an equality at zero over every line that is neither
+  rustdoc nor comment in an offered module, with `mod tests` stepped over; un-hiding `gates` as a
+  control takes it to exactly 265 — and a needle now matches only where it **starts a word**,
+  because `self.scratch.buf` is the runtime frame's own field and carries the backlog directory's
+  name six times in `ctx.rs`. **307 citing lines remain in the shipped rlibs and every one is in a
+  module its crate hides**, zero in the twenty-nine a reader is offered. `tests/` and `examples/`
+  stay out of scope, confirmed rather than deferred.
   **One ticket on the release path can start today and it is still 02**, which is `ready-for-human`
-  — it needs a public repository; by number the frontier for an agent is 17, with 18 and 21 beside
-  it. **15 is the release frontier and it cannot start**: its one edge is 02, the five
+  — it needs a public repository; with 17, 18, 19, 20 and 21 all resolved, nothing on this backlog
+  is unblocked and unclaimed for an agent. **15 is the release frontier and it cannot start**: its
+  one edge is 02, the five
   components architecture questions it also waited on — that map's 19, 22, 23, 24 and 25, not this
   backlog's numbers — having all resolved by 2026-09-05, and what they decided is listed below.
   **Windows is last, as 16**, blocked by the publish — which carries the consequence that no shipped

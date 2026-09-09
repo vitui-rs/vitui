@@ -1074,7 +1074,6 @@ pub fn standing() -> Verdict {
          verbs, its zero adjacent equal pairs, its ladder of 1 / 2 / 2 against the plot's 1 / 8 / 8, \
          its `Extended == Unicode` in both directions, its distinction census at four tiers, its \
          module readback and its two traps are measured and green; what is missing is the subject",
-        "components 30",
     )
 }
 

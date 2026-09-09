@@ -620,7 +620,6 @@ pub fn standing() -> Verdict {
          reference render at three offsets, its stale tail at 71 of 80 rows and its identical \
          writes and regions at 1k / 100k / 1M are measured and green; what is missing is the \
          subject",
-        "components 12",
     )
 }
 

@@ -150,7 +150,7 @@ pub struct Component {
     /// > nowhere for a later ticket to write.
     ///
     /// A table holds a disagreement that prose cannot. The gate is not *built implies Tier 1* — it
-    /// is *built implies Tier 1 **or** a row in [`MOVED`] naming the ticket that moved it*, so the
+    /// is *built implies Tier 1 **or** a row in [`MOVED`] saying what it turned out to be*, so the
     /// disagreement is an assertion with both names in it rather than a contradiction between two
     /// documents.
     pub built: bool,
@@ -242,7 +242,7 @@ impl Component {
     }
 }
 
-/// A row that is `built` at a tier saying otherwise, with the ticket that moved it.
+/// A row that is `built` at a tier saying otherwise, with what it turned out to be made of.
 ///
 /// **The freeze does not get rewritten when a later ticket disagrees with it**; the disagreement
 /// gets written down. Both names end up in one assertion, which is what *a table
@@ -278,76 +278,76 @@ pub struct Moved {
 pub const MOVED: &[Moved] = &[
     Moved {
         id: "slider",
-        why: "its mechanism was drag capture and §14 built it: press jumps to where it landed \
+        why: "its mechanism was drag capture and it is built: press jumps to where it landed \
               (20/299), the move carries it (60/299), the release moves nothing — computed from \
               `Response::local` alone, with no press origin and no fifth cross-frame fact",
     },
     Moved {
         id: "file_picker",
-        why: "C16 is its named owner and §15 resolved having built it: `collection` + `overlay` + \
+        why: "C16 is its named owner and it is built: `collection` + `overlay` + \
               the preview pane, with no mechanism in it that is new",
     },
     Moved {
         id: "file_preview_pane",
-        why: "C16 is its named owner and §15 built it with 23 gates; every defect it found was at \
+        why: "C16 is its named owner and it is built with 23 gates; every defect it found was at \
               a seam between two of the five pieces rather than inside one",
     },
     Moved {
         id: "checkbox",
-        why: "ticket 34 built it. Tier 2 is *composed of proved mechanisms* and names no mechanism \
+        why: "It is built, and Tier 2 is *composed of proved mechanisms* and names no mechanism \
               this did not already have: `state::press` for the face and the deferred award, the \
               theme's own `Glyph::Tick`, and `fit` for the label",
     },
     Moved {
         id: "radio",
-        why: "ticket 34 built it, as the same machine `checkbox` is with one glyph changed. A radio \
-              *set* is `collection` at `Mode::Options`, which is §5's collapse and not this row",
+        why: "It is built, as the same machine `checkbox` is with one glyph changed. A radio \
+              *set* is `collection` at `Mode::Options`, which is the `Mode` collapse and not this row",
     },
     Moved {
         id: "switch",
-        why: "ticket 34 built it. The one of the three with an empty `glyphs` column, because its \
+        why: "It is built, and it is the one of the three with an empty `glyphs` column, because its \
               state is carried by two words, the side its knob sits on and the face — three axes, \
               one of them the palette",
     },
     Moved {
         id: "meter",
-        why: "ticket 34 built it as `chart`'s prefix construction at two rungs: the ladder is \
+        why: "It is built as `chart`'s prefix construction at two rungs: the ladder is \
               `geom(Kind::Bars, ..)` and the only thing this row adds is the horizontal spelling of \
               a partial cell, which is a different contiguous run of block elements",
     },
     Moved {
         id: "sparkline",
-        why: "ticket 34 built it as `chart` at a small rectangle with no axes, no gutter and no \
+        why: "It is built as `chart` at a small rectangle with no axes, no gutter and no \
               axis loop — the same raster memo and the same body loop, reached rather than copied",
     },
     Moved {
         id: "rule",
-        why: "ticket 34 built it as `fit`'s four skippable parts with a `Glyph` where the padding \
+        why: "It is built as `fit`'s four skippable parts with a `Glyph` where the padding \
               was, over one row or one column, plus `elide`'s one-cell marker",
     },
     Moved {
         id: "status_bar",
-        why: "ticket 35 built it as §9's one band construction with the axis argument taken \
+        why: "It is built as the one band construction with the axis argument taken \
               verbatim — `scroll::sticky`, a view rather than arithmetic — plus one hit entry for \
               the bar and never one per segment",
     },
     Moved {
         id: "pagination",
-        why: "ticket 35 built it as `collection`'s store, its thirteen-arm `apply` and its one \
+        why: "It is built as `collection`'s store, its thirteen-arm `apply` and its one \
               drain loop laid out on the other axis: the row loop is vertical by construction and a \
               transpose is not a rectangle split",
     },
     Moved {
         id: "form",
-        why: "ticket 35 built it as §18 R3's own example — `field` + `nav::cursor` + the focus ring \
+        why: "It is built as `field` + `nav::cursor` + the focus ring \
               the draw builds — with a state exactly as big as the type-ahead buffer `nav::cursor` \
               cannot borrow from the ring",
     },
     Moved {
         id: "spinner",
-        why: "ticket 46 built it, and it is the one row here that was genuinely at risk rather than \
-              merely mis-tiered: §17 froze it at Tier 3 for an unmeasured mechanism, ticket 42 \
-              measured it, and the permission is narrower than the question — a component may own \
+        why: "It is built, and it is the one row here that was genuinely at risk rather than \
+              merely mis-tiered: the freeze put it at Tier 3 for an unmeasured mechanism, it has \
+              since been measured, and the permission is narrower than the question — a component may own \
               an **anchor** and may not own a **clock**. `SpinState` is `Option<Steps>` and 32 B, \
               against the 40 B tween slot `disclose::Collapse` already carries as a field",
     },
@@ -355,7 +355,7 @@ pub const MOVED: &[Moved] = &[
 
 /// One stated edge of L0..L5 graph: `of` is built on `on`.
 ///
-/// `source` is the section that states it. **Only stated edges are here.** A component's real call
+/// `stated` is the edge in the words somebody wrote it down in. **Only stated edges are here.** A component's real call
 /// graph is larger — every Tier 2 row is *composed of proved mechanisms* — but a mechanism is not a
 /// component, and an edge nobody wrote down is an edge a gate cannot honestly refuse.
 #[derive(Clone, Copy, Debug)]
@@ -364,85 +364,91 @@ pub struct Composition {
     pub of: &'static str,
     /// The composed component's id.
     pub on: &'static str,
-    /// Where the spec states the edge.
-    pub source: &'static str,
+    /// **The edge itself, in the words it is stated in** — the sentence, and never a pointer at
+    /// where the sentence is.
+    ///
+    /// What makes an edge admissible here is that somebody wrote it down, and the words they wrote
+    /// are the only part of that a reader outside this workspace can use. *Where* each one is
+    /// written down is provenance and lives in [`crate::composed::EDGE_SOURCES`], joined to this
+    /// list by `(of, on)`.
+    pub stated: &'static str,
 }
 
 /// Every composition edge the spec states, which is what makes the `layer` column checkable.
 ///
-/// A `layer` column with no edges is a claim about a graph nobody drew. These are the edges the design
-/// and the impl backlog's tickets 34 and 35 write in so many words, and
+/// A `layer` column with no edges is a claim about a graph nobody drew. These are the edges the
+/// design and the two composite tickets write in so many words, and
 /// `tests::no_composition_runs_from_a_lower_layer_to_a_higher_one` is the gate over them.
 pub const COMPOSITIONS: &[Composition] = &[
     Composition {
         of: "table",
         on: "collection",
-        source: "§6 — `table` = `collection` + column rectangles",
+        stated: "`table` = `collection` + column rectangles",
     },
     Composition {
         of: "tree",
         on: "collection",
-        source: "§7 — `tree` = `collection` + a flatten index",
+        stated: "`tree` = `collection` + a flatten index",
     },
     Composition {
         of: "scroll_area",
         on: "scrollbar",
-        source: "§9 — `scroll::bar` is the scrollbar every scrollable draws",
+        stated: "`scroll::bar` is the scrollbar every scrollable draws",
     },
     Composition {
         of: "select",
         on: "overlay",
-        source: "§12 — the popup is the owner's, and `PopupState` is the body's",
+        stated: "the popup is the owner's, and `PopupState` is the body's",
     },
     Composition {
         of: "select",
         on: "collection",
-        source: "§5 — one `Mode` absorbs listbox, menu, submenu and the palette body",
+        stated: "one `Mode` absorbs listbox, menu, submenu and the palette body",
     },
     Composition {
         of: "chart",
         on: "plot",
-        source: "§13 — `plot` is the sub-cell rasteriser and an L0 leaf, not a composite",
+        stated: "`plot` is the sub-cell rasteriser and an L0 leaf, not a composite",
     },
     Composition {
         of: "meter",
         on: "chart",
-        source: "ticket 34 — `chart`'s prefix construction at 2 rungs",
+        stated: "`chart`'s prefix construction at 2 rungs",
     },
     Composition {
         of: "sparkline",
         on: "chart",
-        source: "ticket 34 — `chart` at a small rectangle, no axes, no gutter, no axis loop",
+        stated: "`chart` at a small rectangle, no axes, no gutter, no axis loop",
     },
     Composition {
         of: "status_bar",
         on: "sticky",
-        source: "ticket 35 — the same band construction, one rectangle split and one hit entry",
+        stated: "the same band construction, one rectangle split and one hit entry",
     },
     Composition {
         of: "pagination",
         on: "collection",
-        source: "ticket 35 — `collection` at a small length plus `nav::cursor`",
+        stated: "`collection` at a small length plus `nav::cursor`",
     },
     Composition {
         of: "form",
         on: "field",
-        source: "§18 R3 — `form` is `field` + `nav::cursor` + the focus ring the draw builds",
+        stated: "`form` is `field` + `nav::cursor` + the focus ring the draw builds",
     },
     Composition {
         of: "file_picker",
         on: "collection",
-        source: "§15, §18 R3 — `file_picker` is `collection` + `overlay` + the preview pane",
+        stated: "`file_picker` is `collection` + `overlay` + the preview pane",
     },
     Composition {
         of: "file_picker",
         on: "overlay",
-        source: "§15, §18 R3 — `file_picker` is `collection` + `overlay` + the preview pane",
+        stated: "`file_picker` is `collection` + `overlay` + the preview pane",
     },
     Composition {
         of: "file_picker",
         on: "file_preview_pane",
-        source: "§15, §18 R3 — `file_picker` is `collection` + `overlay` + the preview pane",
+        stated: "`file_picker` is `collection` + `overlay` + the preview pane",
     },
 ];
 
@@ -1407,7 +1413,7 @@ mod tests {
                 of.layer.rung(),
                 on.id,
                 on.layer.rung(),
-                e.source
+                e.stated
             );
             assert!(of.id != on.id, "`{}` is built on itself", of.id);
         }
@@ -1441,16 +1447,6 @@ mod tests {
                 .filter(|id| !settled.contains(id))
                 .collect::<Vec<_>>()
         );
-
-        for e in COMPOSITIONS {
-            assert!(
-                e.source.contains('§') || e.source.contains("ticket"),
-                "the edge `{}` → `{}` does not name where it is stated, which is the whole \
-                 difference between a stated edge and a guessed one",
-                e.of,
-                e.on
-            );
-        }
     }
 
     /// **`constructions` is 1..=3, and three rows carry the named numbers.**

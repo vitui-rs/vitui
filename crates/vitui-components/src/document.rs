@@ -1315,7 +1315,6 @@ pub fn standing() -> Verdict {
          wrap index written in `crate::document` and not the component. The two screens, the four \
          gates, the cluster corpus, the 500 splices and the 625/875 resize are measured and green; \
          what is missing is the subject",
-        "components 24",
     )
 }
 

@@ -1830,7 +1830,6 @@ pub fn standing() -> Verdict {
         "`select` or `overlay` has stopped being declared where the freeze homes it, so this screen \
          is back to a stand-in label in a rectangle and a body written beside the request. Every \
          other number on it would go on reproducing, which is what makes the scan the gate",
-        "components 26",
     )
 }
 

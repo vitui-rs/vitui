@@ -48,7 +48,7 @@
 //!
 //! # How they fail loudly
 //!
-//! [`Verdict::assert_met`] panics with the failing set and the ticket that inverts it. Each of the
+//! [`Verdict::assert_met`] panics with the failing set and what is wrong with it. Each of the
 //! nine is watched panicking by a `#[should_panic]` test below, because **a gate nobody has watched
 //! fail is not a gate** — the three-for-three finding, from the other direction.
 //! `tests::all_nine_obligation_queries_are_met_and_o5_was_the_last_to_turn` writes the number down,
@@ -100,9 +100,10 @@ pub enum Verdict {
         /// How many of them failed. Equal to `over` when the population was empty.
         failing: usize,
         /// What is wrong, in one line, ending in something a reader can act on.
+        ///
+        /// **The whole of it**: what would have to change is said here, in words, and not as a
+        /// pointer at a ticket the reader has no copy of.
         why: &'static str,
-        /// The implementation ticket that makes it possible to meet, as `components NN`.
-        inverted_by: &'static str,
     },
 }
 
@@ -112,29 +113,18 @@ impl Verdict {
     /// **An empty population is `Unmet`, whatever the failing count says.** A query asked about
     /// nothing has not been answered, and the arithmetic that says otherwise — zero failures out of
     /// zero — is exactly how three of them would read green today.
-    pub const fn of(
-        over: usize,
-        failing: usize,
-        why: &'static str,
-        inverted_by: &'static str,
-    ) -> Verdict {
+    pub const fn of(over: usize, failing: usize, why: &'static str) -> Verdict {
         if over == 0 {
             return Verdict::Unmet {
                 over: 0,
                 failing: 0,
                 why,
-                inverted_by,
             };
         }
         if failing == 0 {
             return Verdict::Met { over };
         }
-        Verdict::Unmet {
-            over,
-            failing,
-            why,
-            inverted_by,
-        }
+        Verdict::Unmet { over, failing, why }
     }
 
     /// Whether it holds.
@@ -142,22 +132,14 @@ impl Verdict {
         matches!(self, Verdict::Met { .. })
     }
 
-    /// Panic with the failing set and the ticket that inverts it.
+    /// Panic with the failing set and what is wrong with it.
     ///
     /// This is the loud half. It is what a later ticket's gate calls, and what the
     /// `#[should_panic]` tests below watch, because a failure nobody has read is a failure nobody
     /// can act on.
     pub fn assert_met(self, obligation: &str) {
-        if let Verdict::Unmet {
-            over,
-            failing,
-            why,
-            inverted_by,
-        } = self
-        {
-            panic!(
-                "{obligation} is unmet: {failing} of {over} — {why}. Inverted by `{inverted_by}`"
-            );
+        if let Verdict::Unmet { over, failing, why } = self {
+            panic!("{obligation} is unmet: {failing} of {over} — {why}");
         }
     }
 }
@@ -593,7 +575,6 @@ pub fn o1(doc_tested: &[&str]) -> Verdict {
         failing,
         "built components carry no compiled doc example, so nothing proves their API is callable \
          from outside this crate",
-        "components 36",
     )
 }
 
@@ -612,7 +593,6 @@ pub fn o2_nothing_shown_is_absent_from_the_freeze(panels: &[&str]) -> Verdict {
         failing,
         "the gallery does not exist, so there is no screen for the freeze to have drifted from — \
          which is the vacuous green this equality is written to refuse",
-        "components 39",
     )
 }
 
@@ -628,7 +608,6 @@ pub fn o2_everything_built_has_a_panel(panels: &[&str]) -> Verdict {
         failing,
         "built components have no gallery panel, so nothing would notice the inventory drifting \
          from what ships",
-        "components 39",
     )
 }
 
@@ -671,7 +650,6 @@ pub fn o3(goldens: &[(&str, u8)]) -> Verdict {
         failing,
         "components have a golden-screen count that is not their construction count, so a rung \
          builds something different and no screen says what",
-        "components 37",
     )
 }
 
@@ -716,7 +694,6 @@ pub fn o4(documented: &[&str], registered: &[&str]) -> Verdict {
         "no component has declared a keyboard contract in either direction, so the equality has \
          nothing to be about — and a binding registered and undocumented is a feature nobody \
          finds, while one documented and unregistered is a help bar that lies",
-        "components 38",
     )
 }
 
@@ -748,7 +725,6 @@ pub fn o5(scenes: &[(&str, Axis)]) -> Verdict {
         failing,
         "declared hostile axes have no scene, and three of the four axes were caught only by an \
          equality against a reference render",
-        "components 04",
     )
 }
 
@@ -788,7 +764,6 @@ pub fn o6(measured: &[&str]) -> Verdict {
         "components that take a data volume have no measured cost, so this crate can prove a \
          frame's output is flat in the volume and not its work — which is how a fold at 476 ns a \
          point shipped past every gate here",
-        "components 44",
     )
 }
 
@@ -853,7 +828,6 @@ pub fn o7_nothing_exercised_is_absent_from_the_freeze(applied: &[&str]) -> Verdi
         "no application exercises anything the freeze has heard of, so there is nothing for the \
          inventory to have drifted from — which is the vacuous green this equality is written to \
          refuse",
-        "components 45",
     )
 }
 
@@ -888,7 +862,6 @@ pub fn o7_everything_declared_has_an_application(declared: &[&str], applied: &[&
         "components this crate declares are in no application, so nothing exercises them anywhere \
          but where their own author put them — which is how four defects every gate here was green \
          on reached a person running the thing",
-        "components 45",
     )
 }
 
@@ -1043,8 +1016,8 @@ mod tests {
     /// makes the next change a deliberate edit rather than a quiet one. Today the answer is **seven
     /// of seven** obligations — nine queries, because O2 and O7 are two equalities each — and the
     /// list below is written out rather than counted, so that an obligation going *red* is a
-    /// deliberate edit too. There is no longer a query that names the ticket which inverts it,
-    /// which is what this test existed to make impossible to reach quietly.
+    /// deliberate edit too. No query is unmet, which is what this test existed to make impossible
+    /// to reach quietly.
     ///
     /// **O1 was the first**, and the deliberate edit this test was written
     /// to force: it stood at zero for thirty-five tickets, twenty-five of which shipped a component
@@ -1118,25 +1091,15 @@ mod tests {
             met,
             vec!["O1", "O2a", "O2b", "O3", "O4", "O5", "O6", "O7a", "O7b"],
             "an obligation has changed colour. That is the point of the backlog and it is also a \
-             deliberate edit to this test, to this module's header and to the ticket that inverted \
-             it — the number is here so a green one cannot arrive unremarked"
+             deliberate edit to this test and to this module's header — the number is here so a \
+             green one cannot arrive unremarked"
         );
 
         for (name, verdict) in all.into_iter().filter(|(_, v)| !v.met()) {
-            let Verdict::Unmet {
-                over,
-                failing,
-                why,
-                inverted_by,
-            } = verdict
-            else {
+            let Verdict::Unmet { over, failing, why } = verdict else {
                 unreachable!("checked above");
             };
             assert!(why.len() > 40, "{name} does not say what is wrong");
-            assert!(
-                inverted_by.starts_with("components "),
-                "{name} does not name the implementation ticket that inverts it"
-            );
             assert!(failing <= over);
         }
     }
@@ -1289,17 +1252,9 @@ mod tests {
     /// arithmetic that reported `allocs / n == 0` for a frame allocating on n−1 of n frames.
     #[test]
     fn an_obligation_asked_about_nothing_is_unmet_and_not_met() {
-        assert!(
-            !Verdict::of(
-                0,
-                0,
-                "nothing to check, which is the failure",
-                "components 00"
-            )
-            .met()
-        );
-        assert!(Verdict::of(1, 0, "-", "components 00").met());
-        assert!(!Verdict::of(1, 1, "-", "components 00").met());
+        assert!(!Verdict::of(0, 0, "nothing to check, which is the failure").met());
+        assert!(Verdict::of(1, 0, "-").met());
+        assert!(!Verdict::of(1, 1, "-").met());
         assert!(!o2_nothing_shown_is_absent_from_the_freeze(&[]).met());
         // And with something in it, the same query answers a real question rather than a vacuous
         // one — in both directions.
@@ -1499,6 +1454,6 @@ mod tests {
     /// as the header two hundred lines up that it was opened to fix.
     #[test]
     fn a_met_obligation_is_silent() {
-        Verdict::of(1, 0, "-", "components 00").assert_met("a met obligation");
+        Verdict::of(1, 0, "-").assert_met("a met obligation");
     }
 }

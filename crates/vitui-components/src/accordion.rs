@@ -1409,7 +1409,6 @@ pub fn standing() -> Verdict {
          against 421 at `h = 0`, the 408 on the hit index and the ring at once, the two surfaces \
          proved identical cell for cell, the mid-transition 26 and the fold anchor's 4 166 of \
          4 167 against 0 are measured and green; what is missing is the subject",
-        "components 22",
     )
 }
 

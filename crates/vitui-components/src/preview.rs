@@ -2315,7 +2315,6 @@ pub fn standing() -> Verdict {
         "`file_preview_pane` and `file_picker` are declared in `src/files.rs`, so all three \
          preview-pane screens are played over the components. A subject that went away would turn \
          this red again and say which one",
-        "components 32",
     )
 }
 

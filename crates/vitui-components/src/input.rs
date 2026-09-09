@@ -1294,8 +1294,7 @@ pub fn select_with<'f>(
     reason = "the component's own six — a context, an id, a rectangle, the owner's state, the \
               body's state and the option list — plus the options and the `Ink` seam's writer. \
               Folding the first six into a parameter struct would invent a type that exists only \
-              to satisfy a lint, and the two states cannot be folded together at all: that is \
-              §12's finding"
+              to satisfy a lint, and the two states cannot be folded together at all"
 )]
 pub fn select_into<'f, I: Ink>(
     ink: &mut I,

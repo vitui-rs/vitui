@@ -901,10 +901,10 @@ pub fn collection(
 #[track_caller]
 #[expect(
     clippy::too_many_arguments,
-    reason = "`collection`'s own seven plus the `Ink` seam's writer. The seven are spec §5's — a \
-              context, a rectangle, the state, the options, the length, the caller's search and \
-              the row drawer — and none of them can be folded into another without inventing a \
-              parameter struct that exists only to satisfy a lint"
+    reason = "`collection`'s own seven plus the `Ink` seam's writer. The seven are the \
+              component's own — a context, a rectangle, the state, the options, the length, \
+              the caller's search and the row drawer — and none of them can be folded into \
+              another without inventing a parameter struct that exists only to satisfy a lint"
 )]
 pub fn collection_into<I, F, R>(
     ink: &mut I,
@@ -3611,8 +3611,8 @@ pub struct TableOpts {
 #[track_caller]
 #[expect(
     clippy::too_many_arguments,
-    reason = "`collection`'s seven with the column list added, which is exactly what §6's \
-              `table = collection + column rectangles` says the signature is. Folding any of them \
+    reason = "`collection`'s seven with the column list added, which is what *a table is a \
+              collection with column rectangles* makes the signature. Folding any of them \
               into a parameter struct would put the difference between the two components \
               somewhere a reader cannot see it"
 )]
@@ -3979,7 +3979,7 @@ fn split_header(area: Rect) -> (Rect, Rect) {
 /// the same reason a cell does.
 #[expect(
     clippy::too_many_arguments,
-    reason = "the seven it already had plus architecture issue 24's arm, which the header takes \
+    reason = "the seven it already had plus the slack band's arm, which the header takes \
               for the body's reason: a header that stopped short of the band while the body filled \
               it would be the same defect wearing a smaller number"
 )]

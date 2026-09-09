@@ -344,6 +344,104 @@ pub fn survey(read: impl Fn(&str) -> String) -> Vec<Found> {
         .collect()
 }
 
+/// **Where one composition edge is written down**, joined by `(of, on)` to
+/// [`COMPOSITIONS`](crate::inventory::COMPOSITIONS).
+///
+/// The pointer and the sentence are two different things and they belong in two different places.
+/// [`Composition::stated`](crate::inventory::Composition::stated) is the sentence, and it ships on
+/// a module a reader is offered; this is the pointer, and it lives here because this module is
+/// hidden from the documentation. Reading it is the act of asking where a property came from, which
+/// nobody does by accident.
+#[derive(Clone, Copy, Debug)]
+pub struct EdgeSource {
+    /// The composing component's id.
+    pub of: &'static str,
+    /// The composed component's id.
+    pub on: &'static str,
+    /// The document that states the edge, in this workspace's own numbering.
+    pub source: &'static str,
+}
+
+/// **Every stated composition edge, with the document that states it.**
+///
+/// A second declaration and not a second derivation: the edge list says *what the graph is* and
+/// this says *who said so*, and `tests::every_stated_edge_names_where_it_is_stated` joins them in
+/// both directions — an edge with no provenance fails, and provenance left behind by a deleted
+/// edge fails too. The old check lived on the edge itself and could see neither, because a field
+/// cannot be missing.
+pub const EDGE_SOURCES: &[EdgeSource] = &[
+    EdgeSource {
+        of: "table",
+        on: "collection",
+        source: "spec §6",
+    },
+    EdgeSource {
+        of: "tree",
+        on: "collection",
+        source: "spec §7",
+    },
+    EdgeSource {
+        of: "scroll_area",
+        on: "scrollbar",
+        source: "spec §9",
+    },
+    EdgeSource {
+        of: "select",
+        on: "overlay",
+        source: "spec §12",
+    },
+    EdgeSource {
+        of: "select",
+        on: "collection",
+        source: "spec §5",
+    },
+    EdgeSource {
+        of: "chart",
+        on: "plot",
+        source: "spec §13",
+    },
+    EdgeSource {
+        of: "meter",
+        on: "chart",
+        source: "components ticket 34",
+    },
+    EdgeSource {
+        of: "sparkline",
+        on: "chart",
+        source: "components ticket 34",
+    },
+    EdgeSource {
+        of: "status_bar",
+        on: "sticky",
+        source: "components ticket 35",
+    },
+    EdgeSource {
+        of: "pagination",
+        on: "collection",
+        source: "components ticket 35",
+    },
+    EdgeSource {
+        of: "form",
+        on: "field",
+        source: "spec §18 R3",
+    },
+    EdgeSource {
+        of: "file_picker",
+        on: "collection",
+        source: "spec §15, §18 R3",
+    },
+    EdgeSource {
+        of: "file_picker",
+        on: "overlay",
+        source: "spec §15, §18 R3",
+    },
+    EdgeSource {
+        of: "file_picker",
+        on: "file_preview_pane",
+        source: "spec §15, §18 R3",
+    },
+];
+
 /// The freeze's Tier 2 rows that are built, which is the population [`TIER_TWO`] must cover.
 pub fn built_tier_two() -> Vec<&'static Component> {
     INVENTORY
@@ -355,6 +453,7 @@ pub fn built_tier_two() -> Vec<&'static Component> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::COMPOSITIONS;
     use std::path::PathBuf;
 
     fn read(relative: &str) -> String {
@@ -388,6 +487,32 @@ mod tests {
                 f.minted
             );
             assert!(f.holds());
+        }
+    }
+
+    /// **Every stated edge names where it is stated, and nothing here names an edge that is gone.**
+    ///
+    /// The check this replaces lived on the edge row itself and asked whether its own string
+    /// contained a section mark — which a field cannot fail to have, and which said nothing about
+    /// whether the pointer was still true. Two separate declarations joined by `(of, on)` fail in
+    /// both directions instead: an edge added without provenance has no partner here, and a
+    /// provenance row outliving its edge has no partner there.
+    #[test]
+    fn every_stated_edge_names_where_it_is_stated() {
+        let edges: Vec<(&str, &str)> = COMPOSITIONS.iter().map(|e| (e.of, e.on)).collect();
+        let sourced: Vec<(&str, &str)> = EDGE_SOURCES.iter().map(|e| (e.of, e.on)).collect();
+        assert_eq!(
+            edges, sourced,
+            "the stated edges and their provenance have drifted apart. An edge with no row here is \
+             a guess, and a row here with no edge is a pointer at nothing"
+        );
+        for e in EDGE_SOURCES {
+            assert!(
+                e.source.len() > 5,
+                "the edge `{}` -> `{}` does not name a document",
+                e.of,
+                e.on
+            );
         }
     }
 

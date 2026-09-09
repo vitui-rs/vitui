@@ -320,11 +320,8 @@ fn obligations() {
         match verdict {
             Verdict::Met { over } => println!("  {name}  met over {over}"),
             Verdict::Unmet {
-                over,
-                failing,
-                inverted_by,
-                ..
-            } => println!("  {name}  UNMET {failing} of {over}, inverted by `{inverted_by}`"),
+                over, failing, why, ..
+            } => println!("  {name}  UNMET {failing} of {over} — {why}"),
         }
     }
     println!(

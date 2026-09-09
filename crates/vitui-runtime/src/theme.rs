@@ -924,18 +924,12 @@ impl<'a> Repaint<'a> {
 }
 
 impl Spec {
-    #[allow(
-        dead_code,
-        reason = "read by `Repaint::lower`, whose caller is ticket 08's `Ctx`"
-    )]
+    #[allow(dead_code, reason = "read by `Repaint::lower`, whose caller is `Ctx`")]
     fn style_fg(self) -> Color {
         Color::rgb(self.fg.r, self.fg.g, self.fg.b)
     }
 
-    #[allow(
-        dead_code,
-        reason = "read by `Repaint::lower`, whose caller is ticket 08's `Ctx`"
-    )]
+    #[allow(dead_code, reason = "read by `Repaint::lower`, whose caller is `Ctx`")]
     fn style_bg(self) -> Color {
         Color::rgb(self.bg.r, self.bg.g, self.bg.b)
     }
@@ -1391,10 +1385,7 @@ impl Theme {
         Revision::from_raw(if mixed == 0 { 1 } else { mixed })
     }
 
-    #[allow(
-        dead_code,
-        reason = "read by `Repaint::lower`, whose caller is ticket 08's `Ctx`"
-    )]
+    #[allow(dead_code, reason = "read by `Repaint::lower`, whose caller is `Ctx`")]
     fn spec(&self, r: Role) -> Spec {
         self.specs[r.index()]
     }

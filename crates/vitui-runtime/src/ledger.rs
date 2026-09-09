@@ -317,10 +317,10 @@ pub const LEDGER: [Row; 18] = [
         was: None,
         machine: Machine::Decided,
         ticket: "R 18",
-        used_at: "`docs/adr/0020-reactivity-lives-above-the-runtime.md`, which carries the numbers \
-                  **inline** since runtime architecture issue 24 deleted the crate that had been \
-                  their instrument. Zero because there is no edge: no reactivity mechanism exists \
-                  in this workspace at all, and ADR 0020's four hooks are the whole surface. The \
+        used_at: "the decision that put reactivity above the runtime, which carries the numbers \
+                  **inline** since the crate that had been their instrument was deleted. Zero \
+                  because there is no edge: no reactivity mechanism exists in this workspace at \
+                  all, and that decision's four hooks are the whole surface. The \
                   measurement that closed it — three drivers of one screen, 19 558.40 / 19 591.80 / \
                   19 550.00 ns, a 41.80 ns spread at **0.21%**, with 0 of 24 000 differing cells — \
                   is why the crate is gone rather than why the row is zero",

@@ -978,7 +978,6 @@ pub fn standing() -> Verdict {
          screen is their construction — `fit`, `block` and `press` — and not the components \
          themselves. The screen, its 338 regions, its equality against the naive twin and all five \
          re-damage instances are measured and green; what is missing is the subject",
-        "components 10",
     )
 }
 

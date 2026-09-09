@@ -8,13 +8,16 @@
 //! which case the sentence says it, or something only this workspace needs, in which case it lives
 //! in the decision records and not in the crate.
 //!
-//! # The two halves
+//! # The halves
 //!
 //! **The citation count is an equality, per crate, against a declared budget.** Not an upper bound:
 //! a count that drifts *down* without the budget moving is how a number in this repository goes
 //! stale, and a stale budget is a lie about how much prose is left. So an improvement fails the
 //! build until the budget records it, and a regression fails it too. The target is zero for all
-//! four crates and every sweep lowers a number here.
+//! four crates and every sweep lowers a number here. There are three such counts, one per
+//! population, and they are three numbers rather than one total because the populations answer
+//! different questions — what a stranger reads, what the next editor reads, and what a panic hands
+//! back.
 //!
 //! **The example count is a floor.** It may grow freely and may not shrink, because the second half
 //! of the rule is that a public item a caller constructs or calls carries an example that compiles.
@@ -29,10 +32,51 @@
 //!
 //! # What is scanned, and what is not
 //!
-//! Every `.rs` file under each publishable crate's `src/`, and within those files only the lines
-//! that carry a rustdoc marker. That is the docs.rs surface plus the internal doc comments that sit
-//! beside it, which is the population the rule is about. Ordinary comments are out of this gate's
-//! reach and are swept by hand; so is anything under `tests/`, including this file.
+//! Every `.rs` file under each publishable crate's `src/`, in three populations: rustdoc lines,
+//! ordinary comment lines, and — since the sweep that found the rule holding in the first two and
+//! broken in a third — **the lines that are neither**. A citation written as a string literal is a
+//! citation: an `.expect` message, a `#[expect(reason = …)]`, an assertion's failure text and a
+//! `&'static str` field of a table all reach somebody, and two of those reach a caller through a
+//! panic.
+//!
+//! # Where a citation is allowed to live, and it is one rule for every crate
+//!
+//! **Provenance is data, and a pointer may live only where a reader meets it by asking for it.**
+//! Every verification instrument in this workspace names where its properties came from — that is
+//! the difference between a register and a document — so the rule cannot be *no citations
+//! anywhere*. What it is instead is a boundary, and the boundary is each crate's own declaration
+//! about what it offers a reader:
+//!
+//! - a module behind `#[cfg(test)]` is offered to nobody and never compiles into a shipped build;
+//! - a module marked `#[doc(hidden)]` is the crate saying *this is not the surface you are offered*
+//!   — reading one is the act of asking an instrument where a property came from;
+//! - **everything else may not cite, in any of the three populations.**
+//!
+//! Both halves are derived from the crate's own `lib.rs` rather than listed here, so gating or
+//! hiding a module exempts it in the same edit, and un-hiding one puts it back in the population in
+//! the same edit.
+//!
+//! ## The gating asymmetry is deliberate, and it is priced
+//!
+//! The engine and the runtime put every instrument behind `#[cfg(test)]`; `vitui-components` puts
+//! all of its behind `#[doc(hidden)] pub mod`. That difference is not a defect and it is not free
+//! to remove. The engine's and the runtime's instruments reach their examples through
+//! `#[path]`-inclusion, which works because there are few of them and they are small. Forty-seven
+//! of `vitui-components`' fifty-three modules are named from outside its `src/` — from thirty
+//! examples and six integration tests, each a separate crate that can see only `pub` items — and the
+//! largest of them is a nine-thousand-line register. `#[path]`-including that into thirty examples
+//! is not the same arrangement written differently; it is thirty copies. So the shipped rlib of one
+//! crate carries strings the other two do not, and what makes the *rule* identical in all three is
+//! that neither kind of module is a surface a reader is offered.
+//!
+//! ## What is deliberately unwatched
+//!
+//! `tests/` and `examples/` of the four crates carry roughly nine hundred more citing lines, and
+//! they stay out of scope — deliberately, and for the same reason the instruments are exempt. An
+//! example is a build artefact whose subject *is* this workspace's own verification: a report that
+//! divides by a budget is naming the ledger row it divides by. They are absent from docs.rs, and a
+//! reader who has unpacked the `.crate` tarball to read `examples/volume_numbers.rs` has asked.
+//! This file, being under `tests/`, is out of its own reach for the same reason.
 
 use std::path::{Path, PathBuf};
 
@@ -46,7 +90,7 @@ fn needle(head: &str, tail: &str) -> String {
     format!("{head}{tail}")
 }
 
-/// One crate's standing, in the two numbers this file gates.
+/// One crate's standing, in the numbers this file gates.
 struct Standing {
     /// The directory name under `crates/`.
     dir: &'static str,
@@ -60,6 +104,12 @@ struct Standing {
     /// questions: a rustdoc line is what a stranger reads on docs.rs, and a comment is what the
     /// next person to edit the file reads. Both are held, and the first was swept first.
     comments: usize,
+    /// Lines that are neither, in modules the crate offers a reader. Exact, like the other two.
+    ///
+    /// A third number and not a third of one total, because this population's exemption is
+    /// different in kind: the first two are swept everywhere, and this one is swept everywhere the
+    /// crate does not declare the module an instrument.
+    literals: usize,
 }
 
 /// **The ratchet.** Both numbers were measured, never chosen, and the whole point of the pair is
@@ -68,24 +118,28 @@ const STANDING: &[Standing] = &[
     Standing {
         dir: "vitui",
         citations: 0,
+        literals: 0,
         examples: 1,
         comments: 0,
     },
     Standing {
         dir: "vitui-engine",
         citations: 0,
+        literals: 0,
         examples: 13,
         comments: 0,
     },
     Standing {
         dir: "vitui-runtime",
         citations: 0,
+        literals: 0,
         examples: 28,
         comments: 0,
     },
     Standing {
         dir: "vitui-components",
         citations: 0,
+        literals: 0,
         examples: 56,
         comments: 0,
     },
@@ -148,19 +202,43 @@ fn comment_text(line: &str) -> Option<String> {
     Some(line.strip_prefix("//")?.trim().to_lowercase())
 }
 
-/// Whether a rustdoc line points at something a reader outside this repository cannot open.
+/// Whether a line points at something a reader outside this repository cannot open.
+///
+/// A needle matches only where it starts a word. Prose never glues one to an identifier and code
+/// does: `self.scratch.buf` is a field on the runtime's frame and carries the backlog directory's
+/// name inside it, which the two comment populations could never meet and this one meets six times
+/// in one file.
 fn cites(text: &str) -> bool {
-    if plain_needles().iter().any(|n| text.contains(n.as_str())) {
+    if plain_needles()
+        .iter()
+        .any(|n| starts_a_word(text, n.as_str()))
+    {
         return true;
     }
     numbered_needles().iter().any(|n| {
-        text.match_indices(n.as_str()).any(|(at, _)| {
-            text[at + n.len()..]
-                .chars()
-                .next()
-                .is_some_and(|c| c.is_ascii_digit())
-        })
+        text.match_indices(n.as_str())
+            .filter(|(at, _)| opens_a_word(text, *at))
+            .any(|(at, _)| {
+                text[at + n.len()..]
+                    .chars()
+                    .next()
+                    .is_some_and(|c| c.is_ascii_digit())
+            })
     })
+}
+
+/// Whether the byte at `at` begins a word: nothing, or a non-identifier character, precedes it.
+fn opens_a_word(text: &str, at: usize) -> bool {
+    !text[..at]
+        .chars()
+        .next_back()
+        .is_some_and(|c| c.is_alphanumeric() || c == '_')
+}
+
+/// Whether the needle occurs anywhere it begins a word.
+fn starts_a_word(text: &str, needle: &str) -> bool {
+    text.match_indices(needle)
+        .any(|(at, _)| opens_a_word(text, at))
 }
 
 /// The one crate where a scene number is not a citation.
@@ -215,14 +293,168 @@ fn sources(dir: &Path) -> Vec<PathBuf> {
     out
 }
 
-/// One crate's two numbers as they are now, with the citing lines themselves for the failure
-/// message — a count that cannot say *where* sends the next session to grep for it.
-fn measure(dir: &str) -> (usize, usize, usize, Vec<String>) {
+/// What one crate stands at, with the citing lines themselves for the failure message — a count
+/// that cannot say *where* sends the next session to grep for it.
+struct Measured {
+    citations: usize,
+    examples: usize,
+    comments: usize,
+    literals: usize,
+    /// The first few citing rustdoc lines.
+    worst: Vec<String>,
+    /// The first few citing lines that are neither rustdoc nor comment.
+    worst_literals: Vec<String>,
+}
+
+/// One `mod` declaration in a crate's `lib.rs`, with what the crate says about it.
+struct Declared {
+    /// The module's name.
+    name: String,
+    /// It carries `#[doc(hidden)]`: the crate is not offering it to a reader.
+    hidden: bool,
+    /// It carries `#[cfg(test)]`: it is offered to nobody and never reaches a shipped build.
+    gated: bool,
+    /// Its `#[path]`, where it has one, because the engine gates a module whose file lives under a
+    /// shipped module's directory and the file is what a scan of `src/` finds.
+    path: Option<String>,
+}
+
+/// Every `mod` a crate's `lib.rs` declares, in order.
+///
+/// **The one reader of that file.** Two functions below want overlapping halves of it, and two
+/// parsers of one declaration are two things that can come to disagree about it while both look
+/// right.
+fn declared_modules(dir: &str) -> Vec<Declared> {
+    let lib = std::fs::read_to_string(root().join("crates").join(dir).join("src/lib.rs"))
+        .unwrap_or_default();
+    let mut out = Vec::new();
+    let (mut hidden, mut gated, mut path) = (false, false, None::<String>);
+    for line in lib.lines() {
+        let t = line.trim();
+        match t {
+            "#[doc(hidden)]" => hidden = true,
+            "#[cfg(test)]" => gated = true,
+            _ if t.starts_with("#[path") => path = t.split('"').nth(1).map(str::to_owned),
+            _ if t.starts_with("#[") => {}
+            _ if t.is_empty() || t.starts_with("//") => {}
+            _ => {
+                if let Some(rest) = t
+                    .strip_prefix("mod ")
+                    .or_else(|| t.strip_prefix("pub mod "))
+                {
+                    out.push(Declared {
+                        name: rest.trim_end_matches(';').trim().to_owned(),
+                        hidden,
+                        gated,
+                        path: path.clone(),
+                    });
+                }
+                hidden = false;
+                gated = false;
+                path = None;
+            }
+        }
+    }
+    out
+}
+
+/// The modules a crate does not offer a reader: the instruments.
+///
+/// Two declarations and one meaning. `#[cfg(test)]` is offered to nobody and never reaches a
+/// shipped build; `#[doc(hidden)]` is the crate saying *this is not the surface you are offered*.
+/// Both are read off the crate's own `lib.rs`, so a module changes population in the same edit that
+/// changes its declaration — the alternative is a list here, which is a second declaration of
+/// something the crate already states.
+///
+/// `#[path]` is followed where it is present, because the engine gates one module whose file lives
+/// under a shipped module's directory.
+fn instrument_modules(dir: &str) -> Vec<String> {
+    let mut out = Vec::new();
+    for d in declared_modules(dir) {
+        if !(d.hidden || d.gated) {
+            continue;
+        }
+        out.push(d.name);
+        if let Some(p) = d.path {
+            out.push(p.trim_end_matches(".rs").to_owned());
+        }
+    }
+    out
+}
+
+/// The top-level module a source file belongs to: `src/foo.rs` and `src/foo/bar.rs` are both `foo`.
+fn top_module(src: &Path, file: &Path) -> String {
+    file.strip_prefix(src)
+        .unwrap_or(file)
+        .components()
+        .next()
+        .map(|c| {
+            c.as_os_str()
+                .to_string_lossy()
+                .trim_end_matches(".rs")
+                .to_owned()
+        })
+        .unwrap_or_default()
+}
+
+/// Whether the `#[cfg(test)]` at `i` is attached to a module rather than to a single item.
+fn opens_a_module(lines: &[&str], i: usize) -> bool {
+    let mut j = i + 1;
+    while j < lines.len() && lines[j].trim_start().starts_with("#[") {
+        j += 1;
+    }
+    lines
+        .get(j)
+        .map(|l| l.trim_start())
+        .is_some_and(|item| item.starts_with("mod ") || item.starts_with("pub mod "))
+}
+
+/// Where a `#[cfg(test)]` module opened at `i` ends, or `None` if it never closes.
+///
+/// A `mod tests` inside a shipped file is the bulk of this crate's assertion text and none of it
+/// compiles into a release build, so the literal population has to step over it. The end is the
+/// closing brace at the attribute's own indentation, which is what `cargo fmt` guarantees and what
+/// nothing else in the file can look like.
+///
+/// `None` means it never closes, and the caller panics on it rather than skipping to the end: a
+/// skip that runs off the file exempts everything after the attribute and reports zero, which is
+/// the shape of a gate that cannot fail.
+fn cfg_test_block(lines: &[&str], i: usize) -> Option<usize> {
+    if lines[i].trim() != "#[cfg(test)]" {
+        return None;
+    }
+    let indent = lines[i].len() - lines[i].trim_start().len();
+    let mut j = i + 1;
+    while j < lines.len() && lines[j].trim_start().starts_with("#[") {
+        j += 1;
+    }
+    let item = lines.get(j)?.trim_start();
+    if !(item.starts_with("mod ") || item.starts_with("pub mod ")) {
+        return None;
+    }
+    if item.ends_with(';') {
+        return Some(j);
+    }
+    let close = format!("{}}}", " ".repeat(indent));
+    let mut k = j + 1;
+    while k < lines.len() && lines[k].trim_end() != close {
+        k += 1;
+    }
+    (k < lines.len()).then_some(k)
+}
+
+/// One crate's three counts as they are now.
+fn measure(dir: &str) -> Measured {
     let src = root().join("crates").join(dir).join("src");
-    let mut citations = 0;
-    let mut examples = 0;
-    let mut comments = 0;
-    let mut worst: Vec<String> = Vec::new();
+    let instruments = instrument_modules(dir);
+    let mut m = Measured {
+        citations: 0,
+        examples: 0,
+        comments: 0,
+        literals: 0,
+        worst: Vec::new(),
+        worst_literals: Vec::new(),
+    };
     for file in sources(&src) {
         let text =
             std::fs::read_to_string(&file).unwrap_or_else(|e| panic!("{}: {e}", file.display()));
@@ -232,34 +464,69 @@ fn measure(dir: &str) -> (usize, usize, usize, Vec<String>) {
             .display()
             .to_string();
         let local_scenes = dir == SCENE_NUMBERS_ARE_LOCAL;
-        for (n, line) in text.lines().enumerate() {
+        let offered = !instruments.contains(&top_module(&src, &file));
+        let lines: Vec<&str> = text.lines().collect();
+        // How far the `#[cfg(test)]` module the scan is inside runs, if it is inside one. It
+        // suppresses **only** the literal count: a `mod tests` does not compile into a shipped
+        // build, so its assertion text reaches nobody — but its comments are read by the next
+        // person to edit the file, which is exactly who the comment population is held for.
+        let mut in_test = None::<usize>;
+        for (n, line) in lines.iter().enumerate() {
+            if in_test.is_some_and(|end| n > end) {
+                in_test = None;
+            }
+            if in_test.is_none() && line.trim() == "#[cfg(test)]" && opens_a_module(&lines, n) {
+                in_test = Some(cfg_test_block(&lines, n).unwrap_or_else(|| {
+                    panic!(
+                        "{short}:{}: a `#[cfg(test)]` module with no closing brace at its own \
+                         indentation. Running to the end of the file would exempt the rest of it \
+                         silently, which is the shape of a gate that cannot fail",
+                        n + 1
+                    )
+                }));
+            }
             if let Some(ordinary) = comment_text(line) {
                 let ordinary = match local_scenes {
                     true => scene_free(&ordinary),
                     false => ordinary,
                 };
                 if cites(&ordinary) {
-                    comments += 1;
+                    m.comments += 1;
                 }
                 continue;
             }
-            let Some(doc) = doc_text(line) else { continue };
+            let Some(doc) = doc_text(line) else {
+                if !offered || in_test.is_some() {
+                    continue;
+                }
+                let code = match local_scenes {
+                    true => scene_free(&line.to_lowercase()),
+                    false => line.to_lowercase(),
+                };
+                if cites(&code) {
+                    m.literals += 1;
+                    if m.worst_literals.len() < 12 {
+                        m.worst_literals.push(format!("{short}:{}", n + 1));
+                    }
+                }
+                continue;
+            };
             if opens_examples(&doc) {
-                examples += 1;
+                m.examples += 1;
             }
             let doc = match local_scenes {
                 true => scene_free(&doc),
                 false => doc,
             };
             if cites(&doc) {
-                citations += 1;
-                if worst.len() < 12 {
-                    worst.push(format!("{short}:{}", n + 1));
+                m.citations += 1;
+                if m.worst.len() < 12 {
+                    m.worst.push(format!("{short}:{}", n + 1));
                 }
             }
         }
     }
-    (citations, examples, comments, worst)
+    m
 }
 
 /// The table covers the four crates that publish, and no more.
@@ -299,16 +566,17 @@ fn the_ratchet_covers_every_publishable_crate() {
 fn no_shipped_doc_comment_points_at_a_document_the_reader_does_not_have() {
     let mut wrong: Vec<String> = Vec::new();
     for standing in STANDING {
-        let (citations, _, _, worst) = measure(standing.dir);
-        if citations != standing.citations {
+        let m = measure(standing.dir);
+        if m.citations != standing.citations {
             wrong.push(format!(
-                "{}: {citations} citing rustdoc lines against a table that says {}{}",
+                "{}: {} citing rustdoc lines against a table that says {}{}",
                 standing.dir,
+                m.citations,
                 standing.citations,
-                if worst.is_empty() {
+                if m.worst.is_empty() {
                     String::new()
                 } else {
-                    format!(" — first lines {worst:?}")
+                    format!(" — first lines {:?}", m.worst)
                 }
             ));
         }
@@ -339,6 +607,11 @@ fn a_swept_crate_carries_no_citation_budget_at_all() {
             "{dir} is listed as swept and still carries a comment budget of {}",
             standing.comments
         );
+        assert_eq!(
+            standing.literals, 0,
+            "{dir} is listed as swept and still carries a literal budget of {}",
+            standing.literals
+        );
     }
 }
 
@@ -349,11 +622,11 @@ fn a_swept_crate_carries_no_citation_budget_at_all() {
 fn no_ordinary_comment_points_at_a_document_the_reader_does_not_have() {
     let mut wrong: Vec<String> = Vec::new();
     for standing in STANDING {
-        let (_, _, comments, _) = measure(standing.dir);
-        if comments != standing.comments {
+        let m = measure(standing.dir);
+        if m.comments != standing.comments {
             wrong.push(format!(
-                "{}: {comments} citing comment lines against a table that says {}",
-                standing.dir, standing.comments
+                "{}: {} citing comment lines against a table that says {}",
+                standing.dir, m.comments, standing.comments
             ));
         }
     }
@@ -365,6 +638,79 @@ fn no_ordinary_comment_points_at_a_document_the_reader_does_not_have() {
     );
 }
 
+/// **The literal count, as an equality.** A citation is a citation wherever it is written.
+///
+/// The two gates above read comment markers, so a pointer written as a string literal was invisible
+/// to both for as long as they existed — and a literal is the population that reaches a caller
+/// hardest: an `.expect` message and an assertion's failure text arrive through a panic, and a
+/// `&'static str` field of a public table arrives through a getter.
+///
+/// The population is every line of a module the crate **offers a reader**, which is derived from
+/// the crate's own `lib.rs` by [`instrument_modules`] and never listed here. A `mod tests` inside
+/// an offered module is stepped over, because it does not compile into a shipped build either.
+#[test]
+fn no_shipped_string_literal_points_at_a_document_the_reader_does_not_have() {
+    let mut wrong: Vec<String> = Vec::new();
+    for standing in STANDING {
+        let m = measure(standing.dir);
+        if m.literals != standing.literals {
+            wrong.push(format!(
+                "{}: {} citing lines that are neither rustdoc nor comment, against a table that \
+                 says {}{}",
+                standing.dir,
+                m.literals,
+                standing.literals,
+                if m.worst_literals.is_empty() {
+                    String::new()
+                } else {
+                    format!(" — first lines {:?}", m.worst_literals)
+                }
+            ));
+        }
+    }
+    assert!(
+        wrong.is_empty(),
+        "a string literal in a module the crate offers a reader may not point at a document the \
+         reader does not have. An instrument may: hide the module or gate it, in the edit that \
+         makes it one.\n  {}",
+        wrong.join("\n  ")
+    );
+}
+
+/// **The exemption is derived, and it is watched reading something.**
+///
+/// An exemption computed from a file that does not parse the way the reader assumed is an
+/// exemption that exempts everything, and the literal count would then be zero for the reason a
+/// broken gate is zero. So the two halves are asserted apart: `vitui-components` declares
+/// twenty-four hidden modules and the engine and the runtime gate their instruments, and the facade
+/// declares none of either — a crate with no instruments has nothing to exempt, which is the arm
+/// that would go silently wrong if the parse returned an empty list everywhere.
+#[test]
+fn the_instrument_exemption_is_read_off_each_crate_and_not_listed_here() {
+    let components = instrument_modules("vitui-components");
+    assert!(
+        components.contains(&"gates".to_owned()) && components.contains(&"scenes".to_owned()),
+        "the components' register and scene list are instruments and this read {components:?}"
+    );
+    assert_eq!(
+        components.len(),
+        24,
+        "vitui-components declares twenty-four instrument modules and this read {}",
+        components.len()
+    );
+    for dir in ["vitui-engine", "vitui-runtime"] {
+        let gated = instrument_modules(dir);
+        assert!(
+            gated.contains(&"register".to_owned()) && gated.contains(&"ledger".to_owned()),
+            "{dir}'s register and ledger are instruments and this read {gated:?}"
+        );
+    }
+    assert!(
+        instrument_modules("vitui").is_empty(),
+        "the facade re-exports three crates and carries no instrument of its own"
+    );
+}
+
 /// **The example floor.** Deleting prose satisfies the equality above; it does not satisfy this.
 /// Stated as an equality for the same reason the citations are: a floor the crate has already
 /// climbed past is a number nobody can read.
@@ -372,17 +718,17 @@ fn no_ordinary_comment_points_at_a_document_the_reader_does_not_have() {
 fn the_examples_a_caller_can_run_never_get_fewer() {
     let mut wrong: Vec<String> = Vec::new();
     for standing in STANDING {
-        let (_, examples, _, _) = measure(standing.dir);
-        if examples < standing.examples {
+        let m = measure(standing.dir);
+        if m.examples < standing.examples {
             wrong.push(format!(
-                "{}: {examples} example headings, down from {}",
-                standing.dir, standing.examples
+                "{}: {} example headings, down from {}",
+                standing.dir, m.examples, standing.examples
             ));
-        } else if examples > standing.examples {
+        } else if m.examples > standing.examples {
             wrong.push(format!(
-                "{}: {examples} example headings against a floor of {} — raise the floor in the \
+                "{}: {} example headings against a floor of {} — raise the floor in the \
                  edit that adds the example",
-                standing.dir, standing.examples
+                standing.dir, m.examples, standing.examples
             ));
         }
     }
@@ -529,29 +875,15 @@ fn item_name(trimmed: &str) -> Option<String> {
 /// a gate plays against a correct one. A fence in one of those is a gate's reference — often a
 /// deliberately *wrong* build — so labelling it as an example would be false on the one page where
 /// it would be read. Derived rather than listed, so hiding a module exempts it in the same edit.
+///
+/// One parser and not two: [`instrument_modules`] wants the same declarations plus the gated ones,
+/// and two readers of one file are two things that can disagree about it.
 fn hidden_modules(dir: &str) -> Vec<String> {
-    let lib = std::fs::read_to_string(root().join("crates").join(dir).join("src/lib.rs"))
-        .unwrap_or_default();
-    let mut out = Vec::new();
-    let mut marked = false;
-    for line in lib.lines() {
-        let t = line.trim();
-        if t == "#[doc(hidden)]" {
-            marked = true;
-            continue;
-        }
-        if let Some(rest) = t.strip_prefix("pub mod ") {
-            if marked {
-                out.push(rest.trim_end_matches(';').trim().to_owned());
-            }
-            marked = false;
-            continue;
-        }
-        if !t.is_empty() && !t.starts_with("//") {
-            marked = false;
-        }
-    }
-    out
+    declared_modules(dir)
+        .into_iter()
+        .filter(|d| d.hidden)
+        .map(|d| d.name)
+        .collect()
 }
 
 /// **Every example the compiler sees is labelled.**

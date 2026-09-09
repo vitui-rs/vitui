@@ -1751,7 +1751,6 @@ pub fn standing() -> Verdict {
          reference render at two horizontal offsets, its identical writes and verbs at 12, 40, 120 \
          and 240 declared columns and at 1k / 100k / 1M rows, and the arithmetic band's re-damaged \
          cells are measured and green; what is missing is the subject",
-        "components 15",
     )
 }
 

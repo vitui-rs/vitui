@@ -1448,7 +1448,6 @@ pub fn standing() -> Verdict {
          keeps both bars over content that fits, the 99 flips in 99 frames, row 799 999 of 999 999 \
          with no counter separating the two builds, the thumb drift and the two-areas re-damage \
          are all measured and green; what is missing is the subject",
-        "components 19",
     )
 }
 
