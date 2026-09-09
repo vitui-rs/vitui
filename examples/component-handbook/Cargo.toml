@@ -1,0 +1,27 @@
+# The component handbook's worked example, and **deliberately outside the workspace**.
+#
+# It is here to be copied, so it has to build the way a stranger's crate builds: a `[dependencies]`
+# table naming the published crates, no workspace inheritance, and nothing reachable that a
+# dependent would not have. Being a member would also add a twenty-second application to
+# `crates/vitui-apps`, which is a list several gates join on.
+#
+# It depends on `vitui-runtime` and **not** on `vitui-components`. That is the whole claim the
+# handbook makes: a component is a function over `Ctx`, and the component crate is one consumer of
+# that surface rather than a privileged one. If anything here needed a name only
+# `vitui-components` exports, the guide would be wrong.
+[package]
+name = "vitui-component-handbook"
+version = "0.0.0"
+edition = "2024"
+license = "MIT OR Apache-2.0"
+rust-version = "1.88"
+publish = false
+
+[dependencies]
+vitui-runtime = { path = "../../crates/vitui-runtime" }
+
+# The same `deny` the workspace uses, for the same reason: a check weaker than the gate is not a
+# check. Everything in `src/` compiles clean under it, so a reader who copies this directory starts
+# from a build that has nothing suppressed.
+[lints.rust]
+warnings = "deny"

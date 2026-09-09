@@ -14,7 +14,11 @@ members = [
 # list to the engine itself — which legitimately spawns, joins and locks on the two threads that
 # exist so the application thread does not have to. Detaching the template is what makes that config
 # mean "the application author's crate".
-exclude = ["examples/app-template"]
+# The component handbook's worked example is detached for a second reason as well as that one: it is
+# a directory meant to be copied, so it has to build the way a stranger's crate builds — naming its
+# dependencies rather than inheriting them — and being a member would make it a twenty-second
+# application in a workspace where the list of applications is something several gates join on.
+exclude = ["examples/app-template", "examples/component-handbook"]
 
 # Every warning is a build failure, in a local `cargo build` exactly as in CI.
 #

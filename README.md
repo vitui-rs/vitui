@@ -208,9 +208,14 @@ them. The committed corpus replayed by `cargo test` is the gate; the fuzzers the
 
 ## Documents
 
+**Writing your own components:** [`docs/guide/`](docs/guide) is the manual — thirteen chapters from
+the frame to shipping a component crate, with a runnable worked example in
+[`examples/component-handbook/`](examples/component-handbook) that depends on `vitui-runtime` alone.
+
 The architecture is written down before it is built, and every decision cites the ticket that
 measured it.
 
+- `docs/guide/` — how to build components on the engine and the runtime.
 - `CONTEXT.md` — the glossary. Its terms are used everywhere else without re-definition.
 - `docs/adr/` — the decisions that are hard to reverse and surprising without context.
 - `.scratch/vitui-engine-architecture/spec.md` — the engine's settled architecture.

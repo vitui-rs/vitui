@@ -7,6 +7,13 @@
 /examples/app-template/target
 /examples/app-template/Cargo.lock
 
+# The component handbook (`examples/component-handbook`) is detached on `app-template`'s terms and
+# for `app-template`'s reasons: it exists to be built, linted and copied, `cargo deny` does not see
+# it, and its lock file would be a second one to keep current for no benefit. This is the fifth line
+# the note two paragraphs down predicted, and it is the first of them that is not a suite.
+/examples/component-handbook/target
+/examples/component-handbook/Cargo.lock
+
 .claude/
 
 # JetBrains project files. `.idea/workspace.xml` was committed once by accident (fd8ad06) and is
