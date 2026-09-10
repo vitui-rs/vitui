@@ -9656,7 +9656,9 @@ mod tests {
             let source = std::fs::read_to_string(path).unwrap_or_default();
             scanned += 1;
             let names_a_set = carries(&source, glyph_set);
-            let is_the_ladder = path.to_string_lossy().ends_with(LADDER);
+            // `LADDER` is spelled with `/`, so the haystack has to be. Without this the one
+            // named exception is not recognised on Windows and becomes an offender instead.
+            let is_the_ladder = path.to_string_lossy().replace('\\', "/").ends_with(LADDER);
             if names_a_set && is_the_ladder {
                 excepted += 1;
                 // **The shipped half of the file**, which is what the rule is about: a test

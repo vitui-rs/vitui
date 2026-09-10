@@ -349,7 +349,11 @@ mod tests {
                 .strip_prefix(&root)
                 .unwrap_or(&path)
                 .to_string_lossy()
-                .into_owned();
+                // **Spelled with `/` on every platform.** The census this feeds is written with
+                // `/`, and a Windows walk hands back `chart\raster.rs`. `crate::inventory` and
+                // `crate::gates` already carry this line; this walk and `crate::glyphs`' were the
+                // two that did not, and the first Windows run is what said so.
+                .replace('\\', "/");
             for line in library.lines().map(str::trim) {
                 if line.starts_with("//") || line.starts_with("///") {
                     continue;

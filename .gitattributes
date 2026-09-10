@@ -1,3 +1,23 @@
+# **A source file checked out with CRLF is a different file to every scanner in this workspace, and
+# on 2026-09-10 that cost seven gates on the first Windows run this project has ever had.**
+#
+# Nothing here set a line-ending policy for *text*, so a checkout took whatever `core.autocrlf` the
+# machine happened to carry — and GitHub's Windows runners default it to `true`. 729 tests passed
+# and 7 failed, and not one of the seven was the library: they were the source-scanning gates, whose
+# shared idiom is `source.split_once("\n#[cfg(test)]\n")`. Against CRLF that needle never matches,
+# the cut never happens, and a scan written to stop at the test module scans itself — which is this
+# repository's own first recorded trap (*a scanner looking for a literal contains that literal*)
+# arriving through the filesystem instead of through the source.
+#
+# `eol=lf` and not `text=auto` alone: `text=auto` normalises what goes *into* the index, which was
+# already true, and says nothing about what comes out. The working tree is what a scanner reads.
+#
+# This is the whole fix for that class and it is deliberately not a `\r` guard in a dozen scanners:
+# a gate reads a checkout of this repository and nothing else, so the rule has one home. What it
+# does not cover is a source tree that never came through git — an unpacked archive with CRLF still
+# turns those gates red, and they will say the scan stopped seeing the test module.
+* text=auto eol=lf
+
 # **A captured byte is not text, and git's line-ending normalisation does not know that.**
 #
 # `core.autocrlf = input` on the machine this was found on rewrote CRLF to LF inside

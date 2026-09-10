@@ -189,10 +189,19 @@ jobs:
       - if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y time
       - run: scripts/idle-gate.sh 30
-      # **Report #25, folded into this job**, for the same reason `.gitlab-ci.yml` folds it here: it
-      # needs the `time` the step above installed and a release build of one example this job already
-      # has. Entry #17's neighbour rather than a second copy — #17 is thirty *idle* seconds, this is
-      # thirty at **60 frames a second**, which had never been measured until impl 26 measured it at
-      # 0.133% of a core against a 5% budget, where the arithmetic it replaces said 0.0029%. A report:
-      # the gate underneath it is a frame count inside `examples/steady.rs`.
-      - run: scripts/steady-report.sh 30
+      # **Report #25 is deliberately NOT here, and that is the split this file is for.**
+      #
+      # `idle-gate.sh` above counts wakeups over thirty idle seconds. Zero is zero on any machine, so
+      # it belongs on every runner and it passes on all of them — 2026-09-10 is the first time the
+      # claim held anywhere but this project's own hardware.
+      #
+      # `steady-report.sh` is the opposite: its report is a percentage of a core, and the gate
+      # underneath it is `examples/steady.rs`' frame count, which asserts that sixty frames a second
+      # actually happened. That is a question about the **machine**, not about this workspace. A
+      # shared, virtualised `macos-latest` cannot sustain 60 Hz and failed the floor on the run that
+      # first tried it, while `ubuntu-latest` passed — which makes it a coin toss on hosted runners,
+      # and a coin toss is how a gate gets disabled within a month.
+      #
+      # So it stays in `.gitlab-ci.yml`, where the machine is known and is the one `ledger.rs` names
+      # beside the number. This matrix answers portability; that runner answers performance. Moving
+      # it back here would need a runner whose frame rate is a property of the runner.

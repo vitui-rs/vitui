@@ -61,7 +61,21 @@ echo "measuring ${seconds}s at 60 Hz with /usr/bin/time $flag ($flavour)"
 # and the CPU figures from the other.
 probe="$(mktemp)"
 trap 'rm -f "$measured" "$probe"' EXIT
-/usr/bin/time $flag "$binary" "$seconds" >"$probe" 2>"$measured"
+# **The probe's stderr is `time`'s file, so a panic lands where only awk looks.** On 2026-09-10 a
+# hosted macOS runner could not sustain 60 Hz, `examples/steady.rs` asserted its frame-count floor,
+# and this line exited 101 under `set -e` — before `cat "$probe"`, with the message sitting in
+# `$measured` until the EXIT trap deleted it. The run reported an exit code and no reason. An
+# instrument that hides why it failed is the same defect as one that cannot fail, so the failure
+# path prints what it captured.
+# `|| status=$?` and not `if ! ...`, where `$?` would be the negation's and always 0.
+status=0
+/usr/bin/time $flag "$binary" "$seconds" >"$probe" 2>"$measured" || status=$?
+if [ "$status" -ne 0 ]; then
+  echo "STEADY REPORT FAILED: the probe exited $status. What it and \`time\` wrote:" >&2
+  cat "$probe" >&2
+  cat "$measured" >&2
+  exit "$status"
+fi
 cat "$probe"
 
 case "$flavour" in

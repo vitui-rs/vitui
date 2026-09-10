@@ -1090,7 +1090,9 @@ mod tests {
                         .strip_prefix(&root)
                         .expect("a file under `src/`")
                         .to_string_lossy()
-                        .into_owned();
+                        // `/` on every platform: the names this pairs against are spelled that
+                        // way. See the same line in `crate::memos`.
+                        .replace('\\', "/");
                     let body = std::fs::read_to_string(&path)
                         .unwrap_or_else(|e| panic!("{}: {e}", path.display()));
                     out.push((name, body));
