@@ -69,7 +69,14 @@ jobs:
       # macOS than on Linux and does not exist on Windows, so the portable form would be three
       # branches of shell to gate one property that one runner already gates. The guard itself does
       # run on all three, and it is the half that covers most of the sites.
-      - run: cargo test --workspace -- --test-threads=1
+      # **`--no-fail-fast` here and not in `.gitlab-ci.yml`**, which is a difference in what the two
+      # runners are asked. Without it `cargo test` stops at the first test target that fails, so a
+      # matrix exploring a platform for the first time reports one crate per run: 2026-09-10 spent
+      # three round trips to learn that Windows broke `vitui-components` and then `vitui-engine`,
+      # where one run could have said both. The gate set answers *is this commit good*, where the
+      # first failure is the whole answer; this matrix answers *what does this platform do*, where
+      # it is the first line of one.
+      - run: cargo test --workspace --no-fail-fast -- --test-threads=1
       # Engine ticket 23's lint rung, and the control that makes it mean something. It lints
       # `examples/app-template`, which is deliberately **not** a workspace member: `clippy.toml` is
       # read from the crate being linted and `cargo clippy` lints every workspace member it builds,

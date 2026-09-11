@@ -1781,6 +1781,31 @@ mod tests {
     /// blink underline image strikethrough underlineStyle0 invisible inverse guarded
     /// virtualPlaceholder rtlStatus underlineStyle1`, eleven spare bits and no overline — and the
     /// string `overline` occurring zero times in the whole binary. See `quirks.rs`'s module docs.
+    /// **What `lookup` answers about a terminal no entry recognises, which is not the default
+    /// everywhere.**
+    ///
+    /// `crate::quirks`' last arm is `cfg!(windows) && version.is_none()`, so on Windows the ConPTY
+    /// entry is the floor under every lookup that gets that far. That is correct — a Windows console
+    /// with no XTVERSION *is* ConPTY — and it is why a negative assertion here cannot be spelled
+    /// `Quirks::default()`.
+    ///
+    /// The first Windows run this project ever had is what said so. Two tests below asserted
+    /// *nothing recognises this* by comparing against the default, and the one row of that table no
+    /// run had ever touched is what they met. It is written out rather than looked up because what
+    /// the tests are about is whether `lookup` **reaches** that arm.
+    fn unrecognised() -> Quirks {
+        if cfg!(windows) {
+            Quirks {
+                name: Some("conpty"),
+                legacy_sgr: true,
+                underlines: Underlines::ConPty,
+                ..Quirks::default()
+            }
+        } else {
+            Quirks::default()
+        }
+    }
+
     #[test]
     fn iterm2_drops_overline_and_nothing_else() {
         let env = Env::default();
@@ -1828,7 +1853,7 @@ mod tests {
         };
         assert_eq!(
             Quirks::lookup(None, &inherited),
-            Quirks::default(),
+            unrecognised(),
             "the variable alone recognises nothing — a tmux inside iTerm2 must not be read as iTerm2"
         );
 
@@ -1876,8 +1901,8 @@ mod tests {
             terminal_emulator: Some("SomethingElse".to_string()),
             ..Env::default()
         };
-        assert!(!Quirks::lookup(None, &stranger).legacy_sgr);
-        assert!(!Quirks::lookup(None, &Env::default()).legacy_sgr);
+        assert_eq!(Quirks::lookup(None, &stranger), unrecognised());
+        assert_eq!(Quirks::lookup(None, &Env::default()), unrecognised());
 
         // And the whole way through `assemble`, because the field the serialiser reads is the one
         // the table lays over detection rather than the one it returns.
