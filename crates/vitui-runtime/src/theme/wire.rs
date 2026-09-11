@@ -326,6 +326,15 @@ mod against_the_engine {
                 // of the arithmetic rather than of what it guessed about the terminal.
                 default_fg: Some(Rgb::new(0xcd, 0xd6, 0xf4)),
                 default_bg: Some(Rgb::new(0x1e, 0x1e, 0x2e)),
+                // **And the SGR spelling, for the same reason one line up.** The expectations below
+                // are written in the colon form, which is the engine's default and not its only
+                // one: four quirk entries force the semicolon form, and one of them is ConPTY,
+                // which matches every Windows lookup that reaches it. So on Windows this harness
+                // was measuring the separator instead of the arithmetic — which is what the first
+                // Windows run found, and what `default_fg` above was already declared to prevent
+                // one axis over. An override is level 1 and the quirk table is level 5, so the
+                // declaration is what decides.
+                legacy_sgr: Some(false),
                 ..Default::default()
             },
             ..Default::default()
