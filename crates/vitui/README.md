@@ -21,10 +21,11 @@ one-line answer and the three-line answer differ only in what you can name.
 
 ## Status
 
-All three layers are implementation-complete, with the v1 freeze at **29 of 29 components built**.
-The one thing to know before depending on any of them: this workspace has been run on seven terminal
-emulator families, all on macOS, and **never on Windows**.
+All three layers are implementation-complete, the v1 freeze is **29 of 29 components built**, and
+the workspace is green on Linux, macOS and Windows — but the library is **not released**: crates.io
+carries a `0.0.1` placeholder and `0.1.0` is the first version with code in it.
+[`docs/status.md`](../../docs/status.md) is what has been run, and on what.
 
 ## Licence
 
-MIT OR Apache-2.0, at your option.
+Licensed under the Apache License, Version 2.0. See [LICENSE](../../LICENSE).

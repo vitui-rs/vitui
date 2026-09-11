@@ -8,19 +8,10 @@ Windows, panels, charts, lists, trees, forms and pickers built on
 ## Status
 
 **Implementation-complete: the v1 freeze is 29 of 29 components built** — as a value, `INVENTORY`,
-that the tests iterate, rather than a list a reader is asked to trust. All seven documentation and
+that the tests iterate rather than a list a reader is asked to trust. All seven documentation and
 verification obligations are functions over that value and all seven are met, the last being *every
-component stands up under every hostile axis it can meet*, at 34 of 34 `(component, axis)` pairs. A
-query with no evidence behind it panics here rather than returning green over an empty population.
-
-The verification register is 238 rows, 233 of them evaluated and **none pinned red**, beside 5 that
-are unreachable from a crate that cannot name the engine. Forty-seven scenes stand behind them,
-forty-five of which stand up and two of which have nothing to run over, each with the size it is
-played at and the property it decides; three of them exist because a defect survived every gate then
-in force by not being on any screen anybody had built.
-
-The `media` family ships with no members, and that is deliberate rather than an omission: it is the
-one family with no v1 component.
+component stands up under every hostile axis it can meet*, at 34 of 34 `(component, axis)` pairs.
+[`docs/status.md`](../../docs/status.md) has the registers and what has been run.
 
 ## The shape
 
@@ -53,4 +44,4 @@ cargo run --release --example listing_numbers -p vitui-components     # the coll
 
 ## Licence
 
-MIT OR Apache-2.0, at your option.
+Licensed under the Apache License, Version 2.0. See [LICENSE](../../LICENSE).

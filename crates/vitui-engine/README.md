@@ -41,15 +41,11 @@ Each of these is a decision with a measurement behind it, not a gap.
 
 ## Status
 
-Implementation-complete, with every property it claims wired to something that fails when the claim
-stops being true. The thing worth knowing before you depend on it: **Windows has never been run.**
-Every green run behind the numbers here is one machine, one OS, one architecture.
-
-Beside the gates inside the crate is a conformance suite that asks a real terminal rather than this
-crate's model of one — Ghostty, kitty, WezTerm, Alacritty, iTerm2, Terminal.app and tmux, each with
-a committed report. It is where four of the eight quirk-table entries come from. Windows Terminal is
-the one supported terminal nobody has driven through it, so what this crate believes about it is
-inference. The MSRV is 1.88, verified by a CI job pinned to it rather than declared.
+Implementation-complete and green on Linux, macOS and Windows, with every property it claims wired
+to something that fails when the claim stops being true. The one thing to know before depending on
+it: **Windows Terminal is the one supported terminal nobody has driven through the conformance
+suite**, so what this crate believes about it is inference. MSRV 1.88, verified by a CI job pinned to
+it rather than declared. [`docs/status.md`](../../docs/status.md) has the rest.
 
 ## Dependencies
 
@@ -63,4 +59,4 @@ machine each number was measured on.
 
 ## Licence
 
-MIT OR Apache-2.0, at your option.
+Licensed under the Apache License, Version 2.0. See [LICENSE](../../LICENSE).

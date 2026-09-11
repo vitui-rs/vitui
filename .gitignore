@@ -40,3 +40,8 @@
 # than only its dependents, so a workspace member with nothing depending on it still fails the gate
 # outright. Its lock file **is** committed, on `conform/`'s terms, and nothing built is.
 /crates/vitui-signals/target
+
+# The five name-reservation placeholders are detached crates — each has a `target/` of its own the
+# moment `reserve.sh check` runs. The whole directory is disposable and goes with `.scratch/`; this
+# line only keeps `git status` readable until it does.
+/.scratch/vitui-production/name-reservation/*/target

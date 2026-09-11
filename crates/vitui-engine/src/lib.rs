@@ -135,9 +135,11 @@
 //! Implementation-complete, and there is no stability promise before 0.x. Minimum supported Rust
 //! version 1.88.
 //!
-//! Run against Ghostty, kitty, WezTerm, Alacritty, iTerm2, Terminal.app and tmux, on macOS. **It
-//! has never been built or run on Windows** — support there is written for and unverified, which is
-//! the one thing to know before depending on this crate for a Windows application.
+//! Green on Linux, macOS and Windows since 2026-09-10. Run against Ghostty, kitty, WezTerm,
+//! Alacritty, iTerm2, Terminal.app and tmux through the conformance suite, all on macOS — **Windows
+//! Terminal is the one supported terminal nobody has driven through it**, so what this crate
+//! believes about it is inference, which is the one thing to know before depending on this crate
+//! for a Windows application.
 
 // Refusal 12, as a lint rather than as a claim. `forbid` and not `deny`, so that nothing inside the
 // crate can turn it back on with an `allow` — and it subsumes the `unsafe_op_in_unsafe_fn` this line
