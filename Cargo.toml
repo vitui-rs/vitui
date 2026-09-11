@@ -37,13 +37,17 @@ exclude = ["examples/app-template", "examples/component-handbook"]
 warnings = "deny"
 
 [workspace.package]
-version = "0.0.0"
+# **0.1.0 and not 1.0.0**: these are public crates with no stability promise before 0.x, which is
+# the position the READMEs state and which this number is the first to make true. Not 0.0.1 either —
+# that is taken by the name-reservation placeholders, which hold the namespace and contain no
+# library.
+version = "0.1.0"
 edition = "2024"
 license = "Apache-2.0"
-# `repository` is absent on purpose and must be set before the first `cargo publish`. There is no
-# public URL for this project yet, and a guessed one is a link crates.io would serve to every
-# reader — worse than an absent field, which at least says nothing. Setting it again means putting
-# `repository.workspace = true` back in the crate manifests that inherited it.
+# Set 2026-09-11, when the project got a public home. Every publishable manifest takes it with
+# `repository.workspace = true`; the three that do not publish have no use for it.
+repository = "https://github.com/vitui-rs/vitui"
+
 #
 # The MSRV is measured, not inherited from the edition: let-chains stabilised in 1.88 and the engine
 # uses fourteen of them, so 1.85 and 1.87 both fail to compile this workspace. The `msrv` CI job is
@@ -76,14 +80,14 @@ crossterm = { version = "0.29", default-features = false, features = [
     "windows",
 ] }
 
-vitui-engine = { path = "crates/vitui-engine", version = "0.0.0" }
-vitui-runtime = { path = "crates/vitui-runtime", version = "0.0.0" }
-vitui-components = { path = "crates/vitui-components", version = "0.0.0" }
+vitui-engine = { path = "crates/vitui-engine", version = "0.1.0" }
+vitui-runtime = { path = "crates/vitui-runtime", version = "0.1.0" }
+vitui-components = { path = "crates/vitui-components", version = "0.1.0" }
 # `publish = false`, so no `version` key: cargo only needs one for a dependency that will appear in a
 # published manifest, and this one never will.
 vitui-apps = { path = "crates/vitui-apps" }
-vitui-alloc-probe = { path = "crates/vitui-alloc-probe", version = "0.0.0" }
-vitui-bench = { path = "crates/vitui-bench", version = "0.0.0" }
+vitui-alloc-probe = { path = "crates/vitui-alloc-probe", version = "0.1.0" }
+vitui-bench = { path = "crates/vitui-bench", version = "0.1.0" }
 
 [profile.bench]
 debug = true

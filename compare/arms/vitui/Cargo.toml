@@ -29,7 +29,7 @@ publish = false
 # delta between two of our own arms** — same scenes, same machine, same run. Every other difference
 # in this table is a difference between whole frameworks; this is the only one with a single known
 # cause, and it is measured rather than argued.
-vitui-engine = { path = "../../../crates/vitui-engine", version = "0.0.0" }
+vitui-engine = { path = "../../../crates/vitui-engine", version = "0.1.0" }
 
 [[bin]]
 name = "arm-vitui"

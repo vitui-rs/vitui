@@ -24,7 +24,7 @@ license = "Apache-2.0"
 publish = false
 
 [dependencies]
-vitui = { path = "../../../crates/vitui", version = "0.0.0" }
+vitui = { path = "../../../crates/vitui", version = "0.1.0" }
 
 [[bin]]
 name = "arm-vitui-runtime"

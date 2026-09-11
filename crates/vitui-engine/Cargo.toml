@@ -4,8 +4,7 @@ description = "Cells, surfaces, layers, compositing and damage tracking for term
 version.workspace = true
 edition.workspace = true
 license.workspace = true
-# `repository` is absent from `workspace.package` on purpose; see the root `Cargo.toml`. Restore
-# `repository.workspace = true` here when the key goes back.
+repository.workspace = true
 rust-version.workspace = true
 
 # Written out, though cargo would auto-detect a README in the package directory: a key on the page
@@ -13,6 +12,11 @@ rust-version.workspace = true
 # about that crate, and one shared file would put the wrong story on three of the four crates.io
 # pages.
 readme = "README.md"
+
+# How crates.io search finds this crate at all. Five keywords is the ceiling and each is a word
+# somebody would type, not a word that describes us to ourselves.
+keywords = ["tui", "terminal", "rendering", "ansi", "console"]
+categories = ["command-line-interface", "rendering"]
 
 # The one feature this crate has, and it exists for the fuzz targets rather than for callers. It
 # compiles the reference compositor and `crate::fuzz`, the two libFuzzer harnesses, for a crate that

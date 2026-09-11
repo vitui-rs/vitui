@@ -194,7 +194,7 @@ checksum = "8ed6a63f02c8539c91a8685a86f4099661ba3da017932f6ebbea6de3f0fa7c90"
 
 [[package]]
 name = "vitui"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "vitui-components",
  "vitui-engine",
@@ -203,11 +203,11 @@ dependencies = [
 
 [[package]]
 name = "vitui-alloc-probe"
-version = "0.0.0"
+version = "0.1.0"
 
 [[package]]
 name = "vitui-apps"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "vitui-components",
  "vitui-runtime",
@@ -215,11 +215,11 @@ dependencies = [
 
 [[package]]
 name = "vitui-bench"
-version = "0.0.0"
+version = "0.1.0"
 
 [[package]]
 name = "vitui-components"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "vitui-alloc-probe",
  "vitui-bench",
@@ -228,7 +228,7 @@ dependencies = [
 
 [[package]]
 name = "vitui-engine"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "crossterm",
  "vitui-alloc-probe",
@@ -237,7 +237,7 @@ dependencies = [
 
 [[package]]
 name = "vitui-runtime"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "vitui-alloc-probe",
  "vitui-bench",

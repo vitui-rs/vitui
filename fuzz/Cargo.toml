@@ -34,7 +34,7 @@ libfuzzer-sys = "0.4"
 # parser, and neither is on spec §12's public surface — a caller cannot read back what is on screen
 # (ADR 0023). The feature compiles `vitui_engine::fuzz`, whose two functions are the same ones the
 # committed corpus is replayed through by an ordinary `cargo test` in the engine's own suite.
-vitui-engine = { path = "../crates/vitui-engine", version = "0.0.0", features = ["fuzz"] }
+vitui-engine = { path = "../crates/vitui-engine", version = "0.1.0", features = ["fuzz"] }
 
 # No `[lints]` table, and the reason is not laziness. The workspace next door denies every warning,
 # because a check weaker than the gate is not a check — but these two files are four lines each and
