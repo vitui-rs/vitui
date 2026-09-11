@@ -101,14 +101,32 @@ jobs:
       # gate this repository's pull requests, and a hosted runner has neither a window server nor a
       # TCC grant to be asked for.
       #
-      # On all three runners deliberately. The comparator is pure byte handling and the captures are
-      # committed bytes, so nothing here is platform-specific — which makes Windows the interesting
-      # one: it is the arm production ticket 09 says has never been run at all.
+      # **The comparator on all three runners, the arms on the two that could ever run them.**
+      #
+      # *Nothing here is platform-specific* was written when this block ran nowhere but macOS and
+      # Linux, and the first Windows run showed the half of it that is false: the comparator is pure
+      # byte handling over committed bytes and is portable, but `--all-targets` also compiles the
+      # **arms**, and `examples/iterm2.rs` speaks a unix domain socket — `std::os::unix::net` does
+      # not exist on Windows, so it is `error[E0433]` before a single fixture is read.
+      #
+      # Gating that one file to make a macOS terminal driver compile on Windows would buy nothing:
+      # all six arms drive emulators that do not run there, and none of them is ever executed in CI
+      # on any runner. What has value on Windows is the part that is genuinely portable, and every
+      # test in this suite is a unit test in `src/`, so `--lib` is the whole gate rather than a
+      # subset of it.
       - run: cargo fmt --all --check
         working-directory: conform
-      - run: cargo clippy --all-targets
+      - if: runner.os != 'Windows'
+        run: cargo clippy --all-targets
         working-directory: conform
-      - run: cargo test
+      - if: runner.os != 'Windows'
+        run: cargo test
+        working-directory: conform
+      - if: runner.os == 'Windows'
+        run: cargo clippy --lib
+        working-directory: conform
+      - if: runner.os == 'Windows'
+        run: cargo test --lib
         working-directory: conform
 
   # The dependency policy is a decision, not a preference: the engine takes crossterm and nothing
