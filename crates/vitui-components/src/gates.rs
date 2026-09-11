@@ -9168,6 +9168,95 @@ mod tests {
             .any(|line| !line.starts_with("//") && line.contains(needle))
     }
 
+    /// **A relative path built by `strip_prefix` is spelled with `/` on every platform.**
+    ///
+    /// The first Windows run this project ever had failed seven gates and none of them was the
+    /// library. Six were line endings, which `.gitattributes` now owns. The seventh was this: a
+    /// walk hands back `chart\raster.rs` where the census beside it is written `chart/raster.rs`,
+    /// so the comparison fails on a difference nobody meant to make a property.
+    ///
+    /// It had already been solved **twice** — `crate::inventory` and the allocator scan in this
+    /// module both carry the replacement — and missed in three walks written later. Four sites of
+    /// one defect, two of them already correct, is the shape that earns an instrument rather than a
+    /// fourth fix.
+    ///
+    /// # What it can see, and what it cannot
+    ///
+    /// The window is bounded and the needle is assembled, which is this crate's standing rule for a
+    /// scanner. `strip_prefix` is also `str`'s, and those are filtered out by the window test
+    /// itself: a `&str` never reaches for `to_string_lossy`.
+    ///
+    /// It sees a path **built** by `strip_prefix`. It does not see one **matched** without
+    /// stripping — `path.to_string_lossy().ends_with(LADDER)` a few hundred lines down was exactly
+    /// that shape and is fixed rather than gated, because a needle over every `to_string_lossy` in
+    /// the crate would have to guess which of them are compared against a spelling and which are
+    /// only ever printed in a panic message. Most are the second.
+    #[test]
+    fn a_relative_path_this_crate_builds_is_spelled_with_forward_slashes() {
+        let built = concat!("strip", "_prefix(");
+        let spelled = concat!("to_string", "_lossy()");
+        let normalised = concat!(".replace('", "\\\\', \"/\")");
+
+        let mut files = Vec::new();
+        rust_files(
+            &PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/src")),
+            &mut files,
+        );
+        assert!(files.len() > 40, "the walk found {} files", files.len());
+
+        let mut offenders = Vec::new();
+        let mut windows = 0usize;
+        for path in &files {
+            let source = std::fs::read_to_string(path).unwrap_or_default();
+            // **The window is ten lines of code and not a count of bytes**, which the first draft
+            // used and which reported two files that were already correct: a comment explaining the
+            // replacement pushed the replacement itself past the byte count. A comment cannot
+            // change a comparison, so it cannot be allowed to change what the scan sees either.
+            let code: Vec<(usize, &str)> = source
+                .lines()
+                .enumerate()
+                .map(|(i, line)| (i + 1, line.trim()))
+                .filter(|(_, line)| !line.starts_with("//"))
+                .collect();
+            for (index, (number, line)) in code.iter().enumerate() {
+                if !line.contains(built) {
+                    continue;
+                }
+                let end = (index + 10).min(code.len());
+                let window = code[index..end]
+                    .iter()
+                    .map(|(_, text)| *text)
+                    .collect::<Vec<_>>()
+                    .join("\n");
+                if !window.contains(spelled) {
+                    continue;
+                }
+                windows += 1;
+                if !window.contains(normalised) {
+                    offenders.push(format!(
+                        "{}:{number}",
+                        path.file_name()
+                            .and_then(|n| n.to_str())
+                            .unwrap_or("a file with no name")
+                    ));
+                }
+            }
+        }
+        offenders.sort();
+        assert!(
+            windows > 0,
+            "no path is built by stripping a prefix anywhere in this crate, so this gate is \
+             watching a population that has gone"
+        );
+        assert_eq!(
+            offenders,
+            Vec::<String>::new(),
+            "a relative path is built here and handed on with the platform\u{2019}s own separator. \
+             Every spelling it is compared against in this crate uses `/`, so on Windows the \
+             comparison fails on the separator rather than on what it is about"
+        );
+    }
+
     /// **Every row names a destination, and the numbers are 1..=61 once each.**
     #[test]
     fn every_row_names_a_destination() {

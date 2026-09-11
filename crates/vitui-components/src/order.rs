@@ -1907,7 +1907,7 @@ mod tests {
                         path.strip_prefix(&root)
                             .unwrap_or(&path)
                             .to_string_lossy()
-                            .into_owned(),
+                            .replace('\\', "/"),
                     );
                 }
             }
