@@ -39,7 +39,7 @@ warnings = "deny"
 [workspace.package]
 version = "0.0.0"
 edition = "2024"
-license = "MIT OR Apache-2.0"
+license = "Apache-2.0"
 # `repository` is absent on purpose and must be set before the first `cargo publish`. There is no
 # public URL for this project yet, and a guessed one is a link crates.io would serve to every
 # reader — worse than an absent field, which at least says nothing. Setting it again means putting

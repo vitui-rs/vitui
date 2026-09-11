@@ -14,7 +14,7 @@ version = "0.0.0"
 edition = "2024"
 rust-version = "1.88"
 publish = false
-license = "MIT OR Apache-2.0"
+license = "Apache-2.0"
 
 # **Autodiscovery off, and the arms are declared below.** `examples/common.rs` is a module the arms
 # share, not an arm — and autodiscovery would make it an example target of its own and fail it for
