@@ -45,3 +45,8 @@
 # moment `reserve.sh check` runs. The whole directory is disposable and goes with `.scratch/`; this
 # line only keeps `git status` readable until it does.
 /.scratch/vitui-production/name-reservation/*/target
+
+# The backlogs are not part of what ships. Eight maps, their tickets, their research and the agent
+# conventions live on the machine that did the work and in the private archive; the public history
+# has never carried them, and this line is what keeps a working copy from putting them back.
+/.scratch/

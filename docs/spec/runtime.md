@@ -1900,8 +1900,8 @@ Each of these is fog with a named shape, not an oversight.
   yet.
 
 Out of scope entirely: anything that touches the terminal (the engine's map), widgets (the components
-map), and a stylesheet language, bidi and screen-reader accessibility (non-goals, with reasons in
-`.scratch/vitui-components-architecture/requirements.md`).
+map), and a stylesheet language, bidi and screen-reader accessibility (non-goals, with reasons
+recorded in the components map's requirements).
 
 ---
 

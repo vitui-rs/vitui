@@ -2293,8 +2293,8 @@ a question a ticket closed too early is how a spec stops being a record.
 
 **Mechanisms named with an owner and not prototyped.**
 
-- ~~**A component that owns a clock.**~~ **Prototyped and answered**, components ticket 42
-  (2026-08-28) — `.scratch/vitui-components-impl/research/42-a-component-that-owns-a-clock.md`.
+- ~~**A component that owns a clock.**~~ **Prototyped and answered**, components implementation
+  ticket 42 (2026-08-28).
   A component may own an **anchor** and may not own a **clock**: *stored state may be an anchor,
   never a phase*, which is the rule §8 and §9 were already obeying rather than a permission granted
   here. `Driver::pin_clock` advanced eight ladder steps and the self-sampling arm showed **1 of the
