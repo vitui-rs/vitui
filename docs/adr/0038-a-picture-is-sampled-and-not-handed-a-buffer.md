@@ -105,4 +105,4 @@ statement.
 
 ## Where it was decided
 
-Components ticket 30, `.scratch/vitui-components-impl/issues/30-media.md`. Spec §14, §17, §20.
+Components implementation ticket 30, the media family. Spec §14, §17, §20.

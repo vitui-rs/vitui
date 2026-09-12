@@ -72,8 +72,8 @@ verbs and no box-drawing primitive, so it has no glyphs of its own to substitute
 
 ## Amendment, 2026-08-21 — one narrow exception, on the axis that is boolean
 
-Amended by [architecture ticket 16](../../.scratch/vitui-engine-architecture/issues/16-handle-tables.md)
-and implemented by [impl 17](../../.scratch/vitui-engine-impl/issues/17-quantisation-before-the-mirror.md).
+Amended by architecture ticket 16
+and implemented by impl 17.
 Everything above stands. What it did not distinguish is *how badly* a terminal fails to express a
 channel, and that turns out to decide **where** the degradation goes:
 

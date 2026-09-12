@@ -67,7 +67,7 @@ The API sits above the environment, and the conflict that would otherwise create
 
 ## Amendment, 2026-08-21 — a third category, and the write-side test
 
-Amended by [architecture ticket 22](../../.scratch/vitui-engine-architecture/issues/22-headless-cannot-declare-a-hyperlink.md).
+Amended by architecture ticket 22.
 The decision above stands unchanged; what it did not have is a name for a fact that is neither detected
 nor declared, and a test for the *write* side to match the one it gives the read side.
 

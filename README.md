@@ -316,6 +316,10 @@ the frame to shipping a component crate, with a runnable worked example in
 - [`docs/status.md`](docs/status.md) — what has been run, on what, and the verification registers.
 - [`CONTEXT.md`](CONTEXT.md) — the glossary. Its terms are used everywhere else without re-definition.
 - [`docs/adr/`](docs/adr) — the decisions that are hard to reverse and surprising without context.
+- [`docs/spec/`](docs/spec) — the three specifications the layers are built against: the
+  [engine](docs/spec/engine.md), the [runtime](docs/spec/runtime.md) and the
+  [components](docs/spec/components.md). They are the authority on what each layer owes, and the
+  components one carries the v1 freeze.
 - [`compare/README.md`](compare/README.md), [`compare/SCENES.md`](compare/SCENES.md) — what the
   comparative scenes are and how they are read.
 - [`conform/README.md`](conform/README.md) — the conformance suite and its eight arms.

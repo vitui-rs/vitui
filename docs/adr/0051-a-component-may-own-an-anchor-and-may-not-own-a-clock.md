@@ -8,7 +8,7 @@ date: 2026-08-29
 Components ticket 46 builds `spinner`, the twenty-ninth and last row of spec §17's freeze, and the
 playhead beside it — the seventh part of the video player's chrome and the one row of
 `media::player::PARTS` whose `Needs` was `Clock`. The mechanism was settled by components ticket 42's
-prototype (`.scratch/vitui-components-impl/research/42-a-component-that-owns-a-clock.md`); this
+prototype, which measured a component that owns a clock against one that owns an anchor; this
 records what shipped, and the three things that moved when the prototype's readings were made into
 derivations.
 

@@ -971,8 +971,7 @@ and the paragraph supports it with two named disagreements. Both were in the cor
 | *only 7 of 23 surveyed widen a VS16 emoji correctly* | Ghostty 1.3.1, kitty 0.48.2 and tmux 3.7c all widen `U+2764 U+FE0F` to 2 |
 | *kitty sums a ZWJ family emoji to 6 where the answer is 2* | kitty 0.48.2 answers **2** |
 
-The sentence cites
-`.scratch/vitui-engine-architecture/research/02-grapheme-clustering-and-width.md` — **a survey in a
+The sentence cites the engine map's grapheme-clustering-and-width research note — **a survey in a
 research document**, gathered from other people's write-ups and never observed here. This is the
 first instrument in this repository to look, and on the three families §10 puts in tier 1, at the
 versions on this machine, there is nothing left of either disagreement.
@@ -1488,7 +1487,7 @@ new failure mode from each arm it grows, and the arm that finds it is the one th
 
 tmux's underline codes are 42–45. **ECMA-48's background colours are 40–47.** So the arm that reads a
 folded `4:2` as 42 sits inside the arm that reads a bare `42` as a green background, and in a `match` the
-first one written wins — the fold's arm was, so `ESC[42m` came back as a double underline in *both*
+first one written wins — the fold's arm was, so `ESC42m` came back as a double underline in *both*
 dialects. None of the five committed fixtures has a background colour on a row that would have shown it.
 
 The arm is guarded on the fold now (`42..=45 if folded.is_some()`), and there is a test that fails
@@ -1627,7 +1626,7 @@ grid as text.** So the design's prediction — *ticket 20 will not be settled by
 confirmed and generalises from one arm to the whole *category* of arm.
 
 The consequence is a design constraint rather than a disappointment, and it is written into
-[production ticket 06](../.scratch/vitui-engine-production/issues/06-the-clip-edge-pair-decided-on-what-was-observed.md):
+[production ticket 06:
 the scene must put a **unique ASCII sentinel in every cell that should be a continuation**, which
 converts *how wide was that glyph* into *is the sentinel still there* — a question a text dump can
 answer — or it must use CPR, where the emulator reports the column itself.
@@ -1636,7 +1635,7 @@ answer — or it must use CPR, where the emulator reports the column itself.
 
 | sent | returned | |
 |---|---|---|
-| `ESC[38:2::255:0:0m` | `ESC[38;2;255;0;0m` | exact channels |
+| `ESC38:2::255:0:0m` | `ESC[38;2;255;0;0m` | exact channels |
 | `ESC[1;4;58:2::0:0:255m` | `ESC[1;4m` `ESC[58;2;0;0;255m` | exact channels, attributes split off |
 | `ESC[38:5:200m` | `ESC[38;5;200m` | exact index |
 
@@ -1646,14 +1645,14 @@ form would return channel values off by one, which is precisely the failure
 `serial::emit_color`'s own comment names. Agreement on the normalised output is therefore evidence
 about the *parse*, not about the spelling.
 
-With [arch 23](../.scratch/vitui-engine-architecture/issues/23-the-two-sgr-spellings-and-which-one-is-the-default.md)'s
+With [arch 23's
 Ghostty observation, **two of tier 1's seven are now observed.** Five remain inference from libvaxis's
 three quirk entries. Neither of the two is one of the three terminals those entries name, so nothing
 here contradicts them.
 
 ### The reset is not one sequence, and a parser that assumes it is will be wrong
 
-tmux closes a colour-only run with `ESC[39m` — default foreground, leaving other attributes alone —
+tmux closes a colour-only run with `ESC39m` — default foreground, leaving other attributes alone —
 and an attribute-bearing run with `ESC[0m`. Both appear in
 `fixtures/tmux-3.7c-attrs-and-colours.vt`. A parser must treat the SGR stream as *state*, not as
 paired delimiters. This is the kind of thing that reads as a detail until it silently mis-attributes a
@@ -1670,5 +1669,5 @@ style to the following cell.
   is the first thing the parser needs, not the last.
 - **Everything about the engine.** No engine bytes have been through this path yet: the public API is
   being changed by
-  [production ticket 03](../.scratch/vitui-engine-production/issues/03-the-uri-travels-at-the-verb.md)
+  [production ticket 03
   as this is written, and a driver built against today's `Restyle` would not compile tomorrow.

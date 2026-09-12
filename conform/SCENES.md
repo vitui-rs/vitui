@@ -349,7 +349,7 @@ capture.
 Any size. Emit a truecolor colour as `38:2::r:g:b` and again as `38;2;r;g;b`, and an indexed one as
 `38:5:n` and `38;5;n`. Assertion: the resolved channels are equal and correct.
 
-This is the scene that answers [arch 23](../.scratch/vitui-engine-architecture/issues/23-the-two-sgr-spellings-and-which-one-is-the-default.md)'s
+This is the scene that answers arch 23's
 third question for one terminal at a time. Both emulators tested normalise to semicolons on output,
 which is what makes the comparison meaningful — agreement on the output is evidence about the parse.
 

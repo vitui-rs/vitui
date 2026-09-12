@@ -4,19 +4,22 @@ Guidance for Claude Code working in this repository.
 
 > **The local GitLab moved out of this repo (2026-08-22).** One shared instance serves every repo on
 > this machine: <http://gitlab.localhost:8940>, project `repos/vitui`, started with `devkit up`. The
-> `infra/` stack here is gone — see `infra/MOVED.md` and `~/Projects/devkit/README.md`.
+> `infra/` stack that used to live here is gone, and so is the `MOVED.md` that said so; the
+> procedure is `~/Projects/devkit/README.md`.
 
 ## What this is
 
 `vitui` is a Rust TUI library: fast, layered terminal rendering, meant to be the foundation a
-component library stands on. Version `0.0.0`, unpublished, no stability promise before 0.x.
+component library stands on. Version `0.1.0`, not yet published — the four names on crates.io are
+`0.0.1` placeholders holding them — and no stability promise before 0.x.
 MSRV **1.88** — `Cargo.toml` is the authority and the `msrv` CI job is what keeps it honest.
 
 **Read these before working, in this order:**
 
-1. The spec for the layer — `.scratch/vitui-{engine,runtime,components}-architecture/spec.md`. All
-   three maps are **closed**; the specs are the authority. An `architecture.md` beside a spec is the
-   superseded proposal, kept only as the record of what was argued.
+1. The spec for the layer — `docs/spec/{engine,runtime,components}.md`. All three maps are
+   **closed**; the specs are the authority. The `architecture.md` that sat beside each spec in the
+   map directory is the superseded proposal, kept only as the record of what was argued, and it
+   stays with the backlogs rather than shipping here.
 2. `CONTEXT.md` — the glossary. Use its terms in code, comments, tickets and commit messages.
 3. `docs/adr/` — 53 decisions that are hard to reverse and surprising without context. 0001–0011,
    0022–0025 and 0052 are the engine, 0012–0021, 0034 and 0053 the runtime, 0026–0033 and 0035–0051
@@ -143,8 +146,9 @@ MSRV **1.88** — `Cargo.toml` is the authority and the `msrv` CI job is what ke
   **5,557 lines**, and it is **zero** now — all four publishable crates are `SWEPT` in both
   populations, rustdoc and ordinary comments, held by `crates/vitui/tests/docs.rs` as an equality
   per crate. The rule is *state the fact, not the pointer*; `docs/adr/`, `.scratch/`, this file,
-  `docs/agents/`, `CONTEXT.md` and `conform/`'s reports are deliberately untouched, because those
-  are what a pointer points at. **O1 was `Met` over 29 of 29 and did not prevent any of it** — its
+  `.scratch/agents/`, `CONTEXT.md` and `conform/`'s reports were deliberately untouched, because
+  those are what a pointer points at — and ticket 26 then took the pointers out of the three that
+  ship, since the directory they point into is not in the public repository. **O1 was `Met` over 29 of 29 and did not prevent any of it** — its
   query is *components with zero doc-tests == 0*, so it asks that a page exists and is silent about
   whether it was written for a reader. **Twenty-four of `vitui-components`' fifty-three public
   modules are now `#[doc(hidden)]`**, chosen by scanning what the applications import, so the
@@ -1077,7 +1081,13 @@ reporting the ticket done.
 
 ## Working a backlog
 
-`docs/agents/issue-tracker.md` is the full convention. In short: one ticket per session; the
+**The backlogs are not in this repository as a reader sees it.** `.scratch/` — eight maps, their
+tickets, their research and the agent conventions — is ignored here and lives in the private archive
+`kustov-vitalik/vitui` and in the machine's own working copy. A session on this machine has all of
+it; a reader of the public repository has the three specs in `docs/spec/`, the ADRs, and what the
+crates say. Cite the fact, never the path.
+
+`.scratch/agents/issue-tracker.md` is the full convention. In short: one ticket per session; the
 **frontier** is the lowest-numbered file that is unblocked and unclaimed, and the `Blocked by:` line
 is the authority — the number only breaks ties. Claim by setting `Status: claimed` before any work;
 resolve by appending an `## Answer` section, setting `Status: resolved`, and adding a one-line
@@ -1096,5 +1106,7 @@ with `claimed` and then `resolved`, which is the frontier protocol above. `ready
 *do not claim this without the thing it needs* — a public repository for 02, a Windows machine
 for 16.
 
-`tickets/` at the repo root is a **separate** surface — the hand-written backlog the `dispatch` skill
-consumes — and holds the items that need the finished library. Do not migrate one into the other.
+`tickets/` at the repo root was a **separate** surface — the hand-written backlog the `dispatch`
+skill consumes. Both of its items are spent (the component model became the two architecture specs,
+the gallery demo became `gallery`) and the directory is gone; a new hand-written item re-creates it
+rather than joining a map's backlog.

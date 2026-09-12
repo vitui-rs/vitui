@@ -109,7 +109,7 @@ the tools rather than about it:
   crate carried its own `[workspace]` table and the root excluded it. `deny.toml` keeps this beside
   the `vitui-engine` entry, whose non-empty list is the contrast.
 - `request_frame()` is unreachable from a TEA `update`, because every `Ctx` is gone by then. The
-  mechanism half closed with [issue 23](../../.scratch/vitui-runtime-architecture/issues/23-no-loop-could-be-written-at-all.md)
+  mechanism half closed with issue 23
   — there is a loop to put the fix in now — but this is still why the hook is shaped as it is.
 
 **Not in scope, and not to be re-added by a later reading:** no replacement crate, no `signals`

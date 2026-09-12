@@ -3619,7 +3619,7 @@ mod tests {
         }
 
         // And the spec's own table, counted off the file.
-        let spec = read(".scratch/vitui-components-architecture/spec.md");
+        let spec = read("docs/spec/components.md");
         let rows = spec
             .lines()
             .skip_while(|l| !l.starts_with("| scene | what it decided |"))
@@ -3894,7 +3894,7 @@ mod tests {
         );
 
         // And the spec still marks scene 19 and only scene 19.
-        let spec = read(".scratch/vitui-components-architecture/spec.md");
+        let spec = read("docs/spec/components.md");
         assert_eq!(
             spec.matches("(owed)").count(),
             1,

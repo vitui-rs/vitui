@@ -68,13 +68,13 @@ packet and that frame repaints in full.
   repaint. It is built and refused: it buys exactness with a collision probability, and it spends the
   app thread's budget to save the render thread's.
 
-Evidence: `.scratch/vitui-engine-architecture/issues/16-handle-tables.md`, prototype branch
+Evidence: the engine map's handle-tables ticket, and prototype branch
 `prototype/16-handle-tables`.
 
 ## Amendment, 2026-08-20: the surface that is not in a stack
 
-Found while implementing the ticket this ADR names —
-`.scratch/vitui-engine-architecture/issues/19-the-standalone-surface-and-the-interner.md`.
+Found while implementing the ticket this ADR names, over the standalone surface and the
+interner.
 
 **"A `Surface` does not hold them" was true of every surface this ADR was reasoned about, and there is
 one it was not.** `Surface::new` and `Surface::root` are public, and a `View` obtained that way has no
@@ -105,8 +105,8 @@ stack speaks that stack's handle space*** — by construction for `add_content`,
 
 ## Amendment, 2026-08-22: the mint is reached through the draw context too
 
-Found while resolving the ticket the amendment above came from —
-`.scratch/vitui-engine-architecture/issues/21-a-hyperlink-on-a-standalone-surface-has-no-mint.md`.
+Found while resolving the ticket the amendment above came from: a hyperlink on a standalone
+surface has no mint.
 
 **"Drawing verbs reach them through the draw context" was true of both tables and of only one of the
 two mints.** A grapheme cluster is interned by `text`, through the `View`, so a cluster written

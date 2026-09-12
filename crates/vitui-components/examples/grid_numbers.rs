@@ -625,7 +625,7 @@ fn what_does_not_reproduce() {
         "  Components 15 found the same shape one verb over, and that one is closed too:",
         "    `Ctx::with_key` inside a scroll scope drew 0 cells of 8 at an offset of 100 and 8 of",
         "    8 at zero, because `with_id` re-childed at `self.area()` and that is the content's",
-        "    origin there. `.scratch/vitui-runtime-architecture/issues/31` inverted it — an",
+        "    origin there. The runtime inverted it — an",
         "    identity verb reborrows and narrows no view — and register row 112 is green.",
     ] {
         println!("{line}");

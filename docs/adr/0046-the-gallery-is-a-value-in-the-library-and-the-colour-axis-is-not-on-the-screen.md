@@ -7,8 +7,8 @@ date: 2026-08-28
 
 Components ticket 39 discharges spec §17's obligation O2 — *a panel in the gallery binary* — and it is
 the fourth of the five to turn green, after O1 (ticket 36), O3 (ticket 37) and O4 (ticket 38). It is
-also the implementation of `tickets/002`, the user's own requirement for *one binary that shows every
-shipped component and switches themes on `t`*.
+also the implementation of a standing requirement of the project's owner: *one binary that shows
+every shipped component and switches themes on `t`*.
 
 Three decisions are recorded here. The first is where the screen lives, which decided everything else;
 the second is what `'f` costs a table of function pointers; the third is a fact about the colour axis

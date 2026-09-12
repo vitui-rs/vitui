@@ -58,7 +58,7 @@ serialisation.
 
 ## Amendment, 2026-08-21 — the refusal is the engine's, not the operator's
 
-Amended by [architecture ticket 22](../../.scratch/vitui-engine-architecture/issues/22-headless-cannot-declare-a-hyperlink.md).
+Amended by architecture ticket 22.
 Every decision and every number above stands. What was missing is who the refusal binds.
 
 **`Overrides` gains `default_fg: Option<Rgb>` and `default_bg: Option<Rgb>`.** They are the only fields

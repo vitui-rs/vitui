@@ -1,8 +1,10 @@
 //! Round-robin, minimum-of-N measurement, with no dependencies.
 //!
 //! This crate exists because `criterion` was removed, and it was removed for two independent
-//! reasons that arrived from opposite directions. See the verification-strategy ticket at
-//! `.scratch/vitui-engine-architecture/issues/13-verification-strategy.md`.
+//! reasons that arrived from opposite directions: it brings a dependency tree this workspace's
+//! policy will not have, and its statistics answer a question — *how long does this take on a
+//! quiet machine* — that no gate here asks. What the gates ask is a **ratio between two
+//! variants measured under the same interference**, which is the two sections below.
 //!
 //! # Why the minimum and not the mean
 //!

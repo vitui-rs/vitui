@@ -13,7 +13,7 @@ that arrangement cannot catch:
 > serializer agree with each other and not with the terminal.*
 
 This directory is the missing fourth party. It is
-[production ticket 04](../.scratch/vitui-engine-production/issues/04-the-conformance-harness.md).
+production ticket 04.
 
 ## Status: every stage, four scenes and seven emulator families
 
@@ -46,7 +46,7 @@ back `cannot ask`.
 same rule, same reason, as one file per arm: a section that is missing reads as a win. There is
 deliberately no flag to run one scene.
 
-**Scene 04 closed [architecture ticket 20](../.scratch/vitui-engine-architecture/issues/20-a-pair-bisected-by-a-child-clip.md)**,
+**Scene 04 closed architecture ticket 20**,
 which is the first decision on that map settled by asking a terminal rather than by argument. All four
 arms agree that a terminal blanks the orphaned half of a bisected pair itself, in both directions, and
 none of them has a clip to consult. **They disagree about what the blanked cell wears** — kitty,
@@ -258,7 +258,7 @@ where the others take the base's width. `ucd.rs`'s headline citation reproduces 
 WezTerm 20240203 and again on Alacritty 0.17.0 (both 2026-09-03), by two further mechanisms, which
 is what makes it a population rather than an outlier. **Alacritty answers 6 for a ZWJ family, the
 figure that citation attributes to kitty**, and the kitty measured here answers 2. See
-[ticket 04](../.scratch/vitui-engine-production/issues/04-the-conformance-harness.md) and
+ticket 04 and
 `FINDINGS.md`, 2026-08-30.
 
 ## Why it reports and never gates

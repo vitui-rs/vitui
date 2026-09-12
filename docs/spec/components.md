@@ -166,7 +166,7 @@ The first is C02's gate and every prototype prints it (0 for a correct build, **
 naive one, read as a differential with the equality filter off). The second is C11's sentinel gate
 and it is **red on six panels**, pinned in its failing state with its exact failing set, because
 C10 split the defect three ways and gave this map the rule and the detector while the code belongs
-in `tickets/`.
+to the implementation backlog.
 
 **What the rule is worth, on one screen, three times.**
 
@@ -2182,8 +2182,8 @@ and is green: *a component drawn into a zero-height rectangle declares no tab st
 
 **Three gates are red and are pinned in their failing state rather than fixed or ignored.** Each
 asserts its exact failing set, fires in both directions, and says what to invert when it is fixed;
-the code that fixes them is `tickets/`, not this map (C10 split each defect three ways and gave this
-map the rule and the detector). **Four are report-only** — `writes == distinct`, `marked == 0`,
+the code that fixes them belongs to the implementation backlog, not to this map (C10 split each
+defect three ways and gave this map the rule and the detector). **Four are report-only** — `writes == distinct`, `marked == 0`,
 `merges == 0` and *writes flat 1k→1M* are printed by nine to twelve binaries and asserted by two or
 three, and the honest statement is that the per-component forms remain reports until the crates
 exist. Their assembled-screen forms are the two sentinel gates above.
