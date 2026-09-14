@@ -239,7 +239,11 @@ function stage(source, target, { from, order, extra = '', home }) {
   const raw = readFileSync(source, 'utf8')
   const { keys, rest } = frontmatter(raw)
   const { text, body } = title(rest, source)
-  const staged = escapeAngles(retargetLinks(body, from))
+  // **Through `overProse`, not over the whole string.** Called directly it escapes the `<` inside
+  // every fenced block too, and `Ctx<'_, '_>` reaches the page as `Ctx&lt;'_, '_>` — a code sample
+  // that no longer compiles for the reader who copies it, which is the one thing this staging is
+  // not allowed to do.
+  const staged = overProse(retargetLinks(body, from), escapeAngles)
   const desc = description(staged)
 
   const head = ['---', `title: ${yaml(text)}`]
