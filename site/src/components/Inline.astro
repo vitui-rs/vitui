@@ -1,0 +1,26 @@
+---
+// A component's own summary sentence, rendered.
+//
+// The text comes from the crate's rustdoc, so it is markdown of a very small kind: bold, inline
+// code, and intra-doc links that resolve in rustdoc and nowhere else. Rather than pull a markdown
+// pipeline into a table cell, this converts the three shapes that actually occur and escapes
+// everything first — so a summary that grows a `<` is a summary that is shown, not a tag.
+interface Props {
+  text: string
+}
+
+const { text } = Astro.props
+
+const escaped = text
+  .replace(/&/g, '&amp;')
+  .replace(/</g, '&lt;')
+  .replace(/>/g, '&gt;')
+
+const html = escaped
+  // `[`crate::state::press`]` is a link only rustdoc can resolve. The name is the useful half.
+  .replace(/\[(`[^`]+`)\]/g, '$1')
+  .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+  .replace(/`([^`]+)`/g, '<code>$1</code>')
+---
+
+<Fragment set:html={html} />

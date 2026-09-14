@@ -895,6 +895,31 @@ fuzz/                     two libFuzzer targets and the committed corpus that is
                           └ detached workspace: nightly + libfuzzer-sys, which the engine's
                             dependency policy will not have. A loophole, not a permission
 scripts/                  the five gates and reports that cannot be a `cargo test`
+site/                     the documentation site: Astro Starlight over this repository's own
+                          markdown, served at <https://vitui-rs.github.io> (an organisation page
+                          repository, so no base path). Node, not cargo
+                          └ **nothing under `docs/` is copied by hand.** `scripts/stage.mjs` reads
+                            `docs/guide`, `docs/adr`, `docs/spec` and `CONTEXT.md` on every build and
+                            writes them into the content collection with three transformations —
+                            the `#` heading becomes the title, a `.md` link becomes a route, a bare
+                            `<Left>` outside code is escaped. The staged trees and `public/img` are
+                            **git-ignored build output**; edit the home, never the copy
+                          └ four data files under `src/generated/`. `inventory.json` and `apps.json`
+                            come from `INVENTORY` and `APPS` through
+                            `cargo run -p vitui-components --example inventory_json` and
+                            `cargo run -p vitui-apps --bin apps_json`, and are **committed** because
+                            a Pages runner has node and no cargo — `npm run check` is the ratchet
+                            that fails when either stops matching the crate. `benchmarks.json` and
+                            `terminals.json` are parsed out of `compare/REPORT.md` and
+                            `conform/REPORT-*.md` by node on every build, so they are not committed
+                          └ the component page's population **is** the freeze, and a component whose
+                            home family has no section on the page is a failed build rather than a
+                            missing row. `starlight-links-validator` fails the build on a broken
+                            internal link
+                          └ the deploy is `.github/workflows/site.yml` and it needs one thing a
+                            person does by hand: a deploy key on `vitui-rs/vitui-rs.github.io` and
+                            its private half as `PAGES_DEPLOY_KEY` here. Until that secret exists the
+                            site builds and uploads an artefact and the deploy step is skipped
 ```
 
 ## Commands
@@ -916,6 +941,10 @@ cargo deny check                            # needs `cargo install cargo-deny`
 (cd conform && cargo run --example wezterm)  # a window and a control socket; exits 1 on scene 06
 (cd conform && cargo run --example alacritty) # a window per scene, closed to take the capture; exits 1 on scene 06
 (cd conform && cargo run --example iterm2)   # needs `EnableAPIServer` and a grant; 22/22
+(cd site && npm install && npm run dev)     # the documentation site, on localhost:4321
+(cd site && npm run build)                  # ./dist; a broken internal link fails it
+(cd site && npm run generate)               # re-derive inventory.json and apps.json from the crates
+(cd site && npm run check)                  # the ratchet: fails if either has gone stale
 ```
 
 Applications (`cargo run -p vitui-apps --example NAME`), each with the key worth pressing; those

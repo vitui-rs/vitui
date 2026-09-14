@@ -1,0 +1,98 @@
+---
+title: What it looks like
+description: Twenty-one applications written against this surface — including ports of Midnight Commander, k9s and superfile — and what writing them found.
+---
+
+import { Aside } from '@astrojs/starlight/components'
+import Inline from '../../components/Inline.astro'
+import apps from '../../generated/apps.json'
+
+export const ports = ['commander', 'cluster', 'spf']
+export const shots = {
+  commander: { src: '/img/commander.gif', after: 'GNU Midnight Commander' },
+  cluster: { src: '/img/cluster.gif', after: 'k9s' },
+  spf: { src: '/img/spf.gif', after: 'superfile' },
+}
+
+**Twenty-one applications, one file each.** They are the component surface's only consumer, and
+repeatedly the thing that found the defect the test suite could not: a gate exercises a component
+where its author put it, and an application puts it somewhere else.
+
+The last three are ports of programs people use. A port's shape is not ours to argue with — so what
+it cannot express is a fact about this surface rather than a matter of taste, and three ports asking
+for the same missing option is what turns a taste into a gap. All three run on invented data: a real
+`readdir` or a real `kubectl` puts the interesting failures in the transport instead of in the
+library under test.
+
+## The three ports
+
+{ports.map((name) => {
+  const app = apps.find((a) => a.name === name)
+  return (
+    <figure>
+      <img src={shots[name].src} alt={`${name}, a port of ${shots[name].after}, running in a terminal`} loading="lazy" />
+      <figcaption>
+        <strong><code>{name}</code></strong> — after {shots[name].after}. <Inline text={app.what} />
+      </figcaption>
+    </figure>
+  )
+})}
+
+<Aside type="note" title="What these recordings are">
+These three are recordings of a real terminal, which is the honest instrument for something that
+moves. The component pictures on the [Components](/components/) page will be the opposite: frames
+this engine composited, written to SVG rather than to a tty.
+</Aside>
+
+## All twenty-one
+
+Each runs from a clone of the repository:
+
+```sh
+cargo run -p vitui-apps --example <name>
+```
+
+<table>
+  <thead>
+    <tr>
+      <th>Application</th>
+      <th>What it is</th>
+      <th>After</th>
+    </tr>
+  </thead>
+  <tbody>
+    {apps.map((a) => (
+      <tr>
+        <td>
+          <a href={`https://github.com/vitui-rs/vitui/blob/master/crates/vitui-apps/examples/${a.name}.rs`}>
+            <code>{a.name}</code>
+          </a>
+        </td>
+        <td><Inline text={a.what} /></td>
+        <td>{a.after ? <a href={a.after}>source</a> : '—'}</td>
+      </tr>
+    ))}
+  </tbody>
+</table>
+
+## What writing them found
+
+Four defects on this list were found by an application and by nothing else, and each is a class
+rather than a slip.
+
+- **Two panels drawn from one source line are one widget.** An id comes from the call site, so a
+  loop over two panels hands the second the first one's focus, cursor and hover — the screen looks
+  perfect and the wrong panel answers the keyboard. A gate never meets it, because a gate draws one
+  subject.
+- **A key release is an event too.** A modern terminal reports both edges of a keystroke, so an
+  application matching on the key code alone scrolled two lines per press — and read perfectly on a
+  legacy terminal.
+- **A dialog that closes does not give the keyboard back to whoever opened it.** The focused widget
+  stopped drawing, so the focus moved to the nearest survivor in the previous frame's order, which
+  for a two-panel screen is the other panel.
+- **A match on the character is half a keyboard.** A terminal speaking the enhanced protocol sends
+  the base key and the shift bit, so `?` arrives as `/` with `SHIFT`. Two applications opened the
+  wrong thing on `?` until they were bound through a key map.
+
+All four are fixed, and all four are why the applications are a workspace member that CI builds
+rather than a folder of snippets.

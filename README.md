@@ -308,6 +308,13 @@ them. The committed corpus replayed by `cargo test` is the gate; the fuzzers the
 
 ## Documents
 
+**All of it as a site.** [`site/`](site) builds this repository's own markdown — the guide, the three
+specs, the fifty-three decision records and the glossary — into a static site, alongside four pages
+that only exist there: a getting-started tutorial, the component list generated from the freeze, the
+applications, and the two evidence suites read as tables. `cd site && npm install && npm run dev`
+reads it locally. It is published at <https://vitui-rs.github.io> from the moment this repository is
+pushed and a deploy key exists; [`site/README.md`](site/README.md) is the procedure.
+
 **Writing your own components:** [`docs/guide/`](docs/guide) is the manual — thirteen chapters from
 the frame to shipping a component crate, with a runnable worked example in
 [`examples/component-handbook/`](examples/component-handbook) that depends on `vitui-runtime` alone.

@@ -50,3 +50,26 @@
 # conventions live on the machine that did the work and in the private archive; the public history
 # has never carried them, and this line is what keeps a working copy from putting them back.
 /.scratch/
+
+# The documentation site (`site/`) is an Astro project, and three of its directories are build
+# output: `node_modules`, `dist` and `.astro`. Two more are **staged sources** — the markdown and
+# the images are copied out of `docs/` on every build so that a chapter has one home and the site
+# is not a second place to edit it, which is exactly why they must not be committed. What IS
+# committed is `src/generated/`: two JSON files derived from Rust `const`s by `npm run generate`,
+# because the site has to build on a runner with node and no cargo, and `npm run check` is the
+# ratchet that fails when one of them stops matching the crate it came from.
+/site/node_modules
+/site/dist
+/site/.astro
+/site/public/img
+/site/src/content/docs/guide
+/site/src/content/docs/adr
+/site/src/content/docs/spec
+/site/src/content/docs/reference
+
+# Two of the four files under `site/src/generated/` are NOT committed, and the split is the toolchain
+# rather than a preference: these two are parsed out of `compare/REPORT.md` and `conform/REPORT-*.md`
+# by plain node on every build, so they are always current and committing them would add a second
+# thing to keep in step. The other two need cargo, which a Pages runner does not have.
+/site/src/generated/benchmarks.json
+/site/src/generated/terminals.json

@@ -1,9 +1,9 @@
 # `vitui-runtime` — architecture spec
 
 Status: **settled**. Date: 2026-08-19. Written by runtime ticket R16, the destination of
-[Map: vitui runtime architecture](map.md).
+Map: vitui runtime architecture.
 
-This document replaces [`architecture.md`](architecture.md), which was a proposal written so the
+This document replaces `architecture.md`, which was a proposal written so the
 map's tickets had something to attack. Sixteen of its sections carried a **[D]** mark; each has now
 been confirmed, narrowed or overturned by the ticket that owned it, and the proposal is kept
 unedited as the record of what was argued rather than as a description of what ships. Where this
@@ -1932,20 +1932,20 @@ Added by this map:
 
 | § | Ticket |
 |---|---|
-| §1 §2 §3 | [R01 signature and `Ctx`](issues/01-component-signature-and-ctx.md), [R04 intrinsic sizing](issues/04-intrinsic-sizing.md) |
-| §5 | [R02 identity](issues/02-identity.md) |
-| §6 | [R05 hit index](issues/05-hit-index.md) |
-| §7 | [R06 routing](issues/06-routing.md) |
-| §8 | [R08 focus](issues/08-focus.md) |
-| §9 | [R12 key maps](issues/12-key-maps.md) |
-| §10 | [R07 overlays](issues/07-overlays.md) |
-| §11 | [R03 layout](issues/03-layout.md) |
-| §12 | [R04 intrinsic sizing](issues/04-intrinsic-sizing.md) |
-| §13 | [R17 scrolling](issues/17-scrolling.md) |
-| §14 | [R09 data contract](issues/09-data-contract.md) |
-| §15 | [R10 theme](issues/10-theme.md), [R19 standard set](issues/19-standard-theme-set.md), [R20 live switching](issues/20-live-theme-switching.md) |
-| §16 | [R11 deadlines and animation](issues/11-deadlines-and-animation.md) |
-| §17 | [R18 async work](issues/18-async-work.md) |
-| §18 | [R13 reactivity stays out](issues/13-reactivity-stays-out.md) |
-| §4 §19 | [R14 crate split](issues/14-crate-split.md) |
-| §20 | [R15 verification strategy](issues/15-verification-strategy.md) |
+| §1 §2 §3 | R01 signature and `Ctx`, R04 intrinsic sizing |
+| §5 | R02 identity |
+| §6 | R05 hit index |
+| §7 | R06 routing |
+| §8 | R08 focus |
+| §9 | R12 key maps |
+| §10 | R07 overlays |
+| §11 | R03 layout |
+| §12 | R04 intrinsic sizing |
+| §13 | R17 scrolling |
+| §14 | R09 data contract |
+| §15 | R10 theme, R19 standard set, R20 live switching |
+| §16 | R11 deadlines and animation |
+| §17 | R18 async work |
+| §18 | R13 reactivity stays out |
+| §4 §19 | R14 crate split |
+| §20 | R15 verification strategy |

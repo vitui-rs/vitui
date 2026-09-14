@@ -1,0 +1,99 @@
+# The documentation site: built here, served from the organisation's page repository.
+#
+# **Why this is a GitHub workflow and not one of the gates.** `.gitlab-ci.yml` is the gate set — five
+# jobs on a runner nobody outside this machine can reach — and `.github/workflows/` holds what a
+# local runner cannot do. GitHub Pages is exactly that: the site has to be built by the thing that
+# serves it, and nothing else here needs node at all.
+#
+# **Why it pushes to another repository.** `vitui-rs/vitui-rs.github.io` is an organisation page
+# repository, so it serves at `https://vitui-rs.github.io` with no base path. A project page under
+# this repository would serve at `/vitui/`, and a documentation site on a sub-path means setting a
+# base and then fighting every absolute link, asset and redirect that forgets it. Same cost, one
+# fewer class of bug.
+#
+# **The one thing a person has to do once**: generate a deploy key, put the public half on
+# `vitui-rs/vitui-rs.github.io` with write access, and the private half here as the
+# `PAGES_DEPLOY_KEY` secret. Until that exists the build job runs and the deploy step is skipped,
+# which is the honest state rather than a red build. `site/README.md` carries the commands.
+name: Site
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - 'site/**'
+      - 'docs/**'
+      - 'CONTEXT.md'
+      - 'compare/REPORT.md'
+      - 'compare/FINDINGS.md'
+      - 'conform/REPORT-*.md'
+      - '.github/workflows/site.yml'
+  pull_request:
+    paths:
+      - 'site/**'
+      - 'docs/**'
+      - 'CONTEXT.md'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: site-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # The build is the first half of the gate, and it is a real one: `starlight-links-validator` fails
+  # it on a link that no longer resolves, and every page here is derived from something — a chapter,
+  # a record, a spec, a value in a crate — so a broken link is a rename that has already happened.
+  build:
+    runs-on: ubuntu-latest
+    # At the job level rather than the step's, because a step's own `env:` block is not what its own
+    # `if:` reads — and a deploy that silently never runs is exactly the failure this condition
+    # exists to make visible.
+    env:
+      DEPLOY_KEY: ${{ secrets.PAGES_DEPLOY_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: site/package-lock.json
+      - run: npm ci
+        working-directory: site
+      - run: npm run build
+        working-directory: site
+      - uses: actions/upload-artifact@v4
+        with:
+          name: site
+          path: site/dist
+          retention-days: 7
+
+      # The deploy, on `master` only and only once the key exists. A fork's pull request cannot reach
+      # the secret, which is the property that makes this safe to run on one.
+      - name: Deploy to vitui-rs.github.io
+        if: github.event_name == 'push' && github.ref == 'refs/heads/master' && env.DEPLOY_KEY != ''
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          deploy_key: ${{ secrets.PAGES_DEPLOY_KEY }}
+          external_repository: vitui-rs/vitui-rs.github.io
+          publish_dir: ./site/dist
+          publish_branch: main
+          commit_message: ${{ github.event.head_commit.message }}
+
+  # The second half, and the one that needs a Rust toolchain: two of the site's data files are
+  # derived from `const`s in the crates and committed, because a Pages runner has node and no cargo.
+  # A committed derivation is a copy, and this is the ratchet that stops the copy going stale —
+  # `npm run generate` regenerates both, and the diff is what gets committed.
+  generated:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - run: npm run check
+        working-directory: site

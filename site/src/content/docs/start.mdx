@@ -1,0 +1,163 @@
+---
+title: Getting started
+description: Build a working terminal application in about twenty minutes — the loop, the draw, the keyboard, and the program in full.
+---
+
+import { Aside, Code, Steps } from '@astrojs/starlight/components'
+import { program, slice, manifestLine } from '../../lib/source.js'
+
+export const version = /* the workspace's own, so the page cannot claim a number nobody set */
+  manifestLine('Cargo.toml', 'version').split('"')[1]
+export const loop = slice('crates/vitui-apps/examples/counter.rs', 'fn main()', 'while !app.exit')
+export const park = slice('crates/vitui-apps/examples/counter.rs', 'while !app.exit', '^}')
+export const draw = slice('crates/vitui-apps/examples/counter.rs', 'let block = panel_with', '        );')
+export const bindings = slice('crates/vitui-apps/examples/counter.rs', 'fn key_map()', '.bind(&[Chord::key(\'q\')]')
+export const keyboard = slice('crates/vitui-apps/examples/counter.rs', 'let sink = cx.id()', '        }')
+export const whole = program('crates/vitui-apps/examples/counter.rs')
+
+This page builds one working application: a counter with a border, a title, a key-hint line and
+three keys. It is a port of ratatui's own counter tutorial, which is why it is the one shown — a
+port's shape is not ours to argue with, so whatever it cannot say here is a fact about this surface
+rather than a taste.
+
+Every block below is cut out of
+[`crates/vitui-apps/examples/counter.rs`](https://github.com/vitui-rs/vitui/blob/master/crates/vitui-apps/examples/counter.rs)
+when this page is built, with the file's own comments removed. There is no second copy to go stale.
+
+## Before you start
+
+<Steps>
+
+1. **Rust 1.88 or newer.** The MSRV is measured rather than inherited from the edition, and a CI job
+   keeps it honest. `rustup update` if `rustc --version` says less.
+
+2. **A terminal.** Any of the eight this project has actually run a conformance suite against —
+   and, in practice, anything that speaks xterm. See [Terminals](/terminals/).
+
+3. **The crates.** The library is not released yet: the names on crates.io are `0.0.1` placeholders
+   holding the namespace, so today the way to run this is the repository.
+
+   ```sh
+   git clone https://github.com/vitui-rs/vitui
+   cd vitui
+   cargo run -p vitui-apps --example counter
+   ```
+
+   Once <code>{version}</code> is published, the same application is two dependencies:
+
+   ```toml
+   [dependencies]
+   vitui-runtime = "0.1"
+   vitui-components = "0.1"
+   ```
+
+</Steps>
+
+<Aside type="note" title="Two crates, not three">
+`vitui-engine` is everything that touches the terminal and an application never names it. The
+example below does not import it, and it cannot: the type its `Driver` is configured with is not
+nameable above the runtime. An application that wants only fast layered output can depend on the
+engine alone and never meet a layout type — but that is the other direction, and it is not this
+page.
+</Aside>
+
+## The loop
+
+An application is a `Driver`, a first frame, and a park.
+
+<Code code={loop} lang="rust" title="attach, then draw once" />
+
+`Driver::attach` takes the terminal: raw mode, the capability queries, the alternate screen, the
+render thread. It hands back the one handle an application holds. The theme is a named scheme from
+the shipped registry — a component names a *role* and never a colour, so swapping the scheme is the
+whole of theming.
+
+The first frame is drawn **before** the first park, and that ordering is the point of the comment
+in the source: parking with nothing pending is indefinite by design, so a screen that appears on
+the first keystroke is a bug rather than a slow start.
+
+<Code code={park} lang="rust" title="then park until something happens" />
+
+`wait()` is the only blocking call in the program. It returns when a key arrives, when something
+the application posted lands, when a deadline it asked for comes due, or when the terminal goes
+away — and it costs nothing while nothing happens: a genuinely idle application is gated at zero
+wakeups and zero CPU.
+
+`frame` runs your draw closure between `begin` and `present`. Everything the frame decided is on
+the wire by the time it returns.
+
+## The draw
+
+`ui` runs top to bottom, every frame. There is no widget object, no scene tree and nothing to
+register.
+
+<Code code={draw} lang="rust" title="a panel, and a line of text inside it" />
+
+Three things are worth naming here.
+
+**`cx.area()` is the rectangle this context draws in.** At the top of a frame it is the screen; one
+level down it is whatever the container handed over.
+
+**`panel_with` returns the interior it did not write.** A component writes a partition of its
+rectangle — every cell exactly once — so the panel drew its border and its two captions and left
+the inside alone. That is why there is no second call to clear the middle, and it is why the value
+that comes back is the rectangle to draw into.
+
+**The two captions are the panel's own.** The title sits over the top border, the key hints under
+the bottom one, and one option centres both. Three separate applications wanted exactly that pair
+before it existed, which is what turned a preference into a missing field.
+
+## The keyboard
+
+Bindings are declared as a value, once:
+
+<Code code={bindings} lang="rust" title="two spellings per action" />
+
+`Chord::key('h')` and `Code::Left` are two spellings of one action, and an action is an id the draw
+matches on rather than a key the draw compares. Then, inside the frame:
+
+<Code code={keyboard} lang="rust" title="claim the focus, drain the queue, decline the rest" />
+
+<Steps>
+
+1. **A tab stop.** `cx.interact` registers the rectangle as something that can hold the focus. In a
+   real application every focusable widget has its own id and drains its own keys; here there is
+   one, over the whole screen.
+
+2. **Take the keyboard only if nobody has it.** `cx.next_key` answers the *focused* id, so an
+   application that never seats the focus is deaf until a click awards it. `focused().is_none()` and
+   not `!is_focused(sink)` — the second takes the keyboard back every frame, so `Tab` appears to do
+   nothing.
+
+3. **Drain, act, decline.** A key this widget does not want goes back on the queue with
+   `cx.decline`, and whoever wants it gets it. A frame consumes at most one routing edge, so a burst
+   of keystrokes is several frames rather than one — which is why holding an arrow key counts up
+   smoothly instead of jumping.
+
+</Steps>
+
+<Aside type="caution" title="Match on an action, not on a character">
+A terminal speaking the enhanced keyboard protocol sends the base key and the shift bit, so `?`
+arrives as the `/` key with `SHIFT` and sometimes with no character at all. A `match` on the
+character reads perfectly on a legacy terminal and is half dead on a modern one. `KeyMap` is what
+makes the difference invisible; [the keyboard chapter](/guide/06-the-keyboard/) is where the four
+wire spellings of one keystroke are written out.
+</Aside>
+
+## The whole program
+
+<Code code={whole} lang="rust" title="crates/vitui-apps/examples/counter.rs" />
+
+```sh
+cargo run -p vitui-apps --example counter
+```
+
+`←`/`h` counts down, `→`/`l` counts up, `q` quits.
+
+## Where to go next
+
+- **[What it looks like](/showcase/)** — twenty-one applications, including ports of Midnight
+  Commander, k9s and superfile.
+- **[Components](/components/)** — the twenty-nine you can call instead of writing.
+- **[Building components](/guide/)** — the manual for writing your own, thirteen chapters with a
+  worked example that compiles.

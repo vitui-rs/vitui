@@ -1,7 +1,7 @@
 # `vitui-engine` — architecture spec
 
 Status: **settled**. Date: 2026-08-19. Written by engine ticket 15, the destination of
-[Map: vitui engine architecture](map.md).
+Map: vitui engine architecture.
 
 Nothing here is invention. Every decision below arrived on one of the map's eighteen tickets with a
 measurement or a refusal behind it, and the ticket is cited in the margin so the argument can be
@@ -647,7 +647,7 @@ engine** (19). A worker cannot hold `&mut` to the app thread's interner — not 
 borrow checker — so a surface drawn outside a stack interns into its own table and `add_content_with`
 renumbers it into the stack's, once, at donation (§3). The alternative was to delete `Surface::root`
 and with it off-thread drawing, the reason `Surface` is `Send` at all, and `add_content_with`'s stated
-purpose; it is recorded in [ticket 19](issues/19-the-standalone-surface-and-the-interner.md) as still
+purpose; it is recorded in ticket 19 as still
 available at the price of one deprecation, should the donation pass measure badly at implementation
 ticket 10.
 
@@ -3309,17 +3309,17 @@ runtime reads a capability and never rewrites a declaration) is ADR 0009 seen fr
 
 | § | Ticket |
 |---|---|
-| §1 | [12 the seam](issues/12-engine-runtime-seam.md), [13 verification](issues/13-verification-strategy.md) |
-| §2 | [09 render thread](issues/09-render-thread-and-handoff.md), [12 the seam](issues/12-engine-runtime-seam.md) |
-| §3 | [02 grapheme clustering](issues/02-grapheme-clustering-and-width.md), [04 cell representation](issues/04-cell-representation.md), [16 handle tables](issues/16-handle-tables.md) |
-| §4 | [05 surface API](issues/05-surface-api.md), [14 pressure test](issues/14-pressure-test-hostile-components.md), [16 handle tables](issues/16-handle-tables.md), [18 unblockable](issues/18-unblockable-ui-thread.md) |
-| §5 | [06 layer stack](issues/06-layer-stack-and-blending.md), [17 prior art: engines](issues/17-prior-art-engine-architecture.md), [16 handle tables](issues/16-handle-tables.md) |
-| §6 | [03 prior art: damage](issues/03-prior-art-damage-and-compositing.md), [07 damage model](issues/07-damage-model.md) |
-| §7 | [09 render thread](issues/09-render-thread-and-handoff.md), [12 the seam](issues/12-engine-runtime-seam.md), [16 handle tables](issues/16-handle-tables.md) |
-| §8 | [08 frame serializer](issues/08-frame-serializer.md), [01 capability detection](issues/01-terminal-capability-detection.md), [14 pressure test](issues/14-pressure-test-hostile-components.md) |
-| §9 | [10 input pipeline](issues/10-input-pipeline.md), [01 capability detection](issues/01-terminal-capability-detection.md) |
-| §10 | [11 degradation model](issues/11-degradation-model.md), [01 capability detection](issues/01-terminal-capability-detection.md), [02 grapheme clustering](issues/02-grapheme-clustering-and-width.md) |
-| §11 | [18 unblockable](issues/18-unblockable-ui-thread.md), [12 the seam](issues/12-engine-runtime-seam.md) |
-| §12 | [12 the seam](issues/12-engine-runtime-seam.md), amended by 05, 10, 11, 13, 14, 16 |
-| §13 | the map's standing requirements, [14 pressure test](issues/14-pressure-test-hostile-components.md), [13 verification](issues/13-verification-strategy.md) |
-| §14 | [13 verification](issues/13-verification-strategy.md), with the CI half corrected by runtime R15 and components C11 |
+| §1 | 12 the seam, 13 verification |
+| §2 | 09 render thread, 12 the seam |
+| §3 | 02 grapheme clustering, 04 cell representation, 16 handle tables |
+| §4 | 05 surface API, 14 pressure test, 16 handle tables, 18 unblockable |
+| §5 | 06 layer stack, 17 prior art: engines, 16 handle tables |
+| §6 | 03 prior art: damage, 07 damage model |
+| §7 | 09 render thread, 12 the seam, 16 handle tables |
+| §8 | 08 frame serializer, 01 capability detection, 14 pressure test |
+| §9 | 10 input pipeline, 01 capability detection |
+| §10 | 11 degradation model, 01 capability detection, 02 grapheme clustering |
+| §11 | 18 unblockable, 12 the seam |
+| §12 | 12 the seam, amended by 05, 10, 11, 13, 14, 16 |
+| §13 | the map's standing requirements, 14 pressure test, 13 verification |
+| §14 | 13 verification, with the CI half corrected by runtime R15 and components C11 |

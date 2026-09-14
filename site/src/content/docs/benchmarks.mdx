@@ -1,0 +1,78 @@
+---
+title: Benchmarks
+description: Nine scenes, five arms, and the four things the run does not say — a comparative suite that reports rather than blocks.
+---
+
+import { Aside } from '@astrojs/starlight/components'
+import Inline from '../../components/Inline.astro'
+import bench from '../../generated/benchmarks.json'
+
+export const Table = ({ table }) => (
+  <table>
+    <thead>
+      <tr>{table.headers.map((h) => <th><Inline text={h} /></th>)}</tr>
+    </thead>
+    <tbody>
+      {table.rows.map((row) => (
+        <tr>{row.map((cell) => <td><Inline text={cell} /></td>)}</tr>
+      ))}
+    </tbody>
+  </table>
+)
+
+**A comparison against ratatui, Textual and notcurses, written to find out where this library
+loses.** Every scene is a described picture at 120×40 — a terminal size, an initial screen and a
+sequence of changes — and an arm may reach it any way its framework prefers. Nothing in a scene
+definition says *widget*, *diff* or *layer*, because the comparison spans immediate-mode and
+retained-mode designs and those words would have decided it in advance.
+
+The suite **reports and does not block**. Four external projects' versions cannot gate this
+repository's pull requests, so the report is committed and regenerated, and a number that gets worse
+arrives as a diff a reviewer reads.
+
+- **Machine:** {bench.machine}
+- **Frames per scene:** {bench.frames} · **CPU scene:** {bench.cpuScene} · **Latency:** {bench.latency}
+
+## Bytes on the wire, per steady-state frame
+
+What one more frame of the described change costs, with the session prologue and the first paint
+differenced out. **This is the table to read** — a total over 120 frames folds three different
+things together and reverses at least one row.
+
+<Table table={bench.marginal} />
+
+## CPU, and keystroke to wire
+
+<Table table={bench.cpu} />
+
+<Table table={bench.keystroke} />
+
+## What this run does not say
+
+A benchmark page that only carries the rows it won is a pitch. These are the run's own caveats,
+taken from the suite's findings file:
+
+<ul>
+  {bench.caveats.map((c) => (
+    <li><Inline text={c} /></li>
+  ))}
+</ul>
+
+<Aside type="caution" title="One row to read before believing any of it">
+`list-scroll` at about 1.2× is **not a win and should be**: scrolling a list is the scene this
+engine's damage tracking is supposed to dominate, and the margin says the arm is paying for
+something else. A missing notcurses row reads as a win and is not one — it is an arm that was not
+built on the machine that ran this.
+</Aside>
+
+## Where the numbers come from
+
+- **The scenes** are normative and written down before any arm was built.
+- **Each arm** is a separate crate or project in `compare/arms/`, written against the rendering
+  layer directly, because that is the only level at which four libraries of three designs are
+  comparable at all. It is not the level at which anybody writes an application.
+- **The harness** drives each arm through a pseudo-terminal and counts the bytes it writes, which is
+  the one measurement that is the same question for every arm.
+
+The full report, the findings that read it, and the scene definitions are in
+[`compare/`](https://github.com/vitui-rs/vitui/tree/master/compare).

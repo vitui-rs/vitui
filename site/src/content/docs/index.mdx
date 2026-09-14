@@ -1,0 +1,84 @@
+---
+title: vitui
+description: A Rust TUI library — layered terminal rendering with damage tracking, built so that frame cost is proportional to visible cells, never to data volume.
+template: splash
+hero:
+  tagline: Layered terminal rendering with damage tracking, in Rust. The frame costs what is on the screen — never what is behind it.
+  image:
+    html: |
+      <img src="/img/commander.gif" alt="commander, a file manager written against vitui, running in a terminal" loading="eager" />
+  actions:
+    - text: Getting started
+      link: /start/
+      icon: right-arrow
+    - text: Components
+      link: /components/
+      variant: minimal
+    - text: GitHub
+      link: https://github.com/vitui-rs/vitui
+      icon: external
+      variant: minimal
+---
+
+import { Card, CardGrid, Code, LinkCard } from '@astrojs/starlight/components'
+import { program } from '../../lib/source.js'
+
+export const counter = program('crates/vitui-apps/examples/counter.rs')
+
+## Three crates, one claim
+
+**Frame cost is proportional to visible cells, never to data volume.** That is the engine's
+invariant and it holds there without exception — a list of a million rows costs the rows you can
+see. Above the engine, a component that cannot know which of a million points land in its rectangle
+without looking at them splits the cost instead: the frame costs the rectangle, the edit costs the
+data, behind a memo, and both halves are gated.
+
+`vitui-engine` is everything that touches the terminal — cells, surfaces, layers, compositing,
+damage, input and the bytes on the wire. `vitui-runtime` is everything above it — layout, identity,
+focus, hit-testing, routing, key maps, theming, overlays and the data contract. `vitui-components`
+is the widget library, and it is not privileged: every component in it is a plain function you could
+have written yourself.
+
+## A whole application
+
+<Code code={counter} lang="rust" title="crates/vitui-apps/examples/counter.rs" />
+
+This is a port of ratatui's counter tutorial, and it is the entire program. The library holds no
+state, there is nothing to register, and a key nobody wants goes back on the queue.
+
+<CardGrid>
+  <Card title="Nothing between frames" icon="seti:rust">
+    No scene tree, no retained widgets, no diffing pass. The clip stack is the call stack and the id
+    path is the closure tree. What survives a frame is five flat structures rebuilt from the next
+    draw.
+  </Card>
+  <Card title="Damage at write time" icon="pencil">
+    Marked by the drawing verbs as they write, never derived by diffing two buffers — a full-buffer
+    diff at 300×80 was measured at ~170 µs, which is already over the budget for a whole frame.
+  </Card>
+  <Card title="Budgets, not aspirations" icon="rocket">
+    Full-screen composition under 1 ms, a typical damage-tracked frame under 100 µs, zero
+    allocations while a frame composes, zero wakeups when nothing happens. Each one is a CI gate.
+  </Card>
+  <Card title="Asked, not assumed" icon="approve-check">
+    Eight terminal arms across seven emulator families, each driven live and photographed. Nothing
+    shipped claims a terminal the suite has not run.
+  </Card>
+</CardGrid>
+
+## Where to go
+
+<CardGrid>
+  <LinkCard title="Getting started" href="/start/" description="Build a working application in about twenty minutes." />
+  <LinkCard title="Components" href="/components/" description="Twenty-nine of them, and what each one is." />
+  <LinkCard title="Building components" href="/guide/" description="Thirteen chapters on writing your own, with a worked example that compiles." />
+  <LinkCard title="What it looks like" href="/showcase/" description="Twenty-one applications, including ports of Midnight Commander, k9s and superfile." />
+  <LinkCard title="Benchmarks" href="/benchmarks/" description="Against ratatui and Textual, with the four things the run does not say." />
+  <LinkCard title="Decision records" href="/adr/" description="Fifty-three decisions, each with the measurement behind it." />
+</CardGrid>
+
+## Status
+
+**Not released yet.** The names on crates.io are `0.0.1` placeholders holding the namespace; `0.1.0`
+is the first version with code in it. Until it ships, the way to run any of this is a clone of the
+repository — and nothing on this site links to documentation that does not exist yet.

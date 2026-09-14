@@ -1,9 +1,9 @@
 # `vitui-components` — architecture spec
 
 Status: **settled**. Date: 2026-08-19. Written by components ticket C12, the destination of
-[Map: vitui components architecture](map.md).
+Map: vitui components architecture.
 
-This document replaces [`architecture.md`](architecture.md), which was a proposal written so the
+This document replaces `architecture.md`, which was a proposal written so the
 map's tickets had something to attack. Its §1 is confirmed as written, its §3 is rewritten (one
 helper deleted, three added, two kept for a different reason than the one recorded), its §5 coverage
 table is superseded by §18 here, and its §2 module tree is confirmed only in its *rule*. The
@@ -16,7 +16,7 @@ appears in §22 rather than being answered here. The spec is done when `/to-tick
 implementation work without reopening a decision.
 
 **Reading order for a newcomer:** `CONTEXT.md` (the glossary — its terms are used here without
-re-definition) → [`../vitui-runtime-architecture/spec.md`](../vitui-runtime-architecture/spec.md)
+re-definition) → `../vitui-runtime-architecture/spec.md`
 (this crate's whole surface) → this file → `docs/adr/0026`–`0032` for the decisions that are hard to
 reverse → the tickets in `issues/` for the measurements.
 
@@ -527,7 +527,7 @@ a position: hide and reorder move positions, and **nothing stored may be keyed o
 ### The twenty-two grid features
 
 Twenty-one of the survey's twenty-two data-grid features are state or layout, each assigned with its
-mechanism in [`research/05-table.md`](research/05-table.md). The one that is neither cleanly is
+mechanism in `research/05-table.md`. The one that is neither cleanly is
 **variable row height** — master-detail rows, group rows, a wrapped cell. It is not a drawing
 question either, so the map's claim survives; what it is, is a layout question with a
 data-proportional storage consequence, and C05 closed it as a **fourth field, not a fourth
@@ -1909,7 +1909,7 @@ itself at a rung **builds something different**; it never substitutes content.
 
 **R5 — It is caller state plus the one index of §10.** Twenty-one of the survey's twenty-two
 data-grid features are state or layout, assigned individually in
-[`research/05-table.md`](research/05-table.md); the twenty-second, variable row height, is a fourth
+`research/05-table.md`; the twenty-second, variable row height, is a fourth
 *field* on §7's record. `infinite scroll · server-side row model · row grouping with aggregates ·
 pivot · tree data · multi-column sort · filter row · quick filter · column resize / reorder / hide /
 groups · minimap · scroll spy · follow-tail · timeline · gantt · kanban · heatmap grid · calendar
@@ -1978,7 +1978,7 @@ of a document. It is superseded by three things that run:
    `collapsible` (§8), `select` (§12), `chart` (§13), `modal` (§12), `textarea` (§11), `file preview
    pane` (§15), `video player chrome` (§14, six parts of ten), `process table` (§6), and
    **`command palette`** — components ticket 43 (2026-08-28),
-   [`research/43-the-command-palette.md`](../vitui-components-impl/research/43-the-command-palette.md).
+   `research/43-the-command-palette.md`.
    **One is not**: `pty` (§22). Recorded as one, not waved through.
 
    **R3 holds for the palette and R5's own sentence does not.** Eleven mechanisms, none of them new —
@@ -2308,7 +2308,7 @@ a question a ticket closed too early is how a spec stops being a record.
 - **Markdown rendering** (its own wrap pass) and **the syntax-highlighting seam**.
 - ~~**`command palette`**, the other unbuilt C3 exemplar.~~ **Prototyped and answered**, components
   ticket 43 (2026-08-28) —
-  [`research/43-the-command-palette.md`](../vitui-components-impl/research/43-the-command-palette.md).
+  `research/43-the-command-palette.md`.
   **R3 holds**: eleven mechanisms and none of them new, so §18's exemplar count is eleven of twelve
   and `pty` is the one left. The finding is R5's rather than R3's — *spliced* is the wrong index
   spelling at keystroke rate, **48.47×** slower at a million candidates than the rescan it is supposed
@@ -2380,22 +2380,22 @@ Added by this map:
 
 | § | Ticket |
 |---|---|
-| §1 §2 | [C01 the call-site shape](issues/01-call-site-shape.md) |
-| §2 §3 | [C02 the shared helpers](issues/02-shared-helpers.md) |
-| §4 | C01, C02, [C03 list and selection](issues/03-list-and-selection.md), [C04 table](issues/04-table.md) |
-| §5 | [C03 list and selection](issues/03-list-and-selection.md) |
-| §6 | [C04 table](issues/04-table.md) |
-| §7 §10 | [C05 tree](issues/05-tree.md) |
-| §8 | [C14 collapsible](issues/14-collapsible.md) |
-| §9 | [C13 scroll area and scrollbar](issues/13-scroll-area-and-scrollbar.md) |
-| §10 | C04, C05, [C06 input and textarea](issues/06-input-and-textarea.md), [C08 chart and plot](issues/08-chart-and-plot.md), [C09 theme](issues/09-theme-and-degradation-matrix.md), [C16 file preview pane](issues/16-file-preview-pane.md) |
-| §11 | [C06 input and textarea](issues/06-input-and-textarea.md) |
-| §12 | [C07 select and overlays](issues/07-select-and-overlays.md) |
-| §13 | [C08 chart and plot](issues/08-chart-and-plot.md) |
-| §14 | [C15 media](issues/15-media.md) |
-| §15 | [C16 file preview pane](issues/16-file-preview-pane.md) |
-| §16 | [C09 theme and the degradation matrix](issues/09-theme-and-degradation-matrix.md) |
-| §17 | [C10 the v1 inventory](issues/10-v1-inventory.md), [C11 verification](issues/11-verification.md) |
-| §18 | [research/01 the component library survey](research/01-component-library-survey.md), C10, and every ticket that built an exemplar |
-| §19 §21 | [C11 verification](issues/11-verification.md) |
+| §1 §2 | C01 the call-site shape |
+| §2 §3 | C02 the shared helpers |
+| §4 | C01, C02, C03 list and selection, C04 table |
+| §5 | C03 list and selection |
+| §6 | C04 table |
+| §7 §10 | C05 tree |
+| §8 | C14 collapsible |
+| §9 | C13 scroll area and scrollbar |
+| §10 | C04, C05, C06 input and textarea, C08 chart and plot, C09 theme, C16 file preview pane |
+| §11 | C06 input and textarea |
+| §12 | C07 select and overlays |
+| §13 | C08 chart and plot |
+| §14 | C15 media |
+| §15 | C16 file preview pane |
+| §16 | C09 theme and the degradation matrix |
+| §17 | C10 the v1 inventory, C11 verification |
+| §18 | research/01 the component library survey, C10, and every ticket that built an exemplar |
+| §19 §21 | C11 verification |
 | §20 | every ticket; the four over-budget frames are C04, C08, C15, C16 |

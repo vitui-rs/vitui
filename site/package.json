@@ -1,0 +1,22 @@
+{
+  "name": "vitui-site",
+  "type": "module",
+  "version": "0.0.1",
+  "scripts": {
+    "predev": "node scripts/stage.mjs && node scripts/evidence.mjs",
+    "dev": "astro dev",
+    "prebuild": "node scripts/stage.mjs && node scripts/evidence.mjs",
+    "build": "astro build",
+    "preview": "astro preview",
+    "generate": "node scripts/generate.mjs",
+    "check": "node scripts/generate.mjs --check",
+    "astro": "astro"
+  },
+  "dependencies": {
+    "@astrojs/starlight": "^0.42.0",
+    "astro": "^7.2.10",
+    "sharp": "^0.35.3",
+    "starlight-links-validator": "^0.26.0"
+  },
+  "private": true
+}

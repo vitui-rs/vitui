@@ -1,0 +1,108 @@
+---
+title: Components
+description: The twenty-nine components of the v1 freeze — what each one is, what to call, and where its source is.
+# The family headings below are written by an expression, so Starlight cannot see them and the
+# table of contents would list two of twelve sections. A partial map is worse than none.
+tableOfContents: false
+---
+
+import Inline from '../../components/Inline.astro'
+import inventory from '../../generated/inventory.json'
+
+export const homes = [
+  ['text', 'Text', 'A line, and a label on a face that reacts.'],
+  ['structure', 'Structure', 'What divides a screen into rectangles somebody else draws in.'],
+  ['input', 'Input', 'Everything a keyboard or a pointer changes the value of.'],
+  ['collections', 'Collections', 'Rows, columns and a flatten index — virtualised, so the frame costs the window and never the data.'],
+  ['scrolling', 'Scrolling', 'An offset the caller owns, and the bar that reports it.'],
+  ['overlays', 'Overlays', 'A second layer, placed against the first.'],
+  ['disclosure', 'Disclosure', 'One state machine, and the family exists to say that all of it is one.'],
+  ['charts', 'Charts', 'A sub-cell rasteriser and the axes around it.'],
+  ['indicators', 'Indicators', 'A proportion, a trend, and a thing that turns.'],
+  ['files', 'Files', 'A picker and the pane that previews what it is pointing at.'],
+]
+
+export const source = (c) => `https://github.com/vitui-rs/vitui/blob/master/${c.file}`
+
+export const unplaced = inventory.filter((c) => !homes.some(([family]) => family === c.families[0]))
+
+export const complete = (() => {
+  /*
+   * **The population is the freeze, and this is what makes that a fact rather than an intention.**
+   * The families above are written out, so a component whose home family is not among them would
+   * simply not be rendered — the one failure this page exists to prevent, arriving through the back
+   * door. A build is the right place to hear about it.
+   */
+  if (unplaced.length > 0) {
+    throw new Error(
+      `the components page has no section for: ${unplaced.map((c) => `${c.id} (${c.families[0]})`).join(', ')}`,
+    )
+  }
+  return true
+})()
+
+**Twenty-nine components, sixteen of them at the tier that means each was the subject of its own
+ticket.** Every one is a plain function: it takes a draw context and a rectangle, writes every cell
+of that rectangle exactly once, and returns what happened. There is no widget object to construct,
+nothing to register, and nothing that exists between frames.
+
+This page is generated from the freeze — the same value the crate's own obligations are queries
+over — so a component cannot be added to the library and left off the page, and a renamed entry
+point fails the build rather than the link.
+
+Each row's sentence is that component's own documentation, and the spellings are what you call:
+`name` takes the common case, `name_with` takes an options struct, `name_into` writes into a
+rectangle you already hold.
+
+{homes.map(([family, heading, blurb]) => {
+  const rows = inventory.filter((c) => c.families[0] === family)
+  return (
+    <section>
+      <h2 id={family}>{heading}</h2>
+      <p>{blurb}</p>
+      <table>
+        <thead>
+          <tr>
+            <th>Component</th>
+            <th>What it is</th>
+            <th>Call</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((c) => (
+            <tr>
+              <td>
+                <a href={source(c)}><code>{c.id}</code></a>
+              </td>
+              <td>
+                <Inline text={c.summary} />
+              </td>
+              <td>
+                {c.spellings.map((s, i) => (
+                  <>
+                    {i > 0 && ' · '}
+                    <code>{s}</code>
+                  </>
+                ))}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </section>
+  )
+})}
+
+## What is not here
+
+**A picture per component.** Every component on this page is drawn by a headless frame in this
+repository's own test suite, and a generator that writes those frames as SVG is the next thing being
+built. When it lands, each row gets the frame itself — not a recording of one, the same composited
+picture your terminal would be sent.
+
+**`media`.** The mechanisms are built and the freeze ships none of them as a component: a picture as
+half-blocks, a QR code, a waveform. The family exists in the catalogue and has no v1 row.
+
+**API documentation.** It belongs on docs.rs and is not mirrored here. Until `0.1.0` is published the
+links above go to the source, which is the honest destination rather than a `docs.rs` URL that
+404s.

@@ -1,0 +1,65 @@
+/*
+ * The hero's picture is a terminal recording at its natural size, and a grid track sized by an
+ * 900-pixel image is a grid track that takes the whole row — which leaves the tagline one word
+ * wide. `min-width: 0` is what lets the track shrink below its content, and it is needed on the
+ * wrapper rather than on the image, because the wrapper is the grid item.
+ */
+.hero .hero-html {
+  /* `min-width: 0` lets the grid track shrink below the picture's natural 900px; the width rule
+     replaces Starlight's `min(100%, 25rem)`, which is sized for a logo. */
+  min-width: 0;
+  width: 100%;
+}
+
+/*
+ * Starlight's default split is 7fr of copy to 4fr of picture, which is right for a logo and wrong
+ * for a recording of a terminal: at 4fr the file manager in the hero is 225 pixels wide and nothing
+ * in it can be read. An even split is the smallest change that makes the picture answer the
+ * question it is there for — *what does this look like*.
+ */
+@media (min-width: 50rem) {
+  /* One column, picture underneath. Side by side, the recording gets half of a content column —
+     about 310 pixels — and a file manager at 310 pixels is a grey rectangle. Stacked it gets the
+     whole width, which is the least it needs to answer the question it is there for. */
+  .hero {
+    grid-template-columns: 1fr;
+  }
+
+  .hero .hero-html {
+    order: 3;
+  }
+}
+
+.hero .hero-html img {
+  width: 100%;
+  height: auto;
+  border-radius: 0.5rem;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 25%), 0 8px 24px rgb(0 0 0 / 20%);
+}
+
+/*
+ * The showcase's recordings, same reasoning one page over: a figure is prose-width and the GIFs
+ * are wider than it.
+ */
+figure img {
+  width: 100%;
+  height: auto;
+  border-radius: 0.5rem;
+}
+
+figure figcaption {
+  font-size: var(--sl-text-sm);
+  color: var(--sl-color-gray-3);
+  margin-top: 0.5rem;
+}
+
+/*
+ * The component and terminal tables are wide by nature — three or five columns of prose — and the
+ * default content column is measured for paragraphs. Letting a table scroll sideways is the one
+ * arrangement that does not shrink the type or truncate a sentence.
+ */
+.sl-markdown-content table {
+  display: block;
+  overflow-x: auto;
+  max-width: 100%;
+}
