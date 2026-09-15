@@ -125,6 +125,13 @@ fn the_steady_state_of_the_handoff_allocates_nothing() {
 /// whole thousand once and asserts over the second thousand. Same `t` values, same damage patterns,
 /// same buffers — and no guess about which prefix is representative. See
 /// [`vitui_alloc_probe::steady`].
+///
+/// # The render thread is inside this window on purpose
+///
+/// The probe leaves exactly one thread out of every reading and it is the process's first, which
+/// here is the harness's. The render thread is not it: `take → finish` is half of what this gate is
+/// pricing, and a window that could not see it would be asserting zero over the two verbs that
+/// happen on this side of the mailbox.
 fn the_handoff_allocates_nothing() {
     let (mut screen, id) = screen(Clock::System);
     let row: String = std::iter::repeat_n('m', W as usize).collect();

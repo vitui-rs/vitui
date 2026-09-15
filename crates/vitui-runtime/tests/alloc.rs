@@ -7,10 +7,10 @@
 //! # Why this is its own binary
 //!
 //! [`vitui_alloc_probe::CountingAllocator`] is a **process-global** allocator and the count is a
-//! process-global counter. `cargo test` runs a binary's tests on several threads, so an allocating
-//! sibling lands in the number — which is why the workspace's one test command is
-//! `cargo test --workspace -- --test-threads=1`, and why this lives beside the library rather than
-//! inside it.
+//! process-global counter, minus the one thread that is nobody's subject (below). `cargo test` runs
+//! a binary's tests on several threads, so an allocating sibling lands in the number — which is why
+//! the workspace's one test command is `cargo test --workspace -- --test-threads=1`, and why this
+//! lives beside the library rather than inside it.
 //!
 //! # The attribution window, which is the rule this binary keeps by having nothing to keep it from
 //!
@@ -25,6 +25,19 @@
 //! not zero and therefore that the rule is necessary. Every other gate there runs on
 //! `Worker::queueing`, which has no thread at all. If a gate here ever needs one, it belongs beside
 //! that one rather than beside these.
+//!
+//! # One thread in this process is nobody's here, and it cost a red run to find
+//!
+//! *Nothing in this file starts a thread* is a statement about this file and was read for four
+//! tickets as a statement about the process, which it is not: **the test harness starts one for
+//! every test, and then blocks on a channel waiting for it.** The first blocking receive on that
+//! channel allocates, once per process — and `a_column_of_wrapped_rows_allocates_zero`, which
+//! measures an iterator over four fixed strings and cannot reach an allocator on any path, reported
+//! **two** on one hosted Linux runner and zero on five others.
+//!
+//! The probe's readings now exclude the process's first thread, which is the harness's and is never
+//! a subject in a test binary. Nothing else about these gates changed: a thread the *subject* starts
+//! is still inside every window here, which is what `work_alloc.rs`'s last gate exists to show.
 //!
 //! # What is actually being asserted
 //!
@@ -889,11 +902,11 @@ fn one_standing_overlay_costs_one_allocation_a_frame() {
         for _ in 0..FRAMES {
             one_frame(&mut driver);
         }
-        let before = vitui_alloc_probe::allocation_count();
+        let before = vitui_alloc_probe::attributed_allocation_count();
         for _ in 0..FRAMES {
             one_frame(&mut driver);
         }
-        let after = vitui_alloc_probe::allocation_count();
+        let after = vitui_alloc_probe::attributed_allocation_count();
         assert_eq!(
             u64::from(driver.inspect().overlay_bodies_boxed()),
             standing,
@@ -967,13 +980,13 @@ fn an_owning_body_is_dropped_as_many_times_as_it_is_built() {
         one_frame(&mut driver);
     }
 
-    let before_alloc = vitui_alloc_probe::allocation_count();
-    let before_free = vitui_alloc_probe::deallocation_count();
+    let before_alloc = vitui_alloc_probe::attributed_allocation_count();
+    let before_free = vitui_alloc_probe::attributed_deallocation_count();
     for _ in 0..100 {
         one_frame(&mut driver);
     }
-    let allocated = vitui_alloc_probe::allocation_count() - before_alloc;
-    let freed = vitui_alloc_probe::deallocation_count() - before_free;
+    let allocated = vitui_alloc_probe::attributed_allocation_count() - before_alloc;
+    let freed = vitui_alloc_probe::attributed_deallocation_count() - before_free;
     assert_eq!(
         allocated, 300,
         "three a frame and no fourth: the `String` the body owns, the `Box` the body is, and the \

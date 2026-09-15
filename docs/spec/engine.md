@@ -3066,7 +3066,12 @@ is 284× fatter.
 One entry has an **attribution window** and it is a general rule: the allocation probe counts `alloc`
 calls, not `alloc` calls *by the app thread*, so a window opened around a frame while a worker is running
 attributes the worker's growth to the frame. An allocation gate with a background job in it runs on a
-deterministic spawner, or joins before it measures.
+deterministic spawner, or joins before it measures. The handoff's own gate is the case that wants
+this on purpose — its window is around the three-thread path and the render thread's work is half of
+what it is pricing. The **one** thread no window counts is the process's first, which in a test
+binary is the harness's: it spawns a thread per test whatever `--test-threads` says, then blocks on a
+channel whose first receive allocates once per process, and that cost landed inside a gate's window
+on a hosted runner once in six runs.
 
 **Two entries have a subject that can be skipped, and a gate whose subject can be skipped must prove
 the subject ran** (22). #7's operator is skipped outright at `ColorDepth::None` and its `Mix` reaches no

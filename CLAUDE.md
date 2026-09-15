@@ -668,6 +668,17 @@ instrument rather than in the code. Each of these has bitten at least twice.
   the component did with it, not whether it took it.
 - **Cumulative ledgers must be read as deltas**, and allocation windows counted **per frame** and
   warmed on the *shape* rather than on two identical frames.
+- **An allocation window contains a thread nobody in this workspace started, and `--test-threads=1`
+  does not remove it** (production 22). libtest **spawns a thread per test** on every target built
+  here, then blocks on the channel it waits on — and that channel's first *blocking* receive
+  allocates once per process: the receiving thread's context, the waker's mutex (a boxed pthread
+  mutex on macOS, a futex that allocates nothing on Linux, so **three** here and **two** there) and
+  the one growth of the waker list. If the parent is descheduled past the child's window opening, it
+  lands in the **first** window the process opens — which is how a gate over an iterator with no path
+  to an allocator reported two on one hosted run and zero on six. The probe excludes the process's
+  first thread from every reading and excludes nothing else; a thread the *subject* started stays in,
+  which is what `work_alloc.rs`'s last gate and the engine's handoff gate are about. *Nothing in this
+  file starts a thread* is a statement about a file, never about a process.
 - **A figure quoted from a spec is usually a prototype's screen.** Measure it; assert what reproduces
   as measured, print what does not beside it, and never bend the code to make an old sentence true.
 - **`#[track_caller]` forwards into every `#[track_caller]` function it calls** and through nothing

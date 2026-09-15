@@ -376,7 +376,10 @@ pub const REGISTER: [Entry; 50] = [
         on_spec_table: true,
         property: "Zero allocations in a steady frame",
         kind: Kind::Gate,
-        qualifier: "count — needs `--test-threads=1`, because the probe's counter is process-global",
+        qualifier: "count over every thread alive in the window except the one the process started \
+                    on, which in a test binary is the harness's and is never a subject; \
+                    `--test-threads=1` is what keeps an allocating sibling test out of the same \
+                    number",
         source: "all",
         state: State::Wired {
             by: &[

@@ -7,7 +7,10 @@
 //!
 //! [`vitui_alloc_probe::CountingAllocator`] is a **process-global** allocator and the count is a
 //! process-global counter, so an allocating sibling lands in the number — which is why the
-//! workspace's one test command is `cargo test --workspace -- --test-threads=1`. `tests/alloc.rs`
+//! workspace's one test command is `cargo test --workspace -- --test-threads=1`. The one thread it
+//! takes out is the one the process started on, which is the harness's own and is the only thread in
+//! a test binary that no subject can be running on; a thread the *subject* started is what the last
+//! gate here is about and is inside every window. `tests/alloc.rs`
 //! beside this file makes the same argument for the layout solver. This is a separate binary rather
 //! than more tests in that one because **a worker is a thread**, and the attribution gate below
 //! deliberately runs one *inside* a measurement window. Keeping that in its own process keeps it

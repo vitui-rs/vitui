@@ -1861,6 +1861,16 @@ spawner, or joins before it measures** — and the same reasoning is why §17's 
 a queueing spawner whose completion order the test chooses: handing the test that order turns a race
 into a count. (R18)
 
+**One thread is outside every window, and it is the only one that can be.** The process's first
+thread belongs to the test harness: `--test-threads=1` does not stop it spawning a thread per test,
+and it then blocks on a channel whose first receive allocates — once per process, and inside the
+first window the process opens if the harness is descheduled long enough to get there late. That is
+two allocations on Linux, three on macOS, and it was observed once in six runs of one hosted runner
+on a gate measuring an iterator that cannot reach an allocator. Every reading the probe offers
+therefore excludes that thread, and none excludes any other: a worker the subject started is the
+thing the paragraph above is about and stays in the number. The exclusion is lifted for a reading
+taken *on* the first thread, which is what an example measuring its own `main` is doing.
+
 ---
 
 ## 21. What this spec does not decide

@@ -77,6 +77,18 @@ jobs:
       # first failure is the whole answer; this matrix answers *what does this platform do*, where
       # it is the first line of one.
       - run: cargo test --workspace --no-fail-fast -- --test-threads=1
+      # **The race that made an allocation gate flake on this matrix, reproduced on demand.**
+      # 2026-09-10 `test (ubuntu-latest)` observed two allocations in a window around an iterator
+      # over four fixed strings, and passed on a re-run and on five other runners. The two were the
+      # harness's: `--test-threads=1` does not stop it spawning a thread per test, and its first
+      # blocking receive on the channel it then waits on allocates, once per process. The probe
+      # excludes the process's first thread from every reading now; this asserts both that the
+      # interference is still there and that it is outside the subject's number.
+      #
+      # It is an example because the interfering thread has to be the process's first, which inside
+      # a test binary belongs to the harness and cannot be driven — and a line of its own because
+      # `cargo test` does not run an example.
+      - run: cargo run -p vitui-alloc-probe --example harness_race
       # Engine ticket 23's lint rung, and the control that makes it mean something. It lints
       # `examples/app-template`, which is deliberately **not** a workspace member: `clippy.toml` is
       # read from the crate being linted and `cargo clippy` lints every workspace member it builds,

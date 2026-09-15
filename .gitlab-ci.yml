@@ -160,6 +160,17 @@ test:
     # buys nothing back and only adds a way to be flaky. This also runs the doctests, and the
     # doctests are where the negative gates live.
     - cargo test --workspace -- --test-threads=1
+    # **The one thing the line above cannot assert about itself.** Every allocation gate in this
+    # workspace opens a process-wide window on a thread the harness spawned, and the harness's own
+    # thread is then blocked on a channel whose first receive allocates. That cost landed inside a
+    # gate's window once in six hosted runs, on a function that cannot reach an allocator. The probe
+    # excludes the process's first thread from every reading now, and this reproduces the race on
+    # demand to show that the exclusion is still doing it — which no test can, because the
+    # interfering thread has to be the first one and in a test binary that thread is the harness's.
+    #
+    # An example, and therefore a line here: `cargo test` does not run one, and a gate nothing runs
+    # is not a gate. Debug artifacts are standing from the line above.
+    - cargo run -p vitui-alloc-probe --example harness_race
     # And once more with a terminal on the other end, which is a **different environment and not a
     # second roll of the same dice** — the distinction the unserialised pass above fails to make and
     # this one does.
