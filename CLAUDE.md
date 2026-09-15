@@ -220,9 +220,9 @@ MSRV **1.88** — `Cargo.toml` is the authority and the `msrv` CI job is what ke
   left on it**, the README as a landing page, and its edge on 23 was never what it needed: the first
   screen wants a recording of something that moves, and 23 puts anything that moves out of scope by
   name.
-  **One ticket on the release path can start today and it is still 02**, which is `ready-for-human`
-  — it needs a public repository; with 17, 18, 19, 20 and 21 all resolved, nothing on this backlog
-  is unblocked and unclaimed for an agent. **15 is the release frontier and it cannot start**: its
+  **Two tickets can start today and only one of them is an agent's**: 02, which is `ready-for-human`
+  and needs a public repository, and **24**, whose one edge was 23 and which has been the frontier
+  since 23 resolved. **15 is the release frontier and it cannot start**: its
   one edge is 02, the five
   components architecture questions it also waited on — that map's 19, 22, 23, 24 and 25, not this
   backlog's numbers — having all resolved by 2026-09-05, and what they decided is listed below.
@@ -1164,6 +1164,10 @@ crates say. Cite the fact, never the path.
 is the authority — the number only breaks ties. Claim by setting `Status: claimed` before any work;
 resolve by appending an `## Answer` section, setting `Status: resolved`, and adding a one-line
 pointer to the map's Decisions-so-far. Research findings go in `research/` beside the issues.
+**`issues/` holds only what is open**: a ticket reaching a terminal state moves to the map's
+`archive/` keeping its number, so a map with nothing open has no `issues/` directory at all. Nothing
+is deleted — the `## Answer` sections are where those findings live, and every document here cites a
+ticket by number rather than by path.
 
 Build order across the repo is **engine → runtime → components**, and it was never a queue: several
 runtime tickets name single engine tickets and ran beside them. The impl backlogs
