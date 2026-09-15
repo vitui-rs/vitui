@@ -1,0 +1,261 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1168 664" width="1168" height="664" font-family='ui-monospace,SFMono-Regular,Menlo,Consolas,"DejaVu Sans Mono",monospace' font-size="16">
+<rect width="1168" height="664" fill="#14161a"/>
+<rect x="8" y="8" width="1152" height="18" fill="#1e1e2e"/>
+<text x="8" y="22" textLength="1152" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#f5e0dc;font-weight:bold">vitui browse                                                                                                            </text>
+<rect x="8" y="26" width="1152" height="18" fill="#1e1e2e"/>
+<text x="8" y="40" textLength="1152" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#585b70">preview f000.txt      key file  offset on the landing  extent of the answer  revision on the landing  landing top of vie</text>
+<rect x="8" y="44" width="1152" height="18" fill="#1e1e2e"/>
+<text x="8" y="58" textLength="1152" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#313244">------------------------------------------------------------------------------------------------------------------------</text>
+<rect x="8" y="62" width="249.6" height="18" fill="#1e1e2e"/>
+<text x="8" y="76" textLength="249.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#89b4fa">f000.txt                  </text>
+<rect x="257.6" y="62" width="9.6" height="18" fill="#1e1e2e"/>
+<text x="257.6" y="76" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#313244">|</text>
+<rect x="267.2" y="62" width="883.2" height="18" fill="#1e1e2e"/>
+<text x="267.2" y="76" textLength="883.2" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#cdd6f4">    0  f000.txt  ----------------------------------------                                   </text>
+<rect x="1150.4" y="62" width="9.6" height="18" fill="#1e1e2e"/>
+<text x="1150.4" y="76" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#313244">▲</text>
+<rect x="8" y="80" width="249.6" height="18" fill="#1e1e2e"/>
+<text x="8" y="94" textLength="249.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#cdd6f4">f001.txt                  </text>
+<rect x="257.6" y="80" width="9.6" height="18" fill="#1e1e2e"/>
+<text x="257.6" y="94" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#313244">|</text>
+<rect x="267.2" y="80" width="883.2" height="18" fill="#1e1e2e"/>
+<text x="267.2" y="94" textLength="883.2" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#cdd6f4">    1  f000.txt  ----------------------------------------                                   </text>
+<rect x="1150.4" y="80" width="9.6" height="18" fill="#181825"/>
+<text x="1150.4" y="94" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#cdd6f4">█</text>
+<rect x="8" y="98" width="249.6" height="18" fill="#1e1e2e"/>
+<text x="8" y="112" textLength="249.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#cdd6f4">f002.txt                  </text>
+<rect x="257.6" y="98" width="9.6" height="18" fill="#1e1e2e"/>
+<text x="257.6" y="112" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#313244">|</text>
+<rect x="267.2" y="98" width="883.2" height="18" fill="#1e1e2e"/>
+<text x="267.2" y="112" textLength="883.2" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#cdd6f4">    2  f000.txt  ----------------------------------------                                   </text>
+<rect x="1150.4" y="98" width="9.6" height="18" fill="#1e1e2e"/>
+<text x="1150.4" y="112" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#313244">░</text>
+<rect x="8" y="116" width="249.6" height="18" fill="#1e1e2e"/>
+<text x="8" y="130" textLength="249.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#cdd6f4">f003.txt                  </text>
+<rect x="257.6" y="116" width="9.6" height="18" fill="#1e1e2e"/>
+<text x="257.6" y="130" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#313244">|</text>
+<rect x="267.2" y="116" width="883.2" height="18" fill="#1e1e2e"/>
+<text x="267.2" y="130" textLength="883.2" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#cdd6f4">    3  f000.txt  ----------------------------------------                                   </text>
+<rect x="1150.4" y="116" width="9.6" height="18" fill="#1e1e2e"/>
+<text x="1150.4" y="130" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#313244">░</text>
+<rect x="8" y="134" width="249.6" height="18" fill="#1e1e2e"/>
+<text x="8" y="148" textLength="249.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#cdd6f4">f004.txt                  </text>
+<rect x="257.6" y="134" width="9.6" height="18" fill="#1e1e2e"/>
+<text x="257.6" y="148" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#313244">|</text>
+<rect x="267.2" y="134" width="883.2" height="18" fill="#1e1e2e"/>
+<text x="267.2" y="148" textLength="883.2" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#cdd6f4">    4  f000.txt  ----------------------------------------                                   </text>
+<rect x="1150.4" y="134" width="9.6" height="18" fill="#1e1e2e"/>
+<text x="1150.4" y="148" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#313244">░</text>
+<rect x="8" y="152" width="249.6" height="18" fill="#1e1e2e"/>
+<text x="8" y="166" textLength="249.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#cdd6f4">f005.txt                  </text>
+<rect x="257.6" y="152" width="9.6" height="18" fill="#1e1e2e"/>
+<text x="257.6" y="166" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#313244">|</text>
+<rect x="267.2" y="152" width="883.2" height="18" fill="#1e1e2e"/>
+<text x="267.2" y="166" textLength="883.2" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#cdd6f4">    5  f000.txt  ----------------------------------------                                   </text>
+<rect x="1150.4" y="152" width="9.6" height="18" fill="#1e1e2e"/>
+<text x="1150.4" y="166" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#313244">░</text>
+<rect x="8" y="170" width="249.6" height="18" fill="#1e1e2e"/>
+<text x="8" y="184" textLength="249.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#cdd6f4">f006.txt                  </text>
+<rect x="257.6" y="170" width="9.6" height="18" fill="#1e1e2e"/>
+<text x="257.6" y="184" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#313244">|</text>
+<rect x="267.2" y="170" width="883.2" height="18" fill="#1e1e2e"/>
+<text x="267.2" y="184" textLength="883.2" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#cdd6f4">    6  f000.txt  ----------------------------------------                                   </text>
+<rect x="1150.4" y="170" width="9.6" height="18" fill="#1e1e2e"/>
+<text x="1150.4" y="184" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#313244">░</text>
+<rect x="8" y="188" width="249.6" height="18" fill="#1e1e2e"/>
+<text x="8" y="202" textLength="249.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#cdd6f4">f007.txt                  </text>
+<rect x="257.6" y="188" width="9.6" height="18" fill="#1e1e2e"/>
+<text x="257.6" y="202" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#313244">|</text>
+<rect x="267.2" y="188" width="883.2" height="18" fill="#1e1e2e"/>
+<text x="267.2" y="202" textLength="883.2" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#cdd6f4">    7  f000.txt  ----------------------------------------                                   </text>
+<rect x="1150.4" y="188" width="9.6" height="18" fill="#1e1e2e"/>
+<text x="1150.4" y="202" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#313244">░</text>
+<rect x="8" y="206" width="249.6" height="18" fill="#1e1e2e"/>
+<text x="8" y="220" textLength="249.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#cdd6f4">f008.txt                  </text>
+<rect x="257.6" y="206" width="9.6" height="18" fill="#1e1e2e"/>
+<text x="257.6" y="220" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#313244">|</text>
+<rect x="267.2" y="206" width="883.2" height="18" fill="#1e1e2e"/>
+<text x="267.2" y="220" textLength="883.2" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#cdd6f4">    8  f000.txt  ----------------------------------------                                   </text>
+<rect x="1150.4" y="206" width="9.6" height="18" fill="#1e1e2e"/>
+<text x="1150.4" y="220" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#313244">░</text>
+<rect x="8" y="224" width="249.6" height="18" fill="#1e1e2e"/>
+<text x="8" y="238" textLength="249.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#cdd6f4">f009.txt                  </text>
+<rect x="257.6" y="224" width="9.6" height="18" fill="#1e1e2e"/>
+<text x="257.6" y="238" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#313244">|</text>
+<rect x="267.2" y="224" width="883.2" height="18" fill="#1e1e2e"/>
+<text x="267.2" y="238" textLength="883.2" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#cdd6f4">    9  f000.txt  ----------------------------------------                                   </text>
+<rect x="1150.4" y="224" width="9.6" height="18" fill="#1e1e2e"/>
+<text x="1150.4" y="238" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#313244">░</text>
+<rect x="8" y="242" width="249.6" height="18" fill="#1e1e2e"/>
+<text x="8" y="256" textLength="249.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#cdd6f4">f010.txt                  </text>
+<rect x="257.6" y="242" width="9.6" height="18" fill="#1e1e2e"/>
+<text x="257.6" y="256" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#313244">|</text>
+<rect x="267.2" y="242" width="883.2" height="18" fill="#1e1e2e"/>
+<text x="267.2" y="256" textLength="883.2" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#cdd6f4">   10  f000.txt  ----------------------------------------                                   </text>
+<rect x="1150.4" y="242" width="9.6" height="18" fill="#1e1e2e"/>
+<text x="1150.4" y="256" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#313244">░</text>
+<rect x="8" y="260" width="249.6" height="18" fill="#1e1e2e"/>
+<text x="8" y="274" textLength="249.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#cdd6f4">f011.txt                  </text>
+<rect x="257.6" y="260" width="9.6" height="18" fill="#1e1e2e"/>
+<text x="257.6" y="274" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#313244">|</text>
+<rect x="267.2" y="260" width="883.2" height="18" fill="#1e1e2e"/>
+<text x="267.2" y="274" textLength="883.2" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#cdd6f4">   11  f000.txt  ----------------------------------------                                   </text>
+<rect x="1150.4" y="260" width="9.6" height="18" fill="#1e1e2e"/>
+<text x="1150.4" y="274" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#313244">░</text>
+<rect x="8" y="278" width="249.6" height="18" fill="#1e1e2e"/>
+<text x="8" y="292" textLength="249.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#cdd6f4">f012.txt                  </text>
+<rect x="257.6" y="278" width="9.6" height="18" fill="#1e1e2e"/>
+<text x="257.6" y="292" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#313244">|</text>
+<rect x="267.2" y="278" width="883.2" height="18" fill="#1e1e2e"/>
+<text x="267.2" y="292" textLength="883.2" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#cdd6f4">   12  f000.txt  ----------------------------------------                                   </text>
+<rect x="1150.4" y="278" width="9.6" height="18" fill="#1e1e2e"/>
+<text x="1150.4" y="292" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#313244">░</text>
+<rect x="8" y="296" width="249.6" height="18" fill="#1e1e2e"/>
+<text x="8" y="310" textLength="249.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#cdd6f4">f013.txt                  </text>
+<rect x="257.6" y="296" width="9.6" height="18" fill="#1e1e2e"/>
+<text x="257.6" y="310" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#313244">|</text>
+<rect x="267.2" y="296" width="883.2" height="18" fill="#1e1e2e"/>
+<text x="267.2" y="310" textLength="883.2" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#cdd6f4">   13  f000.txt  ----------------------------------------                                   </text>
+<rect x="1150.4" y="296" width="9.6" height="18" fill="#1e1e2e"/>
+<text x="1150.4" y="310" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#313244">░</text>
+<rect x="8" y="314" width="249.6" height="18" fill="#1e1e2e"/>
+<text x="8" y="328" textLength="249.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#cdd6f4">f014.txt                  </text>
+<rect x="257.6" y="314" width="9.6" height="18" fill="#1e1e2e"/>
+<text x="257.6" y="328" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#313244">|</text>
+<rect x="267.2" y="314" width="883.2" height="18" fill="#1e1e2e"/>
+<text x="267.2" y="328" textLength="883.2" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#cdd6f4">   14  f000.txt  ----------------------------------------                                   </text>
+<rect x="1150.4" y="314" width="9.6" height="18" fill="#1e1e2e"/>
+<text x="1150.4" y="328" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#313244">░</text>
+<rect x="8" y="332" width="249.6" height="18" fill="#1e1e2e"/>
+<text x="8" y="346" textLength="249.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#cdd6f4">f015.txt                  </text>
+<rect x="257.6" y="332" width="9.6" height="18" fill="#1e1e2e"/>
+<text x="257.6" y="346" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#313244">|</text>
+<rect x="267.2" y="332" width="883.2" height="18" fill="#1e1e2e"/>
+<text x="267.2" y="346" textLength="883.2" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#cdd6f4">   15  f000.txt  ----------------------------------------                                   </text>
+<rect x="1150.4" y="332" width="9.6" height="18" fill="#1e1e2e"/>
+<text x="1150.4" y="346" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#313244">░</text>
+<rect x="8" y="350" width="249.6" height="18" fill="#1e1e2e"/>
+<text x="8" y="364" textLength="249.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#cdd6f4">f016.txt                  </text>
+<rect x="257.6" y="350" width="9.6" height="18" fill="#1e1e2e"/>
+<text x="257.6" y="364" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#313244">|</text>
+<rect x="267.2" y="350" width="883.2" height="18" fill="#1e1e2e"/>
+<text x="267.2" y="364" textLength="883.2" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#cdd6f4">   16  f000.txt  ----------------------------------------                                   </text>
+<rect x="1150.4" y="350" width="9.6" height="18" fill="#1e1e2e"/>
+<text x="1150.4" y="364" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#313244">░</text>
+<rect x="8" y="368" width="249.6" height="18" fill="#1e1e2e"/>
+<text x="8" y="382" textLength="249.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#cdd6f4">f017.txt                  </text>
+<rect x="257.6" y="368" width="9.6" height="18" fill="#1e1e2e"/>
+<text x="257.6" y="382" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#313244">|</text>
+<rect x="267.2" y="368" width="883.2" height="18" fill="#1e1e2e"/>
+<text x="267.2" y="382" textLength="883.2" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#cdd6f4">   17  f000.txt  ----------------------------------------                                   </text>
+<rect x="1150.4" y="368" width="9.6" height="18" fill="#1e1e2e"/>
+<text x="1150.4" y="382" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#313244">░</text>
+<rect x="8" y="386" width="249.6" height="18" fill="#1e1e2e"/>
+<text x="8" y="400" textLength="249.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#cdd6f4">f018.txt                  </text>
+<rect x="257.6" y="386" width="9.6" height="18" fill="#1e1e2e"/>
+<text x="257.6" y="400" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#313244">|</text>
+<rect x="267.2" y="386" width="883.2" height="18" fill="#1e1e2e"/>
+<text x="267.2" y="400" textLength="883.2" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#cdd6f4">   18  f000.txt  ----------------------------------------                                   </text>
+<rect x="1150.4" y="386" width="9.6" height="18" fill="#1e1e2e"/>
+<text x="1150.4" y="400" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#313244">░</text>
+<rect x="8" y="404" width="249.6" height="18" fill="#1e1e2e"/>
+<text x="8" y="418" textLength="249.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#cdd6f4">f019.txt                  </text>
+<rect x="257.6" y="404" width="9.6" height="18" fill="#1e1e2e"/>
+<text x="257.6" y="418" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#313244">|</text>
+<rect x="267.2" y="404" width="883.2" height="18" fill="#1e1e2e"/>
+<text x="267.2" y="418" textLength="883.2" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#cdd6f4">   19  f000.txt  ----------------------------------------                                   </text>
+<rect x="1150.4" y="404" width="9.6" height="18" fill="#1e1e2e"/>
+<text x="1150.4" y="418" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#313244">░</text>
+<rect x="8" y="422" width="249.6" height="18" fill="#1e1e2e"/>
+<text x="8" y="436" textLength="249.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#cdd6f4">f020.txt                  </text>
+<rect x="257.6" y="422" width="9.6" height="18" fill="#1e1e2e"/>
+<text x="257.6" y="436" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#313244">|</text>
+<rect x="267.2" y="422" width="883.2" height="18" fill="#1e1e2e"/>
+<text x="267.2" y="436" textLength="883.2" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#cdd6f4">   20  f000.txt  ----------------------------------------                                   </text>
+<rect x="1150.4" y="422" width="9.6" height="18" fill="#1e1e2e"/>
+<text x="1150.4" y="436" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#313244">░</text>
+<rect x="8" y="440" width="249.6" height="18" fill="#1e1e2e"/>
+<text x="8" y="454" textLength="249.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#cdd6f4">f021.txt                  </text>
+<rect x="257.6" y="440" width="9.6" height="18" fill="#1e1e2e"/>
+<text x="257.6" y="454" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#313244">|</text>
+<rect x="267.2" y="440" width="883.2" height="18" fill="#1e1e2e"/>
+<text x="267.2" y="454" textLength="883.2" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#cdd6f4">   21  f000.txt  ----------------------------------------                                   </text>
+<rect x="1150.4" y="440" width="9.6" height="18" fill="#1e1e2e"/>
+<text x="1150.4" y="454" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#313244">░</text>
+<rect x="8" y="458" width="249.6" height="18" fill="#1e1e2e"/>
+<text x="8" y="472" textLength="249.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#cdd6f4">f022.txt                  </text>
+<rect x="257.6" y="458" width="9.6" height="18" fill="#1e1e2e"/>
+<text x="257.6" y="472" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#313244">|</text>
+<rect x="267.2" y="458" width="883.2" height="18" fill="#1e1e2e"/>
+<text x="267.2" y="472" textLength="883.2" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#cdd6f4">   22  f000.txt  ----------------------------------------                                   </text>
+<rect x="1150.4" y="458" width="9.6" height="18" fill="#1e1e2e"/>
+<text x="1150.4" y="472" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#313244">░</text>
+<rect x="8" y="476" width="249.6" height="18" fill="#1e1e2e"/>
+<text x="8" y="490" textLength="249.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#cdd6f4">f023.txt                  </text>
+<rect x="257.6" y="476" width="9.6" height="18" fill="#1e1e2e"/>
+<text x="257.6" y="490" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#313244">|</text>
+<rect x="267.2" y="476" width="883.2" height="18" fill="#1e1e2e"/>
+<text x="267.2" y="490" textLength="883.2" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#cdd6f4">   23  f000.txt  ----------------------------------------                                   </text>
+<rect x="1150.4" y="476" width="9.6" height="18" fill="#1e1e2e"/>
+<text x="1150.4" y="490" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#313244">░</text>
+<rect x="8" y="494" width="249.6" height="18" fill="#1e1e2e"/>
+<text x="8" y="508" textLength="249.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#cdd6f4">f024.txt                  </text>
+<rect x="257.6" y="494" width="9.6" height="18" fill="#1e1e2e"/>
+<text x="257.6" y="508" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#313244">|</text>
+<rect x="267.2" y="494" width="883.2" height="18" fill="#1e1e2e"/>
+<text x="267.2" y="508" textLength="883.2" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#cdd6f4">   24  f000.txt  ----------------------------------------                                   </text>
+<rect x="1150.4" y="494" width="9.6" height="18" fill="#1e1e2e"/>
+<text x="1150.4" y="508" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#313244">░</text>
+<rect x="8" y="512" width="249.6" height="18" fill="#1e1e2e"/>
+<text x="8" y="526" textLength="249.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#cdd6f4">f025.txt                  </text>
+<rect x="257.6" y="512" width="9.6" height="18" fill="#1e1e2e"/>
+<text x="257.6" y="526" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#313244">|</text>
+<rect x="267.2" y="512" width="883.2" height="18" fill="#1e1e2e"/>
+<text x="267.2" y="526" textLength="883.2" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#cdd6f4">   25  f000.txt  ----------------------------------------                                   </text>
+<rect x="1150.4" y="512" width="9.6" height="18" fill="#1e1e2e"/>
+<text x="1150.4" y="526" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#313244">░</text>
+<rect x="8" y="530" width="249.6" height="18" fill="#1e1e2e"/>
+<text x="8" y="544" textLength="249.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#cdd6f4">f026.txt                  </text>
+<rect x="257.6" y="530" width="9.6" height="18" fill="#1e1e2e"/>
+<text x="257.6" y="544" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#313244">|</text>
+<rect x="267.2" y="530" width="883.2" height="18" fill="#1e1e2e"/>
+<text x="267.2" y="544" textLength="883.2" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#cdd6f4">   26  f000.txt  ----------------------------------------                                   </text>
+<rect x="1150.4" y="530" width="9.6" height="18" fill="#1e1e2e"/>
+<text x="1150.4" y="544" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#313244">░</text>
+<rect x="8" y="548" width="249.6" height="18" fill="#1e1e2e"/>
+<text x="8" y="562" textLength="249.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#cdd6f4">f027.txt                  </text>
+<rect x="257.6" y="548" width="9.6" height="18" fill="#1e1e2e"/>
+<text x="257.6" y="562" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#313244">|</text>
+<rect x="267.2" y="548" width="883.2" height="18" fill="#1e1e2e"/>
+<text x="267.2" y="562" textLength="883.2" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#cdd6f4">   27  f000.txt  ----------------------------------------                                   </text>
+<rect x="1150.4" y="548" width="9.6" height="18" fill="#1e1e2e"/>
+<text x="1150.4" y="562" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#313244">░</text>
+<rect x="8" y="566" width="249.6" height="18" fill="#1e1e2e"/>
+<text x="8" y="580" textLength="249.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#cdd6f4">f028.txt                  </text>
+<rect x="257.6" y="566" width="9.6" height="18" fill="#1e1e2e"/>
+<text x="257.6" y="580" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#313244">|</text>
+<rect x="267.2" y="566" width="883.2" height="18" fill="#1e1e2e"/>
+<text x="267.2" y="580" textLength="883.2" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#cdd6f4">   28  f000.txt  ----------------------------------------                                   </text>
+<rect x="1150.4" y="566" width="9.6" height="18" fill="#1e1e2e"/>
+<text x="1150.4" y="580" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#313244">░</text>
+<rect x="8" y="584" width="249.6" height="18" fill="#1e1e2e"/>
+<text x="8" y="598" textLength="249.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#cdd6f4">f029.txt                  </text>
+<rect x="257.6" y="584" width="9.6" height="18" fill="#1e1e2e"/>
+<text x="257.6" y="598" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#313244">|</text>
+<rect x="267.2" y="584" width="883.2" height="18" fill="#1e1e2e"/>
+<text x="267.2" y="598" textLength="883.2" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#cdd6f4">   29  f000.txt  ----------------------------------------                                   </text>
+<rect x="1150.4" y="584" width="9.6" height="18" fill="#1e1e2e"/>
+<text x="1150.4" y="598" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#313244">▼</text>
+<rect x="8" y="602" width="249.6" height="18" fill="#1e1e2e"/>
+<text x="8" y="616" textLength="249.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#cdd6f4">f030.txt                  </text>
+<rect x="257.6" y="602" width="19.2" height="18" fill="#1e1e2e"/>
+<text x="257.6" y="616" textLength="19.2" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#313244">|◀</text>
+<rect x="276.8" y="602" width="864" height="18" fill="#181825"/>
+<text x="276.8" y="616" textLength="864" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#cdd6f4">██████████████████████████████████████████████████████████████████████████████████████████</text>
+<rect x="1140.8" y="602" width="19.2" height="18" fill="#1e1e2e"/>
+<text x="1140.8" y="616" textLength="19.2" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#313244">▶░</text>
+<rect x="8" y="620" width="1152" height="18" fill="#1e1e2e"/>
+<text x="8" y="634" textLength="1152" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#313244">------------------------------------------------------------------------------------------------------------------------</text>
+<rect x="8" y="638" width="1152" height="18" fill="#1e1e2e"/>
+<text x="8" y="652" textLength="1152" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#585b70">preview f000.txt      offset     0  s sort  k key  o offset  x extent  b revision  l landing  p photo  d slow  v counter</text>
+</svg>

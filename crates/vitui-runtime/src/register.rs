@@ -1509,7 +1509,11 @@ pub const NEGATIVE_CASES: usize = 31;
 /// asserted the wrong thing — an id nothing drew is cleared at `end` by the vanish rule, so seating
 /// the focus on a bare id leaves the frame with none — and neither could have been caught while the
 /// fence was `ignore`d.
-pub const RUNNABLE_EXAMPLES: usize = 64;
+///
+/// **Sixty-five since a frame became a picture**: [`Driver::to_svg`](crate::ctx::Driver::to_svg)
+/// forwards the engine's own verb, and its fence draws one frame and asks for the picture of it —
+/// which is also the only place this crate shows that a headless driver composites for real.
+pub const RUNNABLE_EXAMPLES: usize = 65;
 
 #[cfg(test)]
 mod tests {

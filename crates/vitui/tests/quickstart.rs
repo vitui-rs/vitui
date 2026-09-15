@@ -33,7 +33,8 @@ fn root() -> PathBuf {
 /// example carries a trailing comment, and a gate that would break if one arrived is a gate that
 /// says so here rather than being clever.
 fn without_comments(source: &str) -> String {
-    let kept: Vec<&str> = source
+    let shown = without_the_picture_arm(source);
+    let kept: Vec<&str> = shown
         .lines()
         .filter(|line| !line.trim_start().starts_with("//"))
         .map(|line| line.trim_end())
@@ -54,6 +55,45 @@ fn without_comments(source: &str) -> String {
         }
     }
     out.trim_end().to_owned() + "\n"
+}
+
+/// The example with its **picture arm** taken out.
+///
+/// Every application in `examples/` answers `--shot` by drawing itself headlessly and writing an
+/// SVG, and that arm is this repository's instrument rather than part of the program a reader is
+/// shown: a stranger copying the quickstart wants the counter, not the machinery that photographs
+/// it for the documentation.
+///
+/// Cut by its opening line and the brace that closes it, counted rather than matched by indentation
+/// — the arm is written by hand in twenty files and a `}` at the wrong indent would silently take
+/// the rest of `main` with it. A source that has no arm passes through unchanged, so this cannot
+/// quietly remove something else.
+fn without_the_picture_arm(source: &str) -> String {
+    const OPENS: &str = "if vitui_apps::pictures::wanted() {";
+    let Some(start) = source.find(OPENS) else {
+        return source.to_owned();
+    };
+    let mut depth = 0usize;
+    let mut end = start;
+    for (i, c) in source[start..].char_indices() {
+        match c {
+            '{' => depth += 1,
+            '}' => {
+                depth -= 1;
+                if depth == 0 {
+                    end = start + i + 1;
+                    break;
+                }
+            }
+            _ => {}
+        }
+    }
+    assert!(end > start, "the picture arm's braces do not balance");
+    let head = source[..start].trim_end_matches(' ');
+    // The blank line after the arm goes with it; the collapse below would leave one anyway, and
+    // leaving both here makes the two sides of the equality differ by whitespace nobody can see.
+    let tail = source[end..].trim_start_matches('\n');
+    format!("{head}{tail}")
 }
 
 /// The first fenced `rust` block in the README, fence lines excluded.

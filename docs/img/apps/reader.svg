@@ -1,0 +1,299 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 976 556" width="976" height="556" font-family='ui-monospace,SFMono-Regular,Menlo,Consolas,"DejaVu Sans Mono",monospace' font-size="16">
+<rect width="976" height="556" fill="#14161a"/>
+<rect x="8" y="8" width="19.2" height="18" fill="#282a36"/>
+<text x="8" y="22" textLength="19.2" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">┌─</text>
+<rect x="27.2" y="8" width="105.6" height="18" fill="#282a36"/>
+<text x="27.2" y="22" textLength="105.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#f8f8f2;font-weight:bold"> build log </text>
+<rect x="132.8" y="8" width="835.2" height="18" fill="#282a36"/>
+<text x="132.8" y="22" textLength="835.2" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">──────────────────────────────────────────────────────────────────────────────────────┐</text>
+<rect x="8" y="26" width="9.6" height="18" fill="#282a36"/>
+<text x="8" y="40" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">│</text>
+<rect x="17.6" y="26" width="940.8" height="18" fill="#282a36"/>
+<rect x="958.4" y="26" width="9.6" height="18" fill="#282a36"/>
+<text x="958.4" y="40" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">│</text>
+<rect x="8" y="44" width="9.6" height="18" fill="#282a36"/>
+<text x="8" y="58" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">│</text>
+<rect x="17.6" y="44" width="940.8" height="18" fill="#282a36"/>
+<rect x="958.4" y="44" width="9.6" height="18" fill="#282a36"/>
+<text x="958.4" y="58" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">│</text>
+<rect x="8" y="62" width="9.6" height="18" fill="#282a36"/>
+<text x="8" y="76" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">│</text>
+<rect x="17.6" y="62" width="19.2" height="18" fill="#282a36"/>
+<rect x="36.8" y="62" width="86.4" height="18" fill="#282a36"/>
+<rect x="123.2" y="62" width="806.4" height="18" fill="#282a36"/>
+<text x="123.2" y="76" textLength="806.4" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#f8f8f2;font-weight:bold">|0        |10       |20       |30       |40       |50       |60       |70       |80 </text>
+<rect x="929.6" y="62" width="9.6" height="18" fill="#282a36"/>
+<text x="929.6" y="76" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">▲</text>
+<rect x="939.2" y="62" width="19.2" height="18" fill="#282a36"/>
+<rect x="958.4" y="62" width="9.6" height="18" fill="#282a36"/>
+<text x="958.4" y="76" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">│</text>
+<rect x="8" y="80" width="9.6" height="18" fill="#282a36"/>
+<text x="8" y="94" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">│</text>
+<rect x="17.6" y="80" width="19.2" height="18" fill="#282a36"/>
+<rect x="36.8" y="80" width="86.4" height="18" fill="#282a36"/>
+<text x="36.8" y="94" textLength="86.4" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#9ea8c7">       0 </text>
+<rect x="123.2" y="80" width="806.4" height="18" fill="#282a36"/>
+<text x="123.2" y="94" textLength="806.4" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#f8f8f2">INFO  damage::rows                 entry 0 of 120000: the frame composited 0 damaged</text>
+<rect x="929.6" y="80" width="9.6" height="18" fill="#21222c"/>
+<text x="929.6" y="94" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#f8f8f2">█</text>
+<rect x="939.2" y="80" width="19.2" height="18" fill="#282a36"/>
+<rect x="958.4" y="80" width="9.6" height="18" fill="#282a36"/>
+<text x="958.4" y="94" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">│</text>
+<rect x="8" y="98" width="9.6" height="18" fill="#282a36"/>
+<text x="8" y="112" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">│</text>
+<rect x="17.6" y="98" width="19.2" height="18" fill="#282a36"/>
+<rect x="123.2" y="98" width="806.4" height="18" fill="#282a36"/>
+<text x="123.2" y="112" textLength="806.4" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#f8f8f2">        at runtime::ctx:1:1                                                         </text>
+<rect x="929.6" y="98" width="9.6" height="18" fill="#282a36"/>
+<text x="929.6" y="112" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">░</text>
+<rect x="939.2" y="98" width="19.2" height="18" fill="#282a36"/>
+<rect x="958.4" y="98" width="9.6" height="18" fill="#282a36"/>
+<text x="958.4" y="112" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">│</text>
+<rect x="8" y="116" width="9.6" height="18" fill="#282a36"/>
+<text x="8" y="130" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">│</text>
+<rect x="17.6" y="116" width="19.2" height="18" fill="#282a36"/>
+<rect x="123.2" y="116" width="806.4" height="18" fill="#282a36"/>
+<text x="123.2" y="130" textLength="806.4" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#f8f8f2">        at components::scroll:1:1                                                   </text>
+<rect x="929.6" y="116" width="9.6" height="18" fill="#282a36"/>
+<text x="929.6" y="130" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">░</text>
+<rect x="939.2" y="116" width="19.2" height="18" fill="#282a36"/>
+<rect x="958.4" y="116" width="9.6" height="18" fill="#282a36"/>
+<text x="958.4" y="130" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">│</text>
+<rect x="8" y="134" width="9.6" height="18" fill="#282a36"/>
+<text x="8" y="148" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">│</text>
+<rect x="17.6" y="134" width="19.2" height="18" fill="#282a36"/>
+<rect x="36.8" y="134" width="86.4" height="18" fill="#282a36"/>
+<text x="36.8" y="148" textLength="86.4" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#9ea8c7">       1 </text>
+<rect x="123.2" y="134" width="806.4" height="18" fill="#282a36"/>
+<text x="123.2" y="148" textLength="806.4" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#f8f8f2">WARN  runtime::ctx                 entry 1 of 120000: the frame composited 31 damage</text>
+<rect x="929.6" y="134" width="9.6" height="18" fill="#282a36"/>
+<text x="929.6" y="148" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">░</text>
+<rect x="939.2" y="134" width="19.2" height="18" fill="#282a36"/>
+<rect x="958.4" y="134" width="9.6" height="18" fill="#282a36"/>
+<text x="958.4" y="148" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">│</text>
+<rect x="8" y="152" width="9.6" height="18" fill="#282a36"/>
+<text x="8" y="166" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">│</text>
+<rect x="17.6" y="152" width="19.2" height="18" fill="#282a36"/>
+<rect x="36.8" y="152" width="86.4" height="18" fill="#282a36"/>
+<text x="36.8" y="166" textLength="86.4" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#9ea8c7">       2 </text>
+<rect x="123.2" y="152" width="806.4" height="18" fill="#282a36"/>
+<text x="123.2" y="166" textLength="806.4" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#f8f8f2">ERROR components::scroll           entry 2 of 120000: the frame composited 62 damage</text>
+<rect x="929.6" y="152" width="9.6" height="18" fill="#282a36"/>
+<text x="929.6" y="166" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">░</text>
+<rect x="939.2" y="152" width="19.2" height="18" fill="#282a36"/>
+<rect x="958.4" y="152" width="9.6" height="18" fill="#282a36"/>
+<text x="958.4" y="166" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">│</text>
+<rect x="8" y="170" width="9.6" height="18" fill="#282a36"/>
+<text x="8" y="184" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">│</text>
+<rect x="17.6" y="170" width="19.2" height="18" fill="#282a36"/>
+<rect x="36.8" y="170" width="86.4" height="18" fill="#282a36"/>
+<text x="36.8" y="184" textLength="86.4" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#9ea8c7">       3 </text>
+<rect x="123.2" y="170" width="806.4" height="18" fill="#282a36"/>
+<text x="123.2" y="184" textLength="806.4" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#f8f8f2">DEBUG cargo::core::compiler        entry 3 of 120000: the frame composited 93 damage</text>
+<rect x="929.6" y="170" width="9.6" height="18" fill="#282a36"/>
+<text x="929.6" y="184" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">░</text>
+<rect x="939.2" y="170" width="19.2" height="18" fill="#282a36"/>
+<rect x="958.4" y="170" width="9.6" height="18" fill="#282a36"/>
+<text x="958.4" y="184" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">│</text>
+<rect x="8" y="188" width="9.6" height="18" fill="#282a36"/>
+<text x="8" y="202" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">│</text>
+<rect x="17.6" y="188" width="19.2" height="18" fill="#282a36"/>
+<rect x="36.8" y="188" width="86.4" height="18" fill="#282a36"/>
+<text x="36.8" y="202" textLength="86.4" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#9ea8c7">       4 </text>
+<rect x="123.2" y="188" width="806.4" height="18" fill="#282a36"/>
+<text x="123.2" y="202" textLength="806.4" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#f8f8f2">INFO  rustc_codegen_ssa            entry 4 of 120000: the frame composited 124 damag</text>
+<rect x="929.6" y="188" width="9.6" height="18" fill="#282a36"/>
+<text x="929.6" y="202" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">░</text>
+<rect x="939.2" y="188" width="19.2" height="18" fill="#282a36"/>
+<rect x="958.4" y="188" width="9.6" height="18" fill="#282a36"/>
+<text x="958.4" y="202" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">│</text>
+<rect x="8" y="206" width="9.6" height="18" fill="#282a36"/>
+<text x="8" y="220" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">│</text>
+<rect x="17.6" y="206" width="19.2" height="18" fill="#282a36"/>
+<rect x="36.8" y="206" width="86.4" height="18" fill="#282a36"/>
+<text x="36.8" y="220" textLength="86.4" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#9ea8c7">       5 </text>
+<rect x="123.2" y="206" width="806.4" height="18" fill="#282a36"/>
+<text x="123.2" y="220" textLength="806.4" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#f8f8f2">WARN  damage::rows                 entry 5 of 120000: the frame composited 155 damag</text>
+<rect x="929.6" y="206" width="9.6" height="18" fill="#282a36"/>
+<text x="929.6" y="220" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">░</text>
+<rect x="939.2" y="206" width="19.2" height="18" fill="#282a36"/>
+<rect x="958.4" y="206" width="9.6" height="18" fill="#282a36"/>
+<text x="958.4" y="220" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">│</text>
+<rect x="8" y="224" width="9.6" height="18" fill="#282a36"/>
+<text x="8" y="238" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">│</text>
+<rect x="17.6" y="224" width="19.2" height="18" fill="#282a36"/>
+<rect x="36.8" y="224" width="86.4" height="18" fill="#282a36"/>
+<text x="36.8" y="238" textLength="86.4" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#9ea8c7">       6 </text>
+<rect x="123.2" y="224" width="806.4" height="18" fill="#282a36"/>
+<text x="123.2" y="238" textLength="806.4" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#f8f8f2">ERROR runtime::ctx                 entry 6 of 120000: the frame composited 186 damag</text>
+<rect x="929.6" y="224" width="9.6" height="18" fill="#282a36"/>
+<text x="929.6" y="238" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">░</text>
+<rect x="939.2" y="224" width="19.2" height="18" fill="#282a36"/>
+<rect x="958.4" y="224" width="9.6" height="18" fill="#282a36"/>
+<text x="958.4" y="238" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">│</text>
+<rect x="8" y="242" width="9.6" height="18" fill="#282a36"/>
+<text x="8" y="256" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">│</text>
+<rect x="17.6" y="242" width="19.2" height="18" fill="#282a36"/>
+<rect x="36.8" y="242" width="86.4" height="18" fill="#282a36"/>
+<text x="36.8" y="256" textLength="86.4" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#9ea8c7">       7 </text>
+<rect x="123.2" y="242" width="806.4" height="18" fill="#282a36"/>
+<text x="123.2" y="256" textLength="806.4" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#f8f8f2">DEBUG components::scroll           entry 7 of 120000: the frame composited 217 damag</text>
+<rect x="929.6" y="242" width="9.6" height="18" fill="#282a36"/>
+<text x="929.6" y="256" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">░</text>
+<rect x="939.2" y="242" width="19.2" height="18" fill="#282a36"/>
+<rect x="958.4" y="242" width="9.6" height="18" fill="#282a36"/>
+<text x="958.4" y="256" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">│</text>
+<rect x="8" y="260" width="9.6" height="18" fill="#282a36"/>
+<text x="8" y="274" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">│</text>
+<rect x="17.6" y="260" width="19.2" height="18" fill="#282a36"/>
+<rect x="36.8" y="260" width="86.4" height="18" fill="#282a36"/>
+<text x="36.8" y="274" textLength="86.4" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#9ea8c7">       8 </text>
+<rect x="123.2" y="260" width="806.4" height="18" fill="#282a36"/>
+<text x="123.2" y="274" textLength="806.4" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#f8f8f2">INFO  cargo::core::compiler        entry 8 of 120000: the frame composited 248 damag</text>
+<rect x="929.6" y="260" width="9.6" height="18" fill="#282a36"/>
+<text x="929.6" y="274" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">░</text>
+<rect x="939.2" y="260" width="19.2" height="18" fill="#282a36"/>
+<rect x="958.4" y="260" width="9.6" height="18" fill="#282a36"/>
+<text x="958.4" y="274" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">│</text>
+<rect x="8" y="278" width="9.6" height="18" fill="#282a36"/>
+<text x="8" y="292" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">│</text>
+<rect x="17.6" y="278" width="19.2" height="18" fill="#282a36"/>
+<rect x="123.2" y="278" width="806.4" height="18" fill="#282a36"/>
+<text x="123.2" y="292" textLength="806.4" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#f8f8f2">        at rustc_codegen_ssa:57:25                                                  </text>
+<rect x="929.6" y="278" width="9.6" height="18" fill="#282a36"/>
+<text x="929.6" y="292" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">░</text>
+<rect x="939.2" y="278" width="19.2" height="18" fill="#282a36"/>
+<rect x="958.4" y="278" width="9.6" height="18" fill="#282a36"/>
+<text x="958.4" y="292" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">│</text>
+<rect x="8" y="296" width="9.6" height="18" fill="#282a36"/>
+<text x="8" y="310" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">│</text>
+<rect x="17.6" y="296" width="19.2" height="18" fill="#282a36"/>
+<rect x="123.2" y="296" width="806.4" height="18" fill="#282a36"/>
+<text x="123.2" y="310" textLength="806.4" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#f8f8f2">        at damage::rows:57:25                                                       </text>
+<rect x="929.6" y="296" width="9.6" height="18" fill="#282a36"/>
+<text x="929.6" y="310" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">░</text>
+<rect x="939.2" y="296" width="19.2" height="18" fill="#282a36"/>
+<rect x="958.4" y="296" width="9.6" height="18" fill="#282a36"/>
+<text x="958.4" y="310" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">│</text>
+<rect x="8" y="314" width="9.6" height="18" fill="#282a36"/>
+<text x="8" y="328" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">│</text>
+<rect x="17.6" y="314" width="19.2" height="18" fill="#282a36"/>
+<rect x="36.8" y="314" width="86.4" height="18" fill="#282a36"/>
+<text x="36.8" y="328" textLength="86.4" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#9ea8c7">       9 </text>
+<rect x="123.2" y="314" width="806.4" height="18" fill="#282a36"/>
+<text x="123.2" y="328" textLength="806.4" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#f8f8f2">WARN  rustc_codegen_ssa            entry 9 of 120000: the frame composited 279 damag</text>
+<rect x="929.6" y="314" width="9.6" height="18" fill="#282a36"/>
+<text x="929.6" y="328" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">░</text>
+<rect x="939.2" y="314" width="19.2" height="18" fill="#282a36"/>
+<rect x="958.4" y="314" width="9.6" height="18" fill="#282a36"/>
+<text x="958.4" y="328" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">│</text>
+<rect x="8" y="332" width="9.6" height="18" fill="#282a36"/>
+<text x="8" y="346" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">│</text>
+<rect x="17.6" y="332" width="19.2" height="18" fill="#282a36"/>
+<rect x="36.8" y="332" width="86.4" height="18" fill="#282a36"/>
+<text x="36.8" y="346" textLength="86.4" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#9ea8c7">      10 </text>
+<rect x="123.2" y="332" width="806.4" height="18" fill="#282a36"/>
+<text x="123.2" y="346" textLength="806.4" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#f8f8f2">ERROR damage::rows                 entry 10 of 120000: the frame composited 310 dama</text>
+<rect x="929.6" y="332" width="9.6" height="18" fill="#282a36"/>
+<text x="929.6" y="346" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">░</text>
+<rect x="939.2" y="332" width="19.2" height="18" fill="#282a36"/>
+<rect x="958.4" y="332" width="9.6" height="18" fill="#282a36"/>
+<text x="958.4" y="346" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">│</text>
+<rect x="8" y="350" width="9.6" height="18" fill="#282a36"/>
+<text x="8" y="364" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">│</text>
+<rect x="17.6" y="350" width="19.2" height="18" fill="#282a36"/>
+<rect x="36.8" y="350" width="86.4" height="18" fill="#282a36"/>
+<text x="36.8" y="364" textLength="86.4" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#9ea8c7">      11 </text>
+<rect x="123.2" y="350" width="806.4" height="18" fill="#282a36"/>
+<text x="123.2" y="364" textLength="806.4" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#f8f8f2">DEBUG runtime::ctx                 entry 11 of 120000: the frame composited 341 dama</text>
+<rect x="929.6" y="350" width="9.6" height="18" fill="#282a36"/>
+<text x="929.6" y="364" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">░</text>
+<rect x="939.2" y="350" width="19.2" height="18" fill="#282a36"/>
+<rect x="958.4" y="350" width="9.6" height="18" fill="#282a36"/>
+<text x="958.4" y="364" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">│</text>
+<rect x="8" y="368" width="9.6" height="18" fill="#282a36"/>
+<text x="8" y="382" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">│</text>
+<rect x="17.6" y="368" width="19.2" height="18" fill="#282a36"/>
+<rect x="36.8" y="368" width="86.4" height="18" fill="#282a36"/>
+<text x="36.8" y="382" textLength="86.4" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#9ea8c7">      12 </text>
+<rect x="123.2" y="368" width="806.4" height="18" fill="#282a36"/>
+<text x="123.2" y="382" textLength="806.4" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#f8f8f2">INFO  components::scroll           entry 12 of 120000: the frame composited 372 dama</text>
+<rect x="929.6" y="368" width="9.6" height="18" fill="#282a36"/>
+<text x="929.6" y="382" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">░</text>
+<rect x="939.2" y="368" width="19.2" height="18" fill="#282a36"/>
+<rect x="958.4" y="368" width="9.6" height="18" fill="#282a36"/>
+<text x="958.4" y="382" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">│</text>
+<rect x="8" y="386" width="9.6" height="18" fill="#282a36"/>
+<text x="8" y="400" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">│</text>
+<rect x="17.6" y="386" width="19.2" height="18" fill="#282a36"/>
+<rect x="36.8" y="386" width="86.4" height="18" fill="#282a36"/>
+<text x="36.8" y="400" textLength="86.4" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#9ea8c7">      13 </text>
+<rect x="123.2" y="386" width="806.4" height="18" fill="#282a36"/>
+<text x="123.2" y="400" textLength="806.4" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#f8f8f2">WARN  cargo::core::compiler        entry 13 of 120000: the frame composited 403 dama</text>
+<rect x="929.6" y="386" width="9.6" height="18" fill="#282a36"/>
+<text x="929.6" y="400" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">░</text>
+<rect x="939.2" y="386" width="19.2" height="18" fill="#282a36"/>
+<rect x="958.4" y="386" width="9.6" height="18" fill="#282a36"/>
+<text x="958.4" y="400" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">│</text>
+<rect x="8" y="404" width="9.6" height="18" fill="#282a36"/>
+<text x="8" y="418" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">│</text>
+<rect x="17.6" y="404" width="19.2" height="18" fill="#282a36"/>
+<rect x="36.8" y="404" width="86.4" height="18" fill="#282a36"/>
+<text x="36.8" y="418" textLength="86.4" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#9ea8c7">      14 </text>
+<rect x="123.2" y="404" width="806.4" height="18" fill="#282a36"/>
+<text x="123.2" y="418" textLength="806.4" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#f8f8f2">ERROR rustc_codegen_ssa            entry 14 of 120000: the frame composited 434 dama</text>
+<rect x="929.6" y="404" width="9.6" height="18" fill="#282a36"/>
+<text x="929.6" y="418" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">░</text>
+<rect x="939.2" y="404" width="19.2" height="18" fill="#282a36"/>
+<rect x="958.4" y="404" width="9.6" height="18" fill="#282a36"/>
+<text x="958.4" y="418" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">│</text>
+<rect x="8" y="422" width="9.6" height="18" fill="#282a36"/>
+<text x="8" y="436" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">│</text>
+<rect x="17.6" y="422" width="19.2" height="18" fill="#282a36"/>
+<rect x="36.8" y="422" width="86.4" height="18" fill="#282a36"/>
+<text x="36.8" y="436" textLength="86.4" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#9ea8c7">      15 </text>
+<rect x="123.2" y="422" width="806.4" height="18" fill="#282a36"/>
+<text x="123.2" y="436" textLength="806.4" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#f8f8f2">DEBUG damage::rows                 entry 15 of 120000: the frame composited 465 dama</text>
+<rect x="929.6" y="422" width="9.6" height="18" fill="#282a36"/>
+<text x="929.6" y="436" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">░</text>
+<rect x="939.2" y="422" width="19.2" height="18" fill="#282a36"/>
+<rect x="958.4" y="422" width="9.6" height="18" fill="#282a36"/>
+<text x="958.4" y="436" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">│</text>
+<rect x="8" y="440" width="9.6" height="18" fill="#282a36"/>
+<text x="8" y="454" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">│</text>
+<rect x="17.6" y="440" width="19.2" height="18" fill="#282a36"/>
+<rect x="36.8" y="440" width="86.4" height="18" fill="#282a36"/>
+<rect x="123.2" y="440" width="806.4" height="18" fill="#282a36"/>
+<text x="123.2" y="454" textLength="806.4" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#f8f8f2;font-weight:bold">|0        |10       |20       |30       |40       |50       |60       |70       |80 </text>
+<rect x="929.6" y="440" width="9.6" height="18" fill="#282a36"/>
+<text x="929.6" y="454" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">▼</text>
+<rect x="939.2" y="440" width="19.2" height="18" fill="#282a36"/>
+<rect x="958.4" y="440" width="9.6" height="18" fill="#282a36"/>
+<text x="958.4" y="454" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">│</text>
+<rect x="8" y="458" width="9.6" height="18" fill="#282a36"/>
+<text x="8" y="472" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">│</text>
+<rect x="17.6" y="458" width="19.2" height="18" fill="#282a36"/>
+<rect x="36.8" y="458" width="9.6" height="18" fill="#282a36"/>
+<text x="36.8" y="472" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">◀</text>
+<rect x="46.4" y="458" width="364.8" height="18" fill="#21222c"/>
+<text x="46.4" y="472" textLength="364.8" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#f8f8f2">██████████████████████████████████████</text>
+<rect x="411.2" y="458" width="528" height="18" fill="#282a36"/>
+<text x="411.2" y="472" textLength="528" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░▶░</text>
+<rect x="939.2" y="458" width="19.2" height="18" fill="#282a36"/>
+<rect x="958.4" y="458" width="9.6" height="18" fill="#282a36"/>
+<text x="958.4" y="472" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">│</text>
+<rect x="8" y="476" width="9.6" height="18" fill="#282a36"/>
+<text x="8" y="490" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">│</text>
+<rect x="17.6" y="476" width="940.8" height="18" fill="#282a36"/>
+<rect x="958.4" y="476" width="9.6" height="18" fill="#282a36"/>
+<text x="958.4" y="490" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">│</text>
+<rect x="8" y="494" width="9.6" height="18" fill="#282a36"/>
+<text x="8" y="508" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">│</text>
+<rect x="17.6" y="494" width="940.8" height="18" fill="#282a36"/>
+<rect x="958.4" y="494" width="9.6" height="18" fill="#282a36"/>
+<text x="958.4" y="508" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">│</text>
+<rect x="8" y="512" width="960" height="18" fill="#282a36"/>
+<text x="8" y="526" textLength="960" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">└──────────────────────────────────────────────────────────────────────────────────────────────────┘</text>
+<rect x="8" y="530" width="960" height="18" fill="#282a36"/>
+<text x="8" y="544" textLength="960" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#f8f8f2">off 0/149980 x 0/116  entry 0/119999  extent 150000 cells (Σ h)  bars v=true h=true passes 0  regio…</text>
+</svg>

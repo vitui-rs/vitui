@@ -104,6 +104,12 @@ jobs:
       # operating-system question, so two of the three runners establish it.
       - if: runner.os != 'Windows'
         run: bash scripts/lint-rung-gate.sh
+      # **Whether every picture is still the screen it is a picture of.** The components' half is a
+      # `cargo test` above; the applications' half cannot be, because an application is an example
+      # and `cargo test` does not run one. Linux and macOS only, for the lint rung's reason: the
+      # script is POSIX shell, and what it checks is not an operating-system question.
+      - if: runner.os != 'Windows'
+        run: bash scripts/shots.sh --check
       # `conform/`'s gate. A detached workspace, so `--workspace` above does not reach it.
       #
       # Only the half that can run here: the parser and comparator over the captures committed in

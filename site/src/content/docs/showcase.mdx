@@ -40,9 +40,27 @@ library under test.
 
 <Aside type="note" title="What these recordings are">
 These three are recordings of a real terminal, which is the honest instrument for something that
-moves. The component pictures on the [Components](/components/) page will be the opposite: frames
-this engine composited, written to SVG rather than to a tty.
+moves. Everything below is the opposite and so are the pictures on the [Components](/components/)
+page: frames this engine composited with no terminal in the loop, written as SVG rather than as
+terminal bytes — the frame itself rather than a photograph of one.
 </Aside>
+
+## Every screen
+
+One picture per application, each a single composited frame. `caps` is the one with none: it
+attaches, asks the terminal what it can do, detaches and prints, so there is no frame to be a
+picture of.
+
+{apps.filter((a) => a.name !== 'caps').map((a) => (
+  <figure>
+    <a href={`/img/apps/${a.name}.svg`}>
+      <img src={`/img/apps/${a.name}.svg`} alt={`${a.name}, one composited frame`} loading="lazy" />
+    </a>
+    <figcaption>
+      <strong><code>{a.name}</code></strong> — <Inline text={a.what} />
+    </figcaption>
+  </figure>
+))}
 
 ## All twenty-one
 

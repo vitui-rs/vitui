@@ -1,0 +1,375 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1168 664" width="1168" height="664" font-family='ui-monospace,SFMono-Regular,Menlo,Consolas,"DejaVu Sans Mono",monospace' font-size="16">
+<rect width="1168" height="664" fill="#14161a"/>
+<rect x="8" y="8" width="19.2" height="18" fill="#1e1e2e"/>
+<text x="8" y="22" textLength="19.2" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#313244">┌─</text>
+<rect x="27.2" y="8" width="345.6" height="18" fill="#1e1e2e"/>
+<text x="27.2" y="22" textLength="345.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#f5e0dc;font-weight:bold"> sheet — the caller owns the offset </text>
+<rect x="372.8" y="8" width="787.2" height="18" fill="#1e1e2e"/>
+<text x="372.8" y="22" textLength="787.2" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#313244">─────────────────────────────────────────────────────────────────────────────────┐</text>
+<rect x="8" y="26" width="9.6" height="18" fill="#1e1e2e"/>
+<text x="8" y="40" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#313244">│</text>
+<rect x="17.6" y="26" width="1132.8" height="18" fill="#1e1e2e"/>
+<rect x="1150.4" y="26" width="9.6" height="18" fill="#1e1e2e"/>
+<text x="1150.4" y="40" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#313244">│</text>
+<rect x="8" y="44" width="9.6" height="18" fill="#1e1e2e"/>
+<text x="8" y="58" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#313244">│</text>
+<rect x="17.6" y="44" width="1132.8" height="18" fill="#1e1e2e"/>
+<rect x="1150.4" y="44" width="9.6" height="18" fill="#1e1e2e"/>
+<text x="1150.4" y="58" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#313244">│</text>
+<rect x="8" y="62" width="9.6" height="18" fill="#1e1e2e"/>
+<text x="8" y="76" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#313244">│</text>
+<rect x="17.6" y="62" width="19.2" height="18" fill="#1e1e2e"/>
+<rect x="36.8" y="62" width="1094.4" height="18" fill="#181825"/>
+<text x="36.8" y="76" textLength="1094.4" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#cdd6f4">▶ ledger-2026.csv                                                                                                 </text>
+<rect x="1131.2" y="62" width="19.2" height="18" fill="#1e1e2e"/>
+<rect x="1150.4" y="62" width="9.6" height="18" fill="#1e1e2e"/>
+<text x="1150.4" y="76" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#313244">│</text>
+<rect x="8" y="80" width="9.6" height="18" fill="#1e1e2e"/>
+<text x="8" y="94" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#313244">│</text>
+<rect x="17.6" y="80" width="19.2" height="18" fill="#1e1e2e"/>
+<rect x="36.8" y="80" width="1084.8" height="18" fill="#1e1e2e"/>
+<text x="36.8" y="94" textLength="1084.8" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#f5e0dc;font-weight:bold">   #  region      quarter     units       revenue     cost        margin      owner       note        region     </text>
+<rect x="1121.6" y="80" width="9.6" height="18" fill="#1e1e2e"/>
+<text x="1121.6" y="94" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#313244">▲</text>
+<rect x="1131.2" y="80" width="19.2" height="18" fill="#1e1e2e"/>
+<rect x="1150.4" y="80" width="9.6" height="18" fill="#1e1e2e"/>
+<text x="1150.4" y="94" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#313244">│</text>
+<rect x="8" y="98" width="9.6" height="18" fill="#1e1e2e"/>
+<text x="8" y="112" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#313244">│</text>
+<rect x="17.6" y="98" width="19.2" height="18" fill="#1e1e2e"/>
+<rect x="36.8" y="98" width="57.6" height="18" fill="#1e1e2e"/>
+<text x="36.8" y="112" textLength="57.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#585b70">    1 </text>
+<rect x="94.4" y="98" width="1027.2" height="18" fill="#1e1e2e"/>
+<text x="94.4" y="112" textLength="1027.2" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#cdd6f4">        0         911        1822        2733        3644        4555        5466        6377        7288  </text>
+<rect x="1121.6" y="98" width="9.6" height="18" fill="#181825"/>
+<text x="1121.6" y="112" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#cdd6f4">█</text>
+<rect x="1131.2" y="98" width="19.2" height="18" fill="#1e1e2e"/>
+<rect x="1150.4" y="98" width="9.6" height="18" fill="#1e1e2e"/>
+<text x="1150.4" y="112" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#313244">│</text>
+<rect x="8" y="116" width="9.6" height="18" fill="#1e1e2e"/>
+<text x="8" y="130" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#313244">│</text>
+<rect x="17.6" y="116" width="19.2" height="18" fill="#1e1e2e"/>
+<rect x="36.8" y="116" width="57.6" height="18" fill="#1e1e2e"/>
+<text x="36.8" y="130" textLength="57.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#585b70">    2 </text>
+<rect x="94.4" y="116" width="1027.2" height="18" fill="#1e1e2e"/>
+<text x="94.4" y="130" textLength="1027.2" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#cdd6f4">       37         948        1859        2770        3681        4592        5503        6414        7325  </text>
+<rect x="1121.6" y="116" width="9.6" height="18" fill="#1e1e2e"/>
+<text x="1121.6" y="130" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#313244">░</text>
+<rect x="1131.2" y="116" width="19.2" height="18" fill="#1e1e2e"/>
+<rect x="1150.4" y="116" width="9.6" height="18" fill="#1e1e2e"/>
+<text x="1150.4" y="130" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#313244">│</text>
+<rect x="8" y="134" width="9.6" height="18" fill="#1e1e2e"/>
+<text x="8" y="148" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#313244">│</text>
+<rect x="17.6" y="134" width="19.2" height="18" fill="#1e1e2e"/>
+<rect x="36.8" y="134" width="57.6" height="18" fill="#1e1e2e"/>
+<text x="36.8" y="148" textLength="57.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#585b70">    3 </text>
+<rect x="94.4" y="134" width="1027.2" height="18" fill="#1e1e2e"/>
+<text x="94.4" y="148" textLength="1027.2" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#cdd6f4">       74         985        1896        2807        3718        4629        5540        6451        7362  </text>
+<rect x="1121.6" y="134" width="9.6" height="18" fill="#1e1e2e"/>
+<text x="1121.6" y="148" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#313244">░</text>
+<rect x="1131.2" y="134" width="19.2" height="18" fill="#1e1e2e"/>
+<rect x="1150.4" y="134" width="9.6" height="18" fill="#1e1e2e"/>
+<text x="1150.4" y="148" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#313244">│</text>
+<rect x="8" y="152" width="9.6" height="18" fill="#1e1e2e"/>
+<text x="8" y="166" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#313244">│</text>
+<rect x="17.6" y="152" width="19.2" height="18" fill="#1e1e2e"/>
+<rect x="36.8" y="152" width="57.6" height="18" fill="#1e1e2e"/>
+<text x="36.8" y="166" textLength="57.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#585b70">    4 </text>
+<rect x="94.4" y="152" width="1027.2" height="18" fill="#1e1e2e"/>
+<text x="94.4" y="166" textLength="1027.2" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#cdd6f4">      111        1022        1933        2844        3755        4666        5577        6488        7399  </text>
+<rect x="1121.6" y="152" width="9.6" height="18" fill="#1e1e2e"/>
+<text x="1121.6" y="166" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#313244">░</text>
+<rect x="1131.2" y="152" width="19.2" height="18" fill="#1e1e2e"/>
+<rect x="1150.4" y="152" width="9.6" height="18" fill="#1e1e2e"/>
+<text x="1150.4" y="166" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#313244">│</text>
+<rect x="8" y="170" width="9.6" height="18" fill="#1e1e2e"/>
+<text x="8" y="184" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#313244">│</text>
+<rect x="17.6" y="170" width="19.2" height="18" fill="#1e1e2e"/>
+<rect x="36.8" y="170" width="57.6" height="18" fill="#1e1e2e"/>
+<text x="36.8" y="184" textLength="57.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#585b70">    5 </text>
+<rect x="94.4" y="170" width="1027.2" height="18" fill="#1e1e2e"/>
+<text x="94.4" y="184" textLength="1027.2" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#cdd6f4">      148        1059        1970        2881        3792        4703        5614        6525        7436  </text>
+<rect x="1121.6" y="170" width="9.6" height="18" fill="#1e1e2e"/>
+<text x="1121.6" y="184" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#313244">░</text>
+<rect x="1131.2" y="170" width="19.2" height="18" fill="#1e1e2e"/>
+<rect x="1150.4" y="170" width="9.6" height="18" fill="#1e1e2e"/>
+<text x="1150.4" y="184" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#313244">│</text>
+<rect x="8" y="188" width="9.6" height="18" fill="#1e1e2e"/>
+<text x="8" y="202" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#313244">│</text>
+<rect x="17.6" y="188" width="19.2" height="18" fill="#1e1e2e"/>
+<rect x="36.8" y="188" width="57.6" height="18" fill="#1e1e2e"/>
+<text x="36.8" y="202" textLength="57.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#585b70">    6 </text>
+<rect x="94.4" y="188" width="1027.2" height="18" fill="#1e1e2e"/>
+<text x="94.4" y="202" textLength="1027.2" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#cdd6f4">      185        1096        2007        2918        3829        4740        5651        6562        7473  </text>
+<rect x="1121.6" y="188" width="9.6" height="18" fill="#1e1e2e"/>
+<text x="1121.6" y="202" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#313244">░</text>
+<rect x="1131.2" y="188" width="19.2" height="18" fill="#1e1e2e"/>
+<rect x="1150.4" y="188" width="9.6" height="18" fill="#1e1e2e"/>
+<text x="1150.4" y="202" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#313244">│</text>
+<rect x="8" y="206" width="9.6" height="18" fill="#1e1e2e"/>
+<text x="8" y="220" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#313244">│</text>
+<rect x="17.6" y="206" width="19.2" height="18" fill="#1e1e2e"/>
+<rect x="36.8" y="206" width="57.6" height="18" fill="#1e1e2e"/>
+<text x="36.8" y="220" textLength="57.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#585b70">    7 </text>
+<rect x="94.4" y="206" width="1027.2" height="18" fill="#1e1e2e"/>
+<text x="94.4" y="220" textLength="1027.2" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#cdd6f4">      222        1133        2044        2955        3866        4777        5688        6599        7510  </text>
+<rect x="1121.6" y="206" width="9.6" height="18" fill="#1e1e2e"/>
+<text x="1121.6" y="220" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#313244">░</text>
+<rect x="1131.2" y="206" width="19.2" height="18" fill="#1e1e2e"/>
+<rect x="1150.4" y="206" width="9.6" height="18" fill="#1e1e2e"/>
+<text x="1150.4" y="220" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#313244">│</text>
+<rect x="8" y="224" width="9.6" height="18" fill="#1e1e2e"/>
+<text x="8" y="238" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#313244">│</text>
+<rect x="17.6" y="224" width="19.2" height="18" fill="#1e1e2e"/>
+<rect x="36.8" y="224" width="57.6" height="18" fill="#1e1e2e"/>
+<text x="36.8" y="238" textLength="57.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#585b70">    8 </text>
+<rect x="94.4" y="224" width="1027.2" height="18" fill="#1e1e2e"/>
+<text x="94.4" y="238" textLength="1027.2" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#cdd6f4">      259        1170        2081        2992        3903        4814        5725        6636        7547  </text>
+<rect x="1121.6" y="224" width="9.6" height="18" fill="#1e1e2e"/>
+<text x="1121.6" y="238" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#313244">░</text>
+<rect x="1131.2" y="224" width="19.2" height="18" fill="#1e1e2e"/>
+<rect x="1150.4" y="224" width="9.6" height="18" fill="#1e1e2e"/>
+<text x="1150.4" y="238" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#313244">│</text>
+<rect x="8" y="242" width="9.6" height="18" fill="#1e1e2e"/>
+<text x="8" y="256" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#313244">│</text>
+<rect x="17.6" y="242" width="19.2" height="18" fill="#1e1e2e"/>
+<rect x="36.8" y="242" width="57.6" height="18" fill="#1e1e2e"/>
+<text x="36.8" y="256" textLength="57.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#585b70">    9 </text>
+<rect x="94.4" y="242" width="1027.2" height="18" fill="#1e1e2e"/>
+<text x="94.4" y="256" textLength="1027.2" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#cdd6f4">      296        1207        2118        3029        3940        4851        5762        6673        7584  </text>
+<rect x="1121.6" y="242" width="9.6" height="18" fill="#1e1e2e"/>
+<text x="1121.6" y="256" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#313244">░</text>
+<rect x="1131.2" y="242" width="19.2" height="18" fill="#1e1e2e"/>
+<rect x="1150.4" y="242" width="9.6" height="18" fill="#1e1e2e"/>
+<text x="1150.4" y="256" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#313244">│</text>
+<rect x="8" y="260" width="9.6" height="18" fill="#1e1e2e"/>
+<text x="8" y="274" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#313244">│</text>
+<rect x="17.6" y="260" width="19.2" height="18" fill="#1e1e2e"/>
+<rect x="36.8" y="260" width="57.6" height="18" fill="#1e1e2e"/>
+<text x="36.8" y="274" textLength="57.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#585b70">   10 </text>
+<rect x="94.4" y="260" width="1027.2" height="18" fill="#1e1e2e"/>
+<text x="94.4" y="274" textLength="1027.2" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#cdd6f4">      333        1244        2155        3066        3977        4888        5799        6710        7621  </text>
+<rect x="1121.6" y="260" width="9.6" height="18" fill="#1e1e2e"/>
+<text x="1121.6" y="274" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#313244">░</text>
+<rect x="1131.2" y="260" width="19.2" height="18" fill="#1e1e2e"/>
+<rect x="1150.4" y="260" width="9.6" height="18" fill="#1e1e2e"/>
+<text x="1150.4" y="274" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#313244">│</text>
+<rect x="8" y="278" width="9.6" height="18" fill="#1e1e2e"/>
+<text x="8" y="292" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#313244">│</text>
+<rect x="17.6" y="278" width="19.2" height="18" fill="#1e1e2e"/>
+<rect x="36.8" y="278" width="57.6" height="18" fill="#1e1e2e"/>
+<text x="36.8" y="292" textLength="57.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#585b70">   11 </text>
+<rect x="94.4" y="278" width="1027.2" height="18" fill="#1e1e2e"/>
+<text x="94.4" y="292" textLength="1027.2" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#cdd6f4">      370        1281        2192        3103        4014        4925        5836        6747        7658  </text>
+<rect x="1121.6" y="278" width="9.6" height="18" fill="#1e1e2e"/>
+<text x="1121.6" y="292" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#313244">░</text>
+<rect x="1131.2" y="278" width="19.2" height="18" fill="#1e1e2e"/>
+<rect x="1150.4" y="278" width="9.6" height="18" fill="#1e1e2e"/>
+<text x="1150.4" y="292" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#313244">│</text>
+<rect x="8" y="296" width="9.6" height="18" fill="#1e1e2e"/>
+<text x="8" y="310" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#313244">│</text>
+<rect x="17.6" y="296" width="19.2" height="18" fill="#1e1e2e"/>
+<rect x="36.8" y="296" width="57.6" height="18" fill="#1e1e2e"/>
+<text x="36.8" y="310" textLength="57.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#585b70">   12 </text>
+<rect x="94.4" y="296" width="1027.2" height="18" fill="#1e1e2e"/>
+<text x="94.4" y="310" textLength="1027.2" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#cdd6f4">      407        1318        2229        3140        4051        4962        5873        6784        7695  </text>
+<rect x="1121.6" y="296" width="9.6" height="18" fill="#1e1e2e"/>
+<text x="1121.6" y="310" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#313244">░</text>
+<rect x="1131.2" y="296" width="19.2" height="18" fill="#1e1e2e"/>
+<rect x="1150.4" y="296" width="9.6" height="18" fill="#1e1e2e"/>
+<text x="1150.4" y="310" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#313244">│</text>
+<rect x="8" y="314" width="9.6" height="18" fill="#1e1e2e"/>
+<text x="8" y="328" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#313244">│</text>
+<rect x="17.6" y="314" width="19.2" height="18" fill="#1e1e2e"/>
+<rect x="36.8" y="314" width="57.6" height="18" fill="#1e1e2e"/>
+<text x="36.8" y="328" textLength="57.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#585b70">   13 </text>
+<rect x="94.4" y="314" width="1027.2" height="18" fill="#1e1e2e"/>
+<text x="94.4" y="328" textLength="1027.2" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#cdd6f4">      444        1355        2266        3177        4088        4999        5910        6821        7732  </text>
+<rect x="1121.6" y="314" width="9.6" height="18" fill="#1e1e2e"/>
+<text x="1121.6" y="328" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#313244">░</text>
+<rect x="1131.2" y="314" width="19.2" height="18" fill="#1e1e2e"/>
+<rect x="1150.4" y="314" width="9.6" height="18" fill="#1e1e2e"/>
+<text x="1150.4" y="328" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#313244">│</text>
+<rect x="8" y="332" width="9.6" height="18" fill="#1e1e2e"/>
+<text x="8" y="346" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#313244">│</text>
+<rect x="17.6" y="332" width="19.2" height="18" fill="#1e1e2e"/>
+<rect x="36.8" y="332" width="57.6" height="18" fill="#1e1e2e"/>
+<text x="36.8" y="346" textLength="57.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#585b70">   14 </text>
+<rect x="94.4" y="332" width="1027.2" height="18" fill="#1e1e2e"/>
+<text x="94.4" y="346" textLength="1027.2" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#cdd6f4">      481        1392        2303        3214        4125        5036        5947        6858        7769  </text>
+<rect x="1121.6" y="332" width="9.6" height="18" fill="#1e1e2e"/>
+<text x="1121.6" y="346" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#313244">░</text>
+<rect x="1131.2" y="332" width="19.2" height="18" fill="#1e1e2e"/>
+<rect x="1150.4" y="332" width="9.6" height="18" fill="#1e1e2e"/>
+<text x="1150.4" y="346" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#313244">│</text>
+<rect x="8" y="350" width="9.6" height="18" fill="#1e1e2e"/>
+<text x="8" y="364" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#313244">│</text>
+<rect x="17.6" y="350" width="19.2" height="18" fill="#1e1e2e"/>
+<rect x="36.8" y="350" width="57.6" height="18" fill="#1e1e2e"/>
+<text x="36.8" y="364" textLength="57.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#585b70">   15 </text>
+<rect x="94.4" y="350" width="1027.2" height="18" fill="#1e1e2e"/>
+<text x="94.4" y="364" textLength="1027.2" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#cdd6f4">      518        1429        2340        3251        4162        5073        5984        6895        7806  </text>
+<rect x="1121.6" y="350" width="9.6" height="18" fill="#1e1e2e"/>
+<text x="1121.6" y="364" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#313244">░</text>
+<rect x="1131.2" y="350" width="19.2" height="18" fill="#1e1e2e"/>
+<rect x="1150.4" y="350" width="9.6" height="18" fill="#1e1e2e"/>
+<text x="1150.4" y="364" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#313244">│</text>
+<rect x="8" y="368" width="9.6" height="18" fill="#1e1e2e"/>
+<text x="8" y="382" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#313244">│</text>
+<rect x="17.6" y="368" width="19.2" height="18" fill="#1e1e2e"/>
+<rect x="36.8" y="368" width="57.6" height="18" fill="#1e1e2e"/>
+<text x="36.8" y="382" textLength="57.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#585b70">   16 </text>
+<rect x="94.4" y="368" width="1027.2" height="18" fill="#1e1e2e"/>
+<text x="94.4" y="382" textLength="1027.2" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#cdd6f4">      555        1466        2377        3288        4199        5110        6021        6932        7843  </text>
+<rect x="1121.6" y="368" width="9.6" height="18" fill="#1e1e2e"/>
+<text x="1121.6" y="382" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#313244">░</text>
+<rect x="1131.2" y="368" width="19.2" height="18" fill="#1e1e2e"/>
+<rect x="1150.4" y="368" width="9.6" height="18" fill="#1e1e2e"/>
+<text x="1150.4" y="382" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#313244">│</text>
+<rect x="8" y="386" width="9.6" height="18" fill="#1e1e2e"/>
+<text x="8" y="400" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#313244">│</text>
+<rect x="17.6" y="386" width="19.2" height="18" fill="#1e1e2e"/>
+<rect x="36.8" y="386" width="57.6" height="18" fill="#1e1e2e"/>
+<text x="36.8" y="400" textLength="57.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#585b70">   17 </text>
+<rect x="94.4" y="386" width="1027.2" height="18" fill="#1e1e2e"/>
+<text x="94.4" y="400" textLength="1027.2" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#cdd6f4">      592        1503        2414        3325        4236        5147        6058        6969        7880  </text>
+<rect x="1121.6" y="386" width="9.6" height="18" fill="#1e1e2e"/>
+<text x="1121.6" y="400" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#313244">░</text>
+<rect x="1131.2" y="386" width="19.2" height="18" fill="#1e1e2e"/>
+<rect x="1150.4" y="386" width="9.6" height="18" fill="#1e1e2e"/>
+<text x="1150.4" y="400" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#313244">│</text>
+<rect x="8" y="404" width="9.6" height="18" fill="#1e1e2e"/>
+<text x="8" y="418" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#313244">│</text>
+<rect x="17.6" y="404" width="19.2" height="18" fill="#1e1e2e"/>
+<rect x="36.8" y="404" width="57.6" height="18" fill="#1e1e2e"/>
+<text x="36.8" y="418" textLength="57.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#585b70">   18 </text>
+<rect x="94.4" y="404" width="1027.2" height="18" fill="#1e1e2e"/>
+<text x="94.4" y="418" textLength="1027.2" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#cdd6f4">      629        1540        2451        3362        4273        5184        6095        7006        7917  </text>
+<rect x="1121.6" y="404" width="9.6" height="18" fill="#1e1e2e"/>
+<text x="1121.6" y="418" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#313244">░</text>
+<rect x="1131.2" y="404" width="19.2" height="18" fill="#1e1e2e"/>
+<rect x="1150.4" y="404" width="9.6" height="18" fill="#1e1e2e"/>
+<text x="1150.4" y="418" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#313244">│</text>
+<rect x="8" y="422" width="9.6" height="18" fill="#1e1e2e"/>
+<text x="8" y="436" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#313244">│</text>
+<rect x="17.6" y="422" width="19.2" height="18" fill="#1e1e2e"/>
+<rect x="36.8" y="422" width="57.6" height="18" fill="#1e1e2e"/>
+<text x="36.8" y="436" textLength="57.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#585b70">   19 </text>
+<rect x="94.4" y="422" width="1027.2" height="18" fill="#1e1e2e"/>
+<text x="94.4" y="436" textLength="1027.2" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#cdd6f4">      666        1577        2488        3399        4310        5221        6132        7043        7954  </text>
+<rect x="1121.6" y="422" width="9.6" height="18" fill="#1e1e2e"/>
+<text x="1121.6" y="436" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#313244">░</text>
+<rect x="1131.2" y="422" width="19.2" height="18" fill="#1e1e2e"/>
+<rect x="1150.4" y="422" width="9.6" height="18" fill="#1e1e2e"/>
+<text x="1150.4" y="436" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#313244">│</text>
+<rect x="8" y="440" width="9.6" height="18" fill="#1e1e2e"/>
+<text x="8" y="454" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#313244">│</text>
+<rect x="17.6" y="440" width="19.2" height="18" fill="#1e1e2e"/>
+<rect x="36.8" y="440" width="57.6" height="18" fill="#1e1e2e"/>
+<text x="36.8" y="454" textLength="57.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#585b70">   20 </text>
+<rect x="94.4" y="440" width="1027.2" height="18" fill="#1e1e2e"/>
+<text x="94.4" y="454" textLength="1027.2" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#cdd6f4">      703        1614        2525        3436        4347        5258        6169        7080        7991  </text>
+<rect x="1121.6" y="440" width="9.6" height="18" fill="#1e1e2e"/>
+<text x="1121.6" y="454" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#313244">░</text>
+<rect x="1131.2" y="440" width="19.2" height="18" fill="#1e1e2e"/>
+<rect x="1150.4" y="440" width="9.6" height="18" fill="#1e1e2e"/>
+<text x="1150.4" y="454" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#313244">│</text>
+<rect x="8" y="458" width="9.6" height="18" fill="#1e1e2e"/>
+<text x="8" y="472" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#313244">│</text>
+<rect x="17.6" y="458" width="19.2" height="18" fill="#1e1e2e"/>
+<rect x="36.8" y="458" width="57.6" height="18" fill="#1e1e2e"/>
+<text x="36.8" y="472" textLength="57.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#585b70">   21 </text>
+<rect x="94.4" y="458" width="1027.2" height="18" fill="#1e1e2e"/>
+<text x="94.4" y="472" textLength="1027.2" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#cdd6f4">      740        1651        2562        3473        4384        5295        6206        7117        8028  </text>
+<rect x="1121.6" y="458" width="9.6" height="18" fill="#1e1e2e"/>
+<text x="1121.6" y="472" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#313244">░</text>
+<rect x="1131.2" y="458" width="19.2" height="18" fill="#1e1e2e"/>
+<rect x="1150.4" y="458" width="9.6" height="18" fill="#1e1e2e"/>
+<text x="1150.4" y="472" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#313244">│</text>
+<rect x="8" y="476" width="9.6" height="18" fill="#1e1e2e"/>
+<text x="8" y="490" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#313244">│</text>
+<rect x="17.6" y="476" width="19.2" height="18" fill="#1e1e2e"/>
+<rect x="36.8" y="476" width="57.6" height="18" fill="#1e1e2e"/>
+<text x="36.8" y="490" textLength="57.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#585b70">   22 </text>
+<rect x="94.4" y="476" width="1027.2" height="18" fill="#1e1e2e"/>
+<text x="94.4" y="490" textLength="1027.2" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#cdd6f4">      777        1688        2599        3510        4421        5332        6243        7154        8065  </text>
+<rect x="1121.6" y="476" width="9.6" height="18" fill="#1e1e2e"/>
+<text x="1121.6" y="490" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#313244">░</text>
+<rect x="1131.2" y="476" width="19.2" height="18" fill="#1e1e2e"/>
+<rect x="1150.4" y="476" width="9.6" height="18" fill="#1e1e2e"/>
+<text x="1150.4" y="490" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#313244">│</text>
+<rect x="8" y="494" width="9.6" height="18" fill="#1e1e2e"/>
+<text x="8" y="508" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#313244">│</text>
+<rect x="17.6" y="494" width="19.2" height="18" fill="#1e1e2e"/>
+<rect x="36.8" y="494" width="57.6" height="18" fill="#1e1e2e"/>
+<text x="36.8" y="508" textLength="57.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#585b70">   23 </text>
+<rect x="94.4" y="494" width="1027.2" height="18" fill="#1e1e2e"/>
+<text x="94.4" y="508" textLength="1027.2" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#cdd6f4">      814        1725        2636        3547        4458        5369        6280        7191        8102  </text>
+<rect x="1121.6" y="494" width="9.6" height="18" fill="#1e1e2e"/>
+<text x="1121.6" y="508" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#313244">░</text>
+<rect x="1131.2" y="494" width="19.2" height="18" fill="#1e1e2e"/>
+<rect x="1150.4" y="494" width="9.6" height="18" fill="#1e1e2e"/>
+<text x="1150.4" y="508" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#313244">│</text>
+<rect x="8" y="512" width="9.6" height="18" fill="#1e1e2e"/>
+<text x="8" y="526" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#313244">│</text>
+<rect x="17.6" y="512" width="19.2" height="18" fill="#1e1e2e"/>
+<rect x="36.8" y="512" width="57.6" height="18" fill="#1e1e2e"/>
+<text x="36.8" y="526" textLength="57.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#585b70">   24 </text>
+<rect x="94.4" y="512" width="1027.2" height="18" fill="#1e1e2e"/>
+<text x="94.4" y="526" textLength="1027.2" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#cdd6f4">      851        1762        2673        3584        4495        5406        6317        7228        8139  </text>
+<rect x="1121.6" y="512" width="9.6" height="18" fill="#1e1e2e"/>
+<text x="1121.6" y="526" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#313244">░</text>
+<rect x="1131.2" y="512" width="19.2" height="18" fill="#1e1e2e"/>
+<rect x="1150.4" y="512" width="9.6" height="18" fill="#1e1e2e"/>
+<text x="1150.4" y="526" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#313244">│</text>
+<rect x="8" y="530" width="9.6" height="18" fill="#1e1e2e"/>
+<text x="8" y="544" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#313244">│</text>
+<rect x="17.6" y="530" width="19.2" height="18" fill="#1e1e2e"/>
+<rect x="36.8" y="530" width="57.6" height="18" fill="#1e1e2e"/>
+<text x="36.8" y="544" textLength="57.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#585b70">   25 </text>
+<rect x="94.4" y="530" width="1027.2" height="18" fill="#1e1e2e"/>
+<text x="94.4" y="544" textLength="1027.2" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#cdd6f4">      888        1799        2710        3621        4532        5443        6354        7265        8176  </text>
+<rect x="1121.6" y="530" width="9.6" height="18" fill="#1e1e2e"/>
+<text x="1121.6" y="544" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#313244">░</text>
+<rect x="1131.2" y="530" width="19.2" height="18" fill="#1e1e2e"/>
+<rect x="1150.4" y="530" width="9.6" height="18" fill="#1e1e2e"/>
+<text x="1150.4" y="544" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#313244">│</text>
+<rect x="8" y="548" width="9.6" height="18" fill="#1e1e2e"/>
+<text x="8" y="562" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#313244">│</text>
+<rect x="17.6" y="548" width="19.2" height="18" fill="#1e1e2e"/>
+<rect x="36.8" y="548" width="1094.4" height="18" fill="#1e1e2e"/>
+<text x="36.8" y="562" textLength="1094.4" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#313244">          24000       25000       26000       27000       28000       29000       30000       31000       32000  ▼</text>
+<rect x="1131.2" y="548" width="19.2" height="18" fill="#1e1e2e"/>
+<rect x="1150.4" y="548" width="9.6" height="18" fill="#1e1e2e"/>
+<text x="1150.4" y="562" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#313244">│</text>
+<rect x="8" y="566" width="9.6" height="18" fill="#1e1e2e"/>
+<text x="8" y="580" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#313244">│</text>
+<rect x="17.6" y="566" width="19.2" height="18" fill="#1e1e2e"/>
+<rect x="36.8" y="566" width="9.6" height="18" fill="#1e1e2e"/>
+<text x="36.8" y="580" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#313244">◀</text>
+<rect x="46.4" y="566" width="393.6" height="18" fill="#181825"/>
+<text x="46.4" y="580" textLength="393.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#cdd6f4">█████████████████████████████████████████</text>
+<rect x="440" y="566" width="691.2" height="18" fill="#1e1e2e"/>
+<text x="440" y="580" textLength="691.2" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#313244">░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░▶</text>
+<rect x="1131.2" y="566" width="19.2" height="18" fill="#1e1e2e"/>
+<rect x="1150.4" y="566" width="9.6" height="18" fill="#1e1e2e"/>
+<text x="1150.4" y="580" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#313244">│</text>
+<rect x="8" y="584" width="9.6" height="18" fill="#1e1e2e"/>
+<text x="8" y="598" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#313244">│</text>
+<rect x="17.6" y="584" width="1132.8" height="18" fill="#1e1e2e"/>
+<text x="17.6" y="598" textLength="1132.8" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#cdd6f4">  20000 x 24  offset (0, 0)  max (181, 19975)  tail on  pinned on  picker shut   t tail  p pin  v counters  Tab foc…  </text>
+<rect x="1150.4" y="584" width="9.6" height="18" fill="#1e1e2e"/>
+<text x="1150.4" y="598" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#313244">│</text>
+<rect x="8" y="602" width="9.6" height="18" fill="#1e1e2e"/>
+<text x="8" y="616" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#313244">│</text>
+<rect x="17.6" y="602" width="1132.8" height="18" fill="#1e1e2e"/>
+<rect x="1150.4" y="602" width="9.6" height="18" fill="#1e1e2e"/>
+<text x="1150.4" y="616" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#313244">│</text>
+<rect x="8" y="620" width="9.6" height="18" fill="#1e1e2e"/>
+<text x="8" y="634" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#313244">│</text>
+<rect x="17.6" y="620" width="1132.8" height="18" fill="#1e1e2e"/>
+<rect x="1150.4" y="620" width="9.6" height="18" fill="#1e1e2e"/>
+<text x="1150.4" y="634" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#313244">│</text>
+<rect x="8" y="638" width="1152" height="18" fill="#1e1e2e"/>
+<text x="8" y="652" textLength="1152" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#313244">└──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘</text>
+</svg>

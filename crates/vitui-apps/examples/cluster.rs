@@ -2317,6 +2317,17 @@ fn describe_of(cluster: &Cluster, pod: &Pod) -> Vec<String> {
 fn main() {
     let mut app = App::new();
 
+    // **The picture arm**: one screen, drawn headlessly and written as SVG. A
+    // program nobody outside this machine can see is a program nobody believes in.
+    if vitui_apps::pictures::wanted() {
+        let mut driver = vitui_apps::pictures::driver(120, 36, *Themes::standard().theme());
+        for _ in 0..vitui_apps::pictures::FRAMES {
+            driver.frame(|cx| app.ui(cx));
+        }
+        vitui_apps::pictures::write("cluster", &driver);
+        return;
+    }
+
     let mut driver = match Driver::attach(Default::default(), *Themes::standard().theme()) {
         Ok(driver) => driver,
         Err(why) => {

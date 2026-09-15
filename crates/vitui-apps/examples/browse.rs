@@ -618,6 +618,25 @@ fn main() {
         return;
     }
 
+    // **The picture arm**: one screen, drawn headlessly and written as SVG. A program nobody
+    // outside this machine can see is a program nobody believes in.
+    //
+    // The worker is `queueing` rather than hired, as it is in the probe arm above: the preview
+    // pane's answer has to land *before* the picture is taken, and a queueing worker lands where
+    // this code says it does.
+    if vitui_apps::pictures::wanted() {
+        let mut driver = vitui_apps::pictures::driver(120, 36, Default::default());
+        let mut app = App::new(Worker::queueing());
+        let mut ink = Direct;
+        driver.frame(|cx| ui(&mut app, &mut ink, cx));
+        let _landed = app.worker.run(0);
+        for _ in 0..vitui_apps::pictures::FRAMES {
+            driver.frame(|cx| ui(&mut app, &mut ink, cx));
+        }
+        vitui_apps::pictures::write("browse", &driver);
+        return;
+    }
+
     let mut driver = match Driver::attach(Default::default(), Default::default()) {
         Ok(driver) => driver,
         Err(why) => {

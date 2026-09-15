@@ -656,6 +656,17 @@ fn main() {
     themes.set_glyphs(RUNGS[app.rung]);
     themes.set_tier(TIERS[app.tier]);
 
+    // **The picture arm**: one screen, drawn headlessly and written as SVG. A
+    // program nobody outside this machine can see is a program nobody believes in.
+    if vitui_apps::pictures::wanted() {
+        let mut driver = vitui_apps::pictures::driver(100, 30, *themes.theme());
+        for _ in 0..vitui_apps::pictures::FRAMES {
+            driver.frame(|cx| app.ui(cx));
+        }
+        vitui_apps::pictures::write("theatre", &driver);
+        return;
+    }
+
     let mut driver = match Driver::attach(Default::default(), *themes.theme()) {
         Ok(driver) => driver,
         Err(why) => {

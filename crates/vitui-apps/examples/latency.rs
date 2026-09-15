@@ -706,6 +706,17 @@ fn main() {
         max_frame_rate: 60.0,
         ..Default::default()
     };
+    // **The picture arm**: one screen, drawn headlessly and written as SVG. A
+    // program nobody outside this machine can see is a program nobody believes in.
+    if vitui_apps::pictures::wanted() {
+        let mut driver = vitui_apps::pictures::driver(100, 30, app.theme());
+        for _ in 0..vitui_apps::pictures::FRAMES {
+            driver.frame(|cx| app.ui(cx, &map));
+        }
+        vitui_apps::pictures::write("latency", &driver);
+        return;
+    }
+
     let mut driver = match Driver::attach(config, app.theme()) {
         Ok(driver) => driver,
         Err(why) => {

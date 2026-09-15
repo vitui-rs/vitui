@@ -3487,6 +3487,33 @@ impl Driver {
         self.screen.resume();
     }
 
+    /// **The frame this driver last presented, as an SVG picture.**
+    ///
+    /// `Screen::to_svg` forwarded unchanged, which is the fourth engine verb an application needs
+    /// and cannot reach — after `wait`, `permit_slow` and the suspend pair. There is no policy to
+    /// add on this side: the picture is of the composited frame, and this crate does not composite.
+    ///
+    /// Call it after a [`frame`](Driver::frame). A driver that has never presented has an empty
+    /// composited frame, and the picture of one is a blank page.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use vitui_runtime::ctx::Driver;
+    /// use vitui_runtime::Role;
+    ///
+    /// let mut driver = Driver::headless(24, 2).expect("a sink attaches");
+    /// driver.frame(|cx| {
+    ///     let ink = cx.theme().paint(Role::Body);
+    ///     cx.text(0, 0, "a picture of this", ink);
+    /// });
+    /// let picture = driver.to_svg();
+    /// assert!(picture.contains("a picture of this"));
+    /// ```
+    pub fn to_svg(&self) -> String {
+        self.screen.to_svg()
+    }
+
     /// Run one frame: `begin`, the base pass, the overlay pass, `end`, `settle`, `present`.
     ///
     /// **`&'f mut self`, not `&mut self`.** With the elided form `'f` is higher-ranked and every

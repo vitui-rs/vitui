@@ -299,19 +299,34 @@ function markdownIn(dir) {
 }
 
 /**
- * The recordings and the two architecture diagrams, copied rather than imported.
+ * The recordings, the two architecture diagrams and the fifty pictures, copied rather than imported.
  *
- * They are binaries and they have a home already — `docs/img/`, where the repository's own README
- * embeds them. A copy into `public/` is a build artefact on the staged markdown's terms: ignored by
- * git, rewritten every build, and never the thing anybody edits.
+ * They have a home already — `docs/img/`, where the repository's own README embeds them. A copy into
+ * `public/` is a build artefact on the staged markdown's terms: ignored by git, rewritten every
+ * build, and never the thing anybody edits.
+ *
+ * **Recursive since the pictures arrived.** `docs/img/components/` and `docs/img/apps/` are one file
+ * per freeze row and per application, and a flat read would have staged neither — silently, because
+ * a missing image is a broken `<img>` rather than a failed build. The tree is mirrored rather than
+ * flattened so that `components/table.svg` and a future `apps/table.svg` cannot collide.
  */
 function images() {
   const from = join(REPO, 'docs', 'img')
   rmSync(PUBLIC, { recursive: true, force: true })
-  mkdirSync(PUBLIC, { recursive: true })
-  const files = readdirSync(from).filter((f) => /\.(gif|png|svg|webp|jpg)$/.test(f))
-  for (const f of files) copyFileSync(join(from, f), join(PUBLIC, f))
-  return files.length
+  let count = 0
+  const walk = (dir, into) => {
+    mkdirSync(into, { recursive: true })
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      if (entry.isDirectory()) {
+        walk(join(dir, entry.name), join(into, entry.name))
+      } else if (/\.(gif|png|svg|webp|jpg)$/.test(entry.name)) {
+        copyFileSync(join(dir, entry.name), join(into, entry.name))
+        count += 1
+      }
+    }
+  }
+  walk(from, PUBLIC)
+  return count
 }
 
 function main() {

@@ -113,7 +113,7 @@ MSRV **1.88** — `Cargo.toml` is the authority and the `msrv` CI job is what ke
   since ticket 45 that is obligation **O7** rather than a habit: `vitui_components::consumer` joins
   the freeze against the import paths here.
 - **Active work: `.scratch/vitui-production/`** (opened 2026-09-01) — the whole workspace's road to a
-  published crate, twenty-one tickets in seven groups: the paperwork, the six unsubjected register rows
+  published crate, **twenty-six tickets in nine groups**: the paperwork, the six unsubjected register rows
   (**all six standing**, by production 03 and 04),
   the fourteen hostile axes O5 still owed (**the group is closed**: `field`'s three taken by
   production 05, `table`'s two by 06, the overlay family's four by 08, the scroll family's three by
@@ -211,6 +211,15 @@ MSRV **1.88** — `Cargo.toml` is the authority and the `msrv` CI job is what ke
   name six times in `ctx.rs`. **307 citing lines remain in the shipped rlibs and every one is in a
   module its crate hides**, zero in the twenty-nine a reader is offered. `tests/` and `examples/`
   stay out of scope, confirmed rather than deferred.
+  An eighth group is **the instrument** and it is one ticket: **22 is resolved** (2026-09-14) and the
+  two allocations a hosted runner reported were the **test harness's own**, landing in the first
+  window the process opens — the trap above has the mechanism. A ninth is **the presentation**, added
+  2026-09-10 after comparing this repository's first screen with ratatui's, Slint's and Bubble Tea's:
+  25 shipped the site and 26 took `.scratch/` out of the public history, and **23 is resolved**
+  (2026-09-14) — forty-nine pictures, each a composited frame written as SVG. **24 is the one ticket
+  left on it**, the README as a landing page, and its edge on 23 was never what it needed: the first
+  screen wants a recording of something that moves, and 23 puts anything that moves out of scope by
+  name.
   **One ticket on the release path can start today and it is still 02**, which is `ready-for-human`
   — it needs a public repository; with 17, 18, 19, 20 and 21 all resolved, nothing on this backlog
   is unblocked and unclaimed for an agent. **15 is the release frontier and it cannot start**: its
@@ -509,6 +518,21 @@ MSRV **1.88** — `Cargo.toml` is the authority and the `msrv` CI job is what ke
   `mc`'s function bar, because that bar paints two roles *inside* one segment and a segment split in
   two draws a separator between the halves; and a file icon is not a `Glyph`, because a `Glyph` has a
   spelling at every rung and a private-use codepoint has none. Rows 237 and 238.
+- **A picture is a frame, and the writer lives where the composited frame is** (production 23).
+  `Screen::to_svg` walks the composited surface, resolves each handle through the layer stack's
+  tables and each colour through the terminal's capabilities, and writes SVG — a **third** reader of
+  the picture the reference compositor produces and the goldens compare, beside them rather than a
+  copy of them. It is a shipped verb and not `cfg(test)`, and ADR 0023 is untouched by it: what
+  leaves is a picture, never a cell, a handle or a style word. `Driver::to_svg` forwards it, which is
+  the **fourth** instance of *an engine verb an application needs is forwarded unchanged*. Three
+  properties do not survive and each says why — blink (a picture is one instant), a hyperlink (a
+  target is a place to go), conceal (it survives by the glyph not being drawn). A colour the terminal
+  never answered for is a **stated** pair rather than a guess, so the same frame is the same file on
+  every machine. Forty-nine pictures live in `docs/img/{components,apps}/`: the components' are gated the
+  way a golden screen is, and the applications' cannot be — `cargo test` does not run an example — so
+  `scripts/shots.sh --check` re-takes all twenty and diffs, in both CI files. **One is excluded and
+  the exclusion is joined to its reason**: `latency` draws a measured duration, and a timing is a
+  report rather than an equality.
 - **Nothing holds the focus until an application seats it** (issue 25): `if cx.focused().is_none()`
   inside the draw. A runtime that seats the first stop was refused.
 - **`Driver::unhandled` is read *after* the frame**, never before — it is a window onto the same
@@ -905,7 +929,12 @@ conform/                  the only instrument that asks a real terminal: SCENES.
 fuzz/                     two libFuzzer targets and the committed corpus that is their gate
                           └ detached workspace: nightly + libfuzzer-sys, which the engine's
                             dependency policy will not have. A loophole, not a permission
-scripts/                  the five gates and reports that cannot be a `cargo test`
+docs/img/                 the repository's images, and the site stages the tree as it is
+                          └ `components/` 29 and `apps/` 20 SVG pictures, each one composited frame
+                            written as text rather than as terminal bytes. Regenerated by
+                            `scripts/shots.sh`, compared on every pipeline, and reviewed as a diff —
+                            which is the whole reason the format is SVG and not PNG
+scripts/                  the six gates and reports that cannot be a `cargo test`
 site/                     the documentation site: Astro Starlight over this repository's own
                           markdown, served at <https://vitui-rs.github.io> (an organisation page
                           repository, so no base path). Node, not cargo
@@ -1006,6 +1035,9 @@ scripts/page-order-gate.sh    # nothing precedes `?1049h` on a real pty — regi
 scripts/suspend-reader-gate.sh # a suspension does not vacate stdin, on a pty — register #31
 n=1 cargo test -p vitui-engine golden                 # regenerate; review the git diff
 VITUI_BLESS=1 cargo test -p vitui-components golden   # the components' screens; refused in CI
+scripts/shots.sh              # the forty-nine pictures: 29 components, 20 applications
+scripts/shots.sh --check      # and whether each is still the screen it is a picture of
+cargo run -p vitui-apps --example NAME -- --shot   # one application's picture
 ```
 
 The fuzz targets are a **soak, never a gate** — the committed corpus replayed by `cargo test` is the

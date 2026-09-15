@@ -2185,6 +2185,36 @@ pub fn shot_as(
     pen.into_canvas()
 }
 
+/// **One named panel, as a picture rather than as a canvas.**
+///
+/// [`shot`]'s twin, and the difference is the ink: a `Pen` records what a component asked for and
+/// this draws through [`crate::ink::Direct`], so the cells reach the engine, composite, and come
+/// back as the frame's own SVG. What that buys is the sentence a picture of a terminal usually
+/// cannot make — this is the frame, not a photograph of one — and it costs nothing in drift,
+/// because the panel is the same call to [`Gallery::one_into`] the screen makes.
+///
+/// `frames` is the warm-up, for [`shot`]'s reason: the hover index and the ring settle on the
+/// second, and the preview pane's answer arrives on a third.
+///
+/// # Panics
+///
+/// If no panel has that id — which is the same refusal `shot` makes, and it is how a renamed
+/// freeze row fails here rather than quietly producing a picture of nothing.
+pub fn picture(id: &str, w: u16, h: u16, frames: u32) -> String {
+    let mut driver = crate::runner::driver_at(w, h, Density::default());
+    let mut gallery = Gallery::new(Worker::queueing());
+    driver.set_theme(*gallery.theme());
+    let mut found = false;
+    for _ in 0..frames.max(1) {
+        gallery.bag.answer_queued();
+        let mut direct = crate::ink::Direct;
+        let mut sink: Sink<'_> = &mut direct;
+        driver.frame(|cx| found = gallery.one_into(&mut sink, cx, id));
+    }
+    assert!(found, "no panel is named {id}");
+    driver.to_svg()
+}
+
 /// What a live key changes about the theme. [`swap`]'s axis.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Change {

@@ -126,14 +126,14 @@ const STANDING: &[Standing] = &[
         dir: "vitui-engine",
         citations: 0,
         literals: 0,
-        examples: 13,
+        examples: 14,
         comments: 0,
     },
     Standing {
         dir: "vitui-runtime",
         citations: 0,
         literals: 0,
-        examples: 28,
+        examples: 29,
         comments: 0,
     },
     Standing {

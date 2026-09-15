@@ -1,0 +1,457 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 976 556" width="976" height="556" font-family='ui-monospace,SFMono-Regular,Menlo,Consolas,"DejaVu Sans Mono",monospace' font-size="16">
+<rect width="976" height="556" fill="#14161a"/>
+<rect x="8" y="8" width="19.2" height="18" fill="#282a36"/>
+<text x="8" y="22" textLength="19.2" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">┌─</text>
+<rect x="27.2" y="8" width="76.8" height="18" fill="#282a36"/>
+<text x="27.2" y="22" textLength="76.8" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#f8f8f2;font-weight:bold"> Triage </text>
+<rect x="104" y="8" width="864" height="18" fill="#282a36"/>
+<text x="104" y="22" textLength="864" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">─────────────────────────────────────────────────────────────────────────────────────────┐</text>
+<rect x="8" y="26" width="9.6" height="18" fill="#282a36"/>
+<text x="8" y="40" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">│</text>
+<rect x="17.6" y="26" width="940.8" height="18" fill="#282a36"/>
+<rect x="958.4" y="26" width="9.6" height="18" fill="#282a36"/>
+<text x="958.4" y="40" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">│</text>
+<rect x="8" y="44" width="9.6" height="18" fill="#282a36"/>
+<text x="8" y="58" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">│</text>
+<rect x="17.6" y="44" width="940.8" height="18" fill="#282a36"/>
+<rect x="958.4" y="44" width="9.6" height="18" fill="#282a36"/>
+<text x="958.4" y="58" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">│</text>
+<rect x="8" y="62" width="9.6" height="18" fill="#282a36"/>
+<text x="8" y="76" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">│</text>
+<rect x="17.6" y="62" width="19.2" height="18" fill="#282a36"/>
+<rect x="36.8" y="62" width="19.2" height="18" fill="#282a36"/>
+<text x="36.8" y="76" textLength="19.2" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">┌─</text>
+<rect x="56" y="62" width="57.6" height="18" fill="#282a36"/>
+<text x="56" y="76" textLength="57.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#f8f8f2;font-weight:bold"> View </text>
+<rect x="113.6" y="62" width="76.8" height="18" fill="#282a36"/>
+<text x="113.6" y="76" textLength="76.8" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">─────┐┌─</text>
+<rect x="190.4" y="62" width="182.4" height="18" fill="#282a36"/>
+<text x="190.4" y="76" textLength="182.4" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#f8f8f2;font-weight:bold"> Messages — 200000 </text>
+<rect x="372.8" y="62" width="412.8" height="18" fill="#282a36"/>
+<text x="372.8" y="76" textLength="412.8" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">────────────────────────────────────────┐┌─</text>
+<rect x="785.6" y="62" width="86.4" height="18" fill="#282a36"/>
+<text x="785.6" y="76" textLength="86.4" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#f8f8f2;font-weight:bold"> Actions </text>
+<rect x="872" y="62" width="67.2" height="18" fill="#282a36"/>
+<text x="872" y="76" textLength="67.2" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">──────┐</text>
+<rect x="939.2" y="62" width="19.2" height="18" fill="#282a36"/>
+<rect x="958.4" y="62" width="9.6" height="18" fill="#282a36"/>
+<text x="958.4" y="76" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">│</text>
+<rect x="8" y="80" width="9.6" height="18" fill="#282a36"/>
+<text x="8" y="94" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">│</text>
+<rect x="17.6" y="80" width="19.2" height="18" fill="#282a36"/>
+<rect x="36.8" y="80" width="9.6" height="18" fill="#282a36"/>
+<text x="36.8" y="94" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">│</text>
+<rect x="46.4" y="80" width="115.2" height="18" fill="#282a36"/>
+<text x="46.4" y="94" textLength="115.2" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#f8f8f2">Unread      </text>
+<rect x="161.6" y="80" width="19.2" height="18" fill="#282a36"/>
+<text x="161.6" y="94" textLength="19.2" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">││</text>
+<rect x="180.8" y="80" width="576" height="18" fill="#282a36"/>
+<text x="180.8" y="94" textLength="576" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#bd93f9">! ada         #0      re: the render thread mirrors what the</text>
+<rect x="756.8" y="80" width="19.2" height="18" fill="#282a36"/>
+<text x="756.8" y="94" textLength="19.2" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">││</text>
+<rect x="776" y="80" width="153.6" height="18" fill="#282a36"/>
+<text x="776" y="94" textLength="153.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#bd93f9">Archive         </text>
+<rect x="929.6" y="80" width="9.6" height="18" fill="#282a36"/>
+<text x="929.6" y="94" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">│</text>
+<rect x="939.2" y="80" width="19.2" height="18" fill="#282a36"/>
+<rect x="958.4" y="80" width="9.6" height="18" fill="#282a36"/>
+<text x="958.4" y="94" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">│</text>
+<rect x="8" y="98" width="9.6" height="18" fill="#282a36"/>
+<text x="8" y="112" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">│</text>
+<rect x="17.6" y="98" width="19.2" height="18" fill="#282a36"/>
+<rect x="36.8" y="98" width="9.6" height="18" fill="#282a36"/>
+<text x="36.8" y="112" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">│</text>
+<rect x="46.4" y="98" width="115.2" height="18" fill="#282a36"/>
+<text x="46.4" y="112" textLength="115.2" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#f8f8f2">Flagged     </text>
+<rect x="161.6" y="98" width="19.2" height="18" fill="#282a36"/>
+<text x="161.6" y="112" textLength="19.2" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">││</text>
+<rect x="180.8" y="98" width="576" height="18" fill="#282a36"/>
+<text x="180.8" y="112" textLength="576" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#f8f8f2">  brendan     #1      re: the render thread mirrors what the</text>
+<rect x="756.8" y="98" width="19.2" height="18" fill="#282a36"/>
+<text x="756.8" y="112" textLength="19.2" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">││</text>
+<rect x="776" y="98" width="153.6" height="18" fill="#282a36"/>
+<text x="776" y="112" textLength="153.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#f8f8f2">Flag            </text>
+<rect x="929.6" y="98" width="9.6" height="18" fill="#282a36"/>
+<text x="929.6" y="112" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">│</text>
+<rect x="939.2" y="98" width="19.2" height="18" fill="#282a36"/>
+<rect x="958.4" y="98" width="9.6" height="18" fill="#282a36"/>
+<text x="958.4" y="112" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">│</text>
+<rect x="8" y="116" width="9.6" height="18" fill="#282a36"/>
+<text x="8" y="130" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">│</text>
+<rect x="17.6" y="116" width="19.2" height="18" fill="#282a36"/>
+<rect x="36.8" y="116" width="9.6" height="18" fill="#282a36"/>
+<text x="36.8" y="130" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">│</text>
+<rect x="46.4" y="116" width="115.2" height="18" fill="#bd93f9"/>
+<text x="46.4" y="130" textLength="115.2" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#282a36">All         </text>
+<rect x="161.6" y="116" width="19.2" height="18" fill="#282a36"/>
+<text x="161.6" y="130" textLength="19.2" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">││</text>
+<rect x="180.8" y="116" width="576" height="18" fill="#282a36"/>
+<text x="180.8" y="130" textLength="576" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#f8f8f2">  carmack     #2      re: the render thread mirrors what the</text>
+<rect x="756.8" y="116" width="19.2" height="18" fill="#282a36"/>
+<text x="756.8" y="130" textLength="19.2" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">││</text>
+<rect x="776" y="116" width="153.6" height="18" fill="#282a36"/>
+<text x="776" y="130" textLength="153.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#f8f8f2">Mark read       </text>
+<rect x="929.6" y="116" width="9.6" height="18" fill="#282a36"/>
+<text x="929.6" y="130" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">│</text>
+<rect x="939.2" y="116" width="19.2" height="18" fill="#282a36"/>
+<rect x="958.4" y="116" width="9.6" height="18" fill="#282a36"/>
+<text x="958.4" y="130" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">│</text>
+<rect x="8" y="134" width="9.6" height="18" fill="#282a36"/>
+<text x="8" y="148" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">│</text>
+<rect x="17.6" y="134" width="19.2" height="18" fill="#282a36"/>
+<rect x="36.8" y="134" width="144" height="18" fill="#282a36"/>
+<text x="36.8" y="148" textLength="144" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">└────────────┘│</text>
+<rect x="180.8" y="134" width="576" height="18" fill="#282a36"/>
+<text x="180.8" y="148" textLength="576" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#f8f8f2">* dijkstra    #3      re: the render thread mirrors what the</text>
+<rect x="756.8" y="134" width="19.2" height="18" fill="#282a36"/>
+<text x="756.8" y="148" textLength="19.2" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">││</text>
+<rect x="776" y="134" width="153.6" height="18" fill="#282a36"/>
+<text x="776" y="148" textLength="153.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#f8f8f2">Move…           </text>
+<rect x="929.6" y="134" width="9.6" height="18" fill="#282a36"/>
+<text x="929.6" y="148" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">│</text>
+<rect x="939.2" y="134" width="19.2" height="18" fill="#282a36"/>
+<rect x="958.4" y="134" width="9.6" height="18" fill="#282a36"/>
+<text x="958.4" y="148" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">│</text>
+<rect x="8" y="152" width="9.6" height="18" fill="#282a36"/>
+<text x="8" y="166" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">│</text>
+<rect x="17.6" y="152" width="19.2" height="18" fill="#282a36"/>
+<rect x="36.8" y="152" width="19.2" height="18" fill="#282a36"/>
+<text x="36.8" y="166" textLength="19.2" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">┌─</text>
+<rect x="56" y="152" width="86.4" height="18" fill="#282a36"/>
+<text x="56" y="166" textLength="86.4" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#f8f8f2;font-weight:bold"> Folders </text>
+<rect x="142.4" y="152" width="38.4" height="18" fill="#282a36"/>
+<text x="142.4" y="166" textLength="38.4" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">──┐│</text>
+<rect x="180.8" y="152" width="576" height="18" fill="#282a36"/>
+<text x="180.8" y="166" textLength="576" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#f8f8f2">  edsger      #4      re: the render thread mirrors what the</text>
+<rect x="756.8" y="152" width="19.2" height="18" fill="#282a36"/>
+<text x="756.8" y="166" textLength="19.2" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">││</text>
+<rect x="776" y="152" width="153.6" height="18" fill="#282a36"/>
+<text x="776" y="166" textLength="153.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#f8f8f2">Delete          </text>
+<rect x="929.6" y="152" width="9.6" height="18" fill="#282a36"/>
+<text x="929.6" y="166" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">│</text>
+<rect x="939.2" y="152" width="19.2" height="18" fill="#282a36"/>
+<rect x="958.4" y="152" width="9.6" height="18" fill="#282a36"/>
+<text x="958.4" y="166" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">│</text>
+<rect x="8" y="170" width="9.6" height="18" fill="#282a36"/>
+<text x="8" y="184" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">│</text>
+<rect x="17.6" y="170" width="19.2" height="18" fill="#282a36"/>
+<rect x="36.8" y="170" width="9.6" height="18" fill="#282a36"/>
+<text x="36.8" y="184" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">│</text>
+<rect x="46.4" y="170" width="115.2" height="18" fill="#bd93f9"/>
+<text x="46.4" y="184" textLength="115.2" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#282a36">Inbox       </text>
+<rect x="161.6" y="170" width="19.2" height="18" fill="#282a36"/>
+<text x="161.6" y="184" textLength="19.2" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">││</text>
+<rect x="180.8" y="170" width="576" height="18" fill="#282a36"/>
+<text x="180.8" y="184" textLength="576" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#f8f8f2">  fran        #5      re: the render thread mirrors what the</text>
+<rect x="756.8" y="170" width="19.2" height="18" fill="#282a36"/>
+<text x="756.8" y="184" textLength="19.2" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">││</text>
+<rect x="776" y="170" width="153.6" height="18" fill="#282a36"/>
+<rect x="929.6" y="170" width="9.6" height="18" fill="#282a36"/>
+<text x="929.6" y="184" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">│</text>
+<rect x="939.2" y="170" width="19.2" height="18" fill="#282a36"/>
+<rect x="958.4" y="170" width="9.6" height="18" fill="#282a36"/>
+<text x="958.4" y="184" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">│</text>
+<rect x="8" y="188" width="9.6" height="18" fill="#282a36"/>
+<text x="8" y="202" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">│</text>
+<rect x="17.6" y="188" width="19.2" height="18" fill="#282a36"/>
+<rect x="36.8" y="188" width="9.6" height="18" fill="#282a36"/>
+<text x="36.8" y="202" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">│</text>
+<rect x="46.4" y="188" width="115.2" height="18" fill="#282a36"/>
+<text x="46.4" y="202" textLength="115.2" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#f8f8f2">Sent        </text>
+<rect x="161.6" y="188" width="19.2" height="18" fill="#282a36"/>
+<text x="161.6" y="202" textLength="19.2" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">││</text>
+<rect x="180.8" y="188" width="576" height="18" fill="#282a36"/>
+<text x="180.8" y="202" textLength="576" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#f8f8f2">* grace       #6      re: the render thread mirrors what the</text>
+<rect x="756.8" y="188" width="19.2" height="18" fill="#282a36"/>
+<text x="756.8" y="202" textLength="19.2" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">││</text>
+<rect x="776" y="188" width="153.6" height="18" fill="#282a36"/>
+<rect x="929.6" y="188" width="9.6" height="18" fill="#282a36"/>
+<text x="929.6" y="202" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">│</text>
+<rect x="939.2" y="188" width="19.2" height="18" fill="#282a36"/>
+<rect x="958.4" y="188" width="9.6" height="18" fill="#282a36"/>
+<text x="958.4" y="202" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">│</text>
+<rect x="8" y="206" width="9.6" height="18" fill="#282a36"/>
+<text x="8" y="220" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">│</text>
+<rect x="17.6" y="206" width="19.2" height="18" fill="#282a36"/>
+<rect x="36.8" y="206" width="9.6" height="18" fill="#282a36"/>
+<text x="36.8" y="220" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">│</text>
+<rect x="46.4" y="206" width="115.2" height="18" fill="#282a36"/>
+<text x="46.4" y="220" textLength="115.2" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#f8f8f2">Drafts      </text>
+<rect x="161.6" y="206" width="19.2" height="18" fill="#282a36"/>
+<text x="161.6" y="220" textLength="19.2" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">││</text>
+<rect x="180.8" y="206" width="576" height="18" fill="#282a36"/>
+<text x="180.8" y="220" textLength="576" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#f8f8f2">! hopper      #7      re: the render thread mirrors what the</text>
+<rect x="756.8" y="206" width="19.2" height="18" fill="#282a36"/>
+<text x="756.8" y="220" textLength="19.2" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">││</text>
+<rect x="776" y="206" width="153.6" height="18" fill="#282a36"/>
+<rect x="929.6" y="206" width="9.6" height="18" fill="#282a36"/>
+<text x="929.6" y="220" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">│</text>
+<rect x="939.2" y="206" width="19.2" height="18" fill="#282a36"/>
+<rect x="958.4" y="206" width="9.6" height="18" fill="#282a36"/>
+<text x="958.4" y="220" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">│</text>
+<rect x="8" y="224" width="9.6" height="18" fill="#282a36"/>
+<text x="8" y="238" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">│</text>
+<rect x="17.6" y="224" width="19.2" height="18" fill="#282a36"/>
+<rect x="36.8" y="224" width="9.6" height="18" fill="#282a36"/>
+<text x="36.8" y="238" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">│</text>
+<rect x="46.4" y="224" width="115.2" height="18" fill="#282a36"/>
+<text x="46.4" y="238" textLength="115.2" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#f8f8f2">Archive     </text>
+<rect x="161.6" y="224" width="19.2" height="18" fill="#282a36"/>
+<text x="161.6" y="238" textLength="19.2" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">││</text>
+<rect x="180.8" y="224" width="576" height="18" fill="#282a36"/>
+<text x="180.8" y="238" textLength="576" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#f8f8f2">  ingrid      #8      re: the render thread mirrors what the</text>
+<rect x="756.8" y="224" width="19.2" height="18" fill="#282a36"/>
+<text x="756.8" y="238" textLength="19.2" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">││</text>
+<rect x="776" y="224" width="153.6" height="18" fill="#282a36"/>
+<rect x="929.6" y="224" width="9.6" height="18" fill="#282a36"/>
+<text x="929.6" y="238" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">│</text>
+<rect x="939.2" y="224" width="19.2" height="18" fill="#282a36"/>
+<rect x="958.4" y="224" width="9.6" height="18" fill="#282a36"/>
+<text x="958.4" y="238" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">│</text>
+<rect x="8" y="242" width="9.6" height="18" fill="#282a36"/>
+<text x="8" y="256" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">│</text>
+<rect x="17.6" y="242" width="19.2" height="18" fill="#282a36"/>
+<rect x="36.8" y="242" width="9.6" height="18" fill="#282a36"/>
+<text x="36.8" y="256" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">│</text>
+<rect x="46.4" y="242" width="115.2" height="18" fill="#282a36"/>
+<text x="46.4" y="256" textLength="115.2" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#f8f8f2">Spam        </text>
+<rect x="161.6" y="242" width="19.2" height="18" fill="#282a36"/>
+<text x="161.6" y="256" textLength="19.2" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">││</text>
+<rect x="180.8" y="242" width="576" height="18" fill="#282a36"/>
+<text x="180.8" y="256" textLength="576" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#f8f8f2">* joan        #9      re: the render thread mirrors what the</text>
+<rect x="756.8" y="242" width="19.2" height="18" fill="#282a36"/>
+<text x="756.8" y="256" textLength="19.2" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">││</text>
+<rect x="776" y="242" width="153.6" height="18" fill="#282a36"/>
+<rect x="929.6" y="242" width="9.6" height="18" fill="#282a36"/>
+<text x="929.6" y="256" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">│</text>
+<rect x="939.2" y="242" width="19.2" height="18" fill="#282a36"/>
+<rect x="958.4" y="242" width="9.6" height="18" fill="#282a36"/>
+<text x="958.4" y="256" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">│</text>
+<rect x="8" y="260" width="9.6" height="18" fill="#282a36"/>
+<text x="8" y="274" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">│</text>
+<rect x="17.6" y="260" width="19.2" height="18" fill="#282a36"/>
+<rect x="36.8" y="260" width="9.6" height="18" fill="#282a36"/>
+<text x="36.8" y="274" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">│</text>
+<rect x="46.4" y="260" width="115.2" height="18" fill="#282a36"/>
+<text x="46.4" y="274" textLength="115.2" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#f8f8f2">Trash       </text>
+<rect x="161.6" y="260" width="19.2" height="18" fill="#282a36"/>
+<text x="161.6" y="274" textLength="19.2" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">││</text>
+<rect x="180.8" y="260" width="576" height="18" fill="#282a36"/>
+<text x="180.8" y="274" textLength="576" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#f8f8f2">  katherine   #10     re: the render thread mirrors what the</text>
+<rect x="756.8" y="260" width="19.2" height="18" fill="#282a36"/>
+<text x="756.8" y="274" textLength="19.2" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">││</text>
+<rect x="776" y="260" width="153.6" height="18" fill="#282a36"/>
+<rect x="929.6" y="260" width="9.6" height="18" fill="#282a36"/>
+<text x="929.6" y="274" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">│</text>
+<rect x="939.2" y="260" width="19.2" height="18" fill="#282a36"/>
+<rect x="958.4" y="260" width="9.6" height="18" fill="#282a36"/>
+<text x="958.4" y="274" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">│</text>
+<rect x="8" y="278" width="9.6" height="18" fill="#282a36"/>
+<text x="8" y="292" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">│</text>
+<rect x="17.6" y="278" width="19.2" height="18" fill="#282a36"/>
+<rect x="36.8" y="278" width="9.6" height="18" fill="#282a36"/>
+<text x="36.8" y="292" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">│</text>
+<rect x="46.4" y="278" width="115.2" height="18" fill="#282a36"/>
+<rect x="161.6" y="278" width="19.2" height="18" fill="#282a36"/>
+<text x="161.6" y="292" textLength="19.2" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">││</text>
+<rect x="180.8" y="278" width="576" height="18" fill="#282a36"/>
+<text x="180.8" y="292" textLength="576" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#f8f8f2">  linus       #11     re: the render thread mirrors what the</text>
+<rect x="756.8" y="278" width="19.2" height="18" fill="#282a36"/>
+<text x="756.8" y="292" textLength="19.2" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">││</text>
+<rect x="776" y="278" width="153.6" height="18" fill="#282a36"/>
+<rect x="929.6" y="278" width="9.6" height="18" fill="#282a36"/>
+<text x="929.6" y="292" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">│</text>
+<rect x="939.2" y="278" width="19.2" height="18" fill="#282a36"/>
+<rect x="958.4" y="278" width="9.6" height="18" fill="#282a36"/>
+<text x="958.4" y="292" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">│</text>
+<rect x="8" y="296" width="9.6" height="18" fill="#282a36"/>
+<text x="8" y="310" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">│</text>
+<rect x="17.6" y="296" width="19.2" height="18" fill="#282a36"/>
+<rect x="36.8" y="296" width="9.6" height="18" fill="#282a36"/>
+<text x="36.8" y="310" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">│</text>
+<rect x="46.4" y="296" width="115.2" height="18" fill="#282a36"/>
+<rect x="161.6" y="296" width="19.2" height="18" fill="#282a36"/>
+<text x="161.6" y="310" textLength="19.2" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">││</text>
+<rect x="180.8" y="296" width="576" height="18" fill="#282a36"/>
+<text x="180.8" y="310" textLength="576" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#f8f8f2">* margaret    #12     re: the render thread mirrors what the</text>
+<rect x="756.8" y="296" width="19.2" height="18" fill="#282a36"/>
+<text x="756.8" y="310" textLength="19.2" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">││</text>
+<rect x="776" y="296" width="153.6" height="18" fill="#282a36"/>
+<rect x="929.6" y="296" width="9.6" height="18" fill="#282a36"/>
+<text x="929.6" y="310" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">│</text>
+<rect x="939.2" y="296" width="19.2" height="18" fill="#282a36"/>
+<rect x="958.4" y="296" width="9.6" height="18" fill="#282a36"/>
+<text x="958.4" y="310" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">│</text>
+<rect x="8" y="314" width="9.6" height="18" fill="#282a36"/>
+<text x="8" y="328" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">│</text>
+<rect x="17.6" y="314" width="19.2" height="18" fill="#282a36"/>
+<rect x="36.8" y="314" width="9.6" height="18" fill="#282a36"/>
+<text x="36.8" y="328" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">│</text>
+<rect x="46.4" y="314" width="115.2" height="18" fill="#282a36"/>
+<rect x="161.6" y="314" width="19.2" height="18" fill="#282a36"/>
+<text x="161.6" y="328" textLength="19.2" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">││</text>
+<rect x="180.8" y="314" width="576" height="18" fill="#282a36"/>
+<text x="180.8" y="328" textLength="576" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#f8f8f2">  niklaus     #13     re: the render thread mirrors what the</text>
+<rect x="756.8" y="314" width="19.2" height="18" fill="#282a36"/>
+<text x="756.8" y="328" textLength="19.2" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">││</text>
+<rect x="776" y="314" width="153.6" height="18" fill="#282a36"/>
+<rect x="929.6" y="314" width="9.6" height="18" fill="#282a36"/>
+<text x="929.6" y="328" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">│</text>
+<rect x="939.2" y="314" width="19.2" height="18" fill="#282a36"/>
+<rect x="958.4" y="314" width="9.6" height="18" fill="#282a36"/>
+<text x="958.4" y="328" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">│</text>
+<rect x="8" y="332" width="9.6" height="18" fill="#282a36"/>
+<text x="8" y="346" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">│</text>
+<rect x="17.6" y="332" width="19.2" height="18" fill="#282a36"/>
+<rect x="36.8" y="332" width="9.6" height="18" fill="#282a36"/>
+<text x="36.8" y="346" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">│</text>
+<rect x="46.4" y="332" width="115.2" height="18" fill="#282a36"/>
+<rect x="161.6" y="332" width="19.2" height="18" fill="#282a36"/>
+<text x="161.6" y="346" textLength="19.2" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">││</text>
+<rect x="180.8" y="332" width="576" height="18" fill="#282a36"/>
+<text x="180.8" y="346" textLength="576" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#f8f8f2">! ousterhout  #14     re: the render thread mirrors what the</text>
+<rect x="756.8" y="332" width="19.2" height="18" fill="#282a36"/>
+<text x="756.8" y="346" textLength="19.2" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">││</text>
+<rect x="776" y="332" width="153.6" height="18" fill="#282a36"/>
+<rect x="929.6" y="332" width="9.6" height="18" fill="#282a36"/>
+<text x="929.6" y="346" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">│</text>
+<rect x="939.2" y="332" width="19.2" height="18" fill="#282a36"/>
+<rect x="958.4" y="332" width="9.6" height="18" fill="#282a36"/>
+<text x="958.4" y="346" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">│</text>
+<rect x="8" y="350" width="9.6" height="18" fill="#282a36"/>
+<text x="8" y="364" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">│</text>
+<rect x="17.6" y="350" width="19.2" height="18" fill="#282a36"/>
+<rect x="36.8" y="350" width="9.6" height="18" fill="#282a36"/>
+<text x="36.8" y="364" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">│</text>
+<rect x="46.4" y="350" width="115.2" height="18" fill="#282a36"/>
+<rect x="161.6" y="350" width="19.2" height="18" fill="#282a36"/>
+<text x="161.6" y="364" textLength="19.2" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">││</text>
+<rect x="180.8" y="350" width="576" height="18" fill="#282a36"/>
+<text x="180.8" y="364" textLength="576" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#f8f8f2">* petra       #15     re: the render thread mirrors what the</text>
+<rect x="756.8" y="350" width="19.2" height="18" fill="#282a36"/>
+<text x="756.8" y="364" textLength="19.2" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">││</text>
+<rect x="776" y="350" width="153.6" height="18" fill="#282a36"/>
+<rect x="929.6" y="350" width="9.6" height="18" fill="#282a36"/>
+<text x="929.6" y="364" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">│</text>
+<rect x="939.2" y="350" width="19.2" height="18" fill="#282a36"/>
+<rect x="958.4" y="350" width="9.6" height="18" fill="#282a36"/>
+<text x="958.4" y="364" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">│</text>
+<rect x="8" y="368" width="9.6" height="18" fill="#282a36"/>
+<text x="8" y="382" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">│</text>
+<rect x="17.6" y="368" width="19.2" height="18" fill="#282a36"/>
+<rect x="36.8" y="368" width="9.6" height="18" fill="#282a36"/>
+<text x="36.8" y="382" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">│</text>
+<rect x="46.4" y="368" width="115.2" height="18" fill="#282a36"/>
+<rect x="161.6" y="368" width="19.2" height="18" fill="#282a36"/>
+<text x="161.6" y="382" textLength="19.2" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">││</text>
+<rect x="180.8" y="368" width="576" height="18" fill="#282a36"/>
+<text x="180.8" y="382" textLength="576" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#f8f8f2">  ada         #16     damage is marked at write time        </text>
+<rect x="756.8" y="368" width="19.2" height="18" fill="#282a36"/>
+<text x="756.8" y="382" textLength="19.2" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">││</text>
+<rect x="776" y="368" width="153.6" height="18" fill="#282a36"/>
+<rect x="929.6" y="368" width="9.6" height="18" fill="#282a36"/>
+<text x="929.6" y="382" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">│</text>
+<rect x="939.2" y="368" width="19.2" height="18" fill="#282a36"/>
+<rect x="958.4" y="368" width="9.6" height="18" fill="#282a36"/>
+<text x="958.4" y="382" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">│</text>
+<rect x="8" y="386" width="9.6" height="18" fill="#282a36"/>
+<text x="8" y="400" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">│</text>
+<rect x="17.6" y="386" width="19.2" height="18" fill="#282a36"/>
+<rect x="36.8" y="386" width="9.6" height="18" fill="#282a36"/>
+<text x="36.8" y="400" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">│</text>
+<rect x="46.4" y="386" width="115.2" height="18" fill="#282a36"/>
+<rect x="161.6" y="386" width="19.2" height="18" fill="#282a36"/>
+<text x="161.6" y="400" textLength="19.2" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">││</text>
+<rect x="180.8" y="386" width="576" height="18" fill="#282a36"/>
+<text x="180.8" y="400" textLength="576" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#f8f8f2">  brendan     #17     damage is marked at write time        </text>
+<rect x="756.8" y="386" width="19.2" height="18" fill="#282a36"/>
+<text x="756.8" y="400" textLength="19.2" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">││</text>
+<rect x="776" y="386" width="153.6" height="18" fill="#282a36"/>
+<rect x="929.6" y="386" width="9.6" height="18" fill="#282a36"/>
+<text x="929.6" y="400" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">│</text>
+<rect x="939.2" y="386" width="19.2" height="18" fill="#282a36"/>
+<rect x="958.4" y="386" width="9.6" height="18" fill="#282a36"/>
+<text x="958.4" y="400" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">│</text>
+<rect x="8" y="404" width="9.6" height="18" fill="#282a36"/>
+<text x="8" y="418" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">│</text>
+<rect x="17.6" y="404" width="19.2" height="18" fill="#282a36"/>
+<rect x="36.8" y="404" width="9.6" height="18" fill="#282a36"/>
+<text x="36.8" y="418" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">│</text>
+<rect x="46.4" y="404" width="115.2" height="18" fill="#282a36"/>
+<rect x="161.6" y="404" width="19.2" height="18" fill="#282a36"/>
+<text x="161.6" y="418" textLength="19.2" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">││</text>
+<rect x="180.8" y="404" width="576" height="18" fill="#282a36"/>
+<text x="180.8" y="418" textLength="576" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#f8f8f2">* carmack     #18     damage is marked at write time        </text>
+<rect x="756.8" y="404" width="19.2" height="18" fill="#282a36"/>
+<text x="756.8" y="418" textLength="19.2" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">││</text>
+<rect x="776" y="404" width="153.6" height="18" fill="#282a36"/>
+<rect x="929.6" y="404" width="9.6" height="18" fill="#282a36"/>
+<text x="929.6" y="418" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">│</text>
+<rect x="939.2" y="404" width="19.2" height="18" fill="#282a36"/>
+<rect x="958.4" y="404" width="9.6" height="18" fill="#282a36"/>
+<text x="958.4" y="418" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">│</text>
+<rect x="8" y="422" width="9.6" height="18" fill="#282a36"/>
+<text x="8" y="436" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">│</text>
+<rect x="17.6" y="422" width="19.2" height="18" fill="#282a36"/>
+<rect x="36.8" y="422" width="9.6" height="18" fill="#282a36"/>
+<text x="36.8" y="436" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">│</text>
+<rect x="46.4" y="422" width="115.2" height="18" fill="#282a36"/>
+<rect x="161.6" y="422" width="19.2" height="18" fill="#282a36"/>
+<text x="161.6" y="436" textLength="19.2" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">││</text>
+<rect x="180.8" y="422" width="576" height="18" fill="#282a36"/>
+<text x="180.8" y="436" textLength="576" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#f8f8f2">  dijkstra    #19     damage is marked at write time        </text>
+<rect x="756.8" y="422" width="19.2" height="18" fill="#282a36"/>
+<text x="756.8" y="436" textLength="19.2" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">││</text>
+<rect x="776" y="422" width="153.6" height="18" fill="#282a36"/>
+<rect x="929.6" y="422" width="9.6" height="18" fill="#282a36"/>
+<text x="929.6" y="436" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">│</text>
+<rect x="939.2" y="422" width="19.2" height="18" fill="#282a36"/>
+<rect x="958.4" y="422" width="9.6" height="18" fill="#282a36"/>
+<text x="958.4" y="436" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">│</text>
+<rect x="8" y="440" width="9.6" height="18" fill="#282a36"/>
+<text x="8" y="454" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">│</text>
+<rect x="17.6" y="440" width="19.2" height="18" fill="#282a36"/>
+<rect x="36.8" y="440" width="9.6" height="18" fill="#282a36"/>
+<text x="36.8" y="454" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">│</text>
+<rect x="46.4" y="440" width="115.2" height="18" fill="#282a36"/>
+<rect x="161.6" y="440" width="19.2" height="18" fill="#282a36"/>
+<text x="161.6" y="454" textLength="19.2" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">││</text>
+<rect x="180.8" y="440" width="576" height="18" fill="#282a36"/>
+<text x="180.8" y="454" textLength="576" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#f8f8f2">  edsger      #20     damage is marked at write time        </text>
+<rect x="756.8" y="440" width="19.2" height="18" fill="#282a36"/>
+<text x="756.8" y="454" textLength="19.2" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">││</text>
+<rect x="776" y="440" width="153.6" height="18" fill="#282a36"/>
+<rect x="929.6" y="440" width="9.6" height="18" fill="#282a36"/>
+<text x="929.6" y="454" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">│</text>
+<rect x="939.2" y="440" width="19.2" height="18" fill="#282a36"/>
+<rect x="958.4" y="440" width="9.6" height="18" fill="#282a36"/>
+<text x="958.4" y="454" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">│</text>
+<rect x="8" y="458" width="9.6" height="18" fill="#282a36"/>
+<text x="8" y="472" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">│</text>
+<rect x="17.6" y="458" width="19.2" height="18" fill="#282a36"/>
+<rect x="36.8" y="458" width="902.4" height="18" fill="#282a36"/>
+<text x="36.8" y="472" textLength="902.4" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">└────────────┘└────────────────────────────────────────────────────────────┘└────────────────┘</text>
+<rect x="939.2" y="458" width="19.2" height="18" fill="#282a36"/>
+<rect x="958.4" y="458" width="9.6" height="18" fill="#282a36"/>
+<text x="958.4" y="472" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">│</text>
+<rect x="8" y="476" width="9.6" height="18" fill="#282a36"/>
+<text x="8" y="490" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">│</text>
+<rect x="17.6" y="476" width="19.2" height="18" fill="#282a36"/>
+<rect x="36.8" y="476" width="902.4" height="18" fill="#282a36"/>
+<text x="36.8" y="490" textLength="902.4" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#9ea8c7"> cursor 0  anchor -1  selected 0 in 0 span(s), 0 B  ·  offset 0  ·  search ""  ·  rev 1  ·  l…</text>
+<rect x="939.2" y="476" width="19.2" height="18" fill="#282a36"/>
+<rect x="958.4" y="476" width="9.6" height="18" fill="#282a36"/>
+<text x="958.4" y="490" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">│</text>
+<rect x="8" y="494" width="9.6" height="18" fill="#282a36"/>
+<text x="8" y="508" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">│</text>
+<rect x="17.6" y="494" width="940.8" height="18" fill="#282a36"/>
+<rect x="958.4" y="494" width="9.6" height="18" fill="#282a36"/>
+<text x="958.4" y="508" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">│</text>
+<rect x="8" y="512" width="9.6" height="18" fill="#282a36"/>
+<text x="8" y="526" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">│</text>
+<rect x="17.6" y="512" width="940.8" height="18" fill="#282a36"/>
+<rect x="958.4" y="512" width="9.6" height="18" fill="#282a36"/>
+<text x="958.4" y="526" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">│</text>
+<rect x="8" y="530" width="960" height="18" fill="#282a36"/>
+<text x="8" y="544" textLength="960" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">└──────────────────────────────────────────────────────────────────────────────────────────────────┘</text>
+</svg>

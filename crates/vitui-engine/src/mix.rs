@@ -176,7 +176,7 @@ impl Mix {
 /// this lands on* — so resolving one is not a property of the colour, and `toward` is resolved twice
 /// rather than once for exactly that reason.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
-enum Side {
+pub(crate) enum Side {
     Fg,
     Bg,
 }
@@ -200,7 +200,7 @@ fn indexed(caps: &Capabilities, i: u8) -> Rgb {
 ///
 /// The `None` is the silent path, and the caller's response to it is to leave the cell
 /// **entirely** alone rather than to mix the channel it does know. See [`Mixer::mixed`].
-fn resolve(caps: &Capabilities, c: Color, side: Side) -> Option<Rgb> {
+pub(crate) fn resolve(caps: &Capabilities, c: Color, side: Side) -> Option<Rgb> {
     match c.tag() {
         TAG_DEFAULT => match side {
             Side::Fg => caps.default_fg,

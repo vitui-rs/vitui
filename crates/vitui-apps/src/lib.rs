@@ -71,6 +71,80 @@
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
 
+/// **The picture arm every application answers, and where its file goes.**
+///
+/// `--shot` on any of them draws the screen headlessly and writes it as SVG under
+/// `docs/img/apps/`, which is where the repository's own images live. It is the applications' half
+/// of a rule the components keep through the freeze: a program nobody outside this machine has ever
+/// seen is a program nobody outside this machine believes in.
+///
+/// One application answers nothing here, and says so rather than being quietly absent: `caps` draws
+/// no frame at all — it attaches, reads what the terminal claimed, detaches and prints — so there is
+/// no composited frame to be a picture of.
+pub mod pictures {
+    use std::path::{Path, PathBuf};
+
+    use vitui_runtime::Theme;
+    use vitui_runtime::ctx::Driver;
+
+    /// Frames drawn before the picture is taken.
+    ///
+    /// **Two, and the second is not a warm-up.** Everything `end` decides — the pointer award, the
+    /// ring's walk, a reveal's second half — is drawn on the frame after the one that decided it, so
+    /// a one-frame picture is a picture of an application that has not finished starting.
+    pub const FRAMES: u32 = 2;
+
+    /// Whether this run was asked for a picture rather than for a terminal.
+    pub fn wanted() -> bool {
+        std::env::args().any(|a| a == "--shot")
+    }
+
+    /// Where `name`'s picture belongs. Derived from this crate's own directory, so it does not
+    /// depend on where the binary was run from.
+    pub fn path(name: &str) -> PathBuf {
+        Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("..")
+            .join("..")
+            .join("docs")
+            .join("img")
+            .join("apps")
+            .join(format!("{name}.svg"))
+    }
+
+    /// **A headless driver at `w x h`, themed the way this application themes its own.**
+    ///
+    /// Two verbs rather than one taking a closure, because three applications build their state
+    /// *from* the driver — a worker hired on its wake handle — and a closure cannot hand back
+    /// something it was given after the fact.
+    ///
+    /// # Panics
+    ///
+    /// If a sink will not attach, which means the run produced nothing.
+    pub fn driver(w: u16, h: u16, theme: Theme) -> Driver {
+        let mut driver = Driver::headless(w, h).expect("a sink attaches");
+        driver.set_theme(theme);
+        driver
+    }
+
+    /// **Write `driver`'s last composited frame as `name`'s picture.**
+    ///
+    /// The path is printed, because a command that writes a file and says nothing is a command
+    /// whose output a person has to go looking for.
+    ///
+    /// # Panics
+    ///
+    /// If the picture cannot be written. A silent failure here is a stale file that looks current.
+    pub fn write(name: &str, driver: &Driver) {
+        let file = path(name);
+        if let Some(dir) = file.parent() {
+            std::fs::create_dir_all(dir).expect("the picture directory is this repository's own");
+        }
+        let svg = driver.to_svg();
+        std::fs::write(&file, &svg).expect("the picture directory is writable");
+        println!("{} — {} bytes", file.display(), svg.len());
+    }
+}
+
 /// What an application in `examples/` demonstrates, in one line.
 ///
 /// The column exists so that a reader picking one to open does not have to open all of them, and so

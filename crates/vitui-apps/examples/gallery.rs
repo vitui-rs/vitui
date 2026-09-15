@@ -354,6 +354,22 @@ fn main() {
         return;
     }
 
+    // **The picture arm**: one screen, drawn headlessly and written as SVG. A program nobody
+    // outside this machine can see is a program nobody believes in.
+    //
+    // The theme is taken from the gallery rather than declared here, exactly as the loop below
+    // takes it: this screen is the one whose subject *is* the theme.
+    if vitui_apps::pictures::wanted() {
+        let mut driver = vitui_apps::pictures::driver(120, 36, Default::default());
+        let mut app = App::new(Worker::queueing());
+        driver.set_theme(*app.gallery.theme());
+        for _ in 0..vitui_apps::pictures::FRAMES {
+            driver.frame(|cx| app.ui(cx));
+        }
+        vitui_apps::pictures::write("gallery", &driver);
+        return;
+    }
+
     let mut driver = match Driver::attach(Default::default(), Default::default()) {
         Ok(driver) => driver,
         Err(why) => {

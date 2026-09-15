@@ -986,6 +986,61 @@ impl Screen {
         &self.caps
     }
 
+    /// **The frame this screen last composited, as an SVG picture.**
+    ///
+    /// Not a screenshot of a terminal: the frame itself, walked cell by cell and written as text.
+    /// The bytes a terminal would have received and this picture come from the same composited
+    /// surface, so a picture cannot disagree with the screen it is a picture of — and because the
+    /// output is text, a changed screen is a diff rather than a new binary.
+    ///
+    /// It reads what [`present`](Screen::present) left behind, so **call it after one**: on a screen
+    /// that has never presented, the composited frame is empty and the picture is a blank page. A
+    /// headless configuration is all that is needed —
+    /// [`Clock::Manual`](crate::Clock) and a sink run both halves inline on this thread — which is
+    /// what makes a picture reproducible on a machine with no terminal at all.
+    ///
+    /// # What it cannot carry
+    ///
+    /// Three of a cell's properties do not survive, each for its own reason. **Blinking** is a
+    /// property of time and a picture is one instant. A **hyperlink** is a place to go and a
+    /// picture is not a place to put one. **Conceal** survives by the glyph not being drawn, which
+    /// is the whole of what it means. Everything else — the sixteen and 256-colour and truecolor
+    /// paints, bold, dim, italic, reverse, the five underline spellings and the underline's own
+    /// colour, strikethrough, overline, and a wide cluster occupying two columns — is in the file.
+    ///
+    /// A colour the terminal never told us is the one place this states rather than reports:
+    /// `Color::DEFAULT` means *whatever this terminal paints with*, and a terminal that answered
+    /// no OSC 10 or 11 has said nothing to report. The picture then uses a stated pair, so that the
+    /// same frame is the same file on every machine.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use vitui_engine::{Color, Config, Engine, Output, Rect, Style};
+    ///
+    /// let (mut screen, _wake) = Engine::new(Config {
+    ///     output: Output::Sink(Box::new(Vec::new())),
+    ///     size: (20, 3),
+    ///     ..Default::default()
+    /// })
+    /// .attach()
+    /// .expect("a sink attaches");
+    /// let layer = screen.layers().add_content(0, Rect::new(0, 0, 20, 3), true);
+    /// screen
+    ///     .layers()
+    ///     .view(layer)
+    ///     .expect("the layer was just added")
+    ///     .text(0, 1, "hello", Style::new().fg(Color::indexed(2)).bold());
+    /// screen.present();
+    ///
+    /// let picture = screen.to_svg();
+    /// assert!(picture.starts_with("<svg "));
+    /// assert!(picture.contains("hello"));
+    /// ```
+    pub fn to_svg(&self) -> String {
+        crate::svg::render(&self.frame, self.layers.tables(), &self.caps)
+    }
+
     /// The layer stack: add a layer, draw into one, move it, remove it, and ask which one is on
     /// top at a point.
     ///

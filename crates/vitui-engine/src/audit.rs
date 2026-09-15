@@ -32,8 +32,8 @@
 //! |---|---|---|
 //! | the block | 41 | 41 named, plus the 28 inside the four types it blesses wholesale |
 //! | absent, and recorded rather than resurrected | −1 (`Resolver`) | — |
-//! | added by implementation tickets, each naming one | +9 | +38 |
-//! | **built** | **49** | **107** |
+//! | added by implementation tickets, each naming one | +9 | +39 |
+//! | **built** | **49** | **108** |
 //!
 //! **A later change moved both columns and left the type count where it was.** The block
 //! lost `LinkId` and gained `Link<'a>`, so forty-one is still forty-one; it lost `Screen::link`,
@@ -1024,6 +1024,14 @@ pub const SURFACE: &[Item] = &[
                 origin: Origin::Spec12,
             },
             Verb {
+                name: "to_svg",
+                recv: Recv::Ref,
+                origin: Origin::Added {
+                    by: "production 23",
+                    why: "the composited frame as a picture, which §12 has no verb for because it was written before there was anything to show; what leaves is a rendering and never a cell, so ADR 0023 is untouched",
+                },
+            },
+            Verb {
                 name: "suspend",
                 recv: Recv::RefMut,
                 origin: Origin::Added {
@@ -1607,7 +1615,16 @@ pub const NEGATIVE_CASES: usize = 37;
 ///
 /// The two arrived in that order and were written in the other one, so the last number a reader
 /// saw was forty-seven above a constant of forty-eight.
-pub const RUNNABLE_EXAMPLES: usize = 50;
+///
+/// **Fifty-one since `Screen::to_svg`**, whose fence is the one place a caller is shown composing a
+/// frame with no terminal and asking for a picture of it. It has no negative twin, for the suspend
+/// pair's reason: it refuses nothing a compile outcome can express.
+///
+/// **Two of the steps between forty-eight and fifty-one are not narrated above and that is a gap in
+/// this paragraph rather than in the count** — the constant moved twice without a sentence. Said
+/// here rather than invented: a step whose reason nobody wrote down is not one a later reader can
+/// reconstruct from the number.
+pub const RUNNABLE_EXAMPLES: usize = 51;
 
 #[cfg(test)]
 mod tests {
@@ -2151,12 +2168,12 @@ mod tests {
                 }
             }
         }
-        assert_eq!((types, verbs), (9, 38), "the audit's own numbers moved");
+        assert_eq!((types, verbs), (9, 39), "the audit's own numbers moved");
     }
 
     /// **The counts, as the audit recorded them.**
     ///
-    /// Forty-nine types and one hundred and seven functions, against *twenty-one public types
+    /// Forty-nine types and one hundred and eight functions, against *twenty-one public types
     /// and about sixty-three functions* — a sentence its own block never agreed with. The
     /// arithmetic is stated so that a reader can check it rather than trust it: 41 − 1 + 9 = 49.
     ///
@@ -2166,14 +2183,17 @@ mod tests {
     /// the type count did not move there either: the pair is two verbs on a type that was already
     /// listed, and neither of them returns anything. **The typed chord took it to one
     /// hundred and seven** with `KeyText::of`, and the type count did not move there either, for
-    /// the same reason: a constructor on a type that was already listed.
+    /// the same reason: a constructor on a type that was already listed. **A frame becoming a
+    /// picture took it to one hundred and eight** with `Screen::to_svg`, and the type count did not
+    /// move: it answers a `String`, and a picture is a rendering rather than a type this surface
+    /// has to name.
     #[test]
     fn the_counts_are_the_ones_the_audit_recorded() {
         let types = SURFACE.iter().filter(|i| i.kind != Kind::Function).count();
         let functions = SURFACE.iter().map(|i| i.verbs.len()).sum::<usize>()
             + SURFACE.iter().filter(|i| i.kind == Kind::Function).count();
         assert_eq!(types, 49, "the public type count moved");
-        assert_eq!(functions, 107, "the public function count moved");
+        assert_eq!(functions, 108, "the public function count moved");
         let added = SURFACE
             .iter()
             .filter(|i| i.kind != Kind::Function)

@@ -248,6 +248,11 @@ mod restyle;
 mod slot;
 mod style;
 mod surface;
+// **The picture writer, and it is not `cfg(test)` the way the other two readers of a composited
+// frame are.** `Screen::to_svg` is a shipped verb — documentation and a gallery are made of its
+// output — so the module it lives in is compiled into the library the same as the serializer is.
+// What leaves through it is a picture and never the cells: no handle, no style word, no table.
+mod svg;
 mod sweep;
 mod text;
 mod view;
