@@ -236,9 +236,20 @@ MSRV **1.88** — `Cargo.toml` is the authority and the `msrv` CI job is what ke
   does not match `the machine`**, **a text search does not read a pixel** — the README's first image
   showed a home directory and a prompt four days after the SVG beside it was regenerated — and **a
   demo filesystem is a document**. Nothing gates the three recordings.
-  **15 is the frontier and it can start today**: its one edge was 02, the five
-  components architecture questions it also waited on — that map's 19, 22, 23, 24 and 25, not this
-  backlog's numbers — having all resolved by 2026-09-05, and what they decided is listed below.
+  **15 is resolved** (2026-09-15) and the four crates are on crates.io at 0.1.0, each verified
+  against the registry copy of the one below it. Three gates stood in front of the upload and only an
+  attempt could reach any of them: `cargo publish --dry-run` had never been run and failed on the
+  first crate, because the three `publish = false` crates carried a `version` — which is what puts a
+  dev-dependency into a published manifest that cannot resolve it; dropping it made them wildcards,
+  which `cargo deny` forbids, rightly for a registry dependency and not for a path one; and
+  `allow-wildcard-paths` shares five letters with the allowlist a runtime gate refuses, so **a prefix
+  standing in for a concept refused the release**. The other three dry-runs are **impossible rather
+  than skipped** — cargo resolves before it packages. The Windows marking **may not name a ticket**,
+  because the shipped-docs gate forbids it: the crate strings name the event and `docs/status.md`
+  names the ticket, reachable from crates.io only because all four crate READMEs had linked
+  `../../` out of their own package. Its five components architecture edges — that map's 19, 22, 23,
+  24 and 25, not this backlog's numbers — had all resolved by 2026-09-05, and what they decided is
+  listed below.
   **Windows is last, as 16**, blocked by the publish — which carries the consequence that no shipped
   string may claim a terminal the conform suite has not asked. **The workspace itself has run there
   since 2026-09-10** — `cargo test --workspace --no-fail-fast` is green on `windows-latest`, and the
