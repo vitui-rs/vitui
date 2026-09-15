@@ -1505,9 +1505,20 @@ pub fn next_delay(
 /// Stripping is component-wise, so a `$HOME` with a trailing slash is handled; a path that is not
 /// under `home`, an absent `home`, and a name without the needle each keep the part the
 /// substitution does not reach.
+///
+/// **The separator after the tilde is always `/`**, whatever the host thinks. The first Windows run
+/// of this crate caught the alternative: `Path::join` uses the platform's separator, so the one
+/// segment this function contributes came back as `\` while every segment it had merely copied
+/// stayed `/`. The output is report text, and a report whose bytes depend on who ran it cannot be
+/// diffed — which is the whole reason the path is redacted rather than printed.
 pub fn socket_for_report(socket: &Path, home: Option<&Path>) -> String {
     let shown = match home.and_then(|home| socket.strip_prefix(home).ok()) {
-        Some(rest) => Path::new("~").join(rest).display().to_string(),
+        // **`format!` and not `Path::join`.** A join inserts the *platform's* separator, so on
+        // Windows this produced `~\.local/share/...` — one backslash spliced into a path that keeps
+        // forward slashes everywhere else, because `display` prints a path as stored and only the
+        // join had an opinion. What this returns is a line of a committed report rather than a path
+        // anything opens.
+        Some(rest) => format!("~/{}", rest.display()),
         None => socket.display().to_string(),
     };
     match shown.rsplit_once("gui-sock-") {

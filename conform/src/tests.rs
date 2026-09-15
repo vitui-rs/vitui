@@ -3007,3 +3007,20 @@ fn a_name_without_the_needle_is_returned_whole() {
         "~/.local/share/wezterm/sock"
     );
 }
+
+#[test]
+fn the_redacted_form_never_carries_the_hosts_separator() {
+    // **This one cannot fail on a Unix machine and is here anyway.** `Path::join` inserts the
+    // platform's separator, which is `/` here and `\` on Windows, so the defect it guards is
+    // invisible to every run on this desk — the first Windows execution of this crate is what found
+    // it. The property is what the report needs: a redacted line is text a reader diffs, so it may
+    // not read differently depending on who produced it.
+    let out = socket_for_report(
+        Path::new("/Users/someone/.local/share/wezterm/gui-sock-4"),
+        Some(Path::new("/Users/someone")),
+    );
+    assert!(
+        !out.contains('\\'),
+        "the report line picked up a host separator: {out}"
+    );
+}
