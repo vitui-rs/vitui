@@ -336,6 +336,27 @@ which unlike a committed `RUSTFLAGS` cannot be switched off from a shell.
 `cargo-fuzz` needs nightly and `libfuzzer-sys` and the engine's dependency policy will not have
 them. The committed corpus replayed by `cargo test` is the gate; the fuzzers themselves are a soak.
 
+### Where the gates run, and what the badge reports
+
+**The visible workflows are not the gate set.** `.github/workflows/` holds the four things a local
+runner cannot do: `ci.yml`, the macOS/Linux/Windows matrix; `soak.yml`, the weekly fuzz soak;
+`compare.yml`, the monthly comparative suite; and `site.yml`, which deploys the documentation site.
+The two scheduled ones upload a report and never push one.
+
+The five jobs that decide whether a change lands are `.gitlab-ci.yml`'s, and they run on a GitLab
+instance on the author's machine that nobody outside it can resolve. The file ships because it is the
+definition of what is gated rather than a link to a pipeline — each of the five is reproducible here:
+
+| job | what it runs |
+|---|---|
+| `test` | `cargo fmt --all --check`, clippy over all targets and over the engine's `fuzz` feature, `cargo doc --workspace --no-deps`, `cargo test --workspace -- --test-threads=1`, five of the scripts under `scripts/`, and `conform/`'s own suite over the committed captures |
+| `msrv` | `cargo check --workspace --all-targets` on 1.88.0, after printing the toolchain it claims to be |
+| `deny` | `cargo deny check`, here and again in `fuzz/` |
+| `budget` | `cargo run --release --example budget -p vitui-engine`, then the runtime's `frame` report and `scripts/observer-gate.sh` |
+| `idle` | `scripts/idle-gate.sh 30` and `scripts/steady-report.sh 30` |
+
+The CI badge above reports the matrix.
+
 ## Documents
 
 **All of it as a site.** [`site/`](site) builds this repository's own markdown — the guide, the three

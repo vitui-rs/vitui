@@ -4,8 +4,6 @@ description = "Test-only global allocator that counts allocations, for asserting
 version.workspace = true
 edition.workspace = true
 license.workspace = true
-# `repository` is absent from `workspace.package` on purpose; see the root `Cargo.toml`. Restore
-# `repository.workspace = true` here when the key goes back.
 rust-version.workspace = true
 publish = false
 
