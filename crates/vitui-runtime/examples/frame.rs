@@ -58,11 +58,11 @@
 //! unloaded, minimum of 40 rounds. Three quiet runs read 89.79 / 89.92 / 89.88 µs, a 0.15% spread;
 //! under a concurrent `cargo build` the same frame reads 94.2 µs.
 //!
-//! **Confirmed on the devkit GitLab runner by pipeline 52: 91.88 µs**, 1.09× of headroom — 2.2%
-//! slower than this laptop, which is the whole of the runner penalty on an idle six-slot machine
+//! **Confirmed on the self-hosted GitLab runner by pipeline 52: 91.88 µs**, 1.09× of headroom — 2.2%
+//! slower than the recording machine, which is the penalty of a shared runner with nothing else on it
 //! and well inside the load penalty measured above. That number is why the gate sits where it
-//! does rather than at the budget: 91.88 against 100 is 8% of margin on a runner shared with every
-//! other repository on the machine, and a competing pipeline is worth more than 8%.
+//! does rather than at the budget: 91.88 against 100 is 8% of margin on a runner shared with other
+//! repositories, and a competing pipeline is worth more than 8%.
 
 use std::hint::black_box;
 
@@ -99,8 +99,8 @@ fn main() {
     // was recorded, and the run below names nothing it cannot know.
     println!(
         "recorded on  Apple M1 Max, macOS 26.5.2, rustc 1.97.1, --release, unloaded — R 20,\n\
-         \x20            2026-08-24, and confirmed on the devkit GitLab runner by pipeline 52 at\n\
-         \x20            91.88 us, 2.2% slower than this laptop's 89.88.\n\
+         \x20            2026-08-24, and confirmed on the self-hosted GitLab runner by pipeline 52\n\
+         \x20            at 91.88 us, 2.2% slower than the recording machine's 89.88.\n\
          measured now  this run, on whatever machine is executing it, minimum of 40 rounds,\n\
          \x20            round robin. The dense screen: 300x80 = 24 000 cells, {REGIONS} regions."
     );

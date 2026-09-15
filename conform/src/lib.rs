@@ -119,6 +119,7 @@
 #![warn(missing_docs)]
 
 use std::fmt;
+use std::path::Path;
 
 mod buffer;
 mod grid;
@@ -1485,6 +1486,34 @@ pub fn next_delay(
         return None;
     }
     Some(lo + (hi - lo) / 2)
+}
+
+/// WezTerm's GUI socket path as a **committed report** may carry it: `$HOME` as `~`, and the
+/// process id as `<pid>`.
+///
+/// A report in this directory is evidence a stranger reads, so it may not carry the operator's home
+/// directory or the process id of one run. Neither reproduces — the pid is that run's child and the
+/// home is whoever ran it — and what the sentence around the path is about, that the variable names
+/// the arm's *own* socket rather than the shared mux server's, survives the substitution intact.
+/// That is how you can tell nothing was lost by making the report reproducible.
+///
+/// **`home` is a parameter rather than read from the environment**, which is what makes this
+/// testable: `std::env::set_var` is `unsafe` in this edition and a test that set `$HOME` would be
+/// reaching into every other test in the process. The caller reads it once, the same way the arm's
+/// own `runtime_dir` does.
+///
+/// Stripping is component-wise, so a `$HOME` with a trailing slash is handled; a path that is not
+/// under `home`, an absent `home`, and a name without the needle each keep the part the
+/// substitution does not reach.
+pub fn socket_for_report(socket: &Path, home: Option<&Path>) -> String {
+    let shown = match home.and_then(|home| socket.strip_prefix(home).ok()) {
+        Some(rest) => Path::new("~").join(rest).display().to_string(),
+        None => socket.display().to_string(),
+    };
+    match shown.rsplit_once("gui-sock-") {
+        Some((head, _)) => format!("{head}gui-sock-<pid>"),
+        None => shown,
+    }
 }
 
 #[cfg(test)]

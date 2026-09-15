@@ -158,7 +158,7 @@ impl Tree {
             }],
         };
         let home = tree.dir(0, "home");
-        let user = tree.dir(home, "vitaly");
+        let user = tree.dir(home, "dev");
         for name in [
             "Downloads",
             "Documents",
@@ -173,9 +173,9 @@ impl Tree {
             tree.file(user, name);
         }
 
-        let projects = tree.find("/home/vitaly/projects");
+        let projects = tree.find("/home/dev/projects");
         let vitui = tree.dir(projects, "vitui");
-        for name in ["devkit", "notes", "sandbox"] {
+        for name in ["toolbox", "notes", "sandbox"] {
             tree.dir(projects, name);
         }
         let crates = tree.dir(vitui, "crates");
@@ -204,7 +204,7 @@ impl Tree {
             tree.file(vitui, name);
         }
 
-        let downloads = tree.find("/home/vitaly/Downloads");
+        let downloads = tree.find("/home/dev/Downloads");
         for name in [
             "alacritty-0.15.1.tar.gz",
             "ghostty-1.2.0.dmg",
@@ -215,7 +215,7 @@ impl Tree {
             tree.file(downloads, name);
         }
 
-        let documents = tree.find("/home/vitaly/Documents");
+        let documents = tree.find("/home/dev/Documents");
         for name in [
             "conform-report.md",
             "invoice-2026-08.pdf",
@@ -225,14 +225,14 @@ impl Tree {
             tree.file(documents, name);
         }
 
-        let pictures = tree.find("/home/vitaly/Pictures");
+        let pictures = tree.find("/home/dev/Pictures");
         for name in ["ghostty.png", "kitty.png", "screenshot-2026-09-04.png"] {
             tree.file(pictures, name);
         }
 
-        let videos = tree.find("/home/vitaly/Videos");
+        let videos = tree.find("/home/dev/Videos");
         tree.file(videos, "demo.mp4");
-        let music = tree.find("/home/vitaly/Music");
+        let music = tree.find("/home/dev/Music");
         for name in ["bruckner-8.flac", "reich-music-for-18.flac"] {
             tree.file(music, name);
         }
@@ -355,20 +355,20 @@ enum Side {
 /// The sidebar, in superfile's own three sections.
 const SIDEBAR: [Side; 15] = [
     Side::Divider("Home"),
-    Side::Place("Home", "/home/vitaly"),
-    Side::Place("Downloads", "/home/vitaly/Downloads"),
-    Side::Place("Documents", "/home/vitaly/Documents"),
-    Side::Place("Pictures", "/home/vitaly/Pictures"),
-    Side::Place("Videos", "/home/vitaly/Videos"),
-    Side::Place("Music", "/home/vitaly/Music"),
+    Side::Place("Home", "/home/dev"),
+    Side::Place("Downloads", "/home/dev/Downloads"),
+    Side::Place("Documents", "/home/dev/Documents"),
+    Side::Place("Pictures", "/home/dev/Pictures"),
+    Side::Place("Videos", "/home/dev/Videos"),
+    Side::Place("Music", "/home/dev/Music"),
     Side::Divider("Pinned"),
-    Side::Place("projects", "/home/vitaly/projects"),
-    Side::Place("vitui", "/home/vitaly/projects/vitui"),
-    Side::Place("crates", "/home/vitaly/projects/vitui/crates"),
+    Side::Place("projects", "/home/dev/projects"),
+    Side::Place("vitui", "/home/dev/projects/vitui"),
+    Side::Place("crates", "/home/dev/projects/vitui/crates"),
     Side::Divider("Disks"),
     Side::Place("Macintosh HD", "/"),
     Side::Place("home", "/home"),
-    Side::Place("backup", "/home/vitaly/Documents"),
+    Side::Place("backup", "/home/dev/Documents"),
 ];
 
 // ── a file panel ─────────────────────────────────────────────────────────────────────────────────
@@ -838,7 +838,7 @@ struct App {
 impl App {
     fn new() -> App {
         let tree = Tree::seed();
-        let start = tree.find("/home/vitaly/projects/vitui");
+        let start = tree.find("/home/dev/projects/vitui");
         let mut app = App {
             tree,
             panels: vec![FilePanel::new(start)],

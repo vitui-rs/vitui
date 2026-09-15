@@ -343,14 +343,15 @@ runner cannot do: `ci.yml`, the macOS/Linux/Windows matrix; `soak.yml`, the week
 `compare.yml`, the monthly comparative suite; and `site.yml`, which deploys the documentation site.
 The two scheduled ones upload a report and never push one.
 
-The five jobs that decide whether a change lands are `.gitlab-ci.yml`'s, and they run on a GitLab
-instance on the author's machine that nobody outside it can resolve. The file ships because it is the
-definition of what is gated rather than a link to a pipeline — each of the five is reproducible here:
+The five jobs that decide whether a change lands are `.gitlab-ci.yml`'s, and they run on a self-hosted
+GitLab that is not publicly reachable. The file ships because it is the definition of what is gated
+rather than a link to a pipeline — each of the five is reproducible with the commands below, so the
+gate set runs without the runner:
 
 | job | what it runs |
 |---|---|
-| `test` | `cargo fmt --all --check`, clippy over all targets and over the engine's `fuzz` feature, `cargo doc --workspace --no-deps`, `cargo test --workspace -- --test-threads=1`, five of the scripts under `scripts/`, and `conform/`'s own suite over the committed captures |
-| `msrv` | `cargo check --workspace --all-targets` on 1.88.0, after printing the toolchain it claims to be |
+| `test` | `cargo fmt --all --check`, clippy over all targets and over the engine's `fuzz` feature, `cargo doc --workspace --no-deps`, `cargo test --workspace -- --test-threads=1` and then the same suite again under `script(1)` on a pty, `cargo run -p vitui-alloc-probe --example harness_race`, five of the scripts under `scripts/`, and `conform/`'s own suite over the committed captures |
+| `msrv` | `cargo check --workspace --all-targets` and the same for the engine's `fuzz` feature, on 1.88.0 — after `rustc --version \| grep -q` **asserts** the toolchain is that one, so a retagged image cannot turn this into a second `test` run |
 | `deny` | `cargo deny check`, here and again in `fuzz/` |
 | `budget` | `cargo run --release --example budget -p vitui-engine`, then the runtime's `frame` report and `scripts/observer-gate.sh` |
 | `idle` | `scripts/idle-gate.sh 30` and `scripts/steady-report.sh 30` |

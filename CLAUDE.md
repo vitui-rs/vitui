@@ -2,10 +2,9 @@
 
 Guidance for Claude Code working in this repository.
 
-> **The local GitLab moved out of this repo (2026-08-22).** One shared instance serves every repo on
-> this machine: <http://gitlab.localhost:8940>, project `repos/vitui`, started with `devkit up`. The
-> `infra/` stack that used to live here is gone, and so is the `MOVED.md` that said so; the
-> procedure is `~/Projects/devkit/README.md`.
+> **Anything that names a host, a path or a private repository lives in `CLAUDE.local.md`**, which is
+> gitignored. This file is the project's and ships with it; that one is the desk's. If a sentence here
+> needs a URL or an absolute path to be actionable, it belongs over there.
 
 ## What this is
 
@@ -118,7 +117,7 @@ MSRV **1.88** — `Cargo.toml` is the authority and the `msrv` CI job is what ke
   the fourteen hostile axes O5 still owed (**the group is closed**: `field`'s three taken by
   production 05, `table`'s two by 06, the overlay family's four by 08, the scroll family's three by
   09 and **`tree`'s two by 07**, which turned O5; **10 closed the paperwork behind it**), three
-  tier-1 terminals nobody had run (**the group is closed on this machine**: WezTerm by 11, Alacritty
+  tier-1 terminals nobody had run (**the group is closed on the macOS side**: WezTerm by 11, Alacritty
   by 12 and **iTerm2 by 13**, which was the last one reachable without Windows, with **14** closing
   the group's paperwork behind them),
   the release, and — added 2026-09-07 — **the two surface gaps the three ports found and nothing
@@ -1052,8 +1051,8 @@ cargo run -p vitui-apps --example NAME -- --shot   # one application's picture
 ```
 
 The fuzz targets are a **soak, never a gate** — the committed corpus replayed by `cargo test` is the
-gate; `fuzz/README.md` is the procedure. On this machine `~/.cargo/bin` must come first on `PATH` or
-Homebrew's cargo shadows rustup's and toolchain selection is silently ignored:
+gate; `fuzz/README.md` is the procedure. The nightly toolchain must be the one that actually runs —
+see `CLAUDE.local.md` if `RUSTUP_TOOLCHAIN` appears to be ignored:
 
 ```bash
 RUSTUP_TOOLCHAIN=nightly cargo fuzz run draw_sequence -- -max_total_time=900
@@ -1144,30 +1143,24 @@ Violating any of these silently undoes a decision that cost a session to make.
 ## CI
 
 Two runners, and the split is deliberate. **The gate set is `.gitlab-ci.yml`** — five jobs (`test`,
-`msrv`, `deny`, `budget`, `idle`) on the shared local GitLab, project `repos/vitui`, started with
-`devkit up`.
-**`.github/workflows/` holds what a local runner cannot do**: `ci.yml` for the macOS/Linux matrix,
-`soak.yml` for the weekly fuzz soak, `compare.yml` for the monthly comparative suite. Both scheduled
-workflows *upload* their report and never push one.
+`msrv`, `deny`, `budget`, `idle`) on a self-hosted GitLab that is not publicly reachable.
+**`.github/workflows/` holds what that runner cannot do**: `ci.yml` for the macOS/Linux/Windows
+matrix, `soak.yml` for the weekly fuzz soak, `compare.yml` for the monthly comparative suite, and
+`site.yml` for the documentation site. The two scheduled workflows *upload* their report and never
+push one.
 
-```sh
-devkit up                                  # start it (or bring it to spec) — the only mutating verb
-devkit down                                # stop it, keeping everything
-. ~/.local/state/devkit/env                # GITLAB_HOST, DEVKIT_TOKENS, DEVKIT_GROUP
-```
+Every job declares its own image, because the runner has no default one. How to start it, and where
+its token is, are in `CLAUDE.local.md`.
 
-The devkit runner has **no default job image**: it serves every repo, so `default: image:` in
-`.gitlab-ci.yml` is required, not decorative. Six concurrent slots, shared with every other repo.
-
-**A commit is not the end of a ticket.** Push to `devkit` and watch every job go green before
+**A commit is not the end of a ticket.** Push to the runner and watch every job go green before
 reporting the ticket done.
 
 ## Working a backlog
 
 **The backlogs are not in this repository as a reader sees it.** `.scratch/` — eight maps, their
-tickets, their research and the agent conventions — is ignored here and lives in the private archive
-`kustov-vitalik/vitui` and in the machine's own working copy. A session on this machine has all of
-it; a reader of the public repository has the three specs in `docs/spec/`, the ADRs, and what the
+tickets, their research and the agent conventions — is ignored here and lives in a private archive
+and in the machine's own working copy, both named in `CLAUDE.local.md`. A session on that machine has
+all of it; a reader of the public repository has the three specs in `docs/spec/`, the ADRs, and what the
 crates say. Cite the fact, never the path.
 
 `.scratch/agents/issue-tracker.md` is the full convention. In short: one ticket per session; the

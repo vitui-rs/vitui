@@ -213,9 +213,9 @@ pub const LEDGER: [Row; 18] = [
                   gate is `examples/frame.rs`. Provenance: R 20, 2026-08-24, Apple M1 Max, macOS \
                   26.5.2, rustc 1.97.1, --release, unloaded, minimum of 40 rounds. Three quiet runs \
                   of each arm: crate line 89.79 / 89.92 / 89.88, in-binary 89.92 / 89.75 / 89.83 — \
-                  a 0.19% spread and the two arms indistinguishable. **Confirmed on the devkit \
-                  GitLab runner by pipeline 52 at 91.88 us**, 2.2% slower, which is the runner \
-                  penalty on an idle six-slot machine. It replaces the prototype's 32.85-33.05, which R 17 had already found unreproducible (`91-94 us on both arms \
+                  a 0.19% spread and the two arms indistinguishable. **Confirmed on the \
+                  self-hosted GitLab runner by pipeline 52 at 91.88 us**, 2.2% slower, which is \
+                  the penalty of a shared runner with nothing else on it. It replaces the prototype's 32.85-33.05, which R 17 had already found unreproducible (`91-94 us on both arms \
                   and both settings`) without the finding reaching spec §19",
         decision: None,
     },

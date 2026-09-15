@@ -14,13 +14,13 @@
 # a human has to read anyway, is the wrong shape — `soak.yml` refuses the same thing for the same
 # reason.
 #
-# # Why this is here and not on the local GitLab
+# # Why this is here and not with the gate set
 #
-# Every gate this repository actually watches go green runs on the shared local GitLab in
-# `~/Projects/devkit`, because a CI job nobody has watched is not a gate. This is not a gate, and that
-# runner is the wrong home for it twice over: it has six concurrent slots **shared with every other
-# repository on the machine**, and this job spends minutes on an `apt-get install` and a `pip install`
-# before it measures anything. Taxing every other repo's pipeline for a report is a bad trade.
+# Every gate this repository actually watches go green runs on the self-hosted GitLab that
+# `.gitlab-ci.yml` describes, because a CI job nobody has watched is not a gate. This is not a gate,
+# and that runner is the wrong home for it twice over: its concurrency is **shared with other
+# repositories**, and this job spends minutes on an `apt-get install` and a `pip install` before it
+# measures anything. Taxing every other repository's pipeline for a report is a bad trade.
 #
 # **So nobody has watched this workflow go green**, and that is stated rather than implied — the same
 # caveat `soak.yml` opens with. What paid §15's fifth owed measurement is a real run on a real machine:

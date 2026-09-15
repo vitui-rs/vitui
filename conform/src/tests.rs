@@ -2950,3 +2950,60 @@ fn iterm2_is_a_seventh_terminal_and_the_sentinel_says_so() {
         assert_ne!(ITERM2_SYNC, bytes, "not {who}'s sync capture");
     }
 }
+
+// ── The report's own redaction ─────────────────────────────────────────────────────────────────────
+
+// A committed report may not carry the operator's home directory or one run's pid. These live here
+// rather than beside the WezTerm arm for the reason `CLAUDE.md` names: `cargo test` does not run an
+// example, so string logic written in one is compiled and evaluated by nobody.
+
+#[test]
+fn a_socket_under_home_is_reported_with_a_tilde_and_no_pid() {
+    let socket = Path::new("/Users/someone/.local/share/wezterm/gui-sock-62745");
+    let home = Path::new("/Users/someone");
+    assert_eq!(
+        socket_for_report(socket, Some(home)),
+        "~/.local/share/wezterm/gui-sock-<pid>"
+    );
+}
+
+#[test]
+fn a_home_with_a_trailing_slash_still_leaves_a_separator() {
+    // Component-wise stripping is what buys this: a textual `strip_prefix` would answer
+    // `~.local/share/...`, which is a different path and a wrong one.
+    let socket = Path::new("/Users/someone/.local/share/wezterm/gui-sock-1");
+    assert_eq!(
+        socket_for_report(socket, Some(Path::new("/Users/someone/"))),
+        "~/.local/share/wezterm/gui-sock-<pid>"
+    );
+}
+
+#[test]
+fn a_path_outside_home_keeps_its_prefix_and_still_loses_the_pid() {
+    let socket = Path::new("/tmp/wezterm/gui-sock-99");
+    assert_eq!(
+        socket_for_report(socket, Some(Path::new("/Users/someone"))),
+        "/tmp/wezterm/gui-sock-<pid>"
+    );
+}
+
+#[test]
+fn an_absent_home_redacts_the_pid_and_nothing_else() {
+    // `$HOME` unset is the one case where the report is allowed to carry an absolute path: there is
+    // nothing to strip, and a report that silently dropped the path would say less than one that
+    // shows where the socket actually was.
+    let socket = Path::new("/Users/someone/.local/share/wezterm/gui-sock-7");
+    assert_eq!(
+        socket_for_report(socket, None),
+        "/Users/someone/.local/share/wezterm/gui-sock-<pid>"
+    );
+}
+
+#[test]
+fn a_name_without_the_needle_is_returned_whole() {
+    let socket = Path::new("/Users/someone/.local/share/wezterm/sock");
+    assert_eq!(
+        socket_for_report(socket, Some(Path::new("/Users/someone"))),
+        "~/.local/share/wezterm/sock"
+    );
+}

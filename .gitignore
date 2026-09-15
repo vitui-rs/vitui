@@ -51,6 +51,11 @@
 # has never carried them, and this line is what keeps a working copy from putting them back.
 /.scratch/
 
+# Machine-specific agent guidance. `CLAUDE.md` is the project's and ships; this one names a host, a
+# path and a private repository that exist on one machine, and a public repository has no business
+# carrying any of the three. Claude Code loads both, so the split costs nothing at the desk.
+/CLAUDE.local.md
+
 # The documentation site (`site/`) is an Astro project, and three of its directories are build
 # output: `node_modules`, `dist` and `.astro`. Two more are **staged sources** — the markdown and
 # the images are copied out of `docs/` on every build so that a chapter has one home and the site

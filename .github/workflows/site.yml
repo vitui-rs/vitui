@@ -1,7 +1,7 @@
 # The documentation site: built here, served from the organisation's page repository.
 #
 # **Why this is a GitHub workflow and not one of the gates.** `.gitlab-ci.yml` is the gate set — five
-# jobs on a runner nobody outside this machine can reach — and `.github/workflows/` holds what a
+# jobs on a self-hosted runner that is not publicly reachable — and `.github/workflows/` holds what a
 # local runner cannot do. GitHub Pages is exactly that: the site has to be built by the thing that
 # serves it, and nothing else here needs node at all.
 #

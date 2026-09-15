@@ -407,7 +407,7 @@ fn capture_and_compare(
                  pane — exiting 0, with well-formed JSON and a screenful of somebody's prompt. \
                  Observed. `--class` does not fix it on macOS: that is a windowing-system class \
                  and routes nowhere here",
-                socket.display()
+                vitui_conform::socket_for_report(socket, home().as_deref())
             ),
             match which {
                 "05" | "06" => format!(
@@ -486,9 +486,18 @@ fn wait_for_socket(socket: &Path) -> Result<(), String> {
 /// macOS and puts the socket under `~/.local/share/wezterm` regardless, so a run that trusted the
 /// variable would wait ten seconds for a socket in a directory nothing writes to.
 fn runtime_dir() -> Result<PathBuf, String> {
-    let home = std::env::var_os("HOME")
-        .ok_or("$HOME is not set, so WezTerm's runtime directory cannot be named")?;
-    Ok(PathBuf::from(home).join(".local/share/wezterm"))
+    let home = home().ok_or("$HOME is not set, so WezTerm's runtime directory cannot be named")?;
+    Ok(home.join(".local/share/wezterm"))
+}
+
+/// `$HOME` as a path, or `None` where it is unset.
+///
+/// **One reader, deliberately.** The directory this arm waits in and the redaction the report is
+/// written with are both derived from it, and two readers would be a way for the two to disagree
+/// about where home is — which would show up as a report whose path was never shortened, on a
+/// machine where everything else worked.
+fn home() -> Option<PathBuf> {
+    std::env::var_os("HOME").map(PathBuf::from)
 }
 
 /// Every `gui-sock-*` in WezTerm's runtime directory, by file name.

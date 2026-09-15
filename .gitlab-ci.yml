@@ -1,12 +1,15 @@
-# The same gates as `.github/workflows/ci.yml`, on a runner that is on this machine.
+# The gate set: the five jobs that decide whether a change lands.
 #
-# Why both exist: a CI job nobody has watched go green is not a gate, whatever it checks. This
-# repository has no hosted CI yet, so it runs on the shared local GitLab in `~/Projects/devkit` —
-# `devkit up` brings it up, and this file is what its runner executes. See `~/Projects/devkit/README.md`.
+# Why this exists beside `.github/workflows/ci.yml`: a CI job nobody has watched go green is not a
+# gate, whatever it checks. This repository has no hosted CI, so the gates run on a self-hosted
+# GitLab that is not publicly reachable, and this file is what its runner executes. Every command
+# below is runnable without that runner — the README's *Where the gates run* section maps job to
+# command — which is the point of committing the file: it is the definition of what is gated rather
+# than a link to a pipeline.
 #
-# That runner has NO default job image, deliberately: it is shared with every other repo on the
-# machine and no default is right for more than one of them. The `default: image:` below is therefore
-# required rather than decorative — a job that inherited nothing would fail with a config error.
+# That runner has NO default job image, deliberately: it is shared with other repositories and no
+# default is right for more than one of them. The `default: image:` below is therefore required
+# rather than decorative — a job that inherited nothing would fail with a config error.
 #
 # What this does NOT cover, and the GitHub workflow does: the `test` job there is a three-OS matrix
 # (ubuntu, macos, windows). A local Docker runner is one OS and one architecture — here,
@@ -22,8 +25,8 @@ workflow:
   rules:
     # Without this, a branch that also has a merge request open builds twice for one push — once as
     # a branch pipeline and once as an MR pipeline. The duplicate does not queue behind the original,
-    # it competes with it for runner slots — and those slots are now shared with every other repo on
-    # the machine, so the waste is not even confined to this pipeline.
+    # it competes with it for runner slots — and the runner is shared with other repositories, so
+    # the waste is not even confined to this pipeline.
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
     - if: $CI_COMMIT_BRANCH && $CI_OPEN_MERGE_REQUESTS
       when: never
@@ -62,8 +65,8 @@ default:
     when:
       - runner_system_failure
 
-  # A superseded pipeline holds runner slots the current one needs. The runner is shared across every
-  # repo on this machine, so a stale pipeline here delays other repositories too, not just this one.
+  # A superseded pipeline holds runner slots the current one needs. The runner is shared across
+  # several repositories, so a stale pipeline here delays the others too, not just this one.
   interruptible: true
 
 stages:
@@ -71,11 +74,11 @@ stages:
 
 # The five gates are independent and share one stage on purpose, so they run concurrently and the
 # pipeline is as long as its slowest job rather than the sum of them. The shared runner allows six
-# concurrent jobs, so all five can run at once — but those six are shared with every other repo on
-# the machine, so a full pipeline elsewhere can still push one of these into a queue.
+# concurrent jobs, so all five can run at once — but that concurrency is shared with other
+# repositories, so a full pipeline elsewhere can still push one of these into a queue.
 #
 # It was four until `msrv` was added, and that is the last one that fits: a sixth job means this
-# pipeline alone can saturate the runner and starve every other repo on the machine. The next gate
+# pipeline alone can saturate the runner and starve the repositories sharing it. The next gate
 # folds into an existing job, the way the two below already do.
 #
 # **Engine ticket 23's two gates are folded into existing jobs rather than added as a fifth and a
@@ -250,7 +253,7 @@ test:
     # Its two arms are one keystroke before a suspension and one during it, and the first is the
     # control — a pty that delivers nothing at all reports exactly what a stopped reader reports.
     #
-    # Under a second on this machine, and `script(1)` is proven present by the two lines above.
+    # Under a second on the runner, and `script(1)` is proven present by the two lines above.
     - scripts/suspend-reader-gate.sh
     # **`conform/`'s gate, folded in rather than added as a sixth job** — the same runner-slot
     # decision the note above these jobs makes for the observer gate and the lint rung, and the one
@@ -420,7 +423,7 @@ budget:
     #
     # Here rather than in a job of its own for the reason the note above these jobs gives twice
     # already: this job's release target directory is warm, and a sixth job means this pipeline
-    # alone can saturate a runner shared with every other repo on the machine.
+    # alone can saturate a runner shared with other repositories.
     - cargo run --release --example frame -p vitui-runtime
     # Register entry #18: no observer thread is linked into a release binary. A compile outcome about
     # *absent* code, so it is checked in the one place absent code is visible — the binary. Here

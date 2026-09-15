@@ -2,18 +2,18 @@
 <rect width="1168" height="664" fill="#14161a"/>
 <rect x="8" y="8" width="1152" height="18" fill="#21222c"/>
 <text x="8" y="22" textLength="1152" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#f8f8f2"> Left  File  Command  Options  Right                                                                                    </text>
-<rect x="8" y="26" width="144" height="18" fill="#282a36"/>
-<text x="8" y="40" textLength="144" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#bd93f9">┌──────────────</text>
-<rect x="152" y="26" width="278.4" height="18" fill="#282a36"/>
-<text x="152" y="40" textLength="278.4" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#f8f8f2;font-weight:bold"> /home/vitaly/projects ▼name </text>
-<rect x="430.4" y="26" width="153.6" height="18" fill="#282a36"/>
-<text x="430.4" y="40" textLength="153.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#bd93f9">───────────────┐</text>
-<rect x="584" y="26" width="144" height="18" fill="#282a36"/>
-<text x="584" y="40" textLength="144" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">┌──────────────</text>
-<rect x="728" y="26" width="288" height="18" fill="#282a36"/>
-<text x="728" y="40" textLength="288" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#f8f8f2;font-weight:bold"> /home/vitaly/downloads ▼name </text>
-<rect x="1016" y="26" width="144" height="18" fill="#282a36"/>
-<text x="1016" y="40" textLength="144" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">──────────────┐</text>
+<rect x="8" y="26" width="163.2" height="18" fill="#282a36"/>
+<text x="8" y="40" textLength="163.2" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#bd93f9">┌────────────────</text>
+<rect x="171.2" y="26" width="249.6" height="18" fill="#282a36"/>
+<text x="171.2" y="40" textLength="249.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#f8f8f2;font-weight:bold"> /home/dev/projects ▼name </text>
+<rect x="420.8" y="26" width="163.2" height="18" fill="#282a36"/>
+<text x="420.8" y="40" textLength="163.2" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#bd93f9">────────────────┐</text>
+<rect x="584" y="26" width="153.6" height="18" fill="#282a36"/>
+<text x="584" y="40" textLength="153.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">┌───────────────</text>
+<rect x="737.6" y="26" width="259.2" height="18" fill="#282a36"/>
+<text x="737.6" y="40" textLength="259.2" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#f8f8f2;font-weight:bold"> /home/dev/downloads ▼name </text>
+<rect x="996.8" y="26" width="163.2" height="18" fill="#282a36"/>
+<text x="996.8" y="40" textLength="163.2" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">────────────────┐</text>
 <rect x="8" y="44" width="9.6" height="18" fill="#282a36"/>
 <text x="8" y="58" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#bd93f9">│</text>
 <rect x="17.6" y="44" width="556.8" height="18" fill="#282a36"/>
@@ -27,17 +27,17 @@
 <rect x="1150.4" y="44" width="9.6" height="18" fill="#282a36"/>
 <text x="1150.4" y="58" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">│</text>
 <rect x="8" y="62" width="576" height="18" fill="#282a36"/>
-<text x="8" y="76" textLength="576" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#bd93f9">│/..                                  UP--DIR Jul  3 00:56 │</text>
+<text x="8" y="76" textLength="576" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#bd93f9">│/..                                  UP--DIR Nov 12 19:40 │</text>
 <rect x="584" y="62" width="9.6" height="18" fill="#282a36"/>
 <text x="584" y="76" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">│</text>
 <rect x="593.6" y="62" width="556.8" height="18" fill="#282a36"/>
-<text x="593.6" y="76" textLength="556.8" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#bd93f9">/..                                  UP--DIR Jul  3 00:56 </text>
+<text x="593.6" y="76" textLength="556.8" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#bd93f9">/..                                  UP--DIR Nov 12 19:40 </text>
 <rect x="1150.4" y="62" width="9.6" height="18" fill="#282a36"/>
 <text x="1150.4" y="76" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">│</text>
 <rect x="8" y="80" width="9.6" height="18" fill="#282a36"/>
 <text x="8" y="94" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#bd93f9">│</text>
 <rect x="17.6" y="80" width="556.8" height="18" fill="#282a36"/>
-<text x="17.6" y="94" textLength="556.8" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#f8f8f2;font-weight:bold">devkit                               SUB-DIR Dec 20 02:40 </text>
+<text x="17.6" y="94" textLength="556.8" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#f8f8f2;font-weight:bold">toolbox                              SUB-DIR Sep 28 05:44 </text>
 <rect x="574.4" y="80" width="9.6" height="18" fill="#282a36"/>
 <text x="574.4" y="94" textLength="9.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#bd93f9">│</text>
 <rect x="584" y="80" width="9.6" height="18" fill="#282a36"/>
@@ -335,9 +335,9 @@
 <text x="939.2" y="598" textLength="220.8" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#44475a">──────────────────────┘</text>
 <rect x="8" y="602" width="1152" height="18" fill="#282a36"/>
 <text x="8" y="616" textLength="1152" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#9ea8c7"> Hint: Tab moves between the panels; the focused frame is the active one.                                               </text>
-<rect x="8" y="620" width="249.6" height="18" fill="#282a36"/>
-<text x="8" y="634" textLength="249.6" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#50fa7b"> vitaly@vitui:~/projects$ </text>
-<rect x="257.6" y="620" width="902.4" height="18" fill="#282a36"/>
+<rect x="8" y="620" width="220.8" height="18" fill="#282a36"/>
+<text x="8" y="634" textLength="220.8" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#50fa7b"> dev@vitui:~/projects$ </text>
+<rect x="228.8" y="620" width="931.2" height="18" fill="#282a36"/>
 <rect x="8" y="638" width="115.2" height="18" fill="#21222c"/>
 <text x="8" y="652" textLength="115.2" lengthAdjust="spacingAndGlyphs" xml:space="preserve" style="fill:#f8f8f2">   1Help    </text>
 <rect x="123.2" y="638" width="9.6" height="18" fill="#282a36"/>

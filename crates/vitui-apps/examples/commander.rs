@@ -229,7 +229,7 @@ impl Vfs {
         vfs.add(etc, "localtime", Kind::Link);
 
         let home = vfs.dir(0, "home");
-        let user = vfs.dir(home, "vitaly");
+        let user = vfs.dir(home, "dev");
         let projects = vfs.dir(user, "projects");
         let vitui = vfs.dir(projects, "vitui");
         let crates = vfs.dir(vitui, "crates");
@@ -263,11 +263,11 @@ impl Vfs {
         }
         vfs.add(vitui, "target", Kind::Link);
 
-        let devkit = vfs.dir(projects, "devkit");
+        let toolbox = vfs.dir(projects, "toolbox");
         for name in ["README.md", "compose.yml"] {
-            vfs.add(devkit, name, Kind::File);
+            vfs.add(toolbox, name, Kind::File);
         }
-        vfs.add(devkit, "devkit", Kind::Exec);
+        vfs.add(toolbox, "toolbox", Kind::Exec);
 
         let downloads = vfs.dir(user, "downloads");
         for name in [
@@ -853,10 +853,7 @@ impl App {
                 .find(|&i| vfs.path(i) == path)
                 .unwrap_or(0)
         };
-        let (projects, downloads) = (
-            find("/home/vitaly/projects"),
-            find("/home/vitaly/downloads"),
-        );
+        let (projects, downloads) = (find("/home/dev/projects"), find("/home/dev/downloads"));
         let mut app = App {
             vfs,
             panels: [Panel::new(projects), Panel::new(downloads)],
@@ -1202,9 +1199,9 @@ impl App {
     fn draw_prompt(&mut self, cx: &mut Ctx<'_, '_>, area: Rect) {
         let cwd = self.vfs.path(self.panels[self.active].cwd);
         let short = cwd
-            .strip_prefix("/home/vitaly")
+            .strip_prefix("/home/dev")
             .map_or_else(|| cwd.clone(), |rest| format!("~{rest}"));
-        let head = format!(" vitaly@vitui:{short}$ ");
+        let head = format!(" dev@vitui:{short}$ ");
         let cut = u16::try_from(head.chars().count())
             .unwrap_or(area.w)
             .min(area.w);
