@@ -226,9 +226,17 @@ MSRV **1.88** — `Cargo.toml` is the authority and the `msrv` CI job is what ke
   which is the layer a reader is in. Its CPU and latency figures matched no committed revision of
   `compare/REPORT.md`. **A landing page's numbers go stale in a direction nobody checks**, and here
   three of the four findings were against us.
-  **One ticket can start today and it is not an agent's**: 02, which is `ready-for-human`
-  and needs a public repository. **15 is the release frontier and it cannot start**: its
-  one edge is 02, the five
+  **02 is resolved** (2026-09-15) and the repository is public: `vitui-rs/vitui`, 292 commits of
+  filtered history, `master` alone, no `.scratch/` in any of them and rebuilt from the commit being
+  published rather than reused — 26's clone was eight commits stale and predated `site/`. Three of
+  its four criteria were already met by the manifest work of 2026-09-11; the fourth is the README's
+  *Where the gates run*, which states that the visible workflows are not the gate set. What the
+  publish actually required was the operator's environment leaving the tree: `CLAUDE.md`'s
+  machine-specific half is now the gitignored `CLAUDE.local.md`, and **a search for `this machine`
+  does not match `the machine`**, **a text search does not read a pixel** — the README's first image
+  showed a home directory and a prompt four days after the SVG beside it was regenerated — and **a
+  demo filesystem is a document**. Nothing gates the three recordings.
+  **15 is the frontier and it can start today**: its one edge was 02, the five
   components architecture questions it also waited on — that map's 19, 22, 23, 24 and 25, not this
   backlog's numbers — having all resolved by 2026-09-05, and what they decided is listed below.
   **Windows is last, as 16**, blocked by the publish — which carries the consequence that no shipped
@@ -1183,8 +1191,8 @@ README is the queue and the blocking edges, and a ticket there may name an edge 
 **A `Status:` line carries two vocabularies and they are not in conflict.** A freshly written ticket
 says `ready-for-agent` or `ready-for-human`, which is triage. A session working one overwrites it
 with `claimed` and then `resolved`, which is the frontier protocol above. `ready-for-human` means
-*do not claim this without the thing it needs* — a public repository for 02, a Windows machine
-for 16.
+*do not claim this without the thing it needs* — a Windows machine for 16, which is the last one
+left carrying it.
 
 `tickets/` at the repo root was a **separate** surface — the hand-written backlog the `dispatch`
 skill consumes. Both of its items are spent (the component model became the two architecture specs,
