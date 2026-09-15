@@ -12,7 +12,7 @@ version with a library in it, and there is no stability promise before 0.x.
 | crate | state |
 |---|---|
 | `vitui-engine` | **implementation-complete.** All 26 implementation tickets resolved, all 31 verification-register entries wired, none pinned red. |
-| `vitui-runtime` | **implementation-complete.** All 21 tickets resolved. `data`, `layout`, `theme` with its fourteen schemes, `keys`, `ctx`, `id`, `route`, `focus`, `sizing`, `work`, `anim`, `overlay` and `scroll`; the register is 48 entries and the scene list 20, both green. |
+| `vitui-runtime` | **implementation-complete.** All 21 tickets resolved. `data`, `layout`, `theme` with its fourteen schemes, `keys`, `ctx`, `id`, `route`, `focus`, `sizing`, `work`, `anim`, `overlay` and `scroll`; the register is 50 entries and the scene list 20, both green. |
 | `vitui-components` | **implementation-complete.** All 46 tickets resolved, and the v1 freeze is **29 of 29 components built**, as a value the tests iterate. The register is 238 rows, 233 evaluated with none pinned red, beside 5 unreachable from a crate that cannot name the engine. Every component is exercised under every hostile axis it can meet — 34 of 34 pairs — and all seven documentation and verification obligations are met. |
 | `vitui` | facade re-export of the three. |
 | `vitui-apps` | 21 applications, one file each, and the surface's only consumer. Never published. |
@@ -72,12 +72,14 @@ caller must be able to spell kept beside it.
 Two things a reader of the README's performance tables should know, because a number without its
 exceptions is a claim rather than a measurement.
 
-**The zero-allocation gate reported two, once, in seven runs.** A re-run was green. That is a
-**count** and not a timing, so the flaky-gate argument that covers the timing budgets does not cover
-it: a count that is two once and zero six times is either something allocating that usually does not,
-or something being counted that usually is not. The probe is a global allocator and the engine has
-two threads the application did not start, which is a hypothesis and is written here as one. Tracked
-as production ticket 22.
+**The zero-allocation gate reported two, once, in seven runs, and the two were the test harness's
+own.** It is a count and not a timing, so the flaky-gate argument that covers the timing budgets
+never covered it — and the answer was neither of the two hypotheses that stood here: not the engine's
+threads, and not the gate. `libtest` spawns a thread per test even under `--test-threads=1`, and that
+thread's first blocking receive allocates once per process; if the parent is descheduled past the
+child's window opening, those land in the first window the process opens. The probe now excludes the
+process's first thread from every attributed reading, and excludes nothing else — a thread the
+*subject* started stays in.
 
 **`macos-latest` cannot sustain 60 Hz**, so the idle and animation jobs fail there on a machine fact
 rather than on the percentage; `ubuntu-latest` can. That makes those two a coin toss on hosted
@@ -90,9 +92,11 @@ may assume of a terminal.
 
 ## The registers
 
-A timing is a gate only at cliff granularity, with the headroom written next to the number. Nineteen
-of the twenty-seven gated properties are counts, ratios, equalities or compile outcomes instead — a
-gate tuned to a measurement is a flaky test that gets disabled within a month.
+A timing is a gate only at cliff granularity, with the headroom written next to the number. The
+engine's register is 31 entries, 27 of which gate a build and 4 of which report: **three of the 27
+are timings** and the rest are counts, ratios, equalities, orderings, absences and compile outcomes
+— a gate tuned to a measurement is a flaky test that gets disabled within a month. The shape of each
+is the register's own `qualifier` column, so that split is countable rather than asserted here.
 
 `cargo run --release --example budget -p vitui-engine` prints the register and the ledger. They are
 values the tests iterate rather than documents a reader is asked to trust, and every instrument in

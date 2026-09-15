@@ -222,40 +222,70 @@ The budget is a set of CI gates, not aspirations:
 | a genuinely idle application | zero CPU |
 
 **Measured on an Apple M1 Max (aarch64), release, on a 300×80 grid.** The worst *realistic* frame
-costs ≈205 µs against the 1 ms budget — component drawing ≈45 µs, compositing 107.3 µs at 40 layers,
-packing ≈53 µs, damage marking ≈7 µs, the mailbox critical section 47 ns. Roughly 5× of headroom,
-and that is what keeps parallel compositing out of scope rather than a claim that it would not help.
-Idle over thirty seconds: `0.00 user, 0.00 sys, 0 voluntary context switches`, where a 120 Hz ticker
-would have woken 3 600 times.
+costs ≈149 µs against the 1 ms budget — component drawing ≈45 µs, compositing 43.9 µs at 50 layers,
+packing 53.5 µs, damage marking 6.88 µs, the mailbox critical section 32.1 ns, the overrun detector
+45.7 ns. Roughly 6.7× of headroom, and that is what keeps parallel compositing out of scope rather
+than a claim that it would not help.
+
+**One of those six figures is not a measurement and it is the largest.** Component drawing at ≈45 µs
+is a prototype's number — this is the engine, and the components sit two crates above it — so a third
+of the total is an estimate. It stays in the sum because a total that dropped it would report a
+better frame by removing the biggest thing the app thread does. The other five were re-measured
+against the engine that exists, and four of the five came down: the packing row is the *hostile* arm
+where every cell carries a distinct style, and the realistic 1% arm is 22.0–23.7 µs.
+
+Steady state is measured rather than derived — a real 60 Hz loop for thirty seconds, read off
+`/usr/bin/time`: **0.133% of one core over 1 800 frames**, 37.6× under the 5% budget, with every
+thread and the wire in it. Idle over thirty seconds: `0.00 user, 0.00 sys, 0 voluntary context
+switches`, where a 120 Hz ticker would have woken 3 600 times.
 
 ### Against other libraries
 
-`compare/` runs the same five described scenes against ratatui and Textual. **It reports; it does not
-gate** — four external projects' versions cannot decide whether this repository's changes land.
+`compare/` runs the same nine described scenes against ratatui and Textual. **It reports; it does
+not gate** — four external projects' versions cannot decide whether this repository's changes land.
 Apple M1 Max, macOS 26.5.2, rustc 1.97.1, python 3.14.6; 120×40, 120 frames per scene.
+
+**Two of the five arms are ours and that is the point of the table.** `vitui` writes the cells that
+changed; `vitui-runtime` rebuilds the whole picture every frame, because that is what code looks
+like one layer up, and it is the layer an application is actually written against.
 
 Marginal bytes for one more frame at the `truecolor` tier — `(bytes(120) - bytes(1)) / 119`, with the
 session prologue and first paint differenced out:
 
-| scene | vitui | ratatui | textual |
-|---|---|---|---|
-| `caret` | 9.5 | 28.5 | 25.0 |
-| `status-line` | 22.4 | 46.5 | 47.5 |
-| `list-scroll` | 572.3 | 704.7 | 5124.0 |
-| `full-repaint` | 96408.0 | 106216.0 | 111036.0 |
-| `modal-over-list` | 19.0 | 36.0 | 17.0 |
+| scene | vitui | vitui-runtime | ratatui | textual |
+|---|---|---|---|---|
+| `caret` | 9.5 | 9.5 | 28.5 | 25.0 |
+| `status-line` | 22.4 | 52.4 | 46.5 | 47.5 |
+| `list-scroll` | 572.3 | 604.3 | 704.7 | 5124.0 |
+| `full-repaint` | 96408.0 | 96420.0 | 106216.0 | 111036.0 |
+| `modal-over-list` | 19.0 | 47.0 | 36.0 | 17.0 |
+| `unchanged` | 0.0 | 0.0 | 25.0 | 5124.0 |
+| `fade` | 1394.7 | 1394.7 | 1413.7 | 2618.3 |
+| `scattered` | 82.2 | 114.2 | 127.2 | 199.0 |
+| `filter-shrink` | 76.0 | 108.0 | 110.7 | 291.2 |
 
-| | vitui | ratatui | textual |
-|---|---|---|---|
-| CPU, caret at 60 Hz | 0.27% of a core | 0.75% | 10.48% |
-| keystroke to wire, µs p50 / p99 | 46 / 590 | 490 / 8695 | 1986 / 17069 |
+| | vitui | vitui-runtime | ratatui | textual |
+|---|---|---|---|---|
+| CPU, caret at 60 Hz | 0.23% of a core | 0.27% | 0.64% | 9.52% |
+| keystroke to wire, µs p50 / p99 | 44 / 111 | 89 / 246 | 1045 / 11947 | 2972 / 36123 |
+
+**`unchanged` is the row with a known right answer** — sixty frames with a job in flight and nothing
+on the screen moving — and it is the one place the table is a verdict rather than a comparison.
+ratatui's 25 bytes are not a diff result: they are a reset-and-hide-cursor epilogue written whether
+or not the diff produced a cell, so an idle ratatui application at 60 Hz spends 1.5 kB a second
+saying nothing. Textual charges the same for a screen that did not change as for one that scrolled.
+
+**The runtime costs about thirty bytes a frame, flat, and it is not the redraw.** Rebuilding 4 800
+cells against writing forty is worth *zero* on the wire — `caret`, `unchanged` and `fade` are exact
+— because the engine's equality filter absorbs all of it. The thirty bytes are one SGR sequence, and
+at the `no-color` tier the two arms are byte-identical on eight of the nine scenes.
 
 The shape is what the architecture predicts — the advantage is largest where the change is smallest,
 and `full-repaint` at 1.10× compares nothing but the encoder. **Four caveats belong with these
 numbers and [`compare/FINDINGS.md`](compare/FINDINGS.md) argues each at length:** `list-scroll` at
 1.2× is not a win and should be, because the scene as written moves the highlight with the list and
 puts the scroll region out of reach for both arms; the latency figure is not what a user would feel,
-because the harness never crosses the mailbox; Textual wins `modal-over-list`, and one row of five is
+because the harness never crosses the mailbox; Textual wins `modal-over-list`, and one row of nine is
 not a rounding error; and notcurses — the honest ceiling — is missing, which reads as a win and is
 the single easiest way for this suite to become dishonest.
 

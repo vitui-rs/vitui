@@ -215,19 +215,30 @@ MSRV **1.88** — `Cargo.toml` is the authority and the `msrv` CI job is what ke
   two allocations a hosted runner reported were the **test harness's own**, landing in the first
   window the process opens — the trap above has the mechanism. A ninth is **the presentation**, added
   2026-09-10 after comparing this repository's first screen with ratatui's, Slint's and Bubble Tea's:
-  25 shipped the site and 26 took `.scratch/` out of the public history, and **23 is resolved**
-  (2026-09-14) — forty-nine pictures, each a composited frame written as SVG. **24 is the one ticket
-  left on it**, the README as a landing page, and its edge on 23 was never what it needed: the first
-  screen wants a recording of something that moves, and 23 puts anything that moves out of scope by
-  name.
-  **Two tickets can start today and only one of them is an agent's**: 02, which is `ready-for-human`
-  and needs a public repository, and **24**, whose one edge was 23 and which has been the frontier
-  since 23 resolved. **15 is the release frontier and it cannot start**: its
+  25 shipped the site and 26 took `.scratch/` out of the public history, **23 is resolved**
+  (2026-09-14) — forty-nine pictures, each a composited frame written as SVG — and **24 is resolved**
+  (2026-09-15). 24's page was built three days before the ticket was closed behind it, and what was
+  left when its criteria were finally checked against the tree was the **truth of the figures it had
+  moved**: the performance paragraph was the engine ledger's superseded `was` column row for row
+  (≈205 µs against a measured ≈149 µs, 107.3 µs at 40 layers against 43.9 at 50), its largest row is
+  a third of the total and is still `Machine::Prototype`, and the comparative section was *five
+  described scenes* over a suite that has been **nine scenes and five arms** since runtime impl 20 —
+  dropping `unchanged`, the only row with a known right answer, and dropping the `vitui-runtime` arm,
+  which is the layer a reader is in. Its CPU and latency figures matched no committed revision of
+  `compare/REPORT.md`. **A landing page's numbers go stale in a direction nobody checks**, and here
+  three of the four findings were against us.
+  **One ticket can start today and it is not an agent's**: 02, which is `ready-for-human`
+  and needs a public repository. **15 is the release frontier and it cannot start**: its
   one edge is 02, the five
   components architecture questions it also waited on — that map's 19, 22, 23, 24 and 25, not this
   backlog's numbers — having all resolved by 2026-09-05, and what they decided is listed below.
   **Windows is last, as 16**, blocked by the publish — which carries the consequence that no shipped
-  string may claim a terminal the conform suite has not asked. Everything on it was already true and
+  string may claim a terminal the conform suite has not asked. **The workspace itself has run there
+  since 2026-09-10** — `cargo test --workspace --no-fail-fast` is green on `windows-latest`, and the
+  seven failures on the first run were all the instrument — so *Windows has never been run* is false
+  as written and 16 stays open on its other five criteria: the conform arms drive emulators that do
+  not exist there, and Windows Terminal is the one supported terminal nobody has driven through the
+  suite. Everything on it was already true and
   already recorded; what was missing was that nothing scheduled any of it.
 - **`.scratch/vitui-engine-production/` is closed** (2026-09-01), un-paused 2026-08-29 (it was paused
   because nothing above the engine could draw a screen; eighteen applications ended that). **09 left
