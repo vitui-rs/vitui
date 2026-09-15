@@ -83,11 +83,16 @@ crossterm = { version = "0.29", default-features = false, features = [
 vitui-engine = { path = "crates/vitui-engine", version = "0.1.0" }
 vitui-runtime = { path = "crates/vitui-runtime", version = "0.1.0" }
 vitui-components = { path = "crates/vitui-components", version = "0.1.0" }
-# `publish = false`, so no `version` key: cargo only needs one for a dependency that will appear in a
-# published manifest, and this one never will.
+# **No `version` key on any of these three, and it is a publish blocker rather than a tidiness rule.**
+# All three are `publish = false`, so none will ever be on the registry. A `version` is what tells
+# cargo the dependency *will* appear in a published manifest: with one, `cargo package` keeps the
+# entry, rewrites the path away and then fails to resolve it — `no matching package named
+# `vitui-alloc-probe` found`, on the engine, which is the first crate in the order. Without one,
+# cargo drops the dev-dependency from the packaged manifest, which is correct: a consumer of the
+# published crate does not build its tests.
 vitui-apps = { path = "crates/vitui-apps" }
-vitui-alloc-probe = { path = "crates/vitui-alloc-probe", version = "0.1.0" }
-vitui-bench = { path = "crates/vitui-bench", version = "0.1.0" }
+vitui-alloc-probe = { path = "crates/vitui-alloc-probe" }
+vitui-bench = { path = "crates/vitui-bench" }
 
 [profile.bench]
 debug = true

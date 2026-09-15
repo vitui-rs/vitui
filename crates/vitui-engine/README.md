@@ -45,7 +45,7 @@ Implementation-complete and green on Linux, macOS and Windows, with every proper
 to something that fails when the claim stops being true. The one thing to know before depending on
 it: **Windows Terminal is the one supported terminal nobody has driven through the conformance
 suite**, so what this crate believes about it is inference. MSRV 1.88, verified by a CI job pinned to
-it rather than declared. [`docs/status.md`](../../docs/status.md) has the rest.
+it rather than declared. [`docs/status.md`](https://github.com/vitui-rs/vitui/blob/master/docs/status.md) has the rest.
 
 ## Dependencies
 
@@ -59,4 +59,4 @@ machine each number was measured on.
 
 ## Licence
 
-Licensed under the Apache License, Version 2.0. See [LICENSE](../../LICENSE).
+Licensed under the Apache License, Version 2.0. See [LICENSE](https://github.com/vitui-rs/vitui/blob/master/LICENSE).

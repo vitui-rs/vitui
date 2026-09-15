@@ -894,6 +894,15 @@ mod tests {
     /// to 34 for as long as it was one. That entry is gone with the crate and the assertion below
     /// went with it; what survives is the property, in `deny.toml`'s comment beside the engine
     /// entry, because it is a fact about the tool rather than about that crate.
+    ///
+    /// **The refusal is of the key `allow` and was a prefix match until the first publish.**
+    /// `allow-wildcard-paths` begins with the same five letters and is not an allowlist: it scopes
+    /// the wildcard check to registry dependencies, where *any version anybody uploads* is the risk,
+    /// and away from path dependencies, where the requirement resolves to the copy in this tree. It
+    /// is what the publish needs — the three `publish = false` crates carry no `version`, because a
+    /// version is what would put them in a published manifest that cannot resolve them — so a gate
+    /// matching on the prefix refused the release rather than an allowlist. The list itself is still
+    /// refused, and a `deny.toml` that grows one still fails here.
     #[test]
     fn the_dependency_line_is_a_gate_and_the_allowlist_is_refused() {
         let deny = read(&workspace_root().join("deny.toml"));
@@ -911,9 +920,19 @@ mod tests {
             .split("\n[")
             .next()
             .expect("the table ends");
+        // **The key `allow`, and not every key that begins with it.** What is refused is the
+        // allowlist — the array of crates that bypasses the bans and whose count is the maintenance
+        // cost argued about above. `allow-wildcard-paths` shares the first five letters and is a
+        // different thing entirely: a boolean saying the wildcard check does not apply to a *path*
+        // dependency, which bypasses no ban and admits no crate. A prefix match here was a needle
+        // standing in for a concept, and it refused the one setting that lets this workspace
+        // publish at all.
         for line in bans.lines() {
+            let Some((key, _)) = line.split_once('=') else {
+                continue;
+            };
             assert!(
-                !line.trim_start().starts_with("allow"),
+                key.trim() != "allow",
                 "an allowlist appeared in [bans]: {line}"
             );
         }

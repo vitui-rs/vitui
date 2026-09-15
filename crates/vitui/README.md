@@ -22,10 +22,14 @@ one-line answer and the three-line answer differ only in what you can name.
 ## Status
 
 All three layers are implementation-complete, the v1 freeze is **29 of 29 components built**, and
-the workspace is green on Linux, macOS and Windows — but the library is **not released**: crates.io
-carries a `0.0.1` placeholder and `0.1.0` is the first version with code in it.
-[`docs/status.md`](../../docs/status.md) is what has been run, and on what.
+the workspace is green on Linux, macOS and Windows. **0.1.0 is the first version with code in it**;
+the `0.0.1` beneath it is the placeholder that held the name.
+
+**Green on Windows is a build and a test run, not a terminal.** The conformance suite has driven
+seven emulator families and none of them runs there, so Windows Terminal is the one supported
+terminal nobody has put a screen in front of and what this library believes about it is inference.
+[`docs/status.md`](https://github.com/vitui-rs/vitui/blob/master/docs/status.md) is what has been run, and on what.
 
 ## Licence
 
-Licensed under the Apache License, Version 2.0. See [LICENSE](../../LICENSE).
+Licensed under the Apache License, Version 2.0. See [LICENSE](https://github.com/vitui-rs/vitui/blob/master/LICENSE).

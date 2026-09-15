@@ -7,7 +7,7 @@ and a reader who has one of them at 0.1.0 has the other three at 0.1.0.
 There is **no stability promise before 0.x**. A minor bump may change any public signature, and the
 changelog is where that is written down rather than a place where compatibility is claimed.
 
-## 0.1.0 — unreleased
+## 0.1.0 — 2026-09-15
 
 The first release with a library in it. `0.0.1` on crates.io is a placeholder that holds the four
 names and contains no code; nothing depends on it and nothing should.

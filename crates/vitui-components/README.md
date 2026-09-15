@@ -11,7 +11,7 @@ Windows, panels, charts, lists, trees, forms and pickers built on
 that the tests iterate rather than a list a reader is asked to trust. All seven documentation and
 verification obligations are functions over that value and all seven are met, the last being *every
 component stands up under every hostile axis it can meet*, at 34 of 34 `(component, axis)` pairs.
-[`docs/status.md`](../../docs/status.md) has the registers and what has been run.
+[`docs/status.md`](https://github.com/vitui-rs/vitui/blob/master/docs/status.md) has the registers and what has been run.
 
 ## The shape
 
@@ -44,4 +44,4 @@ cargo run --release --example listing_numbers -p vitui-components     # the coll
 
 ## Licence
 
-Licensed under the Apache License, Version 2.0. See [LICENSE](../../LICENSE).
+Licensed under the Apache License, Version 2.0. See [LICENSE](https://github.com/vitui-rs/vitui/blob/master/LICENSE).

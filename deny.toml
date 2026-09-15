@@ -23,6 +23,16 @@ all-features = true
 [bans]
 multiple-versions = "warn"
 wildcards = "deny"
+# **A wildcard on a path dependency is what `cargo publish` requires, not a mistake to catch.** The
+# three `publish = false` crates carry no `version` in `[workspace.dependencies]`, deliberately: a
+# version is what tells cargo the dependency will appear in a published manifest, and with one the
+# engine's own `cargo publish` fails with `no matching package named vitui-alloc-probe found`. No
+# version is a `*` requirement, which is exactly what `wildcards = "deny"` exists to stop — for a
+# **registry** dependency, where it means *any version anybody ever uploads*. For a path dependency
+# it means the copy in this tree and nothing else, so the risk the ban is about does not exist here.
+# This narrows the exemption to that case rather than lowering the ban: a wildcard on a crates.io
+# dependency still fails.
+allow-wildcard-paths = true
 
 deny = [
     # **ADR 0001, enforced instead of reviewed.** "crossterm is invisible" was a rule the map has

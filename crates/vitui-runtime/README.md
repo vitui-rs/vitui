@@ -12,7 +12,7 @@ with its fourteen schemes, `keys`, `ctx`, `id`, `route`, the hit index, `focus`,
 `anim`, `overlay` and `scroll`. The layering is built rather than asserted — the component-facing
 surface is checked by a crate that cannot name the engine, so a `use vitui_engine::…` there is an
 `E0432` and the boundary is cargo's rather than a reviewer's.
-[`docs/status.md`](../../docs/status.md) has the registers.
+[`docs/status.md`](https://github.com/vitui-rs/vitui/blob/master/docs/status.md) has the registers.
 
 ## The shape, because it is unusual
 
@@ -36,4 +36,4 @@ place, and where that is can be read off the draw.
 
 ## Licence
 
-Licensed under the Apache License, Version 2.0. See [LICENSE](../../LICENSE).
+Licensed under the Apache License, Version 2.0. See [LICENSE](https://github.com/vitui-rs/vitui/blob/master/LICENSE).

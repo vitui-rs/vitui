@@ -23,9 +23,11 @@ layered output can depend on `vitui-engine` alone and never meet a layout type.
 
 ## Quickstart
 
-**The library is not released yet.** The four names on crates.io are `0.0.1` placeholders holding
-the namespace; `0.1.0` is the first version with code in it. Until then the way to run this is the
-repository:
+```sh
+cargo add vitui
+```
+
+Or run the applications out of the repository, which is where the twenty-one of them live:
 
 ```sh
 git clone https://github.com/vitui-rs/vitui
@@ -292,9 +294,9 @@ the single easiest way for this suite to become dishonest.
 ## Status
 
 All three layers are implementation-complete and the v1 freeze is **29 of 29 components built**.
-The library is **not released**: `vitui`, `vitui-engine`, `vitui-runtime` and `vitui-components` are
-on crates.io as `0.0.1` placeholders holding the names, and `0.1.0` will be the first version with
-code in it. There is no stability promise before 0.x.
+`vitui`, `vitui-engine`, `vitui-runtime` and `vitui-components` are on crates.io at **0.1.0**, the
+first version with code in it — the `0.0.1` below it is the placeholder that held the name and
+contains nothing. There is no stability promise before 0.x.
 
 What has been run, what has not, and the verification numbers behind those two sentences are in
 [`docs/status.md`](docs/status.md) — including the eight-terminal conformance matrix and the one

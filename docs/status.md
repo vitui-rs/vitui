@@ -5,9 +5,9 @@ This page is the report on the instrument; the README is not the place for it.
 
 ## Release
 
-**The library is not released.** `vitui`, `vitui-engine`, `vitui-runtime` and `vitui-components` are
-on crates.io as `0.0.1` placeholders that hold the names and contain no code. `0.1.0` is the first
-version with a library in it, and there is no stability promise before 0.x.
+**Released 2026-09-15 at 0.1.0.** `vitui`, `vitui-engine`, `vitui-runtime` and `vitui-components`
+are on crates.io with a library in them; the `0.0.1` under each is the placeholder that held the name
+and contains no code. There is no stability promise before 0.x.
 
 | crate | state |
 |---|---|

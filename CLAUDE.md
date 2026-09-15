@@ -9,8 +9,8 @@ Guidance for Claude Code working in this repository.
 ## What this is
 
 `vitui` is a Rust TUI library: fast, layered terminal rendering, meant to be the foundation a
-component library stands on. Version `0.1.0`, not yet published — the four names on crates.io are
-`0.0.1` placeholders holding them — and no stability promise before 0.x.
+component library stands on. Version `0.1.0`, published 2026-09-15 — the `0.0.1` under each of the
+four names is the placeholder it replaced — and no stability promise before 0.x.
 MSRV **1.88** — `Cargo.toml` is the authority and the `msrv` CI job is what keeps it honest.
 
 **Read these before working, in this order:**
