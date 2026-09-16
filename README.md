@@ -2,7 +2,7 @@
 
 <img src="docs/img/commander.gif" alt="commander, a file manager written against vitui, running in a terminal" width="900">
 
-[![Crates.io][crates-badge]][crates] &nbsp;·&nbsp; [![Docs][docs-badge]][docs] &nbsp;·&nbsp; [![CI][ci-badge]][ci] &nbsp;·&nbsp; [![Licence][licence-badge]][licence]
+[![Documentation][site-badge]][site] &nbsp;·&nbsp; [![Crates.io][crates-badge]][crates] &nbsp;·&nbsp; [![API docs][docs-badge]][docs] &nbsp;·&nbsp; [![CI][ci-badge]][ci] &nbsp;·&nbsp; [![Licence][licence-badge]][licence]
 
 </div>
 
@@ -366,8 +366,8 @@ The CI badge above reports the matrix.
 specs, the fifty-three decision records and the glossary — into a static site, alongside four pages
 that only exist there: a getting-started tutorial, the component list generated from the freeze, the
 applications, and the two evidence suites read as tables. `cd site && npm install && npm run dev`
-reads it locally. It is published at <https://vitui-rs.github.io> from the moment this repository is
-pushed and a deploy key exists; [`site/README.md`](site/README.md) is the procedure.
+reads it locally, and it is published at **<https://vitui-rs.github.io>**;
+[`site/README.md`](site/README.md) is how the deploy is wired.
 
 **Writing your own components:** [`docs/guide/`](docs/guide) is the manual — thirteen chapters from
 the frame to shipping a component crate, with a runnable worked example in
@@ -395,6 +395,8 @@ Unless you explicitly state otherwise, any contribution intentionally submitted 
 work by you, as defined in the Apache-2.0 licence, shall be licensed as above, without any additional
 terms or conditions.
 
+[site]: https://vitui-rs.github.io
+[site-badge]: https://img.shields.io/badge/documentation-vitui--rs.github.io-2f7d95?style=flat-square
 [crates]: https://crates.io/crates/vitui
 [crates-badge]: https://img.shields.io/crates/v/vitui?style=flat-square&color=a86a06
 [docs]: https://docs.rs/vitui

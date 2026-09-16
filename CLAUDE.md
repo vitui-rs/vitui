@@ -985,10 +985,14 @@ site/                     the documentation site: Astro Starlight over this repo
                             home family has no section on the page is a failed build rather than a
                             missing row. `starlight-links-validator` fails the build on a broken
                             internal link
-                          └ the deploy is `.github/workflows/site.yml` and it needs one thing a
-                            person does by hand: a deploy key on `vitui-rs/vitui-rs.github.io` and
-                            its private half as `PAGES_DEPLOY_KEY` here. Until that secret exists the
-                            site builds and uploads an artefact and the deploy step is skipped
+                          └ the deploy is `.github/workflows/site.yml` and it is **live** since
+                            2026-09-15: a read-write deploy key on `vitui-rs/vitui-rs.github.io` and
+                            its private half as `PAGES_DEPLOY_KEY` here. Two things about that were
+                            not discoverable from where they fail — deploy keys are an *organisation*
+                            policy before they are a repository setting, and the 422 names the
+                            repository; and a `workflow_dispatch` builds without deploying, because
+                            the step's condition begins `github.event_name == 'push'`, which is the
+                            same condition that keeps a fork's pull request away from the secret
 ```
 
 ## Commands
