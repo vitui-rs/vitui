@@ -960,7 +960,7 @@ pub const REGISTER: [Row; 238] = [
                 },
                 Instrument::Unit {
                     file: GALLERY,
-                    name: "the_remainder_left_alone_is_three_drawings_and_the_grids_own_slack",
+                    name: "the_remainder_left_alone_is_five_drawings_and_the_grids_own_slack",
                 },
                 // The per-component form, which the design records as *report-only across nine to twelve
                 // binaries* — over the shipped call site at five rectangles, and over the

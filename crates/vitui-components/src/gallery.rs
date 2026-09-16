@@ -427,7 +427,7 @@ pub enum Remainder {
     /// cell on the first frame and on a resize, so what is left alone here is left alone on a
     /// *steady* frame — and a cell nobody writes keeps what was already there, which on `Ctrl+N` is
     /// the panel that used to be in that tile. [`shape_as`], [`shot_as`], [`screen`] and [`swap_as`]
-    /// take this arm, and `tests::the_remainder_left_alone_is_three_drawings_and_the_grids_own_slack`
+    /// take this arm, and `tests::the_remainder_left_alone_is_five_drawings_and_the_grids_own_slack`
     /// is the exact set.
     LeftAlone,
 }
@@ -1842,6 +1842,8 @@ mod draws {
         let _ = toggle_into(ink, cx, r, "enabled", &mut b.switch, &opts);
     }
 
+    /// **One row of a tall tile, and the two beside it are this module's** — [`band`]'s reason,
+    /// which `meter` is the second subject of.
     pub fn meter(
         b: &mut Bag,
         _o: &mut Owners<'_>,
@@ -1849,7 +1851,8 @@ mod draws {
         cx: &mut Ctx<'_, '_>,
         r: Rect,
     ) {
-        let _ = meter_into(ink, cx, r, b.meter, &MeterOpts::default());
+        let track = band(b, ink, cx, r);
+        let _ = meter_into(ink, cx, track, b.meter, &MeterOpts::default());
     }
 
     pub fn spinner(
@@ -1932,6 +1935,7 @@ mod draws {
         let _ = form_into(ink, cx, r, form, &LABELS, form_texts, &FormOpts::default());
     }
 
+    /// **One row of a tall tile, and the two beside it are this module's** — see [`band`].
     pub fn slider(
         b: &mut Bag,
         _o: &mut Owners<'_>,
@@ -1939,7 +1943,8 @@ mod draws {
         cx: &mut Ctx<'_, '_>,
         r: Rect,
     ) {
-        let _ = slider_into(ink, cx, r, &mut b.slider, &SliderOpts::default());
+        let track = band(b, ink, cx, r);
+        let _ = slider_into(ink, cx, track, &mut b.slider, &SliderOpts::default());
     }
 
     /// **Shut, one row** — [`select`]'s reason one family over.
@@ -2008,12 +2013,41 @@ mod draws {
         );
     }
 
+    /// **The one row a band component is for, out of however tall a tile the grid handed over.**
+    ///
+    /// [`meter`] and [`slider`] draw through `crate::scroll::stripe`, which fills the **cross** axis
+    /// of the rectangle it is given: a horizontal meter in an eighteen-row tile is an eighteen-row
+    /// meter, and a horizontal slider is an eighteen-row track under an eighteen-row thumb. That is
+    /// the component being right — a caller brings the rectangle, and a chunky slider is a slider
+    /// somebody asked for — and it is this module being wrong, because the tile is the gallery's
+    /// arithmetic and not a size anyone chose. `crate::golden`'s own screens play the two at
+    /// `16x1` and `20x1`, which is the size a reviewer is shown, and the published picture of each
+    /// panel was showing eighteen — one instrument's rectangle disagreeing with another's, with
+    /// only the picture on the side a reader meets.
+    ///
+    /// Centred rather than top-aligned, because that is where every other one-row panel of the
+    /// gallery sits — `rule`, `button`, `switch` and `chip` all centre **inside** the component,
+    /// pad the rows either side and write every cell. A band cannot: it has no cross-axis padding
+    /// to do it with. So the narrowing is the caller's, which makes the two remainders the
+    /// caller's too — [`scrollbar`]'s arrangement one axis over, and [`rest`] is where they go.
+    fn band(b: &Bag, ink: &mut Sink<'_>, cx: &mut Ctx<'_, '_>, r: Rect) -> Rect {
+        if r.h <= 1 {
+            return r;
+        }
+        let (above, below) = rect::split_at_v(r, (r.h - 1) / 2);
+        let (track, under) = rect::split_at_v(below, 1);
+        rest(b, ink, cx, above);
+        rest(b, ink, cx, under);
+        track
+    }
+
     /// **The rectangle a drawing was handed and did not write, written by its owner.**
     ///
-    /// Three of the twenty-eight hand part of their tile back, each by the mechanism the rule
-    /// names — [`panel`] gets `Frame::interior`, [`collapsible`] gets `Disclosure::used`, and
-    /// [`scrollbar`] is handed a three-column bar out of a wider rectangle by *this* module. The
-    /// remainder is the owner's, and the owner is here.
+    /// Five of the twenty-nine hand part of their tile back, each by the mechanism the rule
+    /// names — [`panel`] gets `Frame::interior`, [`collapsible`] gets `Disclosure::used`,
+    /// [`scrollbar`] is handed a three-column bar out of a wider rectangle by *this* module, and
+    /// [`meter`] and [`slider`] are handed one row out of a taller one by [`band`]. The remainder
+    /// is the owner's, and the owner is here.
     ///
     /// `Role::Body` and not the panel's face, because what is left of a panel's interior is the
     /// panel's background — the same paint the one clear at the top of the frame writes.
@@ -2108,7 +2142,7 @@ fn read_shape(
 /// wrote are, and not only how many there were.
 ///
 /// The failing set was a table of six panels, and a total cannot be checked against
-/// one: `tests::the_remainder_left_alone_is_three_drawings_and_the_grids_own_slack` attributes every
+/// one: `tests::the_remainder_left_alone_is_five_drawings_and_the_grids_own_slack` attributes every
 /// cell of it to the tile it is in.
 pub fn screen(w: u16, h: u16, frames: u32, remainder: Remainder) -> crate::runner::Canvas {
     play(w, h, 0, frames, remainder).2.into_canvas()
@@ -3499,7 +3533,7 @@ mod tests {
     }
 
     /// See [`no_cell_of_the_assembled_gallery_is_written_by_nobody`]. **The spelling it replaced,
-    /// watched leaving its exact set behind — three drawings and the grid's own slack.**
+    /// watched leaving its exact set behind — five drawings and the grid's own slack.**
     ///
     /// [`Remainder::LeftAlone`] is one line and draws through the same twenty-nine call sites, so
     /// this is the register's failing set attributed to the tile each cell is in rather than a total:
@@ -3509,20 +3543,31 @@ mod tests {
     /// | `panel` | **245** | `Frame::interior` — a `block` returns the rectangle it did not write |
     /// | `scrollbar` | **532** | this module's own narrowing: a bar is three columns of a wider tile |
     /// | `collapsible` | **410** | `Disclosure::used` — every row below the section is the caller's |
+    /// | `meter` | **492** | this module's own narrowing: a band is one row of a taller tile |
+    /// | `slider` | **533** | the same narrowing, and the tile is one row taller |
     /// | six slots with no panel | **4 128** | the grid's: twenty-nine panels in a seven-by-five grid |
+    ///
+    /// **The two bands are the newest pair and they are a caller's mistake rather than a
+    /// component's.** `meter_into` and `slider_into` fill the cross axis of the rectangle they are
+    /// handed, which is the right drawing of a thick slider and the wrong drawing of a panel whose
+    /// height is the grid's arithmetic; [`draws::band`] narrows each to one row, so the rows either
+    /// side became a remainder this module owns. The two figures differ by exactly one row because
+    /// the tiles do: a grid boundary at `grid.h * k / rows` leaves some tiles a row taller than
+    /// others.
     ///
     /// **Every figure moved when the twenty-ninth panel arrived, and none of them
     /// moved because a component changed.** A page holds `cols * rows` tiles and twenty-nine panels
     /// need a wider grid than twenty-eight, so every tile is smaller and every remainder with it —
     /// which is why these are asserted as measured rather than carried forward. The **shape** is the
-    /// finding and it is unchanged: three drawings that hand a rectangle back and a grid whose last
+    /// finding and it is unchanged: five drawings that hand a rectangle back and a grid whose last
     /// row is not full.
     ///
     /// **At 100x30 it is 145 and all of it is the scrollbar's**, because a page of twelve fills the
-    /// grid exactly and `collapsible` is on page two — one size agreeing with a law the other breaks
-    /// is how a gate over one size stays green, and this module has met it twice.
+    /// grid exactly and `collapsible`, `meter` and `slider` are all on page two — one size agreeing
+    /// with a law the other breaks is how a gate over one size stays green, and this module has met
+    /// it twice.
     #[test]
-    fn the_remainder_left_alone_is_three_drawings_and_the_grids_own_slack() {
+    fn the_remainder_left_alone_is_five_drawings_and_the_grids_own_slack() {
         let attribute = |w: u16, h: u16| -> Vec<(&'static str, usize)> {
             let canvas = screen(w, h, 3, Remainder::LeftAlone);
             let (cols, rows, _) = grid(w, h);
@@ -3553,6 +3598,8 @@ mod tests {
                 ("panel", 245),
                 ("scrollbar", 532),
                 ("collapsible", 410),
+                ("meter", 492),
+                ("slider", 533),
                 ("a slot with no panel", 688),
                 ("a slot with no panel", 688),
                 ("a slot with no panel", 688),
@@ -3563,7 +3610,7 @@ mod tests {
         );
         assert_eq!(attribute(100, 30), vec![("scrollbar", 145)]);
         // And the total is the surface's, so no cell of the set is outside the grid.
-        assert_eq!(shape_as(300, 80, 3, Remainder::LeftAlone).unwritten, 5_315);
+        assert_eq!(shape_as(300, 80, 3, Remainder::LeftAlone).unwritten, 6_340);
         assert_eq!(shape_as(100, 30, 3, Remainder::LeftAlone).unwritten, 145);
     }
 
@@ -3584,9 +3631,9 @@ mod tests {
     /// in its return value*, and both return the runtime's `Response`, which has no field for one.
     /// Writing them is the only reachable answer and both now do.
     ///
-    /// The three that hand part of a tile back do name it — `Frame::interior`, `Disclosure::used`,
-    /// and a bar this module narrows itself — and the owner writes it; see
-    /// [`the_remainder_left_alone_is_three_drawings_and_the_grids_own_slack`].
+    /// The five that hand part of a tile back do name it — `Frame::interior`, `Disclosure::used`,
+    /// and a bar and two bands this module narrows itself — and the owner writes it; see
+    /// [`the_remainder_left_alone_is_five_drawings_and_the_grids_own_slack`].
     #[test]
     fn every_panel_writes_every_cell_of_the_interior_it_was_handed() {
         for (w, h) in [(50u16, 15u16), (34, 7), (44, 9), (26, 7), (60, 20)] {

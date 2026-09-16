@@ -1714,7 +1714,7 @@ const PINS_SCENE_26: &[Instrument] = &[
     },
     Instrument::Unit {
         file: GALLERY,
-        name: "the_remainder_left_alone_is_three_drawings_and_the_grids_own_slack",
+        name: "the_remainder_left_alone_is_five_drawings_and_the_grids_own_slack",
     },
     Instrument::Unit {
         file: GALLERY,

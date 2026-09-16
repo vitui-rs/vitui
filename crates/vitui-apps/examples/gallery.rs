@@ -278,7 +278,7 @@ fn probe() {
         );
         // **The paired figure, with the arm it replaced beside it.** A zero on its own cannot be told
         // from an instrument that stopped reading, so the probe prints what the same screen leaves
-        // behind when every remainder is left to whatever was already in the cells: three drawings
+        // behind when every remainder is left to whatever was already in the cells: five drawings
         // hand a rectangle back to their owner and, at 300x80, two slots of a six-by-five grid hold
         // no panel at all.
         let left = gallery::shape_as(w, h, 3, gallery::Remainder::LeftAlone).unwritten;
