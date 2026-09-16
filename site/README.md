@@ -55,8 +55,8 @@ no base path — which is why the site is not a project page of the workspace re
 URL would carry `/vitui/` and the first forgotten one would be a silent 404.
 
 The workspace repository is what holds this directory; the pages repository holds only built output.
-`.github/workflows/site.yml` builds here and pushes `dist/` there. **That push needs a deploy key,
-and generating one is the single step a person has to do by hand:**
+`.github/workflows/site.yml` builds here and pushes `dist/` there. That push needs a deploy key, and
+**it exists as of 2026-09-15** — this is the record of how, not a step still owed:
 
 ```sh
 ssh-keygen -t ed25519 -N "" -C "vitui site deploy" -f /tmp/vitui-pages
@@ -65,12 +65,22 @@ gh secret set PAGES_DEPLOY_KEY --repo vitui-rs/vitui --body "$(cat /tmp/vitui-pa
 rm /tmp/vitui-pages /tmp/vitui-pages.pub
 ```
 
-Until the secret exists the workflow still builds the site and uploads it as an artefact, and the
-deploy step is skipped. That is deliberate: a deploy that cannot run should be visibly absent rather
-than red.
+**Deploy keys are an organisation policy before they are a repository setting.** The second command
+answers `HTTP 422: Deploy keys are disabled for this repository` while
+`orgs/vitui-rs.deploy_keys_enabled_for_repositories` is false, which is a checkbox under the
+organisation's *Settings → Repository → Deploy keys* and is not discoverable from the repository it
+fails on. `--allow-write` is not optional either: a read-only key authenticates and then fails to
+push.
 
-**Until the workspace repository has been pushed at all, none of this runs** — the site is built and
-read locally, which is what `npm run dev` is for.
+Without the secret the workflow still builds the site and uploads it as an artefact, and the deploy
+step is skipped. That is deliberate: a deploy that cannot run should be visibly absent rather than
+red — and it is why the condition sits on the job's `env` rather than the step's, since a step's own
+`env:` block is not what its `if:` can read.
+
+**A manual run does not deploy.** The condition begins `github.event_name == 'push'`, so
+`workflow_dispatch` builds and stops; the deploy follows a push to `master` that touches one of the
+paths at the top of the workflow. That is not a limitation to work around — a fork's pull request
+cannot reach the secret, and the same condition is what makes running this on one safe.
 
 ## This is not one of the gates
 
