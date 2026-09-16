@@ -110,6 +110,10 @@ jobs:
       # script is POSIX shell, and what it checks is not an operating-system question.
       - if: runner.os != 'Windows'
         run: bash scripts/shots.sh --check
+      # The three recordings. `shots.sh` re-takes a still and diffs it; a recording cannot be re-taken
+      # on a runner, so this hashes what decides one instead. Same platform restriction, same reason.
+      - if: runner.os != 'Windows'
+        run: bash scripts/recordings-gate.sh
       # `conform/`'s gate. A detached workspace, so `--workspace` above does not reach it.
       #
       # Only the half that can run here: the parser and comparator over the captures committed in

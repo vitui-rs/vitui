@@ -1,0 +1,8 @@
+# What each committed recording was made from, so that a stale one is a failure rather
+# than something a reader notices. Written by 'scripts/recordings-gate.sh --bless', which
+# 'docs/tapes/render.sh' runs for you on a successful render.
+#
+# name  sha256(tape, example, still)  sha256(recording)
+cluster 5855c09364869ff787cd0f1b7d9a2a29d092dd5827278aebd220119707a42a40 10a46115bec68972036bec7f5b875090cd35b93f430c2e9556258122e9dc31bb
+commander fe321c9aec2e894429e443ff203b2ef86c3f516428b62788fa975f12792735e9 8af2720f3c5bcd9f4a199a9ad55a22b0d2e4ded34ddbbe2a8424942afca1cc98
+spf 7215ed4516fe6077c9d9b1a681dd902d58549522be884059e2b3453786c3de0d 7d358084e3e0079928af035ebfdc29c80ce55970b808f472be0a4d16c6507a78

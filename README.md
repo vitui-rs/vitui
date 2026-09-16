@@ -352,7 +352,7 @@ gate set runs without the runner:
 
 | job | what it runs |
 |---|---|
-| `test` | `cargo fmt --all --check`, clippy over all targets and over the engine's `fuzz` feature, `cargo doc --workspace --no-deps`, `cargo test --workspace -- --test-threads=1` and then the same suite again under `script(1)` on a pty, `cargo run -p vitui-alloc-probe --example harness_race`, five of the scripts under `scripts/`, and `conform/`'s own suite over the committed captures |
+| `test` | `cargo fmt --all --check`, clippy over all targets and over the engine's `fuzz` feature, `cargo doc --workspace --no-deps`, `cargo test --workspace -- --test-threads=1` and then the same suite again under `script(1)` on a pty, `cargo run -p vitui-alloc-probe --example harness_race`, six of the scripts under `scripts/`, and `conform/`'s own suite over the committed captures |
 | `msrv` | `cargo check --workspace --all-targets` and the same for the engine's `fuzz` feature, on 1.88.0 — after `rustc --version \| grep -q` **asserts** the toolchain is that one, so a retagged image cannot turn this into a second `test` run |
 | `deny` | `cargo deny check`, here and again in `fuzz/` |
 | `budget` | `cargo run --release --example budget -p vitui-engine`, then the runtime's `frame` report and `scripts/observer-gate.sh` |

@@ -108,3 +108,10 @@ if command -v python3 >/dev/null; then
 else
   echo "render.sh: no python3, so the duration of $out is unverified" >&2
 fi
+
+# **Record what this was made from, or the next change to it is invisible.** `scripts/shots.sh
+# --check` re-takes the stills on every pipeline and a recording cannot be re-taken that way, so the
+# gate over these is a hash of the three files that decide what the recording shows. Blessing here
+# rather than asking for it means the record cannot be forgotten by the one person in a position to
+# write it.
+"$here/../../scripts/recordings-gate.sh" --bless

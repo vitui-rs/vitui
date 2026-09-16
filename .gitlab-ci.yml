@@ -212,6 +212,12 @@ test:
     # One picture is excluded and the script says which and why: `latency` draws a measured duration,
     # and a timing is a report rather than an equality.
     - scripts/shots.sh --check
+    # **The three recordings, which the line above cannot reach.** A still is re-taken and diffed; a
+    # GIF is VHS and ffmpeg over thirteen seconds of a live terminal, which is not available on a
+    # runner and is not byte-reproducible anyway. So this asks the cheaper question — have the tape,
+    # the application or its still changed since the recording was made — and it exists because the
+    # answer was yes for four days and a review, not a gate, is what found it.
+    - scripts/recordings-gate.sh
     - scripts/lint-rung-gate.sh
     # **Components register row 221, and it is in *this* job rather than `idle` for two reasons that
     # are both about this job's cache and this job's image.** It is the one instrument on that
